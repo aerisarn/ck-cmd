@@ -294,6 +294,7 @@ source_group("NIFlib\\GameSpecific" FILES ${NIF_GAME_SPECIFIC_HEADERS})
 
 # Settings when compiling with MSVC.
 IF (MSVC)
+	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
     # Update compiler flags.
     IF (PROJECT_STATIC_RUNTIME)
         FOREACH(flag
