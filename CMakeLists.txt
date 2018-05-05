@@ -168,6 +168,8 @@ file(GLOB NIF_GAME_SPECIFIC_HEADERS
 	"${CMAKE_SOURCE_DIR}/lib/nif/include/game_specific/*.h"
 )
 
+add_definitions(-DNIFLIB_STATIC_LINK)
+
 add_library(
 	niflib
 	STATIC 
@@ -236,7 +238,8 @@ set (PROJECT_SRC "${CMAKE_SOURCE_DIR}/src/core/FBXCommon.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkxpch.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkxutils.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/log.cpp"
-                 "${CMAKE_SOURCE_DIR}/src/core/nifcore.cpp")
+                 "${CMAKE_SOURCE_DIR}/src/core/nifcore.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/core/games.cpp")
 
 set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/stdafx.h"
@@ -252,7 +255,8 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/core/hkxpch.h"
                      "${CMAKE_SOURCE_DIR}/include/core/hkxutils.h"
                      "${CMAKE_SOURCE_DIR}/include/core/log.h"
-                     "${CMAKE_SOURCE_DIR}/include/core/MathHelper.h")
+                     "${CMAKE_SOURCE_DIR}/include/core/MathHelper.h"
+					 "${CMAKE_SOURCE_DIR}/include/core/games.h")
 #resource
 
 # Commands

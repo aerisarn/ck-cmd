@@ -1,5 +1,5 @@
 # ck-cmd
-command line helper for executing some Creation Kit/Engine commands. Based upon hkxcmd project ny Figment,
+command line helper for executing some Creation Kit/Engine commands. Based upon hkxcmd project by Figment,
 available at https://github.com/figment/hkxcmd
 
 Requires cmake to be built, from the top directory
