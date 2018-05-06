@@ -20,6 +20,20 @@ set (GTEST_LIBRARIES debug "${BINARY_DIR}/googlemock/gtest/${CMAKE_CFG_INTDIR}/$
 
 set (TEST_SRC "${CMAKE_SOURCE_DIR}/test/main.cpp")
 
+ExternalProject_Add(zlib
+                    PREFIX "external"
+                    URL "https://zlib.net/zlib-1.2.11.tar.gz"
+                    INSTALL_COMMAND "")
+ExternalProject_Get_Property(zlib SOURCE_DIR BINARY_DIR)
+set (ZLIB_INCLUDE_DIRS ${SOURCE_DIR} ${BINARY_DIR})
+message("ZLIB_INCLUDE_DIRS:" ${ZLIB_INCLUDE_DIRS})
+IF (MSVC)
+    set (ZLIB_LIBRARIES optimized "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}"
+                    debug "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstaticd${CMAKE_STATIC_LIBRARY_SUFFIX}")
+ELSE ()
+    set (ZLIB_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}z${CMAKE_STATIC_LIBRARY_SUFFIX}")
+ENDIF ()
+
 include_directories("${CMAKE_SOURCE_DIR}/src"
                     "${CMAKE_SOURCE_DIR}/include"
                     ${GTEST_INCLUDE_DIRS})
@@ -214,11 +228,38 @@ set_target_properties(
 
 add_definitions(-DFBXSDK_SHARED)
 
+# BSA
+
+set(LIBBSA_INCLUDES_PATH
+	"${CMAKE_SOURCE_DIR}/lib/bsa/include"
+)
+
+add_library(
+	libbsa
+	STATIC 
+	IMPORTED GLOBAL
+)
+
+set_target_properties(
+	libbsa 
+	PROPERTIES IMPORTED_LOCATION             
+	"${CMAKE_SOURCE_DIR}/lib/bsa/lib/x86/release/bsa.lib"
+)
+
+set_target_properties(
+	libbsa
+	PROPERTIES IMPORTED_LOCATION_DEBUG             
+	"${CMAKE_SOURCE_DIR}/lib/bsa/lib/x86/debug/bsa.lib"
+)
+
+add_definitions(-DLIBBSA_STATIC)
+
 list(APPEND TEST_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES loki)
 list(APPEND PROJECT_LIBRARIES niflib)
 list(APPEND PROJECT_LIBRARIES fbxsdk)
+list(APPEND PROJECT_LIBRARIES libbsa)
 list(APPEND TEST_INCLUDES ${HAVOK_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_COMPAT_INCLUDES_PATH})
@@ -226,6 +267,8 @@ list(APPEND PROJECT_INCLUDES ${LOKI_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${BETH_ANIMDATA_PATH})
 list(APPEND PROJECT_INCLUDES ${NIFLIB_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${FBXSDK_INCLUDES_PATH})
+list(APPEND PROJECT_INCLUDES ${LIBBSA_INCLUDES_PATH})
+
 
 # SOURCES
 
@@ -256,7 +299,8 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/core/hkxutils.h"
                      "${CMAKE_SOURCE_DIR}/include/core/log.h"
                      "${CMAKE_SOURCE_DIR}/include/core/MathHelper.h"
-					 "${CMAKE_SOURCE_DIR}/include/core/games.h")
+					 "${CMAKE_SOURCE_DIR}/include/core/games.h"
+					 "${CMAKE_SOURCE_DIR}/include/core/bsa.h")
 #resource
 
 # Commands
@@ -307,18 +351,19 @@ IF (MSVC)
         ENDFOREACH()
     ENDIF ()
 
-#    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
-#    set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
+    set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
 
 	#WIN exclusive
 	#find_library(SHLWAPI Shlwapi.lib)
 	#find_library(WIN32_LEGACY legacy_stdio_definitions.lib)
 
 ENDIF ()
-			
+
 # Build core
 add_executable				(ck-cmd ${PROJECT_SRC} ${PROJECT_HEADERS})
-target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
+add_dependencies			(ck-cmd zlib)
+target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
 target_include_directories	(ck-cmd PUBLIC ${PROJECT_INCLUDES})
 
 add_custom_command(TARGET ck-cmd POST_BUILD

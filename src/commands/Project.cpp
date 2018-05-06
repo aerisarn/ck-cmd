@@ -88,6 +88,13 @@
 #include <hkbClipGenerator_2.h>
 #include <hkbBehaviorReferenceGenerator_0.h>
 #include <Common/Base/Container/String/hkStringBuf.h>
+
+// GAME
+#include <core/games.h>
+
+// BSA
+#include <core/bsa.h>
+
 //
 //// FBX
 #include <fbxsdk.h>
@@ -801,6 +808,8 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 		}
 	}
 #pragma endregion
+
+	//read off bsa
 
 	hkMallocAllocator baseMalloc;
 	hkMemoryRouter* memoryRouter = hkMemoryInitUtil::initDefault(&baseMalloc, hkMemorySystem::FrameInfo(1024 * 1024));

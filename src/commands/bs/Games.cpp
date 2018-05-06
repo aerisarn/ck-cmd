@@ -4,6 +4,7 @@
 #include <core/log.h>
 
 #include <core/games.h>
+#include <core/bsa.h>
 
 using namespace std;
 
@@ -34,8 +35,15 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 	for (; installed != games.getGames().end(); installed++) {
 		std::cout << Games::string(installed->first) << ": " << games.data(installed->first) << std::endl;
 		std::cout << "BSAs:" << std::endl;
-		for (const auto& bsa : games.bsas(installed->first)) {
-			std::cout << "\t" << bsa.filename() << std::endl;
+		if (installed->first == Games::TES5SE) {
+			for (const auto& bsa : games.bsas(installed->first)) {
+				std::cout << "\t" << bsa.filename() << std::endl;
+				ckcmd::BSA::BSAFile f(bsa);
+				const std::vector<std::string> assets = f.assets();
+				for (std::string asset : assets) {
+					std::cout << "\t\t" << asset << std::endl;
+				}
+			}
 		}
 		std::cout << "ESMs:" << std::endl;
 		for (const auto& esm : games.esms(installed->first)) {
