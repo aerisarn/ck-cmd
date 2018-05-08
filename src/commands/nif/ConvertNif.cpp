@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include <core/hkxcmd.h>
+#include <core/hkxutils.h>
 #include <core/log.h>
 
 #include <commands/ConvertNif.h>
@@ -326,6 +327,34 @@ static void HelpString(hkxcmd::HelpType type) {
 	}
 }
 
+//Havok initialization
+
+static void HK_CALL errorReport(const char* msg, void*)
+{
+	Log::Error("%s", msg);
+}
+
+static void HK_CALL debugReport(const char* msg, void* userContext)
+{
+	Log::Debug("%s", msg);
+}
+
+
+static hkThreadMemory* threadMemory = NULL;
+static char* stackBuffer = NULL;
+static void InitializeHavok()
+{
+	// Initialize the base system including our memory system
+	hkMemoryRouter*		pMemoryRouter(hkMemoryInitUtil::initDefault(hkMallocAllocator::m_defaultMallocAllocator, hkMemorySystem::FrameInfo(5000000)));
+	hkBaseSystem::init(pMemoryRouter, errorReport);
+	LoadDefaultRegistry();
+}
+
+static void CloseHavok()
+{
+	hkBaseSystem::quit();
+	hkMemoryInitUtil::quit();
+}
 
 static bool ExecuteCmd(hkxcmdLine &cmdLine) {
 	BeginConversion();
