@@ -28,7 +28,7 @@ namespace BSA {
 
 		const std::vector<std::string> assets(const std::string& regex = ".*") {
 			const char * const * assetPaths;
-			size_t size;
+			size_t size = -1;
 			bsa_get_assets(bh, regex.c_str(), &assetPaths, &size);
 			return std::vector<std::string>(assetPaths, assetPaths + size);
 		}
@@ -37,6 +37,13 @@ namespace BSA {
 			bool result = false;
 			bsa_contains_asset(bh, regex.c_str(), &result);
 			return result;
+		}
+
+		const std::vector<uint8_t> extract(const std::string& asset_path) {
+			const uint8_t * data;
+			size_t size = -1;
+			bsa_extract_asset_to_memory(bh, asset_path.c_str(), &data, &size);
+			return std::vector<uint8_t>(data, data + size);
 		}
 
 		~BSAFile() {

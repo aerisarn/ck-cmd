@@ -300,9 +300,11 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/core/log.h"
                      "${CMAKE_SOURCE_DIR}/include/core/MathHelper.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/games.h"
-					 "${CMAKE_SOURCE_DIR}/include/core/bsa.h")
+					 "${CMAKE_SOURCE_DIR}/include/core/bsa.h"
+#COMMANDS
+					 "${CMAKE_SOURCE_DIR}/include/commands/ConvertNif.h"
 #resource
-
+				)
 # Commands
 
 file(GLOB_RECURSE COMMANDS_SRC
