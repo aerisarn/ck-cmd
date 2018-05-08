@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include <core/hkxcmd.h>
-#include <core/hkxutils.h>
+#include <core/hkfutils.h>
 #include <core/log.h>
 
 #include <commands/ConvertNif.h>
@@ -275,7 +275,7 @@ bool BeginConversion() {
 				info.version = Niflib::VER_20_2_0_7;
 
 
-				root = convert_root(root);
+				//root = convert_root(root);
 				ConverterVisitor fimpl(info);
 				root->accept(fimpl, info);
 
