@@ -303,6 +303,7 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/bsa.h"
 #COMMANDS
 					 "${CMAKE_SOURCE_DIR}/include/commands/ConvertNif.h"
+					 "${CMAKE_SOURCE_DIR}/include/commands/Geometry.h"
 #resource
 				)
 # Commands
