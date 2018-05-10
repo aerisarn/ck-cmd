@@ -181,7 +181,6 @@ public:
 			if (property->IsSameType(NiMaterialProperty::TYPE)) {
 				material = DynamicCast<NiMaterialProperty>(property);
 				lightingProperty->SetShaderType(BSShaderType::SHADER_DEFAULT);
-				lightingProperty->SetName(material->GetName());
 				lightingProperty->SetEmissiveColor(material->GetEmissiveColor());
 				lightingProperty->SetSpecularColor(material->GetSpecularColor());
 				lightingProperty->SetEmissiveMultiple(1);
@@ -218,10 +217,42 @@ public:
 		obj.SetProperties(vector<Ref<NiProperty>> {});
 	}
 
-	template<class T>
-	inline void visit_object(bhkCollisionObject& obj) {
-		Log::Info("Detected a bhkCollisionObject");
-		obj.SetFlags((static_cast<bhkCOFlags>(129)));
+	template<>
+	inline void visit_object(NiControllerSequence& obj)
+	{
+		vector<ControlledBlock> blocks = obj.GetControlledBlocks();
+		vector<ControlledBlock> nblocks;
+
+		//for some reason, oblivion's NIF blocks have empty NiTransforms, time to remove.
+		for (int i = 0; i != blocks.size(); i++) {
+			if (DynamicCast<NiTransformInterpolator>(blocks[i].interpolator)->GetData() == NULL)
+				continue;
+
+			blocks[i].nodeName = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].nodeNameOffset);
+			blocks[i].controllerType = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].controllerTypeOffset);
+
+			//set to default... if above doesn't work
+			if (blocks[i].controllerType == "")
+				blocks[i].controllerType = "NiTransformController";
+
+			nblocks.push_back(blocks[i]);
+		}
+		obj.SetControlledBlocks(nblocks);
+	}
+
+	template<>
+	inline void visit_object(NiTextKeyExtraData& obj)
+	{	
+		vector<Key<IndexString>> textKeys = obj.GetTextKeys();
+
+		for (int i = 0; i != textKeys.size(); i++) {
+			if (std::strstr(textKeys[i].data.c_str(), "Sound:")) {
+				textKeys[i].data.insert(7, "TES4");
+			}
+		}
+
+		obj.SetTextKeys(textKeys);
+			
 	}
 };
 
@@ -274,8 +305,6 @@ bool BeginConversion() {
 				info.userVersion2 = 83;
 				info.version = Niflib::VER_20_2_0_7;
 
-
-				//root = convert_root(root);
 				ConverterVisitor fimpl(info);
 				root->accept(fimpl, info);
 
@@ -297,13 +326,11 @@ bool BeginConversion() {
 			info.userVersion2 = 83;
 			info.version = Niflib::VER_20_2_0_7;
 
-
-			//root = convert_root(root);
 			ConverterVisitor fimpl(info);
 			root->accept(fimpl, info);
 
-			fs::path out_path = resources / "nifs" / nifs[i].filename();
-
+			fs::path out_path = nif_out / nifs[i].filename();
+			fs::create_directories(out_path.parent_path());
 			WriteNifTree(out_path.string(), root, info);
 
 		}
