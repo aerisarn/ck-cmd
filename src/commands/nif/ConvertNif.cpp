@@ -19,17 +19,19 @@ using namespace std;
 
 NiObjectRef rootNode;
 
-BSFadeNodeRef convert_root(NiObjectRef root)
+BSFadeNodeRef convert_root(NiNode *root)
 {
-	NiNodeRef rootRef = DynamicCast<NiNode>(root);
-	BSFadeNodeRef fadeNode = new BSFadeNode();
-	fadeNode->SetName(rootRef->GetName());
-	fadeNode->SetExtraDataList(rootRef->GetExtraDataList());
-	fadeNode->SetFlags(524302);
-	fadeNode->SetController(rootRef->GetController());
-	fadeNode->SetCollisionObject(rootRef->GetCollisionObject());
-	fadeNode->SetChildren(rootRef->GetChildren());
-	return fadeNode;
+	BSFadeNode * newroot = (BSFadeNode*)& *root;
+
+	////NiNodeRef rootRef = DynamicCast<NiNode>(*root);
+	//BSFadeNodeRef fadeNode = new BSFadeNode();
+	//fadeNode->SetName(rootRef->GetName());
+	//fadeNode->SetExtraDataList(rootRef->GetExtraDataList());
+	//fadeNode->SetFlags(524302);
+	//fadeNode->SetController(rootRef->GetController());
+	//fadeNode->SetCollisionObject(rootRef->GetCollisionObject());
+	//fadeNode->SetChildren(rootRef->GetChildren());
+	return BSFadeNodeRef(newroot);
 }
 vector<Triangle> triangulate(vector<unsigned short> strip)
 {
@@ -222,13 +224,13 @@ public:
 	template<>
 	inline void visit_object(NiControllerManager& obj)
 	{
-		obj.SetTarget(DynamicCast<NiAVObject>(rootNode));
+		//obj.SetTarget(DynamicCast<NiAVObject>(rootNode));
 	}
 
 	template<>
 	inline void visit_object(NiMultiTargetTransformController& obj)
 	{
-		obj.SetTarget(DynamicCast<NiAVObject>(rootNode));
+		//obj.SetTarget(DynamicCast<NiAVObject>(rootNode));
 	}
 
 	template<>
@@ -249,9 +251,11 @@ public:
 			if (blocks[i].controllerType == "")
 				blocks[i].controllerType = "NiTransformController";
 
+			blocks[i].stringPalette = NULL;
 			nblocks.push_back(blocks[i]);
 		}
 		obj.SetControlledBlocks(nblocks);
+		obj.SetStringPalette(NULL);
 	}
 
 	template<>
@@ -340,14 +344,17 @@ bool BeginConversion() {
 			info.userVersion2 = 83;
 			info.version = Niflib::VER_20_2_0_7;
 
-			root = convert_root(root);
-			rootNode = root;
+			
 			ConverterVisitor fimpl(info);
 			root->accept(fimpl, info);
 
+			BSFadeNode * newroot = (BSFadeNode*)& *root;
+			BSFadeNodeRef newrefroot(newroot);
+
+
 			fs::path out_path = nif_out / nifs[i].filename();
 			fs::create_directories(out_path.parent_path());
-			WriteNifTree(out_path.string(), root, info);
+			WriteNifTree(out_path.string(), newrefroot, info);
 
 		}
 	}
