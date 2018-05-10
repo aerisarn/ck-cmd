@@ -17,6 +17,8 @@ using namespace std;
 //#include <core/hkxcmd.h>
 //#include <core/log.h>
 
+NiObjectRef rootNode;
+
 BSFadeNodeRef convert_root(NiObjectRef root)
 {
 	NiNodeRef rootRef = DynamicCast<NiNode>(root);
@@ -218,6 +220,18 @@ public:
 	}
 
 	template<>
+	inline void visit_object(NiControllerManager& obj)
+	{
+		obj.SetTarget(DynamicCast<NiAVObject>(rootNode));
+	}
+
+	template<>
+	inline void visit_object(NiMultiTargetTransformController& obj)
+	{
+		obj.SetTarget(DynamicCast<NiAVObject>(rootNode));
+	}
+
+	template<>
 	inline void visit_object(NiControllerSequence& obj)
 	{
 		vector<ControlledBlock> blocks = obj.GetControlledBlocks();
@@ -326,6 +340,8 @@ bool BeginConversion() {
 			info.userVersion2 = 83;
 			info.version = Niflib::VER_20_2_0_7;
 
+			root = convert_root(root);
+			rootNode = root;
 			ConverterVisitor fimpl(info);
 			root->accept(fimpl, info);
 
