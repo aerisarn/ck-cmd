@@ -19,19 +19,21 @@ using namespace std;
 
 NiObjectRef rootNode;
 
-BSFadeNodeRef convert_root(NiNode *root)
+BSFadeNode* convert_root(NiObject* root)
 {
-	BSFadeNode * newroot = (BSFadeNode*)& *root;
+	NiNode* rootRef = (NiNode*)(root);
+	BSFadeNode* fadeNode = new BSFadeNode();
+	fadeNode->SetName(rootRef->GetName());
+	fadeNode->SetExtraDataList(rootRef->GetExtraDataList());
+	fadeNode->SetFlags(524302);
+	fadeNode->SetController(rootRef->GetController());
+	fadeNode->SetCollisionObject(rootRef->GetCollisionObject());
+	fadeNode->SetChildren(rootRef->GetChildren());
 
-	////NiNodeRef rootRef = DynamicCast<NiNode>(*root);
-	//BSFadeNodeRef fadeNode = new BSFadeNode();
-	//fadeNode->SetName(rootRef->GetName());
-	//fadeNode->SetExtraDataList(rootRef->GetExtraDataList());
-	//fadeNode->SetFlags(524302);
-	//fadeNode->SetController(rootRef->GetController());
-	//fadeNode->SetCollisionObject(rootRef->GetCollisionObject());
-	//fadeNode->SetChildren(rootRef->GetChildren());
-	return BSFadeNodeRef(newroot);
+	//trick to overcome strong types inside refobjects;
+	memcpy(root, fadeNode, sizeof(BSFadeNode));
+
+	return fadeNode;
 }
 vector<Triangle> triangulate(vector<unsigned short> strip)
 {
@@ -241,7 +243,13 @@ public:
 
 		//for some reason, oblivion's NIF blocks have empty NiTransforms, time to remove.
 		for (int i = 0; i != blocks.size(); i++) {
-			if (DynamicCast<NiTransformInterpolator>(blocks[i].interpolator)->GetData() == NULL)
+			NiInterpolator* intp = blocks[i].interpolator;
+			if (intp == NULL)
+				continue;
+			NiTransformInterpolator* tintp = DynamicCast<NiTransformInterpolator>(intp);
+			if (tintp == NULL)
+				continue;
+			if (tintp->GetData() == NULL)
 				continue;
 
 			blocks[i].nodeName = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].nodeNameOffset);
@@ -325,10 +333,12 @@ bool BeginConversion() {
 
 				ConverterVisitor fimpl(info);
 				root->accept(fimpl, info);
+				BSFadeNode* bs_root = convert_root(root);
 
 				fs::path out_path = nif_out / nif;
 				fs::create_directories(out_path.parent_path());
 				WriteNifTree(out_path.string(), root, info);
+//				delete bs_root;
 			}
 		}	
 	}
@@ -347,6 +357,7 @@ bool BeginConversion() {
 			
 			ConverterVisitor fimpl(info);
 			root->accept(fimpl, info);
+			root = convert_root(root);
 
 			BSFadeNode * newroot = (BSFadeNode*)& *root;
 			BSFadeNodeRef newrefroot(newroot);
@@ -355,6 +366,7 @@ bool BeginConversion() {
 			fs::path out_path = nif_out / nifs[i].filename();
 			fs::create_directories(out_path.parent_path());
 			WriteNifTree(out_path.string(), newrefroot, info);
+			// Ensure root doesn't go out of scope
 
 		}
 	}
