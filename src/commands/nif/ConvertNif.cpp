@@ -214,7 +214,10 @@ public:
 				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() + SkyrimShaderPropertyFlags2::SLSF2_DOUBLE_SIDED));
 			}
 			if (property->IsSameType(NiAlphaProperty::TYPE)) {
-				obj.SetAlphaProperty(new NiAlphaProperty());
+				NiAlphaPropertyRef alpha = new NiAlphaProperty();
+				alpha->SetFlags(DynamicCast<NiAlphaProperty>(property)->GetFlags());
+				alpha->SetThreshold(DynamicCast<NiAlphaProperty>(property)->GetThreshold());
+				obj.SetAlphaProperty(alpha);
 			}
 		}
 		lightingProperty->SetTextureSet(textureSet);
