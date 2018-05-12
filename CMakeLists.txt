@@ -34,6 +34,21 @@ ELSE ()
     set (ZLIB_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}z${CMAKE_STATIC_LIBRARY_SUFFIX}")
 ENDIF ()
 
+ExternalProject_Add(docopt
+                    PREFIX "external"
+                    GIT_REPOSITORY "https://github.com/docopt/docopt.cpp.git"
+                    GIT_TAG master
+                    INSTALL_COMMAND "")
+ExternalProject_Get_Property(docopt SOURCE_DIR BINARY_DIR)
+set (DOCOPT_INCLUDE_DIRS ${SOURCE_DIR} ${BINARY_DIR})
+message("DOCOPT_INCLUDE_DIRS:" ${DOCOPT_INCLUDE_DIRS})
+IF (MSVC)
+    set (DOCOPT_LIBRARIES optimized "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}"
+                    debug "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}")
+ELSE ()
+    set (DOCOPT_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}")
+ENDIF ()
+
 include_directories("${CMAKE_SOURCE_DIR}/src"
                     "${CMAKE_SOURCE_DIR}/include"
                     ${GTEST_INCLUDE_DIRS})
@@ -365,8 +380,8 @@ ENDIF ()
 
 # Build core
 add_executable				(ck-cmd ${PROJECT_SRC} ${PROJECT_HEADERS})
-add_dependencies			(ck-cmd zlib)
-target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
+add_dependencies			(ck-cmd zlib docopt)
+target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} ${DOCOPT_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
 target_include_directories	(ck-cmd PUBLIC ${PROJECT_INCLUDES})
 
 add_custom_command(TARGET ck-cmd POST_BUILD
