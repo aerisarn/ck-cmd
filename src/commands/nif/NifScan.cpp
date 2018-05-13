@@ -181,7 +181,7 @@ void BeginScan()
 				if (blocks[i]->IsSameType(BSXFlags::TYPE)) {
 					BSXFlagsRef ref = DynamicCast<BSXFlags>(blocks[i]);
 					if (ref->GetName() != "BSX") {
-						Log::Info("Block[%i]: BSXFlag blocks need to be named 'BSX'", i);
+						Log::Info("Block[%i]: A 'BSXFlag' block needs to be named 'BSX'", i);
 					}
 					actual = ref->GetIntegerData();
 					Log::Info("Block[%d]: BSXFlag: value: [%d %s], estimate: [%d %s]", i, actual.to_ulong(), actual.to_string().c_str(), calculated.to_ulong(), calculated.to_string().c_str());
@@ -189,6 +189,55 @@ void BeginScan()
 					
 					if ((ref->GetIntegerData() & 0x00000004) != (calculated.to_ulong()& 0x00000004)) {
 						write = true;
+					}
+				}
+
+				//Might be good to check a few of these, Some might be for Fallout 4.
+				if (blocks[i]->IsSameType(BSInvMarker::TYPE)) {
+					if (DynamicCast<BSInvMarker>(blocks[i])->GetName() != "INV") {
+						Log::Info("Block[%i]: A 'BSInvMarker' block needs to be named 'INV'", i);
+					}
+				}
+
+				if (blocks[i]->IsSameType(BSFurnitureMarker::TYPE)) {
+					if (DynamicCast<BSFurnitureMarker>(blocks[i])->GetName() != "FRN") {
+						Log::Info("Block[%i]: A 'BSFurnitureMarker' block needs to be named 'FRN'", i);
+					}
+				}
+
+				if (blocks[i]->IsSameType(BSBound::TYPE)) {
+					if (DynamicCast<BSBound>(blocks[i])->GetName() != "BBX") {
+						Log::Info("Block[%i]: A 'BSBound' block needs to be named 'BBX'", i);
+					}
+				}
+
+				if (blocks[i]->IsSameType(Niflib::BSBehaviorGraphExtraData::TYPE)) {
+					if (DynamicCast<BSBehaviorGraphExtraData>(blocks[i])->GetName() != "BGED") {
+						Log::Info("Block[%i]: A 'BSBehaviorGraphExtraData' block needs to be named 'BGED'", i);
+					}
+				}
+
+				if (blocks[i]->IsSameType(BSDistantObjectLargeRefExtraData::TYPE)) {
+					if (DynamicCast<Niflib::BSDistantObjectLargeRefExtraData>(blocks[i])->GetName() != "DOLRED") {
+						Log::Info("Block[%i]: A 'BSDistantObjectLargeRefExtraData' block needs to be named 'DOLRED'", i);
+					}
+				}
+
+				if (blocks[i]->IsSameType(BSDecalPlacementVectorExtraData::TYPE)) {
+					if (DynamicCast<Niflib::BSDecalPlacementVectorExtraData>(blocks[i])->GetName() != "DVPG") {
+						Log::Info("Block[%i]: A 'BSDecalPlacementVectorExtraData' block needs to be named 'DVPG'", i);
+					}
+				}
+
+				if (blocks[i]->IsSameType(BSBoneLODExtraData::TYPE)) {
+					if (DynamicCast<Niflib::BSBoneLODExtraData>(blocks[i])->GetName() != "BSBoneLOD") {
+						Log::Info("Block[%i]: A 'BSBoneLODExtraData' block needs to be named 'BSBoneLOD'", i);
+					}
+				}
+
+				if (blocks[i]->IsSameType(BSWArray::TYPE)) {
+					if (DynamicCast<Niflib::BSWArray>(blocks[i])->GetName() != "BSW") {
+						Log::Info("Block[%i]: A 'BSWArray' block needs to be named 'BSW'", i);
 					}
 				}
 
@@ -202,6 +251,27 @@ void BeginScan()
 						if (partition.numStrips > 0)
 							Log::Info("Block[%i]: NiSkinPartition contains strips. (Obsolete in SSE)", i);
 					}
+				}
+
+				if (blocks[i]->IsDerivedType(NiTimeController::TYPE)) {
+					NiTimeControllerRef ref = DynamicCast<NiTimeController>(blocks[i]);
+					if (ref->GetTarget() == NULL) {
+						Log::Info("Block[%i]: Controller as no target. This will increase the chances of a crash.", i);
+					}
+				}
+
+				if (blocks[i]->IsDerivedType(NiControllerSequence::TYPE)) {
+					NiSequenceRef ref = DynamicCast<NiSequence>(blocks[i]);
+
+					if (ref->GetControlledBlocks().size() != 0) {
+						vector<ControlledBlock> blocks = ref->GetControlledBlocks();
+
+						for (int y = 0; y != blocks.size(); y++) {
+							if (blocks[y].controllerType == "") {
+								Log::Info("Block[%i]: ControlledBlock number %i, has a blank controller type.", i, y);
+							}
+						}
+					}			
 				}
 
 				if (blocks[i]->IsSameType(BSLightingShaderProperty::TYPE)) {
@@ -232,8 +302,8 @@ void BeginScan()
 						if ((data->GetHasVertexColors()) && shape->GetShaderProperty() != NULL && (shape->GetShaderProperty()->GetShaderFlags2() & SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) != SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) {
 							vector<Color4> vc = data->GetVertexColors();
 							bool allWhite = true;
-							for (int i = 0; i != vc.size(); i++) {
-								if (vc[i].r != 1.0f || vc[i].g != 1.0f || vc[i].b != 1.0f) {
+							for (int x = 0; x != vc.size(); x++) {
+								if (vc[x].r != 1.0f || vc[x].g != 1.0f || vc[x].b != 1.0f) {
 									allWhite = false;
 								}
 							}
@@ -250,7 +320,6 @@ void BeginScan()
 
 				//check if mesh uses SLSF1_External_Emittance and then if bit 9 is set.
 				//check if textures exist.
-				//check InvMarker and EditorMarker
 				//check NiNode children names and if they are unique to their parent.
 			}
 			
