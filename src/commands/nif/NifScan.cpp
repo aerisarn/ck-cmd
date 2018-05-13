@@ -4,85 +4,263 @@
 #include <core/hkfutils.h>
 #include <core/log.h>
 
+#include <bitset>
+
+using namespace ckcmd;
+using namespace ckcmd::nifscan;
+
 using namespace Niflib;
 using namespace std;
+
+//BSXFlags
+/*
+<niobject name="BSXFlags" abstract="0" inherit="NiIntegerExtraData">
+Controls animation and collision.  Integer holds flags:
+Bit 0 : has Gamebryo Blending
+Bit 1 : has Havok Collision (single node for the entire model)
+Bit 2 : has Havok Ragdoll (ragdoll/malleable constraints)
+Bit 3 : has Multiple Havok Collisions (multiple bhkCollsionObjects)
+Bit 4 : has AttachLight/FlameNode (will be replaced at run time with a light) / AddonNode in Skyrim
+Bit 5 : has EditorMarkers
+Bit 6 : is Dynamic Havok Rigid Bodies(quality != {MO_QUAL_INVALID, MO_QUAL_FIXED}, doesn't make sense without bit 1)
+Bit 7 : 1 if a model has a single collision, or a single kinematic chain (or any number of phantom collisions, which is strange, the only model with 2 phantom collision may be an outlier) . This is influenced by the niswitchnode, which will result in a single branch to be displayed at a time so even if more branches have multiple collision, if a collision or kinematic chain is to be displayed at a a single time in a branch, the bit will be set
+Bit 8 : bIKTarget(Skyrim)/needsTransformUpdates (never set in vanilla skyrim + DLCs)
+Bit 9 : bExternalEmit(Skyrim, has Own Emit into BSLightingShaderPropery or External Emittance into BSEffectShaderProperty)
+Bit 10: bMagicShaderParticles(Skyrim) (never set in vanilla skyrim + DLCs)
+Bit 11: bLights(Skyrim) (never set in vanilla skyrim + DLCs)
+Bit 12: bBreakable(Skyrim) (never set in vanilla skyrim + DLCs)
+Bit 13: bSearchedBreakable(Skyrim) .. Runtime only? (never set in vanilla skyrim + DLCs)
+</niobject>
+
+*/
+
+//Bit 7 needs hierarchy visitor
+inline bool isSingleChain(const NiObjectRef& root, const NifInfo& info) {
+	return SingleChunkFlagVerifier(*root, info).singleChunkVerified;
+}
+
+typedef bitset<12> bsx_flags_t;
+
+bsx_flags_t calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const NifInfo& info) {
+	bsx_flags_t flags = 0;
+	NiObjectRef root = GetFirstRoot(blocks);
+	int num_collisions = 0;
+	int num_phantom_collisions = 0;
+	bool isSkeleton = false;
+	bool isRootNiNode = root->IsSameType(NiNode::TYPE);
+	bool isSkinned = false;
+	bool hasExternalSkeleton = false;
+
+	set<NiObject*> bones;
+
+	for (NiObjectRef block : blocks) {
+		if (block->IsDerivedType(bhkCollisionObject::TYPE)) {
+			num_collisions++;
+		}
+		if (block->IsDerivedType(bhkSPCollisionObject::TYPE)) {
+			num_phantom_collisions++;
+		}
+		if (block->IsDerivedType(bhkBlendCollisionObject::TYPE))
+			isSkeleton = true;
+		if (block->IsDerivedType(NiSkinInstance::TYPE)) {
+			NiSkinInstanceRef niskini = DynamicCast<NiSkinInstance>(block);
+			isSkinned = true;
+			for (NiNode* bone : niskini->GetBones())
+				bones.insert(bone);
+		}
+	}
+
+	if (isSkinned && root->IsDerivedType(NiNode::TYPE)) {
+		NiNodeRef rootn = DynamicCast<NiNode>(root);
+		for (NiObjectRef ref : rootn->GetChildren()) {
+			set<NiObject*>::iterator it = bones.find(ref);
+			if (it != bones.end()) bones.erase(it);
+		}
+		if (bones.empty())
+			hasExternalSkeleton = isRootNiNode;
+	}
+		
+	for (NiObjectRef block : blocks) {
+		if ((block->IsDerivedType(NiTimeController::TYPE) || block->IsDerivedType(BSValueNode::TYPE)) && !isSkeleton && !hasExternalSkeleton)
+		{
+			flags[0] = true;
+		}
+		//if (block->IsDerivedType(bhkCollisionObject::TYPE)) {
+		//	num_collisions++;
+		//}
+		if (block->IsDerivedType(bhkRigidBody::TYPE)) {
+			bhkRigidBodyRef rigid_body = DynamicCast<bhkRigidBody>(block);
+			if (!rigid_body->GetQualityType() == hkQualityType::MO_QUAL_INVALID && !rigid_body->GetQualityType() == hkQualityType::MO_QUAL_FIXED) {
+				flags[6] = true;
+			}
+		}
+		if (block->IsDerivedType(bhkMalleableConstraint::TYPE) || block->IsDerivedType(bhkRagdollConstraint::TYPE)) {
+			flags[2] = true;
+		}
+		if (block->IsDerivedType(NiNode::TYPE)) {
+			NiNodeRef node = DynamicCast<NiNode>(block);
+			if (node->GetName().find("AddonNode") != string::npos)
+				flags[4] = true;
+			if (node->GetName().find("EditorMarker") != string::npos)
+				flags[5] = true;
+		}
+		if (block->IsDerivedType(BSValueNode::TYPE)) {
+			flags[4] = true;
+		}
+		if(block->IsDerivedType(BSLightingShaderProperty::TYPE)) {
+			BSLightingShaderPropertyRef shader = DynamicCast<BSLightingShaderProperty>(block);
+			if (shader->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE) {
+				flags[9] = true;
+			}
+		}
+		if (block->IsDerivedType(BSEffectShaderProperty::TYPE)) {
+			BSEffectShaderPropertyRef shader = DynamicCast<BSEffectShaderProperty>(block);
+			if (shader->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE) {
+				flags[9] = true;
+			}
+		}
+
+		
+	}
+	if (isSingleChain(root, info))
+		flags[7] = true;
+
+	if (num_collisions > 1 && !flags[7])
+		flags[3] = true;
+
+	if (num_collisions > 0 || num_phantom_collisions > 0)
+		flags[1] = true;
+
+
+
+	return flags;
+}
+
+#include <core/games.h>
+#include <core/bsa.h>
+
+using namespace ckcmd::info;
+using namespace ckcmd::BSA;
 
 void BeginScan()
 {
 	Log::Info("Begin Scan");
 
-	fs::path nif = nif_in / "LongSword.nif";
+	Games& games = Games::Instance();
+	const Games::GamesPathMapT& installations = games.getGames();
 
 	NifInfo info;
-	vector<NiObjectRef> blocks = ReadNifList(nif.string().c_str(), &info);
 
-	for (int i = 0; i != blocks.size(); i++) {
+	for (const auto& bsa : games.bsas(Games::TES5)) {
+		std::cout << "Scan: " << bsa.filename() << std::endl;
+		BSAFile bsa_file(bsa);
+		for (const auto& nif : bsa_file.assets(".*\.nif")) {
+			Log::Info("Current File: %s", nif.c_str());
 
-		if (blocks[i]->IsSameType(BSXFlags::TYPE)) {
-			if (DynamicCast<BSXFlags>(blocks[i])->GetName() != "BSX") {
-				Log::Info("Block[%i]: BSXFlag blocks need to be named 'BSX'", i);
-			}
-		}
+			size_t size = -1;
+			const uint8_t* data = bsa_file.extract(nif, size);
+			
+			std::string sdata((char*)data, size);
+			std::istringstream iss(sdata);
 
-		if (blocks[i]->IsSameType(NiTriStrips::TYPE)) {
-			Log::Info("Block[%i]: NiTriStrips needs to be triangulated.", i);
-		}
+			vector<NiObjectRef> blocks = ReadNifList(iss, &info);
+			NiObjectRef root = GetFirstRoot(blocks);
 
-		//not tested this.
-		if (blocks[i]->IsSameType(NiSkinPartition::TYPE)) {
-			for (SkinPartition partition : DynamicCast<NiSkinPartition>(blocks[i])->GetPartition()) {
-				if (partition.numStrips > 0)
-					Log::Info("Block[%i]: NiSkinPartition contains strips. (Obsolete in SSE)", i);
-			}
-		}
+			info.userVersion = 12;
+			info.userVersion2 = 83;
+			info.version = Niflib::VER_20_2_0_7;
 
-		if (blocks[i]->IsSameType(BSLightingShaderProperty::TYPE)) {
-			BSLightingShaderPropertyRef  shaderprop = DynamicCast<BSLightingShaderProperty>(blocks[i]);
+			bsx_flags_t calculated = calculateSkyrimBSXFlags(blocks, info);
+			bsx_flags_t actual;
 
-			if (shaderprop->GetSkyrimShaderType() == (BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP) || (BSLightingShaderPropertyShaderType::ST_EYE_ENVMAP)) {
-				if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) != SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) {
-					Log::Info("Block[%i]: ShaderType is 'Environment', but ShaderFlags1 does not include 'Environment Mapping'.", i);
-				}
-				if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) == SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) {
-					Log::Info("Block[%i]: ShaderType is 'Environment', but ShaderFlags 2 has enabled 'glow' flag.", i);
-				}
-				if (shaderprop->GetTextureSet()->GetTextures().size() >= 5) {
-					if (shaderprop->GetTextureSet()->GetTextures()[4] != "") {
-						Log::Info("Block[%i]: ShaderType is 'Environment', but no 'Environment' texture is present.", i);
+			bool write = false;
+
+
+			for (int i = 0; i != blocks.size(); i++) {
+
+				if (blocks[i]->IsSameType(BSXFlags::TYPE)) {
+					BSXFlagsRef ref = DynamicCast<BSXFlags>(blocks[i]);
+					if (ref->GetName() != "BSX") {
+						Log::Info("Block[%i]: BSXFlag blocks need to be named 'BSX'", i);
+					}
+					actual = ref->GetIntegerData();
+					Log::Info("Block[%d]: BSXFlag: value: [%d %s], estimate: [%d %s]", i, actual.to_ulong(), actual.to_string().c_str(), calculated.to_ulong(), calculated.to_string().c_str());
+					//fxdragoncrashfurrow01 has bit 1 not set but I can't get why
+					
+					if ((ref->GetIntegerData() & 0x00000004) != (calculated.to_ulong()& 0x00000004)) {
+						write = true;
 					}
 				}
-				else {
-					Log::Info("Block[%i]: TextureSet size is too small to include 'Environment' texture.", i);
+
+				if (blocks[i]->IsSameType(NiTriStrips::TYPE)) {
+					Log::Info("Block[%i]: NiTriStrips needs to be triangulated.", i);
 				}
-			}
-		}
 
-		if (blocks[i]->IsSameType(NiTriShape::TYPE)) {
-			NiTriShapeRef shape = DynamicCast<NiTriShape>(blocks[i]);
-			NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(shape->GetData());
-
-			if ((data->GetHasVertexColors()) && (shape->GetShaderProperty()->GetShaderFlags2() & SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) != SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) {
-				vector<Color4> vc = data->GetVertexColors();
-				bool allWhite = true;
-				for (int i = 0; i != vc.size(); i++) {
-					if (vc[i].r != 1.0f || vc[i].g != 1.0f || vc[i].b != 1.0f) {
-						allWhite = false;
+				//not tested this.
+				if (blocks[i]->IsSameType(NiSkinPartition::TYPE)) {
+					for (SkinPartition partition : DynamicCast<NiSkinPartition>(blocks[i])->GetPartition()) {
+						if (partition.numStrips > 0)
+							Log::Info("Block[%i]: NiSkinPartition contains strips. (Obsolete in SSE)", i);
 					}
 				}
-				if (allWhite)
-					Log::Info("Block[%i]: Redundant all white #FFFFFFFF vertex colors.", i);
+
+				if (blocks[i]->IsSameType(BSLightingShaderProperty::TYPE)) {
+					BSLightingShaderPropertyRef  shaderprop = DynamicCast<BSLightingShaderProperty>(blocks[i]);
+
+					if (shaderprop->GetSkyrimShaderType() == (BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP) || (BSLightingShaderPropertyShaderType::ST_EYE_ENVMAP)) {
+						if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) != SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) {
+							Log::Info("Block[%i]: ShaderType is 'Environment', but ShaderFlags1 does not include 'Environment Mapping'.", i);
+						}
+						if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) == SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) {
+							Log::Info("Block[%i]: ShaderType is 'Environment', but ShaderFlags 2 has enabled 'glow' flag.", i);
+						}
+						if (shaderprop->GetTextureSet()->GetTextures().size() >= 5) {
+							if (shaderprop->GetTextureSet()->GetTextures()[4] != "") {
+								Log::Info("Block[%i]: ShaderType is 'Environment', but no 'Environment' texture is present.", i);
+							}
+						}
+						else {
+							Log::Info("Block[%i]: TextureSet size is too small to include 'Environment' texture.", i);
+						}
+					}
+				}
+
+				if (blocks[i]->IsSameType(NiTriShape::TYPE)) {
+					NiTriShapeRef shape = DynamicCast<NiTriShape>(blocks[i]);
+					NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(shape->GetData());
+					if (data != NULL && shape != NULL && data != NULL ) {
+						if ((data->GetHasVertexColors()) && shape->GetShaderProperty() != NULL && (shape->GetShaderProperty()->GetShaderFlags2() & SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) != SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) {
+							vector<Color4> vc = data->GetVertexColors();
+							bool allWhite = true;
+							for (int i = 0; i != vc.size(); i++) {
+								if (vc[i].r != 1.0f || vc[i].g != 1.0f || vc[i].b != 1.0f) {
+									allWhite = false;
+								}
+							}
+							if (allWhite)
+								Log::Info("Block[%i]: Redundant all white #FFFFFFFF vertex colors.", i);
+						}
+					}
+
+
+					//scan if normals are incorrect
+					//scan if NiAlphaProperty is below BSLightingShaderProperty
+					//scan to check if vertex is checked AND shader flag is.
+				}
+
+				//check if mesh uses SLSF1_External_Emittance and then if bit 9 is set.
+				//check if textures exist.
+				//check InvMarker and EditorMarker
+				//check NiNode children names and if they are unique to their parent.
 			}
-
-
-			//scan if normals are incorrect
-			//scan if NiAlphaProperty is below BSLightingShaderProperty
-			//scan to check if vertex is checked AND shader flag is.
+			
+			if (write) {
+				fs::path out_path = nif_err / bsa.filename() / (actual ^ calculated).to_string() / fs::path(to_string(calculated.to_ulong())) / nif;
+				fs::create_directories(out_path.parent_path());
+				WriteNifTree(out_path.string(), root , info);
+			}
+			delete data;
 		}
-
-		//check if mesh uses SLSF1_External_Emittance and then if bit 9 is set.
-		//check if textures exist.
-		//check InvMarker and EditorMarker
-		//check NiNode children names and if they are unique to their parent.
 	}
 }
 
@@ -103,6 +281,7 @@ static void HelpString(hkxcmd::HelpType type) {
 
 static bool ExecuteCmd(hkxcmdLine &cmdLine) {
 	BeginScan();
+	Log::Info("NifScan Ended");
 	return true;
 }
 

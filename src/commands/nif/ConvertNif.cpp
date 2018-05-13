@@ -317,33 +317,33 @@ bool BeginConversion() {
 		Games& games = Games::Instance();
 		const Games::GamesPathMapT& installations = games.getGames();
 
-		for (const auto& bsa : games.bsas(Games::TES4)) {
-			std::cout << "Checking: " << bsa.filename() << std::endl;
-			BSAFile bsa_file(bsa);
-			for (const auto& nif : bsa_file.assets(".*\.nif")) {
-				Log::Info("Current File: %s", nif.c_str());
-
-				vector<uint8_t> data(bsa_file.extract(nif));
-				std::string sdata((char*)data.data(), data.size());
-				std::istringstream iss(sdata);
-
-				vector<NiObjectRef> blocks = ReadNifList(iss, &info);
-				NiObjectRef root = GetFirstRoot(blocks);
-
-				info.userVersion = 12;
-				info.userVersion2 = 83;
-				info.version = Niflib::VER_20_2_0_7;
-
-				ConverterVisitor fimpl(info);
-				root->accept(fimpl, info);
-				BSFadeNode* bs_root = convert_root(root);
-
-				fs::path out_path = nif_out / nif;
-				fs::create_directories(out_path.parent_path());
-				WriteNifTree(out_path.string(), root, info);
-//				delete bs_root;
-			}
-		}	
+//		for (const auto& bsa : games.bsas(Games::TES4)) {
+//			std::cout << "Checking: " << bsa.filename() << std::endl;
+//			BSAFile bsa_file(bsa);
+//			for (const auto& nif : bsa_file.assets(".*\.nif")) {
+//				Log::Info("Current File: %s", nif.c_str());
+//
+//				vector<uint8_t> data(bsa_file.extract(nif));
+//				std::string sdata((char*)data.data(), data.size());
+//				std::istringstream iss(sdata);
+//
+//				vector<NiObjectRef> blocks = ReadNifList(iss, &info);
+//				NiObjectRef root = GetFirstRoot(blocks);
+//
+//				info.userVersion = 12;
+//				info.userVersion2 = 83;
+//				info.version = Niflib::VER_20_2_0_7;
+//
+//				ConverterVisitor fimpl(info);
+//				root->accept(fimpl, info);
+//				BSFadeNode* bs_root = convert_root(root);
+//
+//				fs::path out_path = nif_out / nif;
+//				fs::create_directories(out_path.parent_path());
+//				WriteNifTree(out_path.string(), root, info);
+////				delete bs_root;
+//			}
+//		}	
 	}
 	else {
 
