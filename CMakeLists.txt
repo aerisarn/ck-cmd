@@ -382,7 +382,7 @@ ENDIF ()
 add_executable				(ck-cmd ${PROJECT_SRC} ${PROJECT_HEADERS})
 add_dependencies			(ck-cmd zlib docopt)
 target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} ${DOCOPT_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
-target_include_directories	(ck-cmd PUBLIC ${PROJECT_INCLUDES})
+target_include_directories	(ck-cmd PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_DIRS})
 
 add_custom_command(TARGET ck-cmd POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different  
