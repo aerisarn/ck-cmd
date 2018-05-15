@@ -33,8 +33,6 @@ public:
 	EspFormHeader(EspUInt32 type, EspUInt32 dataSize, EspUInt32 flags,
 		EspFormID formID, EspUInt32 version);
 	EspFormHeader(EspUInt32 type, EspUInt32 dataSize, EspUInt32 flags,
-		EspFormID formID, EspUInt32 revision);
-	EspFormHeader(EspUInt32 type, EspUInt32 dataSize, EspUInt32 flags,
 		EspFormID formID, EspUInt32 revision, EspUInt32 version);
 	EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 		EspUInt32 flags, EspFormID formID, EspUInt32 revision,

@@ -14,17 +14,6 @@ EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 	setFormID(formID);
 }
 
-EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize, 
-		EspUInt32 flags, EspFormID formID, EspUInt32 version)
-	: Revision(0), Unknown(0)
-{
-	setType(type);
-	setDataSize(dataSize);
-	setFlags(flags);
-	setFormID(formID);
-	setVersion(version);
-}
-
 EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 		EspUInt32 flags, EspFormID formID, EspUInt32 revision)
 	: Version(0), Unknown(0)
