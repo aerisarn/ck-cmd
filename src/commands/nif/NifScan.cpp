@@ -16,9 +16,9 @@ using namespace std;
 /*
 <niobject name="BSXFlags" abstract="0" inherit="NiIntegerExtraData">
 Controls animation and collision.  Integer holds flags:
-Bit 0 : has Gamebryo Blending
-Bit 1 : has Havok Collision (single node for the entire model)
-Bit 2 : has Havok Ragdoll (ragdoll/malleable constraints)
+Bit 0 : has Gamebryo Blending. Not applicable to NIFs that are meant to be attached to others
+Bit 1 : has Havok (at least a collision or a phantom collision)
+Bit 2 : has Havok Ragdoll (really means it's a skeleton model, even if there's no ragdoll constraint. has at least a BlendCollision object)
 Bit 3 : has Multiple Havok Collisions (multiple bhkCollsionObjects)
 Bit 4 : has AttachLight/FlameNode (will be replaced at run time with a light) / AddonNode in Skyrim
 Bit 5 : has EditorMarkers
@@ -48,8 +48,14 @@ bsx_flags_t calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const Nif
 	int num_phantom_collisions = 0;
 	bool isSkeleton = false;
 	bool isRootNiNode = root->IsSameType(NiNode::TYPE);
+	bool isRootBSFade = root->IsSameType(BSFadeNode::TYPE);
+	bool isRootBSLeaf = root->IsSameType(BSLeafAnimNode::TYPE);
+	bool isRootBSTree = root->IsSameType(BSTreeNode::TYPE);
+	bool hasMultiBound = false;
 	bool isSkinned = false;
 	bool hasExternalSkeleton = false;
+	bool hasCollisionList = false;
+
 
 	set<NiObject*> bones;
 
@@ -68,13 +74,22 @@ bsx_flags_t calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const Nif
 			for (NiNode* bone : niskini->GetBones())
 				bones.insert(bone);
 		}
+		if (block->IsDerivedType(bhkListShape::TYPE))
+			hasCollisionList = true;
+		if (block->IsSameType(BSMultiBound::TYPE))
+			hasMultiBound = true;
 	}
+
+
 
 	if (isSkinned && root->IsDerivedType(NiNode::TYPE)) {
 		NiNodeRef rootn = DynamicCast<NiNode>(root);
 		for (NiObjectRef ref : rootn->GetChildren()) {
 			set<NiObject*>::iterator it = bones.find(ref);
 			if (it != bones.end()) bones.erase(it);
+
+			//if (ref->IsDerivedType(bhkCollisionObject::TYPE))
+			//	hasRootCollision = true;
 		}
 		if (bones.empty())
 			hasExternalSkeleton = isRootNiNode;
@@ -85,23 +100,23 @@ bsx_flags_t calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const Nif
 		{
 			flags[0] = true;
 		}
-		//if (block->IsDerivedType(bhkCollisionObject::TYPE)) {
-		//	num_collisions++;
-		//}
 		if (block->IsDerivedType(bhkRigidBody::TYPE)) {
 			bhkRigidBodyRef rigid_body = DynamicCast<bhkRigidBody>(block);
-			if (!rigid_body->GetQualityType() == hkQualityType::MO_QUAL_INVALID && !rigid_body->GetQualityType() == hkQualityType::MO_QUAL_FIXED) {
+			if (isSkeleton || (rigid_body->GetQualityType() != hkQualityType::MO_QUAL_INVALID && rigid_body->GetQualityType() != hkQualityType::MO_QUAL_FIXED)) {
 				flags[6] = true;
 			}
 		}
-		if (block->IsDerivedType(bhkMalleableConstraint::TYPE) || block->IsDerivedType(bhkRagdollConstraint::TYPE)) {
+		if (isSkeleton /*&& (block->IsDerivedType(bhkMalleableConstraint::TYPE) || block->IsDerivedType(bhkRagdollConstraint::TYPE))*/) {
 			flags[2] = true;
 		}
 		if (block->IsDerivedType(NiNode::TYPE)) {
 			NiNodeRef node = DynamicCast<NiNode>(block);
 			if (node->GetName().find("AddonNode") != string::npos)
 				flags[4] = true;
-			if (node->GetName().find("EditorMarker") != string::npos)
+		}
+		if (block->IsDerivedType(NiObjectNET::TYPE)) {
+			NiObjectNETRef node = DynamicCast<NiObjectNET>(block);
+			if (node->GetName().find("EditorMarker") != string::npos) //TODO: wrong: only set if not parented to a NiSwitchNode, needs a visitor
 				flags[5] = true;
 		}
 		if (block->IsDerivedType(BSValueNode::TYPE)) {
@@ -119,17 +134,28 @@ bsx_flags_t calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const Nif
 				flags[9] = true;
 			}
 		}
-
 		
 	}
+
+	bool hasRootCollision =  !isRootBSTree && ((isRootBSFade && DynamicCast<BSFadeNode>(root)->GetCollisionObject() != NULL && 
+		DynamicCast<BSFadeNode>(root)->GetCollisionObject()->IsDerivedType(bhkCollisionObject::TYPE)) ||
+		(isRootBSLeaf && DynamicCast<BSLeafAnimNode>(root)->GetCollisionObject() != NULL &&
+			DynamicCast<BSLeafAnimNode>(root)->GetCollisionObject()->IsDerivedType(bhkCollisionObject::TYPE)) ||
+		hasMultiBound); //wrong. may be complex but only in 6 models, need further investigation
 	if (isSingleChain(root, info))
 		flags[7] = true;
 
-	if (num_collisions > 1 && !flags[7])
-		flags[3] = true;
+	//if ((num_collisions > 1) && !flags[7])
+	//	flags[3] = true;
 
-	if (num_collisions > 0 || num_phantom_collisions > 0)
+	//if (!hasRootCollision)
+	//	flags[3] = true;
+
+	if (num_collisions > 0 || num_phantom_collisions > 0) {
+		if (!isSkeleton && num_collisions > 0 && (!hasRootCollision || num_collisions > 1))
+			flags[3] = true;
 		flags[1] = true;
+	}
 
 
 
@@ -187,7 +213,7 @@ void BeginScan()
 					Log::Info("Block[%d]: BSXFlag: value: [%d %s], estimate: [%d %s]", i, actual.to_ulong(), actual.to_string().c_str(), calculated.to_ulong(), calculated.to_string().c_str());
 					//fxdragoncrashfurrow01 has bit 1 not set but I can't get why
 					
-					if ((ref->GetIntegerData() & 0x00000004) != (calculated.to_ulong()& 0x00000004)) {
+					if (ref->GetIntegerData() != calculated.to_ulong()) {
 						write = true;
 					}
 				}
