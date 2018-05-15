@@ -114,11 +114,11 @@ bsx_flags_t calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const Nif
 			if (node->GetName().find("AddonNode") != string::npos)
 				flags[4] = true;
 		}
-		if (block->IsDerivedType(NiObjectNET::TYPE)) {
-			NiObjectNETRef node = DynamicCast<NiObjectNET>(block);
-			if (node->GetName().find("EditorMarker") != string::npos) //TODO: wrong: only set if not parented to a NiSwitchNode, needs a visitor
-				flags[5] = true;
-		}
+		//if (block->IsDerivedType(NiObjectNET::TYPE)) {
+		//	NiObjectNETRef node = DynamicCast<NiObjectNET>(block);
+		//	if (node->GetName().find("EditorMarker") != string::npos) //TODO: wrong: only set if not parented to a NiSwitchNode, needs a visitor
+		//		flags[5] = true;
+		//}
 		if (block->IsDerivedType(BSValueNode::TYPE)) {
 			flags[4] = true;
 		}
@@ -144,6 +144,10 @@ bsx_flags_t calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const Nif
 		hasMultiBound); //wrong. may be complex but only in 6 models, need further investigation
 	if (isSingleChain(root, info))
 		flags[7] = true;
+
+	if (MarkerBranchVisitor(*root, info).marker) {
+		flags[5] = true;
+	}
 
 	//if ((num_collisions > 1) && !flags[7])
 	//	flags[3] = true;
@@ -201,7 +205,6 @@ void BeginScan()
 
 			bool write = false;
 
-
 			for (int i = 0; i != blocks.size(); i++) {
 
 				if (blocks[i]->IsSameType(BSXFlags::TYPE)) {
@@ -213,6 +216,7 @@ void BeginScan()
 					//fxdragoncrashfurrow01 has bit 1 not set but I can't get why
 					
 					if (ref->GetIntegerData() != calculated.to_ulong()) {
+						write = true;
 						Log::Info("Block[%d]: BSXFlag: value: [%d %s], estimate: [%d %s]", i, actual.to_ulong(), actual.to_string().c_str(), calculated.to_ulong(), calculated.to_string().c_str());
 					}
 				}
@@ -370,6 +374,12 @@ void BeginScan()
 				//check if mesh uses SLSF1_External_Emittance and then if bit 9 is set.
 				//check if textures exist.
 				//check NiNode children names and if they are unique to their parent.
+			}
+			
+			if (write) {
+				fs::path out_path = nif_err / bsa.filename() / (actual ^ calculated).to_string() / fs::path(to_string(calculated.to_ulong())) / nif;
+				fs::create_directories(out_path.parent_path());
+				WriteNifTree(out_path.string(), root, info);
 			}
 			delete data;
 		}

@@ -26,7 +26,7 @@
 namespace fs = std::experimental::filesystem;
 
 static const fs::path nif_in = ".\\resources\\in";
-static const fs::path nif_err = ".\\resources\\err";
+static const fs::path nif_err = "D:\\git\\ck-cmd\\resources\\err";
 
 namespace ckcmd {
 	namespace nifscan {
@@ -134,6 +134,85 @@ namespace ckcmd {
 			template<class T>
 			inline void visit_field(T& obj) {}
 
+		};
+
+		class MarkerBranchVisitor : public RecursiveFieldVisitor<MarkerBranchVisitor> {
+			set<NiObject*>& alreadyVisitedNodes;
+			bool insideBranch = false;
+			const NifInfo& this_info;
+		public:
+			bool marker = false;
+
+			MarkerBranchVisitor(NiObject& data, const NifInfo& info) :
+				RecursiveFieldVisitor(*this, info), alreadyVisitedNodes(set<NiObject*>()), this_info(info)
+			{
+				data.accept(*this, info);
+			}
+
+			//verifies that markers are not inside branches
+
+			MarkerBranchVisitor(NiObject& data, const NifInfo& info, bool insideBranch, set<NiObject*>& alreadyVisitedNodes) :
+				RecursiveFieldVisitor(*this, info), insideBranch(insideBranch), alreadyVisitedNodes(alreadyVisitedNodes), this_info(info)
+			{
+				data.accept(*this, info);
+			}
+
+			template<class T>
+			inline void visit_object(T& obj) {
+				NiObject* ptr = (NiObject*)&obj;
+				if (alreadyVisitedNodes.insert(ptr).second) {
+					NiObjectRef ref = DynamicCast<NiObject>(ptr);
+					if (ref->IsSameType(NiSwitchNode::TYPE)) {
+						NiSwitchNodeRef ref = DynamicCast<NiSwitchNode>(ptr);
+						//For whatever reason, seems like the EditorMarker flag actually is just taking into account the first branch,
+						//which is the active one by default. If the editor is in the other, like into the money bag, the flag is reset
+						if (!ref->GetChildren().empty()) {
+							marker = MarkerBranchVisitor(*ref->GetChildren()[0], this_info, false, alreadyVisitedNodes).marker;
+						}
+						//mark all as no marker, could be actually done iteratively on the blocks list instead of visiting
+						for (NiAVObjectRef child : ref->GetChildren()) {
+							MarkerBranchVisitor(*child, this_info, true, alreadyVisitedNodes);
+						}
+						//This construct is used for ambient fish to be taken and disapper, they are flagged
+						//if (ref->GetChildren().size() == 2 && ref->GetChildren()[1]->IsDerivedType(NiNode::TYPE)) {
+						//	NiNodeRef ref = DynamicCast<NiNode>(ref->GetChildren()[1]);
+						//	if (ref->GetName().empty() && ref->GetChildren().empty())
+						//		marker = MarkerBranchVisitor(*ref->GetChildren()[0], this_info, false, alreadyVisitedNodes).marker;
+						//	else
+						//		//mark all as no marker, could be actually done iteratively on the blocks list instead of visiting
+						//		for (NiAVObjectRef child : ref->GetChildren()) {
+						//			MarkerBranchVisitor(*child, this_info, true, alreadyVisitedNodes);
+						//		}
+						//}
+						//else {
+						//	//mark all as no marker, could be actually done iteratively on the blocks list instead of visiting
+						//	for (NiAVObjectRef child : ref->GetChildren()) {
+						//		MarkerBranchVisitor(*child, this_info, true, alreadyVisitedNodes);
+						//	}
+						//}
+					}
+
+					if (ref->IsSameType(BSOrderedNode::TYPE)) {
+						BSOrderedNodeRef ref = DynamicCast<BSOrderedNode>(ptr);
+						for (NiAVObjectRef child : ref->GetChildren()) {
+							MarkerBranchVisitor(*child, this_info, true, alreadyVisitedNodes);
+						}
+					}
+
+					if (!insideBranch && ref->IsDerivedType(NiObjectNET::TYPE)) {
+						NiObjectNETRef node = DynamicCast<NiObjectNET>(ref);
+						if (node->GetName().find("EditorMarker") != string::npos)
+							marker = true;
+					}
+
+				}
+			}
+
+			template<class T>
+			inline void visit_compound(T& obj) {}
+
+			template<class T>
+			inline void visit_field(T& obj) {}
 		};
 
 	}
