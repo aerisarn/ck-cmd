@@ -1,67 +1,70 @@
-///*
-//BodySlide and Outfit Studio
-//Copyright (C) 2018  Caliente & ousnius
-//See the included LICENSE file
-//*/
-//#include <stdafx.h>
-//
-//#include <set>
-//#include <queue>
-//#include <regex>
-//#include <istream>
-//
-//#include <core/NifFile.h>
-//
-//#include <objDecl.cpp>
-//#include <field_visitor.h>
-//#include <interfaces\typed_visitor.h>
-//
-//
+/*
+BodySlide and Outfit Studio
+Copyright (C) 2018  Caliente & ousnius
+See the included LICENSE file
+*/
+
+#include <core/NifFile.h>
+
 //#include <obj\NiNode.h>
 //#include <obj\NiGeometry.h>
 //
-//using namespace ckcmd::NIF;
+using namespace ckcmd::NIF;
 //
-//template<class T>
-//T* NifFile::FindBlockByName(const std::string& name) {
-//	for (auto& block : blocks) {
-//		auto namedBlock = dynamic_cast<T*>(block.get());
-//		if (namedBlock && !name.compare(namedBlock->GetName()))
-//			return namedBlock;
-//	}
-//
-//	return nullptr;
-//}
-//
-//int NifFile::GetBlockID(NiObject* block) {
-//	auto it = std::find_if(blocks.begin(), blocks.end(), [&block](const auto& ptr) {
-//		return ptr.get() == block;
-//	});
-//
-//	if (it != blocks.end())
-//		return std::distance(blocks.begin(), it);
-//
-//	return 0xFFFFFFFF;
-//}
-//
-//NiNode* NifFile::GetParentNode(NiObjectRef childBlock) {
-//	if (childBlock != nullptr) {
-//		int childId = GetBlockID(childBlock);
-//		for (auto &block : blocks) {
-//			auto& node = DynamicCast<NiNode>(block);
-//			if (node) {
-//				auto children = node->GetChildren();
-//				for (auto it = children.begin(); it < children.end(); ++it) {
-//					if (childId == it->GetIndex())
-//						return node;
-//				}
-//			}
-//		}
-//	}
-//
-//	return nullptr;
-//}
-//
+template<class T>
+Ref<T> NifFile::FindBlockByName(const std::string& name) {
+	for (auto& block : blocks) {
+		auto namedBlock = DynamicCast<T>(block.get());
+		if (namedBlock && !name.compare(namedBlock->GetName()))
+			return namedBlock;
+	}
+	return NULL;
+}
+
+int NifFile::GetBlockID(NiObject* block) {
+	//auto it = std::find_if(blocks.begin(), blocks.end(), [&block](const auto& ptr) {
+	//	return ptr.get() == block;
+	//});
+
+	//if (it != blocks.end())
+	//	return std::distance(blocks.begin(), it);
+
+	return 0xFFFFFFFF;
+}
+
+class ParentFinder : public RecursiveFieldVisitor<ParentFinder> {
+
+	NiObjectRef result = NULL;
+	NiObjectRef child;
+
+public:
+
+	template<class T>
+	inline void visit_object(T& obj) {
+		if (&obj == &*child)
+			result = parent;
+	}
+
+	template<class T>
+	inline void visit_compound(T& obj) {}
+
+	template<class T>
+	inline void visit_field(T& obj) {}
+
+	ParentFinder(NiObjectRef data, const NifInfo& info) :
+		RecursiveFieldVisitor(*this, info), child(data)
+	{
+		data->accept(*this);
+	}
+
+	NiObjectRef getParent() { return result; }
+};
+
+NiObjectRef NifFile::GetParentNode(NiObjectRef childBlock) {
+	return ParentFinder(GetFirstRoot(blocks), hdr).getParent();
+}
+
+
 //void NifFile::CopyFrom(const NifFile& other) {
 //	if (isValid)
 //		Clear();

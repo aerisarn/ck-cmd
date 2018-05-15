@@ -126,9 +126,9 @@ using namespace Niflib;
 			bool DeleteUnreferencedBlocks();
 
 			template<class T = NiObject>
-			T* FindBlockByName(const std::string& name);
+			Ref<T> FindBlockByName(const std::string& name);
 			int GetBlockID(NiObject* block);
-			NiNode* GetParentNode(NiObject* block);
+			NiObjectRef GetParentNode(NiObjectRef childBlock);
 
 			//NiShader* GetShader(NiShape* shape);
 			//NiMaterialProperty* GetMaterialProperty(NiShape* shape);
