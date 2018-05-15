@@ -197,6 +197,12 @@ namespace ckcmd {
 								retCode = GetStringRegKey(hKey, strValueName, strValue);
 								if (retCode == ERROR_SUCCESS)
 									pathMaps[thisGame] = fs::path(strValue);
+							} else if (thisGame != INVALID && !_tcscmp(achValue, _T("Installed Path"))) {
+								const std::wstring strValueName = L"Installed Path";
+								std::wstring strValue = L"";
+								retCode = GetStringRegKey(hKey, strValueName, strValue);
+								if (retCode == ERROR_SUCCESS)
+									pathMaps[thisGame] = fs::path(strValue);
 							}
 						}
 					}

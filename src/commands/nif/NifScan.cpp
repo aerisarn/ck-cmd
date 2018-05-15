@@ -210,11 +210,10 @@ void BeginScan()
 						Log::Info("Block[%i]: A 'BSXFlag' block needs to be named 'BSX'", i);
 					}
 					actual = ref->GetIntegerData();
-					Log::Info("Block[%d]: BSXFlag: value: [%d %s], estimate: [%d %s]", i, actual.to_ulong(), actual.to_string().c_str(), calculated.to_ulong(), calculated.to_string().c_str());
 					//fxdragoncrashfurrow01 has bit 1 not set but I can't get why
 					
 					if (ref->GetIntegerData() != calculated.to_ulong()) {
-						write = true;
+						Log::Info("Block[%d]: BSXFlag: value: [%d %s], estimate: [%d %s]", i, actual.to_ulong(), actual.to_string().c_str(), calculated.to_ulong(), calculated.to_string().c_str());
 					}
 				}
 
@@ -371,12 +370,6 @@ void BeginScan()
 				//check if mesh uses SLSF1_External_Emittance and then if bit 9 is set.
 				//check if textures exist.
 				//check NiNode children names and if they are unique to their parent.
-			}
-			
-			if (write) {
-				fs::path out_path = nif_err / bsa.filename() / (actual ^ calculated).to_string() / fs::path(to_string(calculated.to_ulong())) / nif;
-				fs::create_directories(out_path.parent_path());
-				WriteNifTree(out_path.string(), root , info);
 			}
 			delete data;
 		}

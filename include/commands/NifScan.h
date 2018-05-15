@@ -25,8 +25,8 @@
 
 namespace fs = std::experimental::filesystem;
 
-static const fs::path nif_in = "D:\\git\\ck-cmd\\resources\\in";
-static const fs::path nif_err = "D:\\git\\ck-cmd\\resources\\err";
+static const fs::path nif_in = ".\\resources\\in";
+static const fs::path nif_err = ".\\resources\\err";
 
 namespace ckcmd {
 	namespace nifscan {

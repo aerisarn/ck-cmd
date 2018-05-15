@@ -297,7 +297,9 @@ set (PROJECT_SRC "${CMAKE_SOURCE_DIR}/src/core/FBXCommon.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkxutils.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/log.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/nifcore.cpp"
-				 "${CMAKE_SOURCE_DIR}/src/core/games.cpp")
+				 "${CMAKE_SOURCE_DIR}/src/core/games.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/core/FBXWrangler.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/core/NifFile.cpp")
 
 set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/stdafx.h"
@@ -316,6 +318,8 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/core/MathHelper.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/games.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/bsa.h"
+					 "${CMAKE_SOURCE_DIR}/include/core/FBXWrangler.h"
+					 "${CMAKE_SOURCE_DIR}/include/core/NifFile.h"
 #COMMANDS
 					 "${CMAKE_SOURCE_DIR}/include/commands/ConvertNif.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/Geometry.h"
@@ -369,9 +373,10 @@ IF (MSVC)
         ENDFOREACH()
     ENDIF ()
 
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
-    set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
-
+	#if(CMAKE_BUILD_TYPE MATCHES Debug)
+	set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
+	set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
+	#endif(CMAKE_BUILD_TYPE MATCHES Debug)
 	#WIN exclusive
 	#find_library(SHLWAPI Shlwapi.lib)
 	#find_library(WIN32_LEGACY legacy_stdio_definitions.lib)
