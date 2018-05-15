@@ -218,7 +218,6 @@ void BeginScan()
 					}
 				}
 
-				//Might be good to check a few of these, Some might be for Fallout 4.
 				if (blocks[i]->IsSameType(BSInvMarker::TYPE)) {
 					if (DynamicCast<BSInvMarker>(blocks[i])->GetName() != "INV") {
 						Log::Info("Block[%i]: A 'BSInvMarker' block needs to be named 'INV'", i);
@@ -243,27 +242,31 @@ void BeginScan()
 					}
 				}
 
+				if (blocks[i]->IsSameType(BSBoneLODExtraData::TYPE)) {
+					if (DynamicCast<Niflib::BSBoneLODExtraData>(blocks[i])->GetName() != "BSBoneLOD") {
+						Log::Info("Block[%i]: A 'BSBoneLODExtraData' block needs to be named 'BSBoneLOD'", i);
+					}
+				}
+				
+				//These three might be in Fallout 4, Not Skyrim.
+				if (blocks[i]->IsSameType(BSWArray::TYPE)) {
+					Log::Info("I have recieved BSWArray: %s", nif.c_str());
+					if (DynamicCast<Niflib::BSWArray>(blocks[i])->GetName() != "BSW") {
+						Log::Info("Block[%i]: A 'BSWArray' block needs to be named 'BSW'", i);
+					}
+				}
+
 				if (blocks[i]->IsSameType(BSDistantObjectLargeRefExtraData::TYPE)) {
+					Log::Info("I have recieved BSDistantObjectLargeRefExtraData: %s", nif.c_str());
 					if (DynamicCast<Niflib::BSDistantObjectLargeRefExtraData>(blocks[i])->GetName() != "DOLRED") {
 						Log::Info("Block[%i]: A 'BSDistantObjectLargeRefExtraData' block needs to be named 'DOLRED'", i);
 					}
 				}
 
 				if (blocks[i]->IsSameType(BSDecalPlacementVectorExtraData::TYPE)) {
+					Log::Info("I have recieved BSDecalPlacementVectorExtraData: %s", nif.c_str());
 					if (DynamicCast<Niflib::BSDecalPlacementVectorExtraData>(blocks[i])->GetName() != "DVPG") {
 						Log::Info("Block[%i]: A 'BSDecalPlacementVectorExtraData' block needs to be named 'DVPG'", i);
-					}
-				}
-
-				if (blocks[i]->IsSameType(BSBoneLODExtraData::TYPE)) {
-					if (DynamicCast<Niflib::BSBoneLODExtraData>(blocks[i])->GetName() != "BSBoneLOD") {
-						Log::Info("Block[%i]: A 'BSBoneLODExtraData' block needs to be named 'BSBoneLOD'", i);
-					}
-				}
-
-				if (blocks[i]->IsSameType(BSWArray::TYPE)) {
-					if (DynamicCast<Niflib::BSWArray>(blocks[i])->GetName() != "BSW") {
-						Log::Info("Block[%i]: A 'BSWArray' block needs to be named 'BSW'", i);
 					}
 				}
 
@@ -303,7 +306,7 @@ void BeginScan()
 				if (blocks[i]->IsSameType(BSLightingShaderProperty::TYPE)) {
 					BSLightingShaderPropertyRef  shaderprop = DynamicCast<BSLightingShaderProperty>(blocks[i]);
 
-					if (shaderprop->GetSkyrimShaderType() == (BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP) || (BSLightingShaderPropertyShaderType::ST_EYE_ENVMAP)) {
+					if (shaderprop->GetSkyrimShaderType() == BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP /*|| BSLightingShaderPropertyShaderType::ST_EYE_ENVMAP*/) {
 						if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) != SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) {
 							Log::Info("Block[%i]: ShaderType is 'Environment', but ShaderFlags1 does not include 'Environment Mapping'.", i);
 						}
@@ -311,12 +314,32 @@ void BeginScan()
 							Log::Info("Block[%i]: ShaderType is 'Environment', but ShaderFlags 2 has enabled 'glow' flag.", i);
 						}
 						if (shaderprop->GetTextureSet()->GetTextures().size() >= 5) {
-							if (shaderprop->GetTextureSet()->GetTextures()[4] != "") {
+							if (shaderprop->GetTextureSet()->GetTextures()[4] == "") {
 								Log::Info("Block[%i]: ShaderType is 'Environment', but no 'Environment' texture is present.", i);
 							}
 						}
 						else {
 							Log::Info("Block[%i]: TextureSet size is too small to include 'Environment' texture.", i);
+						}
+					}
+					if (shaderprop->GetSkyrimShaderType() == BSLightingShaderPropertyShaderType::ST_GLOW_SHADER) {
+						Log::Info("Block is glow shader.");
+						if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE) != SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE) {
+							Log::Info("Block[%i]: ShaderType is 'Glow', but ShaderFlags1 does not include 'External Emittance'.", i);
+						}
+						if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) == SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) {
+							Log::Info("Block[%i]: ShaderType is 'Glow', but ShaderFlags1 includes 'Environment Mapping'.", i);
+						}
+						if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) != SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) {
+							Log::Info("Block[%i]: ShaderType is 'Glow', but ShaderFlags2 does not include 'Glow Map'.", i);
+						}
+						if (shaderprop->GetTextureSet()->GetTextures().size() > 3) {
+							if (shaderprop->GetTextureSet()->GetTextures()[2] == "") {
+								Log::Info("Block[%i]: ShaderType is 'Glow', but no 'Glow' texture is present.", i);
+							}
+						}
+						else {
+							Log::Info("Block[%i]: TextureSet size is too small to include 'Glow' texture.", i);
 						}
 					}
 				}
@@ -329,8 +352,9 @@ void BeginScan()
 							vector<Color4> vc = data->GetVertexColors();
 							bool allWhite = true;
 							for (int x = 0; x != vc.size(); x++) {
-								if (vc[x].r != 1.0f || vc[x].g != 1.0f || vc[x].b != 1.0f) {
+								if (vc[x].r != 1.0f || vc[x].g != 1.0f || vc[x].b != 1.0f || vc[x].a != 1.0f) {
 									allWhite = false;
+									break;
 								}
 							}
 							if (allWhite)
