@@ -1,0 +1,12 @@
+[submodule "modules/geometry/libigl"]
+	path = modules/geometry/libigl
+	url = https://github.com/libigl/libigl
+[submodule "modules/geometry/eigen"]
+	path = modules/geometry/eigen
+	url = https://github.com/eigenteam/eigen-git-mirror
+[submodule "modules/geometry/bounding-mesh"]
+	path = modules/geometry/bounding-mesh
+	url = https://github.com/TESSkyblivion/bounding-mesh
+[submodule "modules/geometry/v-hacd"]
+	path = modules/geometry/v-hacd
+	url = https://github.com/TESSkyblivion/v-hacd
