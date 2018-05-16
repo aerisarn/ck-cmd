@@ -269,6 +269,25 @@ set_target_properties(
 
 add_definitions(-DLIBBSA_STATIC)
 
+#MODULES
+
+#Geometry
+
+set(MIKKTSPACE_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/mikktspace")
+file(GLOB MIKKTSPACE_SRCS "${CMAKE_SOURCE_DIR}/modules/geometry/mikktspace/*.c" )
+
+set(EIGEN_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/eigen")
+
+set(LIBIGL_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/libigl/include")
+
+set(BOUNDINGMESH_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/bounding-mesh/src/boundingmesh")
+file(GLOB BOUNDINGMESH_SRCS "${CMAKE_SOURCE_DIR}/modules/geometry/bounding-mesh/src/boundingmesh/*.cpp" )
+
+set(QUICKHULL_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/quickhull")
+file(GLOB QUICKHULL_SRCS "${CMAKE_SOURCE_DIR}/modules/geometry/quickhull/*.cpp" )
+
+set(VHACD_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src/VHACD_Lib/public" )
+
 list(APPEND TEST_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES loki)
@@ -299,7 +318,8 @@ set (PROJECT_SRC "${CMAKE_SOURCE_DIR}/src/core/FBXCommon.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/nifcore.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/games.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/FBXWrangler.cpp"
-				 "${CMAKE_SOURCE_DIR}/src/core/NifFile.cpp")
+				 "${CMAKE_SOURCE_DIR}/src/core/NifFile.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/core/geometry.cpp")
 
 set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/stdafx.h"
@@ -351,6 +371,19 @@ list (APPEND PROJECT_HEADERS ${NIF_CUSTOM_TYPES_HEADERS})
 list (APPEND PROJECT_HEADERS ${NIF_INTERFACES_HEADERS})
 list (APPEND PROJECT_HEADERS ${NIF_GAME_SPECIFIC_HEADERS})
 
+#submodules
+list (APPEND PROJECT_INCLUDES ${EIGEN_INCLUDES})
+list (APPEND PROJECT_INCLUDES ${MIKKTSPACE_INCLUDES})
+list (APPEND PROJECT_INCLUDES ${LIBIGL_INCLUDES})
+list (APPEND PROJECT_INCLUDES ${BOUNDINGMESH_INCLUDES})
+list (APPEND PROJECT_INCLUDES ${QUICKHULL_INCLUDES})
+list (APPEND PROJECT_INCLUDES ${VHACD_INCLUDES})
+
+#submodules
+list (APPEND PROJECT_SRC ${BOUNDINGMESH_SRCS})
+list (APPEND PROJECT_SRC ${QUICKHULL_SRCS})
+list (APPEND PROJECT_SRC ${MIKKTSPACE_SRCS})
+
 source_group("Havok Compat\\Headers" FILES ${HAVOK_COMPAT_HEADERS})
 source_group("Havok Compat\\Sources" FILES ${HAVOK_COMPAT_SRC})
 source_group("Header Files" FILES ${PROJECT_HEADERS})
@@ -363,6 +396,11 @@ source_group("NIFlib\\Objects" FILES ${NIF_OBJS_HEADERS})
 source_group("NIFlib\\CustomTypes" FILES ${NIF_CUSTOM_TYPES_HEADERS})
 source_group("NIFlib\\Interfaces" FILES ${NIF_INTERFACES_HEADERS})
 source_group("NIFlib\\GameSpecific" FILES ${NIF_GAME_SPECIFIC_HEADERS})
+source_group("Geometry\\MikkTSpace" FILES ${MIKKTSPACE_SRCS})
+source_group("Geometry\\BoundingMesh" FILES ${BOUNDINGMESH_SRCS})
+source_group("Geometry\\QuickHull" FILES ${QUICKHULL_SRCS})
+
+
 
 # Settings when compiling with MSVC.
 IF (MSVC)
