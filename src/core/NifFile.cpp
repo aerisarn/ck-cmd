@@ -21,16 +21,16 @@ Ref<T> NifFile::FindBlockByName(const std::string& name) {
 	return NULL;
 }
 
-int NifFile::GetBlockID(NiObject* block) {
-	//auto it = std::find_if(blocks.begin(), blocks.end(), [&block](const auto& ptr) {
-	//	return ptr.get() == block;
-	//});
-
-	//if (it != blocks.end())
-	//	return std::distance(blocks.begin(), it);
-
-	return 0xFFFFFFFF;
-}
+//int NifFile::GetBlockID(NiObject* block) {
+//	auto it = std::find_if(blocks.begin(), blocks.end(), [&block](const auto& ptr) {
+//		return &*ptr == block;
+//	});
+//
+//	if (it != blocks.end())
+//		return std::distance(blocks.begin(), it);
+//
+//	return 0xFFFFFFFF;
+//}
 
 class ParentFinder : public RecursiveFieldVisitor<ParentFinder> {
 
@@ -110,36 +110,63 @@ NiObjectRef NifFile::GetParentNode(NiObjectRef childBlock) {
 //	}
 //}
 //
-//void NifFile::Create(const NiVersion& version) {
-//	Clear();
-//	hdr.SetVersion(version);
-//	hdr.SetBlockReference(&blocks);
-//
-//	auto rootNode = new NiNode();
-//	rootNode->SetName("Scene Root");
-//	hdr.AddBlock(rootNode);
-//
-//	isValid = true;
-//}
-//
-//void NifFile::Clear() {
-//	isValid = false;
-//	hasUnknown = false;
-//	isTerrain = false;
-//
-//	blocks.clear();
-//	hdr.Clear();
-//}
-//
-//int NifFile::Load(const std::string& fileName) {
-//	//std::fstream file(fileName.c_str(), std::ios::in | std::ios::binary);
-//	//return Load(file, options);
-//}
-//
-//int NifFile::Load(std::istream& file) {
-//	Clear();
-//
-//	//isTerrain = options.isTerrain;
+void NifFile::Create(const NifInfo& version) {
+	Clear();
+	hdr = version;
+	//hdr.SetBlockReference(&blocks);
+
+	auto rootNode = new NiNode();
+	rootNode->SetName(*(new string("Scene Root")));
+	blocks.push_back(rootNode);
+
+	isValid = true;
+}
+
+void NifFile::Clear() {
+	isValid = false;
+	hasUnknown = false;
+
+	blocks.clear();
+}
+
+int NifFile::Load(const std::string& fileName) {
+	Clear();
+	try {
+		blocks = ReadNifList(fileName.c_str(), &hdr);
+	}
+	catch (...) {
+		throw runtime_error("Unable to read file: " + fileName);
+		return -1;
+	}
+	set<NiObjectRef> roots = FindRoots(blocks);
+	if (roots.size() != 1) {
+		throw runtime_error("Unable to find an unique root: " + fileName);
+		return -2;
+	}
+//	PrepareData();
+	isValid = true;
+	return 0;
+}
+
+int NifFile::Load(std::istream& stream) {
+	Clear();
+	Clear();
+	try {
+		blocks = ReadNifList(stream, &hdr);
+	}
+	catch (...) {
+		throw runtime_error("Unable to read file from stream");
+		return -1;
+	}
+	set<NiObjectRef> roots = FindRoots(blocks);
+	if (roots.size() != 1) {
+		throw runtime_error("Unable to find an unique root");
+		return -2;
+	}
+//	PrepareData();
+	isValid = true;
+	return 0;
+}
 //
 //	if (file.is_open()) {
 //		/*NiStream stream(&file, &hdr.GetVersion());
@@ -766,54 +793,25 @@ NiObjectRef NifFile::GetParentNode(NiObjectRef childBlock) {
 //	return hdr.AddBlock(destNode);
 //}
 //
-//int NifFile::Save(const std::string& fileName, const NifSaveOptions& options) {
-//	std::fstream file(fileName.c_str(), std::ios::out | std::ios::binary);
-//	return Save(file, options);
-//}
-//
-//int NifFile::Save(std::fstream& file, const NifSaveOptions& options) {
-//	if (file.is_open()) {
-//		NiStream stream(&file, &hdr.GetVersion());
-//		FinalizeData();
-//
-//		if (options.optimize)
-//			Optimize();
-//
-//		if (options.sortBlocks)
-//			PrettySortBlocks();
-//
-//		hdr.Put(stream);
-//		stream.InitBlockSize();
-//
-//		// Retrieve block sizes from NiStream while writing
-//		std::vector<int> blockSizes(hdr.GetNumBlocks());
-//		for (int i = 0; i < hdr.GetNumBlocks(); i++) {
-//			blocks[i]->Put(stream);
-//			blockSizes[i] = stream.GetBlockSize();
-//			stream.InitBlockSize();
-//		}
-//
-//		uint endPad = 1;
-//		stream << endPad;
-//		endPad = 0;
-//		stream << endPad;
-//
-//		// Get previous stream pos of block size array and overwrite
-//		std::streampos blockSizePos = hdr.GetBlockSizeStreamPos();
-//		if (blockSizePos.seekpos() != std::fpos_t()) {
-//			file.seekg(blockSizePos);
-//
-//			for (int i = 0; i < hdr.GetNumBlocks(); i++)
-//				stream << blockSizes[i];
-//
-//			hdr.ResetBlockSizeStreamPos();
-//		}
-//	}
-//	else
-//		return 1;
-//
-//	return 0;
-//}
+int NifFile::Save(const std::string& fileName) {
+	try {
+		WriteNifTree(fileName, GetFirstRoot(blocks), hdr);
+	}
+	catch (...) {
+		return -1;
+	}
+	return 0;
+}
+
+int NifFile::Save(std::ostream& file) {
+	try {
+		WriteNifTree(file, GetFirstRoot(blocks), hdr);
+	}
+	catch (...) {
+		return -1;
+	}
+	return 0;
+}
 //
 //void NifFile::Optimize() {
 //	for (auto &s : GetShapeNames())
