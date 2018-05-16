@@ -4,18 +4,13 @@
 #include <core/log.h>
 
 #include <commands/ConvertNif.h>
+#include <commands/Geometry.h>
 #include <core/games.h>
 #include <core/bsa.h>
 
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
-
-using namespace Niflib;
-using namespace std;
-
-//#include "ConvertNif.h"
-//#include <core/hkxcmd.h>
-//#include <core/log.h>
+using namespace ckcmd::Geometry;
 
 NiObjectRef rootNode;
 
@@ -34,47 +29,6 @@ BSFadeNode* convert_root(NiObject* root)
 	memcpy(root, fadeNode, sizeof(BSFadeNode));
 
 	return fadeNode;
-}
-vector<Triangle> triangulate(vector<unsigned short> strip)
-{
-	vector<Triangle> tris;
-	unsigned short a, b = strip[0], c = strip[1];
-	bool flip = false;
-
-	for (int s = 2; s < strip.size(); s++) {
-		a = b;
-		b = c;
-		c = strip[s];
-
-		if (a != b && b != c && c != a) {
-			if (!flip)
-				tris.push_back(Triangle(a, b, c));
-			else
-				tris.push_back(Triangle(a, c, b));
-		}
-
-		flip = !flip;
-	}
-
-	return tris;
-}
-vector<Triangle> triangulate(vector<vector<unsigned short>> strips)
-{
-	vector<Triangle> tris;
-	for (const vector<unsigned short>& strip : strips)
-	{
-		vector<Triangle> these_tris = triangulate(strip);
-		tris.insert(tris.end(), these_tris.begin(), these_tris.end());
-	}
-	return tris;
-}
-Vector3 centeroid(const vector<Vector3>& in) {
-	Vector3 centeroid = Vector3(0.0, 0.0, 0.0);
-	for (Vector3 vertex : in) {
-		centeroid += vertex;
-	}
-	centeroid = Vector3(centeroid.x / in.size(), centeroid.y / in.size(), centeroid.z / in.size()).Normalized();
-	return centeroid;
 }
 
 NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)

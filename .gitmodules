@@ -10,3 +10,6 @@
 [submodule "modules/geometry/v-hacd"]
 	path = modules/geometry/v-hacd
 	url = https://github.com/TESSkyblivion/v-hacd
+[submodule "modules/geometry/quickhull"]
+	path = modules/geometry/quickhull
+	url = https://github.com/akuukka/quickhull
