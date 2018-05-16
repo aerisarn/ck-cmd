@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <string.h>
+#include <string>
 
 
 class EspWriter
@@ -12,10 +12,6 @@ private:
 	FILE* out;
 	uint8_t* buffer;
 
-public:
-	EspWriter(const char* path);
-	~EspWriter();
-
 	inline uint32_t SwapType(uint32_t code)
 	{
 		return (code >> 24 |
@@ -23,6 +19,10 @@ public:
 			((code >> 8) & 0x0000FF00) |
 			code << 24);
 	}
+
+public:
+	EspWriter(std::string path);
+	~EspWriter();
 
 	//Write any type to file
 	template <typename T>

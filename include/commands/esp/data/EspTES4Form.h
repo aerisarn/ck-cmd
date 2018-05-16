@@ -5,11 +5,13 @@
 private: \
     type name; \
 public: \
-    const type& get##name##() const { return name; } \
-    void set##name##(const type& val) { name = val; }
+    const type& Get##name##() const { return name; } \
+    void Set##name##(const type& val) { name = val; }
 
 #include <commands\esp\data\EspForm.h>
 #include <vector>
+
+class EspFile;
 
 struct EspTES4Master
 {
@@ -22,6 +24,10 @@ struct EspTES4Hedr
 	EspFloat32 version;
 	EspInt32 numRecords;
 	EspUInt32 nextFormID;
+
+	EspTES4Hedr(EspFloat32 inVersion, EspInt32 inNumRecords,
+			EspUInt32 inNextformID)
+		: version(inVersion), numRecords(inNumRecords), nextFormID(inNextformID) {}
 };
 
 typedef struct EspTES4Master EspTES4Master;
@@ -37,11 +43,17 @@ class EspTES4Form : public EspForm
 	FORM_MEMBER(EspUInt32, INTV)
 	FORM_MEMBER(EspUInt32, INCC)
 
+public:
 	EspTES4Form(const EspTES4Hedr& hedr, const EspUInt32 intv) 
 		: HEDR(hedr), INTV(intv), INCC(0) {}
 	~EspTES4Form() {}
+
+	void UpdateSize();
 	
+private:
 	void Write(EspWriter& w);
+
+	friend class EspFile;
 };
 
 #endif //ESPTES4FORM_H

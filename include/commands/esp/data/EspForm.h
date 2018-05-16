@@ -5,8 +5,8 @@
 private: \
 	type name; \
 public: \
-	const type& get##name##() const { return name; } \
-	void set##name##(const type& val) { name = val; }
+	const type& Get##name##() const { return name; } \
+	void Set##name##(const type& val) { name = val; }
 
 #include <commands\esp\io\EspTypes.h>
 #include <commands\esp\io\EspWriter.h>
@@ -42,6 +42,8 @@ public:
 	EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 		EspUInt32 flags, EspFormID formID, EspUInt32 revision,
 		EspUInt32 version, EspUInt16 unknown);
+	
+	void Write(EspWriter& w);
 };
 
 class EspForm
@@ -51,13 +53,13 @@ public:
 	EspForm(const EspFormHeader& h) : header(h) {}
 	virtual ~EspForm() {}
 
-	virtual void Write(EspWriter& w) = 0;
-	const EspFormHeader& GetHeader() const;
+	const EspFormHeader& GetHeader();
 	void SetHeader(const EspFormHeader& h);
-	void WriteField(EspFieldHeader& h, EspWriter& w);
 
 protected:
 	EspFormHeader header;
+	virtual void Write(EspWriter& w) = 0;
+	void WriteField(EspFieldHeader& h, EspWriter& w);
 };
 
 #endif //FORM_H

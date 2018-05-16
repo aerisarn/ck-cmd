@@ -12,21 +12,21 @@ EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 		EspUInt32 flags, EspFormID formID) 
 	: Version(0), Revision(0), Unknown(0)
 {
-	setType(type);
-	setDataSize(dataSize);
-	setFlags(flags);
-	setFormID(formID);
+	SetType(type);
+	SetDataSize(dataSize);
+	SetFlags(flags);
+	SetFormID(formID);
 }
 
 EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 		EspUInt32 flags, EspFormID formID, EspUInt32 revision)
 	: Version(0), Unknown(0)
 {
-	setType(type);
-	setDataSize(dataSize);
-	setFlags(flags);
-	setFormID(formID);
-	setRevision(revision);
+	SetType(type);
+	SetDataSize(dataSize);
+	SetFlags(flags);
+	SetFormID(formID);
+	SetRevision(revision);
 }
 
 EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
@@ -34,30 +34,41 @@ EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 		EspUInt32 version) 
 	: Unknown(0)
 {
-	setType(type);
-	setDataSize(dataSize);
-	setFlags(flags);
-	setFormID(formID);
-	setVersion(version);
-	setRevision(revision);
-	setUnknown(0);
+	SetType(type);
+	SetDataSize(dataSize);
+	SetFlags(flags);
+	SetFormID(formID);
+	SetVersion(version);
+	SetRevision(revision);
+	SetUnknown(0);
 }
 
 EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 		EspUInt32 flags, EspFormID formID, EspUInt32 revision,
 		EspUInt32 version, EspUInt16 unknown)
 {
-	setType(type);
-	setDataSize(dataSize);
-	setFlags(flags);
-	setFormID(formID);
-	setVersion(version);
-	setRevision(revision);
-	setUnknown(unknown);
+	SetType(type);
+	SetDataSize(dataSize);
+	SetFlags(flags);
+	SetFormID(formID);
+	SetVersion(version);
+	SetRevision(revision);
+	SetUnknown(unknown);
+}
+
+void EspFormHeader::Write(EspWriter& w)
+{
+	w.WriteType(GetType());
+	w.Write<EspUInt32>(GetDataSize());
+	w.Write<EspUInt32>(GetFlags());
+	w.Write<EspFormID>(GetFormID());
+	w.Write<EspUInt32>(GetRevision());
+	w.Write<EspUInt32>(GetVersion());
+	w.Write<EspUInt16>(GetUnknown());
 }
 
 // Form operations
-const EspFormHeader& EspForm::GetHeader() const
+const EspFormHeader& EspForm::GetHeader()
 {
 	return header;
 }

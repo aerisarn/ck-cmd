@@ -1,8 +1,8 @@
 #include "commands\esp\io\EspWriter.h"
 
-EspWriter::EspWriter(const char* path)
+EspWriter::EspWriter(std::string path)
 {
-	out = fopen(path, "wb");
+	out = fopen(path.c_str(), "wb");
 }
 
 EspWriter::~EspWriter()
