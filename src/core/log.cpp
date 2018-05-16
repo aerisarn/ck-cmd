@@ -160,13 +160,13 @@ void Log::Msg( LogLevel level, const char* format, ... )
 void Log::MsgV( LogLevel level, const char* format, va_list args )
 {
 	char buffer[512];
-	int nChars = _vsnprintf_s(buffer, _countof(buffer), format, args);
+	int nChars = _vsnprintf_s(buffer, _TRUNCATE, format, args);
 	if (nChars != -1) {
 		DispatchMessage(level, buffer, nChars);
 	} else {
 		size_t Size = _vscprintf(format, args);
-		char* pbuf = (char*)_alloca(Size * sizeof(char));
-		nChars = _vsnprintf_s(pbuf, Size, Size, format, args);
+		char* pbuf = (char*)_alloca((Size+1) * sizeof(char));
+		nChars = _vsnprintf_s(pbuf, Size+1, Size, format, args);
 		DispatchMessage(level, pbuf, nChars);
 	}
 }
@@ -228,13 +228,13 @@ void Log::Msg( LogLevel level, const wchar_t* format, ... )
 void Log::MsgV( LogLevel level, const wchar_t* format, va_list args )
 {
 	wchar_t buffer[512];
-	int nChars = _vsnwprintf_s(buffer, _countof(buffer), format, args);
+	int nChars = _vsnwprintf_s(buffer, _TRUNCATE, format, args);
 	if (nChars != -1) {
 		DispatchMessage(level, buffer, nChars);
 	} else {
 		size_t Size = _vscwprintf(format, args);
 		wchar_t* pbuf = (wchar_t*)_alloca((Size+1) * sizeof(wchar_t));
-		nChars = _vsnwprintf_s(pbuf, Size, Size, format, args);
+		nChars = _vsnwprintf_s(pbuf, Size+1, Size, format, args);
 		DispatchMessage(level, pbuf, nChars);
 	}
 }
