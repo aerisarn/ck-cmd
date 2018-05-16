@@ -9,12 +9,17 @@ public: \
 	void set##name##(const type& val) { name = val; }
 
 #include <commands\esp\io\EspTypes.h>
+#include <commands\esp\io\EspWriter.h>
 
 struct EspFieldHeader
 {
 	EspUInt32 type;
 	EspUInt16 size;
+
+	EspFieldHeader(EspUInt32 type, EspUInt16 size);
 };
+
+typedef struct EspFieldHeader EspFieldHeader;
 
 class EspFormHeader
 {
@@ -46,9 +51,10 @@ public:
 	EspForm(const EspFormHeader& h) : header(h) {}
 	virtual ~EspForm() {}
 
-	virtual void Save() = 0;
+	virtual void Write(EspWriter& w) = 0;
 	const EspFormHeader& GetHeader() const;
 	void SetHeader(const EspFormHeader& h);
+	void WriteField(EspFieldHeader& h, EspWriter& w);
 
 protected:
 	EspFormHeader header;

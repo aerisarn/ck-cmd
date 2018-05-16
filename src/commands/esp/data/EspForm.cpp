@@ -1,5 +1,9 @@
 #include <commands\esp\data\EspForm.h>
 
+// Field header operations
+EspFieldHeader::EspFieldHeader(EspUInt32 fType, EspUInt16 fSize)
+	: type(fType), size(fSize) {}
+
 // Form header operations
 EspFormHeader::EspFormHeader() : Type(0), DataSize(0), Flags(0),
 	FormID(0), Version(0), Revision(0), Unknown(0) {}
@@ -61,4 +65,15 @@ const EspFormHeader& EspForm::GetHeader() const
 void EspForm::SetHeader(const EspFormHeader& h)
 {
 	header = h;
+}
+
+void EspForm::WriteField(EspFieldHeader& h, EspWriter& w)
+{
+	if (h.size > 0xFFFF)
+	{
+		WriteField(EspFieldHeader('XXXX', 4), w);
+		w.Write<EspUInt32>(h.size);
+		h.size = 0;
+	}
+	w.Write<EspFieldHeader>(h);
 }

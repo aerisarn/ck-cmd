@@ -356,6 +356,7 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                                          "${CMAKE_SOURCE_DIR}/include/commands/esp/io/EspWriter.h"
                                          "${CMAKE_SOURCE_DIR}/include/commands/esp/io/EspTypes.h"
                                          "${CMAKE_SOURCE_DIR}/include/commands/esp/data/EspForm.h" 
+                                         "${CMAKE_SOURCE_DIR}/include/commands/esp/data/EspTES4Form.h" 
 #resource
 				)
 # Commands
