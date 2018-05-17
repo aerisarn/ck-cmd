@@ -37,6 +37,8 @@ void FBXWrangler::NewScene() {
 		CloseScene();
 
 	scene = FbxScene::Create(sdkManager, "ckcmd");
+	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
+	scene->GetGlobalSettings().SetAxisSystem(maxSystem);
 }
 
 void FBXWrangler::CloseScene() {
@@ -197,11 +199,11 @@ public:
 		if (alreadyVisitedNodes.insert(&obj).second) {
 			current = build(obj, parent);
 			built_nodes[ptr] = current;
+			parent->AddChild(current);
 		}
 		else {
 			current = built_nodes[ptr];			
 		}
-		parent->AddChild(current);
 		build_stack.push_front(current);
 	}
 
