@@ -352,10 +352,16 @@ void BeginScan()
 					if (set->GetTextures().size() != 0) {
 						for (std::string texture : set->GetTextures()) {
 							//This part gave me so many issues.
-							bool isTexture = (texture.substr(0, 7) != "textures"); //Possible issue: If the user has capitalized "textures"
+							bool isTexture = (texture.substr(0, 7) != "textures"); //Possible issue: If the user has capitalized "textures"#
 							if (!isTexture) {
 								Log::Info("Block[%i]: TextureSet includes paths not relative to data.", i);
 							}
+							else {
+								if (!fs::exists(games.data(Games::TES5) / texture)) {
+									Log::Info("Block[%i]: Texture: '%s' does not exist!", i, texture.c_str());
+								}
+							}
+							
 						}
 					}
 				}
@@ -384,7 +390,6 @@ void BeginScan()
 					//scan to check if vertex is checked AND shader flag is.
 				}
 
-				//check if mesh uses SLSF1_External_Emittance and then if bit 9 is set.
 				//check if textures exist.
 				//check NiNode children names and if they are unique to their parent.
 			}
