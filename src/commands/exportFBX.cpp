@@ -49,7 +49,7 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 			std::istringstream iss(sdata);
 
 			FBXWrangler* wrangler = new FBXWrangler();
-			NifFile* niffile = new NifFile(sdata);
+			NifFile* niffile = new NifFile(iss);
 			wrangler->AddNif(*niffile);
 			fs::path out_path = fs::path(".") / "fbx" / fs::path(nif).replace_extension("fbx");
 			fs::create_directories(out_path.parent_path());

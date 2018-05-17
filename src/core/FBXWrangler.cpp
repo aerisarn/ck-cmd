@@ -69,7 +69,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		if (node.GetData()->IsSameType(NiTriStripsData::TYPE)) {
 			NiTriStripsDataRef ref = DynamicCast<NiTriStripsData>(node.GetData());
 			tris = triangulate(ref->GetPoints());
-			uvs = ref->GetUvSets()[0];
+			if (!ref->GetUvSets().empty())
+				uvs = ref->GetUvSets()[0];
 		}
 
 		return AddGeometry(shapeName, verts, norms, tris, uvs);
@@ -90,7 +91,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		if (node.GetData()->IsSameType(NiTriShapeData::TYPE)) {
 			NiTriShapeDataRef ref = DynamicCast<NiTriShapeData>(node.GetData());
 			tris = ref->GetTriangles();
-			uvs = ref->GetUvSets()[0];
+			if (!ref->GetUvSets().empty())
+				uvs = ref->GetUvSets()[0];
 		}
 
 		if (verts.empty())
@@ -115,7 +117,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		}
 
 		FbxGeometryElementUV* uvElement = nullptr;
-		if (uvs.empty()) {
+		if (!uvs.empty()) {
 			std::string uvName = shapeName + "UV";
 			uvElement = m->CreateElementUV(uvName.c_str());
 			uvElement->SetMappingMode(FbxGeometryElement::eByControlPoint);
