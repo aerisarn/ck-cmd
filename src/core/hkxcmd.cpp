@@ -240,5 +240,5 @@ int _tmain(int argc, _TCHAR* argv[])
 
     bool ok = hkxcmd::ParseArgs(argc-1, &argv[1]);
 	Log::ClearListeners();
-    return ok ? 0 : 1;
+	return ok ? 0 : 1;
 }

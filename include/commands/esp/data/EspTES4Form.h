@@ -44,7 +44,7 @@ class EspTES4Form : public EspForm
 	FORM_MEMBER(EspUInt32, INCC)
 
 public:
-	EspTES4Form(const EspTES4Hedr& hedr, const EspUInt32 intv) 
+	EspTES4Form(const EspTES4Hedr hedr, const EspUInt32 intv) 
 		: HEDR(hedr), INTV(intv), INCC(0) {}
 	~EspTES4Form() {}
 

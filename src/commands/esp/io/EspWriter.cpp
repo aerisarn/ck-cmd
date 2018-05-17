@@ -2,13 +2,11 @@
 
 EspWriter::EspWriter(std::string path)
 {
-	out = fopen(path.c_str(), "wb");
+	out = new std::ofstream(path, std::ios::binary);
 }
 
 EspWriter::~EspWriter()
 {
-	if (out)
-	{
-		fclose(out);
-	}
+	out->close();
+	delete out;
 }

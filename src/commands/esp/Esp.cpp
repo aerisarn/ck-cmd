@@ -22,7 +22,7 @@ void Esp::Save()
 		ext = ".esm";
 	}
 
-	std::string fPath = path.generic_string();
+	std::string fPath = path.generic_string() + name;
 	EspWriter w(fPath + ext);
 
 	esp->Write(w);

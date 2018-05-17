@@ -15,14 +15,14 @@ void EspTES4Form::Write(EspWriter& w)
 	{
 		EspFieldHeader cnam('CNAM', (EspUInt16)GetAuthor().size() + 1);
 		WriteField(cnam, w);
-		w.Write<std::string>(GetAuthor());
+		w.WriteZString(GetAuthor());
 	}
 
 	if (!GetDesc().empty())
 	{
 		EspFieldHeader snam('SNAM', (EspUInt16)GetDesc().size() + 1);
 		WriteField(snam, w);
-		w.Write<std::string>(GetDesc());
+		w.WriteZString(GetDesc());
 	}
 
 	for (unsigned int i = 0; i < GetMasters().size(); i++)
@@ -31,7 +31,7 @@ void EspTES4Form::Write(EspWriter& w)
 
 		EspFieldHeader mast('MAST', (EspUInt16)master.filename.size() + 1);
 		WriteField(mast, w);
-		w.Write<std::string>(master.filename);
+		w.WriteZString(master.filename);
 
 		EspFieldHeader data('DATA', (EspUInt16)sizeof(EspUInt64));
 		WriteField(data, w);

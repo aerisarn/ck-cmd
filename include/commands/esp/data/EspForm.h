@@ -28,7 +28,7 @@ class EspFormHeader
 	FORMHEADER_MEMBER(EspUInt32, Flags)
 	FORMHEADER_MEMBER(EspFormID, FormID)
 	FORMHEADER_MEMBER(EspUInt32, Revision)
-	FORMHEADER_MEMBER(EspUInt32, Version)
+	FORMHEADER_MEMBER(EspUInt16, Version)
 	FORMHEADER_MEMBER(EspUInt16, Unknown)
 
 public:
@@ -36,12 +36,12 @@ public:
 	EspFormHeader(EspUInt32 type, EspUInt32 dataSize, EspUInt32 flags,
 		EspFormID formID);
 	EspFormHeader(EspUInt32 type, EspUInt32 dataSize, EspUInt32 flags,
-		EspFormID formID, EspUInt32 version);
+		EspFormID formID, EspUInt32 revision);
 	EspFormHeader(EspUInt32 type, EspUInt32 dataSize, EspUInt32 flags,
-		EspFormID formID, EspUInt32 revision, EspUInt32 version);
+		EspFormID formID, EspUInt32 revision, EspUInt16 version);
 	EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 		EspUInt32 flags, EspFormID formID, EspUInt32 revision,
-		EspUInt32 version, EspUInt16 unknown);
+		EspUInt16 version, EspUInt16 unknown);
 	
 	void Write(EspWriter& w);
 };

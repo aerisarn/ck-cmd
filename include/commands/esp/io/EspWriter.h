@@ -3,14 +3,14 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <fstream>
 #include <string>
 
 
 class EspWriter
 {
 private:
-	FILE* out;
-	uint8_t* buffer;
+	std::ofstream* out;
 
 	inline uint32_t SwapType(uint32_t code)
 	{
@@ -28,20 +28,18 @@ public:
 	template <typename T>
 	void Write(T data)
 	{
-		if (buffer)
-		{
-			memcpy(buffer, &data, sizeof(T));
-			buffer += sizeof(T);
-		}
-		else 
-		{
-			fwrite(&data, sizeof(T), 1, out);
-		}
+		out->write((char*)&data, sizeof(data));
 	}
 
 	inline void WriteType(uint32_t code)
 	{
 		Write<uint32_t>(SwapType(code));
+	}
+
+	inline void WriteZString(std::string str)
+	{
+		const char* s = str.c_str();
+		out->write(s, str.size() + 1);
 	}
 };
 

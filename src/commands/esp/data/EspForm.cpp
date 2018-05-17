@@ -31,7 +31,7 @@ EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 
 EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 		EspUInt32 flags, EspFormID formID, EspUInt32 revision,
-		EspUInt32 version) 
+		EspUInt16 version) 
 	: Unknown(0)
 {
 	SetType(type);
@@ -45,7 +45,7 @@ EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 
 EspFormHeader::EspFormHeader(EspUInt32 type, EspUInt32 dataSize,
 		EspUInt32 flags, EspFormID formID, EspUInt32 revision,
-		EspUInt32 version, EspUInt16 unknown)
+		EspUInt16 version, EspUInt16 unknown)
 {
 	SetType(type);
 	SetDataSize(dataSize);
@@ -63,7 +63,7 @@ void EspFormHeader::Write(EspWriter& w)
 	w.Write<EspUInt32>(GetFlags());
 	w.Write<EspFormID>(GetFormID());
 	w.Write<EspUInt32>(GetRevision());
-	w.Write<EspUInt32>(GetVersion());
+	w.Write<EspUInt16>(GetVersion());
 	w.Write<EspUInt16>(GetUnknown());
 }
 
@@ -86,5 +86,6 @@ void EspForm::WriteField(EspFieldHeader& h, EspWriter& w)
 		w.Write<EspUInt32>(h.size);
 		h.size = 0;
 	}
-	w.Write<EspFieldHeader>(h);
+	w.WriteType(h.type);
+	w.Write<EspUInt16>(h.size);
 }
