@@ -5,97 +5,240 @@ See the included LICENSE file
 */
 
 #include <core/FBXWrangler.h>
-//
-//using namespace ckcmd::FBX;
-//
+#include <core/EulerAngles.h>
+#include <core/MathHelper.h>
+
+#include <commands/Geometry.h>
+
+using namespace ckcmd::FBX;
+using namespace  ckcmd::Geometry;
+
 ////extern ConfigurationManager Config;
-//
-//FBXWrangler::FBXWrangler() {
-//	sdkManager = FbxManager::Create();
-//
-//	FbxIOSettings* ios = FbxIOSettings::Create(sdkManager, IOSROOT);
-//	sdkManager->SetIOSettings(ios);
-//
-//	NewScene();
-//}
-//
-//FBXWrangler::~FBXWrangler() {
-//	if (scene)
-//		CloseScene();
-//
-//	if (sdkManager)
-//		sdkManager->Destroy();
-//}
-//
-//void FBXWrangler::NewScene() {
-//	if (scene)
-//		CloseScene();
-//
-//	scene = FbxScene::Create(sdkManager, "ckcmd");
-//}
-//
-//void FBXWrangler::CloseScene() {
-//	if (scene)
-//		scene->Destroy();
-//	
-//	scene = nullptr;
-//	comName.clear();
-//}
-//
-//void FBXWrangler::AddGeometry(const std::string& shapeName, const std::vector<Vector3>* verts, const std::vector<Vector3>* norms, const std::vector<Triangle>* tris, const std::vector<TexCoord>* uvs) {
-//	if (!verts || verts->empty())
-//		return;
-//
-//	FbxMesh* m = FbxMesh::Create(sdkManager, shapeName.c_str());
-//	
-//	FbxGeometryElementNormal* normElement = nullptr;
-//	if (norms && !norms->empty()) {
-//		normElement = m->CreateElementNormal();
-//		normElement->SetMappingMode(FbxLayerElement::eByControlPoint);
-//		normElement->SetReferenceMode(FbxLayerElement::eDirect);
-//	}
-//	
-//	FbxGeometryElementUV* uvElement = nullptr;
-//	if (uvs && !uvs->empty()) {
-//		std::string uvName = shapeName + "UV";
-//		uvElement = m->CreateElementUV(uvName.c_str());
-//		uvElement->SetMappingMode(FbxGeometryElement::eByControlPoint);
-//		uvElement->SetReferenceMode(FbxGeometryElement::eDirect);
-//	}
-//
-//	m->InitControlPoints((*verts).size());
-//	FbxVector4* points = m->GetControlPoints();
-//
-//	for (int i = 0; i < m->GetControlPointsCount(); i++) {
-//		points[i] = FbxVector4((*verts)[i].x, (*verts)[i].y, (*verts)[i].z);
-//		if (normElement)
-//			normElement->GetDirectArray().Add(FbxVector4((*norms)[i].x, (*norms)[i].y, (*norms)[i].z));
-//		if (uvElement)
-//			uvElement->GetDirectArray().Add(FbxVector2((*uvs)[i].u, (*uvs)[i].v));
-//	}
-//
-//	if (tris) {
-//		for (auto &t : (*tris)) {
-//			m->BeginPolygon();
-//			m->AddPolygon(t.v1);
-//			m->AddPolygon(t.v2);
-//			m->AddPolygon(t.v3);
-//			m->EndPolygon();
-//		}
-//	}
-//
-//	FbxNode* mNode = FbxNode::Create(sdkManager, shapeName.c_str());
-//	mNode->SetNodeAttribute(m);
-//
-//	// Intended for Maya
-//	mNode->LclScaling.Set(FbxDouble3(1, 1, 1));
-//	mNode->LclRotation.Set(FbxDouble3(-90, 0, 0));
-//	mNode->LclTranslation.Set(FbxDouble3(0, 120, 0));
-//
-//	FbxNode* rootNode = scene->GetRootNode();
-//	rootNode->AddChild(mNode);
-//}
-//
+
+FBXWrangler::FBXWrangler() {
+	sdkManager = FbxManager::Create();
+
+	FbxIOSettings* ios = FbxIOSettings::Create(sdkManager, IOSROOT);
+	sdkManager->SetIOSettings(ios);
+
+	NewScene();
+}
+
+FBXWrangler::~FBXWrangler() {
+	if (scene)
+		CloseScene();
+
+	if (sdkManager)
+		sdkManager->Destroy();
+}
+
+void FBXWrangler::NewScene() {
+	if (scene)
+		CloseScene();
+
+	scene = FbxScene::Create(sdkManager, "ckcmd");
+}
+
+void FBXWrangler::CloseScene() {
+	if (scene)
+		scene->Destroy();
+	
+	scene = nullptr;
+	comName.clear();
+}
+
+
+class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
+	const NifInfo& this_info;
+	FbxScene& scene;
+	deque<FbxNode*> build_stack;
+	set<void*>& alreadyVisitedNodes;
+	map<void*, FbxNode*> built_nodes;
+
+	FbxNode* AddGeometry(NiTriStrips& node) {
+		const string& shapeName = node.GetName();
+
+		if (node.GetData() == NULL) return FbxNode::Create(&scene, shapeName.c_str());
+
+		const vector<Vector3>& verts = node.GetData()->GetVertices();
+		const vector<Vector3>& norms = node.GetData()->GetNormals();
+
+		vector<Triangle>& tris = vector<Triangle>(0);
+		vector<TexCoord>& uvs = vector<TexCoord>(0);
+
+		if (node.GetData()->IsSameType(NiTriStripsData::TYPE)) {
+			NiTriStripsDataRef ref = DynamicCast<NiTriStripsData>(node.GetData());
+			tris = triangulate(ref->GetPoints());
+			uvs = ref->GetUvSets()[0];
+		}
+
+		return AddGeometry(shapeName, verts, norms, tris, uvs);
+	}
+
+	FbxNode* AddGeometry(NiTriShape& node) {
+
+		const string& shapeName = node.GetName();
+
+		if (node.GetData() == NULL) return FbxNode::Create(&scene, shapeName.c_str());
+
+		const vector<Vector3>& verts = node.GetData()->GetVertices();
+		const vector<Vector3>& norms = node.GetData()->GetNormals();
+
+		vector<Triangle>& tris = vector<Triangle>(0);
+		vector<TexCoord>& uvs = vector<TexCoord>(0);
+
+		if (node.GetData()->IsSameType(NiTriShapeData::TYPE)) {
+			NiTriShapeDataRef ref = DynamicCast<NiTriShapeData>(node.GetData());
+			tris = ref->GetTriangles();
+			uvs = ref->GetUvSets()[0];
+		}
+
+		if (verts.empty())
+			return FbxNode::Create(&scene, shapeName.c_str());
+
+		return AddGeometry(shapeName, verts, norms, tris, uvs);
+	}
+
+	FbxNode* AddGeometry(const string& shapeName, 
+							const vector<Vector3>& verts,
+							const vector<Vector3>& norms,
+							const vector<Triangle>& tris,
+							vector<TexCoord>& uvs) {
+
+		FbxMesh* m = FbxMesh::Create(&scene, shapeName.c_str());
+
+		FbxGeometryElementNormal* normElement = nullptr;
+		if (!norms.empty()) {
+			normElement = m->CreateElementNormal();
+			normElement->SetMappingMode(FbxLayerElement::eByControlPoint);
+			normElement->SetReferenceMode(FbxLayerElement::eDirect);
+		}
+
+		FbxGeometryElementUV* uvElement = nullptr;
+		if (uvs.empty()) {
+			std::string uvName = shapeName + "UV";
+			uvElement = m->CreateElementUV(uvName.c_str());
+			uvElement->SetMappingMode(FbxGeometryElement::eByControlPoint);
+			uvElement->SetReferenceMode(FbxGeometryElement::eDirect);
+		}
+
+		m->InitControlPoints(verts.size());
+		FbxVector4* points = m->GetControlPoints();
+
+		for (int i = 0; i < m->GetControlPointsCount(); i++) {
+			points[i] = FbxVector4(verts[i].x, verts[i].y, verts[i].z);
+			if (normElement)
+				normElement->GetDirectArray().Add(FbxVector4(norms[i].x, norms[i].y, norms[i].z));
+			if (uvElement)
+				uvElement->GetDirectArray().Add(FbxVector2(uvs[i].u, uvs[i].v));
+		}
+
+		if (!tris.empty()) {
+			for (auto &t : tris) {
+				m->BeginPolygon();
+				m->AddPolygon(t.v1);
+				m->AddPolygon(t.v2);
+				m->AddPolygon(t.v3);
+				m->EndPolygon();
+			}
+		}
+
+		FbxNode* mNode = FbxNode::Create(&scene, shapeName.c_str());
+		//parent->AddChild(mNode);
+		//setTransform(&node, mNode);
+		mNode->SetNodeAttribute(m);
+
+		// Intended for Maya
+		//mNode->LclScaling.Set(FbxDouble3(1, 1, 1));
+		//mNode->LclRotation.Set(FbxDouble3(-90, 0, 0));
+		//mNode->LclTranslation.Set(FbxDouble3(0, 120, 0));
+
+		return mNode;
+	}
+
+	FbxNode* setTransform(NiAVObject* av, FbxNode* node) {
+		Vector3 translation = av->GetTranslation();
+		//
+		node->LclTranslation.Set(FbxDouble3(translation.x, translation.y, translation.z));
+
+		Quaternion rotation = av->GetRotation().AsQuaternion();
+		Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
+		EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+		node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+		return node;
+	}
+
+public:
+
+	FBXBuilderVisitor(NiObject& rootNode, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info) :
+		RecursiveFieldVisitor(*this, info),
+		alreadyVisitedNodes(set<void*>()),
+		this_info(info),
+		scene(scene)
+	{
+		build_stack.push_front(&sceneNode);
+		rootNode.accept(*this, info);
+	}
+
+	virtual inline void start(NiObject& in, const NifInfo& info) {}
+
+	virtual inline void end(NiObject& in, const NifInfo& info) {
+		build_stack.pop_front(); 
+	}
+
+	//Always insert into the stack to be consistant
+	template<class T>
+	inline void visit_object(T& obj) {
+		void* ptr = &obj;
+		FbxNode* parent = build_stack.front();
+		FbxNode* current = NULL;
+		if (alreadyVisitedNodes.insert(&obj).second) {
+			current = build(obj, parent);
+			built_nodes[ptr] = current;
+		}
+		else {
+			current = built_nodes[ptr];			
+		}
+		parent->AddChild(current);
+		build_stack.push_front(current);
+	}
+
+	template<class T>
+	inline void visit_compound(T& obj) {}
+
+	template<class T>
+	inline void visit_field(T& obj) {}
+
+	template<class T>
+	FbxNode* build(T& obj, FbxNode* parent) {
+		NiObject* pobj = (NiObject*)&obj;
+		if (pobj->IsDerivedType(NiAVObject::TYPE)) {
+			NiAVObjectRef av = DynamicCast<NiAVObject>(pobj);
+			FbxNode* node = FbxNode::Create(&scene, av->GetName().c_str());
+			//parent->AddChild(node);
+			return setTransform(av, node);
+		}
+		return FbxNode::Create(&scene, "");
+	}
+
+	template<>
+	FbxNode* build(NiTriShape& obj, FbxNode* parent) {
+		return setTransform(&obj, AddGeometry(obj));
+	}
+
+	template<>
+	FbxNode* build(NiTriStrips& obj, FbxNode* parent) {
+		return setTransform(&obj, AddGeometry(obj));
+	}
+
+};
+
+
+void FBXWrangler::AddNif(NifFile& nif) {
+	NiObjectRef root = nif.GetRoot();
+	FBXBuilderVisitor(*root, *scene->GetRootNode(), *scene, nif.GetInfo());
+}
+
 //void FBXWrangler::AddSkeleton(NifFile* nif, bool onlyNonSkeleton) {
 //	auto root = nif->FindBlockByName<NiNode>(Config["Anim/SkeletonRootName"]);
 //	auto com = nif->FindBlockByName<NiNode>("COM");
@@ -279,37 +422,37 @@ See the included LICENSE file
 //	}
 //}
 //
-//bool FBXWrangler::ExportScene(const std::string& fileName) {
-//	FbxExporter* iExporter = FbxExporter::Create(sdkManager, "");
-//	if (!iExporter->Initialize(fileName.c_str(), -1, sdkManager->GetIOSettings())) {
-//		iExporter->Destroy();
-//		return false;
-//	}
-//
-//	// Export options determine what kind of data is to be imported.
-//	// The default (except for the option eEXPORT_TEXTURE_AS_EMBEDDED)
-//	// is true, but here we set the options explicitly.
-//	FbxIOSettings* ios = sdkManager->GetIOSettings();
-//	ios->SetBoolProp(EXP_FBX_MATERIAL, true);
-//	ios->SetBoolProp(EXP_FBX_TEXTURE, true);
-//	ios->SetBoolProp(EXP_FBX_EMBEDDED, false);
-//	ios->SetBoolProp(EXP_FBX_SHAPE, true);
-//	ios->SetBoolProp(EXP_FBX_GOBO, true);
-//	ios->SetBoolProp(EXP_FBX_ANIMATION, true);
-//	ios->SetBoolProp(EXP_FBX_GLOBAL_SETTINGS, true);
-//
-//	iExporter->SetFileExportVersion(FBX_2014_00_COMPATIBLE);
-//
-//	sdkManager->CreateMissingBindPoses(scene);
-//
-//	FbxAxisSystem axis(FbxAxisSystem::eMax);
-//	axis.ConvertScene(scene);
-//
-//	bool status = iExporter->Export(scene);
-//	iExporter->Destroy();
-//
-//	return status;
-//}
+bool FBXWrangler::ExportScene(const std::string& fileName) {
+	FbxExporter* iExporter = FbxExporter::Create(sdkManager, "");
+	if (!iExporter->Initialize(fileName.c_str(), -1, sdkManager->GetIOSettings())) {
+		iExporter->Destroy();
+		return false;
+	}
+
+	// Export options determine what kind of data is to be imported.
+	// The default (except for the option eEXPORT_TEXTURE_AS_EMBEDDED)
+	// is true, but here we set the options explicitly.
+	FbxIOSettings* ios = sdkManager->GetIOSettings();
+	ios->SetBoolProp(EXP_FBX_MATERIAL, true);
+	ios->SetBoolProp(EXP_FBX_TEXTURE, true);
+	ios->SetBoolProp(EXP_FBX_EMBEDDED, false);
+	ios->SetBoolProp(EXP_FBX_SHAPE, true);
+	ios->SetBoolProp(EXP_FBX_GOBO, true);
+	ios->SetBoolProp(EXP_FBX_ANIMATION, true);
+	ios->SetBoolProp(EXP_FBX_GLOBAL_SETTINGS, true);
+
+	iExporter->SetFileExportVersion(FBX_2014_00_COMPATIBLE, FbxSceneRenamer::eNone);
+
+	sdkManager->CreateMissingBindPoses(scene);
+
+	//FbxAxisSystem axis(FbxAxisSystem::eMax);
+	//axis.ConvertScene(scene);
+
+	bool status = iExporter->Export(scene);
+	iExporter->Destroy();
+
+	return status;
+}
 //
 //bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOptions& options) {
 //	FbxIOSettings* ios = sdkManager->GetIOSettings();

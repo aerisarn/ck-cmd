@@ -69,8 +69,8 @@ namespace FBX {
 		FbxManager * sdkManager = nullptr;
 		FbxScene* scene = nullptr;
 
-		std::string comName;
-		std::map<std::string, FBXShape> shapes;
+		string comName;
+		map<string, FBXShape> shapes;
 
 	public:
 		FBXWrangler();
@@ -79,33 +79,33 @@ namespace FBX {
 		void NewScene();
 		void CloseScene();
 
-		void GetShapeNames(std::vector<std::string>& outNames) {
-			for (auto &s : shapes)
-				outNames.push_back(s.first);
-		}
+		//void GetShapeNames(vector<string>& outNames) {
+		//	for (auto &s : shapes)
+		//		outNames.push_back(s.first);
+		//}
 
-		FBXShape* GetShape(const std::string& shapeName) {
-			return &(shapes[shapeName]);
-		}
+		//FBXShape* GetShape(const string& shapeName) {
+		//	return &(shapes[shapeName]);
+		//}
 
-		void AddSkeleton(NifFile* nif, bool onlyNonSkeleton = false);
+		//void AddSkeleton(NifFile* nif, bool onlyNonSkeleton = false);
 
-		// Recursively add bones to the skeleton in a depth-first manner
-		FbxNode* AddLimb(NifFile* nif, NiNode* nifBone);
-		void AddLimbChildren(FbxNode* node, NifFile* nif, NiNode* nifBone);
+		//// Recursively add bones to the skeleton in a depth-first manner
+		//FbxNode* AddLimb(NifFile* nif, NiNode* nifBone);
+		//void AddLimbChildren(FbxNode* node, NifFile* nif, NiNode* nifBone);
 
-		void AddNif(NifFile* meshNif, const std::string& shapeName = "");
+		void AddNif(NifFile& nif);
 		//void AddSkinning(AnimInfo* anim, const std::string& shapeName = "");
-		void AddGeometry(const std::string& shapeName,
-			const std::vector<Vector3>& verts,
-			const std::vector<Vector3>& norms,
-			const std::vector<Triangle>& tris,
-			const std::vector<TexCoord>& uvs);
+		//void AddGeometry(const std::string& shapeName,
+		//	const std::vector<Vector3>& verts,
+		//	const std::vector<Vector3>& norms,
+		//	const std::vector<Triangle>& tris,
+		//	const std::vector<TexCoord>& uvs);
 
 		bool ExportScene(const std::string& fileName);
 		bool ImportScene(const std::string& fileName, const FBXImportOptions& options = FBXImportOptions());
 
-		bool LoadMeshes(const FBXImportOptions& options);
+		//bool LoadMeshes(const FBXImportOptions& options);
 	};	
 	
 } 

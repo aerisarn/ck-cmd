@@ -66,6 +66,8 @@ using namespace Niflib;
 			Ref<T> FindBlockByName(const std::string& name);
 			NiObjectRef GetParentNode(NiObjectRef childBlock);
 
+			NiObjectRef GetRoot() { return GetFirstRoot(blocks); }
+
 		};
 	}
 }
