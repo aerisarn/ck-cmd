@@ -12,6 +12,8 @@ namespace Geometry {
 
 	using namespace Niflib;
 
+	Vector3 centeroid(const vector<Vector3>& in);
+
 	void CalculateNormals(const vector<Vector3>& vertices, const vector<Triangle> faces,
 		vector<Vector3>& normals, Vector3& COM, bool sphericalNormals = false, bool calculateCOM = false);
 

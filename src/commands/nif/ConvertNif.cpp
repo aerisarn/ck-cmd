@@ -65,23 +65,23 @@ NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
 	shapeData->SetNumTrianglePoints(triangles.size() * 3);
 	shapeData->SetHasTriangles(1);
 	shapeData->SetTriangles(triangles);
+	shapeData->SetHasNormals(1);
+	shapeData->SetNormals(stripsData->GetNormals());
 
-	////Tangents, Bitangents and Normals
-	//vector<Vector3> vertices = shapeData->GetVertices();
-	//Vector3 COM;
-	//if (vertices.size() != 0)
-	//	COM = (COM / 2) + (centeroid(vertices) / 2);
-	//vector<Triangle> faces = shapeData->GetTriangles();
-	//vector<Vector3> normals = shapeData->GetNormals();
-	//if (vertices.size() != 0 && faces.size() != 0 && shapeData->GetUvSets().size() != 0) {
-	//	vector<TexCoord> uvs = shapeData->GetUvSets()[0];
-	//	//Tangent Space
-	//	//TriGeometryContext g(vertices, COM, faces, uvs, normals);
-	//	//shapeData->SetHasNormals(1);
-	//	//shapeData->SetNormals(normals);
-	//	//shapeData->SetTangents(g.tangents);
-	//	//shapeData->SetBitangents(g.bitangents);
-	//}
+	vector<Vector3> vertices = shapeData->GetVertices();
+	Vector3 COM;
+	if (vertices.size() != 0)
+		COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
+	vector<Triangle> faces = shapeData->GetTriangles();
+	vector<Vector3> normals = shapeData->GetNormals();
+	if (vertices.size() != 0 && faces.size() != 0 && shapeData->GetUvSets().size() != 0) {
+		vector<TexCoord> uvs = shapeData->GetUvSets()[0];
+		TriGeometryContext g(vertices, COM, faces, uvs, normals);
+		shapeData->SetHasNormals(1);
+		shapeData->SetNormals(normals);
+		shapeData->SetTangents(g.tangents);
+		shapeData->SetBitangents(g.bitangents);
+	}
 
 	shapeRef->SetData(DynamicCast<NiGeometryData>(shapeData));
 

@@ -37,7 +37,7 @@ vector<Triangle> ckcmd::Geometry::triangulate(vector<vector<unsigned short>> str
 	return tris;
 }
 
-Vector3 centeroid(const vector<Vector3>& in) {
+Vector3 ckcmd::Geometry::centeroid(const vector<Vector3>& in) {
 	Vector3 centeroid = Vector3(0.0, 0.0, 0.0);
 	for (Vector3 vertex : in) {
 		centeroid += vertex;

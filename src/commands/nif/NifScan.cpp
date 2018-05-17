@@ -347,6 +347,19 @@ void BeginScan()
 					}
 				}
 
+				if (blocks[i]->IsSameType(BSShaderTextureSet::TYPE)) {
+					BSShaderTextureSetRef set = DynamicCast<BSShaderTextureSet>(blocks[i]);
+					if (set->GetTextures().size() != 0) {
+						for (std::string texture : set->GetTextures()) {
+							//This part gave me so many issues.
+							bool isTexture = (texture.substr(0, 7) != "textures"); //Possible issue: If the user has capitalized "textures"
+							if (!isTexture) {
+								Log::Info("Block[%i]: TextureSet includes paths not relative to data.", i);
+							}
+						}
+					}
+				}
+				
 				if (blocks[i]->IsSameType(NiTriShape::TYPE)) {
 					NiTriShapeRef shape = DynamicCast<NiTriShape>(blocks[i]);
 					NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(shape->GetData());
