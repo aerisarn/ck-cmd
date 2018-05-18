@@ -56,6 +56,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	deque<FbxNode*> build_stack;
 	set<void*>& alreadyVisitedNodes;
 	map<void*, FbxNode*> built_nodes;
+	map<NiSkinInstance*, NiTriBasedGeom*> skins;
+	NifFile& nif_file;
 
 	FbxNode* AddGeometry(NiTriStrips& node) {
 		const string& shapeName = node.GetName();
@@ -169,19 +171,75 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
 		EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
 		node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+		node->LclScaling.Set(FbxDouble3(av->GetScale(), av->GetScale(), av->GetScale()));
+
 		return node;
+	}
+
+	void processSkins() {
+		if (skins.empty())
+			return;
+		for (pair<NiSkinInstance*, NiTriBasedGeom*> skin : skins) {
+			NiTriBasedGeomRef mesh = skin.second;
+			
+			NiSkinDataRef data = skin.first->GetData();
+			NiSkinPartitionRef part = skin.first->GetSkinPartition();
+
+			std::string shapeSkin = mesh->GetName() + "_skin";
+			FbxSkin* fbx_skin = FbxSkin::Create(&scene, shapeSkin.c_str());
+			int boneIndex = 0;
+			for (NiNode* bone : skin.first->GetBones()) {
+				FbxNode* jointNode = built_nodes[bone];
+				if (jointNode) {
+					std::string boneSkin = bone->GetName() + "_skin";
+					FbxCluster* aCluster = FbxCluster::Create(&scene, boneSkin.c_str());
+
+					aCluster->SetLink(jointNode);
+					aCluster->SetLinkMode(FbxCluster::eTotalOne);
+
+					BoneData& boneData = data->GetBoneList()[boneIndex];
+
+					Vector3 translation = data->GetSkinTransform().translation;
+					Quaternion rotation = data->GetSkinTransform().rotation.AsQuaternion();
+					float scale = data->GetSkinTransform().scale;
+
+					FbxAMatrix matrix;
+					matrix.SetT(FbxDouble3(translation.x, translation.y, translation.z));
+					matrix.SetQ(FbxQuaternion(rotation.x, rotation.y, rotation.z, rotation.w));
+					matrix.SetS(FbxVector4(scale, scale, scale));
+
+					aCluster->SetTransformLinkMatrix(matrix);
+
+					for (BoneVertData& boneVertData : boneData.vertexWeights) {
+						aCluster->AddControlPointIndex(boneVertData.index, boneVertData.weight);
+					}
+					fbx_skin->AddCluster(aCluster);
+
+				}
+				boneIndex++;
+			}
+
+			FbxMesh* shapeMesh = (FbxMesh*)built_nodes[&*mesh]->GetNodeAttribute();
+			if (shapeMesh)
+				shapeMesh->AddDeformer(fbx_skin);
+
+		}
 	}
 
 public:
 
-	FBXBuilderVisitor(NiObject& rootNode, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info) :
+	FBXBuilderVisitor(NifFile& nif, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info) :
 		RecursiveFieldVisitor(*this, info),
+		nif_file(nif),
 		alreadyVisitedNodes(set<void*>()),
 		this_info(info),
 		scene(scene)
 	{
 		build_stack.push_front(&sceneNode);
-		rootNode.accept(*this, info);
+		NiObjectRef rootNode = nif.GetRoot();
+		rootNode->accept(*this, info);
+		//Sort out skinning now
+		processSkins();
 	}
 
 	virtual inline void start(NiObject& in, const NifInfo& info) {}
@@ -222,16 +280,22 @@ public:
 			//parent->AddChild(node);
 			return setTransform(av, node);
 		}
-		return FbxNode::Create(&scene, "");
+		return FbxNode::Create(&scene, pobj->GetInternalType().GetTypeName().c_str());
 	}
 
 	template<>
 	FbxNode* build(NiTriShape& obj, FbxNode* parent) {
+		//need to import the whole tree structure before skinning, so defer into a list
+		if (obj.GetSkinInstance() != NULL)
+			skins[&*(obj.GetSkinInstance())] = &obj;
 		return setTransform(&obj, AddGeometry(obj));
 	}
 
 	template<>
 	FbxNode* build(NiTriStrips& obj, FbxNode* parent) {
+		//need to import the whole tree structure before skinning, so defer into a list
+		if (obj.GetSkinInstance() != NULL)
+			skins[&*(obj.GetSkinInstance())] = &obj;
 		return setTransform(&obj, AddGeometry(obj));
 	}
 
@@ -239,8 +303,9 @@ public:
 
 
 void FBXWrangler::AddNif(NifFile& nif) {
-	NiObjectRef root = nif.GetRoot();
-	FBXBuilderVisitor(*root, *scene->GetRootNode(), *scene, nif.GetInfo());
+	//will cause problems due to the skinned meshes having flattened hierarchy, use an appropriate method
+	if (!nif.hasExternalSkin())
+		FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo());
 }
 
 //void FBXWrangler::AddSkeleton(NifFile* nif, bool onlyNonSkeleton) {

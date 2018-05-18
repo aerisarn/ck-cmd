@@ -35,7 +35,7 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 
 	Games& games = Games::Instance();
 	const Games::GamesPathMapT& installations = games.getGames();
-#if 1
+#if 0
 	for (const auto& bsa : games.bsas(Games::TES5)) {
 		std::cout << "Scan: " << bsa.filename() << std::endl;
 		BSAFile bsa_file(bsa);
@@ -62,9 +62,9 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 	}
 #else
 	FBXWrangler* wrangler = new FBXWrangler();
-	NifFile* nif = new NifFile("I:\\git_ref\\resources\\nifs\\in\\alduin.nif");
+	NifFile* nif = new NifFile("I:\\git_ref\\resources\\nifs\\in\\TestGoblin.nif");
 	wrangler->AddNif(*nif);
-	wrangler->ExportScene("I:\\git_ref\\resources\\nifs\\in\\alduin.fbx");
+	wrangler->ExportScene("I:\\git_ref\\resources\\nifs\\in\\TestGoblin.fbx");
 #endif
 
 	return true;

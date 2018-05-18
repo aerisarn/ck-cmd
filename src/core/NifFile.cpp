@@ -143,7 +143,7 @@ int NifFile::Load(const std::string& fileName) {
 		throw runtime_error("Unable to find an unique root: " + fileName);
 		return -2;
 	}
-//	PrepareData();
+	PrepareData();
 	isValid = true;
 	return 0;
 }
@@ -162,7 +162,7 @@ int NifFile::Load(std::istream& stream) {
 		throw runtime_error("Unable to find an unique root");
 		return -2;
 	}
-//	PrepareData();
+	PrepareData();
 	isValid = true;
 	return 0;
 }
@@ -1080,48 +1080,35 @@ int NifFile::Save(std::ostream& file) {
 //	return result;
 //}
 //
-//void NifFile::PrepareData() {
-//	hdr.FillStringRefs();
-//	LinkGeomData();
-//	TrimTexturePaths();
-//
-//	for (auto &shape : GetShapes()) {
-//		// Move triangle and vertex data from partition to shape
-//		if (hdr.GetVersion().User() >= 12 && hdr.GetVersion().Stream() == 100) {
-//			BSTriShape* bsTriShape = dynamic_cast<BSTriShape*>(shape);
-//			if (!bsTriShape)
-//				continue;
-//
-//			auto skinInst = hdr.GetBlock<NiSkinInstance>(shape->GetSkinInstanceRef());
-//			if (!skinInst)
-//				continue;
-//
-//			auto skinPart = hdr.GetBlock<NiSkinPartition>(skinInst->GetSkinPartitionRef());
-//			if (!skinPart)
-//				continue;
-//
-//			bsTriShape->SetVertexData(skinPart->vertData);
-//
-//			std::vector<Triangle> tris;
-//			for (auto &part : skinPart->partitions)
-//				for (auto &tri : part.trueTriangles)
-//					tris.push_back(tri);
-//
-//			bsTriShape->SetTriangles(tris);
-//
-//			auto dynamicShape = dynamic_cast<BSDynamicTriShape*>(bsTriShape);
-//			if (dynamicShape) {
-//				for (int i = 0; i < dynamicShape->GetNumVertices(); i++) {
-//					dynamicShape->vertData[i].vert.x = dynamicShape->dynamicData[i].x;
-//					dynamicShape->vertData[i].vert.y = dynamicShape->dynamicData[i].y;
-//					dynamicShape->vertData[i].vert.z = dynamicShape->dynamicData[i].z;
-//				}
-//			}
-//		}
-//	}
-//
-//	RemoveInvalidTris();
-//}
+void NifFile::PrepareData() {
+
+	set<void*> skinned_bones;
+
+	for (auto& block : blocks) {
+		if (block->IsDerivedType(NiSkinInstance::TYPE)) {
+			//find out all skinned bones;
+			NiSkinInstanceRef skin = DynamicCast<NiSkinInstance>(block);
+			for (auto& bone : skin->GetBones()) {
+				skinned_bones.insert(bone);
+			}
+		}
+		if (block->IsDerivedType(bhkBlendCollisionObject::TYPE))
+			isSkeleton = true;
+	}
+
+	if (skinned_bones.size() > 1) {
+		NiNodeRef root = DynamicCast<NiNode>(GetFirstRoot(blocks));
+		for (auto& child : root->GetChildren()) {
+			set<void*>::iterator it = skinned_bones.find(&*child);
+			if (it!= skinned_bones.end()) {
+				skinned_bones.erase(it);
+			}
+		}
+		if (skinned_bones.empty())
+			hasExternalSkinning = true;
+	}
+
+}
 //
 //void NifFile::FinalizeData() {
 //	for (auto &shape : GetShapes()) {

@@ -36,6 +36,10 @@ using namespace Niflib;
 			vector<NiObjectRef> blocks;
 			bool isValid = false;
 			bool hasUnknown = false;
+			bool hasExternalSkinning = false;
+			bool isSkeleton = false;
+
+			void PrepareData();
 
 		public:
 			NifFile() {}
@@ -48,6 +52,10 @@ using namespace Niflib;
 				Load(stream);
 			}
 
+			NiObjectRef getBlock(unsigned short index) {
+				return blocks[index];
+			}
+
 			NifInfo& GetInfo() { return hdr; }
 			//void CopyFrom(const NifFile& other);
 
@@ -58,6 +66,9 @@ using namespace Niflib;
 
 			bool IsValid() { return isValid; }
 			bool HasUnknown() { return hasUnknown; }
+			bool hasExternalSkin() { return hasExternalSkinning; }
+			bool isSkeletonOnly() { return isSkeleton; }
+	
 
 			void Create(const NifInfo& version);
 			void Clear();
