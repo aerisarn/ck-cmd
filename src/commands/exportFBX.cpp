@@ -62,8 +62,9 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 	}
 #else
 	FBXWrangler* wrangler = new FBXWrangler();
-	NifFile* nif = new NifFile("I:\\git_ref\\resources\\nifs\\in\\TestGoblin.nif");
-	wrangler->AddNif(*nif);
+	NifFile* skeleton = new NifFile("I:\\git_ref\\resources\\nifs\\in\\skeleton.nif");
+	NifFile* mesh = new NifFile("I:\\git_ref\\resources\\nifs\\in\\TestGoblin.nif");
+	wrangler->AddExternalSkinnedMeshes(*skeleton, {mesh});
 	wrangler->ExportScene("I:\\git_ref\\resources\\nifs\\in\\TestGoblin.fbx");
 #endif
 

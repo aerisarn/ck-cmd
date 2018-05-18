@@ -54,7 +54,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	const NifInfo& this_info;
 	FbxScene& scene;
 	deque<FbxNode*> build_stack;
-	set<void*>& alreadyVisitedNodes;
+	//set<void*>& alreadyVisitedNodes; 
 	map<void*, FbxNode*> built_nodes;
 	map<NiSkinInstance*, NiTriBasedGeom*> skins;
 	NifFile& nif_file;
@@ -176,6 +176,25 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		return node;
 	}
 
+	FbxNode* getBuiltNode(void* obj) {
+		NiObject* node = (NiObject*)obj;
+		if (node->IsSameType(NiNode::TYPE))
+		{
+			NiNodeRef noderef = DynamicCast<NiNode>(node);
+			if (noderef != NULL && !noderef->GetName().empty()) {
+				//by name:
+				for (pair<void*, FbxNode*> pair : built_nodes) {
+					NiNodeRef build = DynamicCast<NiNode>((NiObject*)pair.first);
+					if (build != NULL && build->GetName() == noderef->GetName())
+						return pair.second;
+				}
+			}
+		}
+		if (built_nodes.find(obj) != built_nodes.end())
+			return built_nodes[obj];
+		return NULL;
+	}
+
 	void processSkins() {
 		if (skins.empty())
 			return;
@@ -189,7 +208,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			FbxSkin* fbx_skin = FbxSkin::Create(&scene, shapeSkin.c_str());
 			int boneIndex = 0;
 			for (NiNode* bone : skin.first->GetBones()) {
-				FbxNode* jointNode = built_nodes[bone];
+				FbxNode* jointNode = getBuiltNode(bone);
 				if (jointNode) {
 					std::string boneSkin = bone->GetName() + "_skin";
 					FbxCluster* aCluster = FbxCluster::Create(&scene, boneSkin.c_str());
@@ -231,9 +250,10 @@ public:
 	FBXBuilderVisitor(NifFile& nif, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info) :
 		RecursiveFieldVisitor(*this, info),
 		nif_file(nif),
-		alreadyVisitedNodes(set<void*>()),
+		//alreadyVisitedNodes(set<void*>()),
 		this_info(info),
-		scene(scene)
+		scene(scene),
+		built_nodes(map<void*, FbxNode*>())
 	{
 		build_stack.push_front(&sceneNode);
 		NiObjectRef rootNode = nif.GetRoot();
@@ -241,6 +261,23 @@ public:
 		//Sort out skinning now
 		processSkins();
 	}
+
+	FBXBuilderVisitor(NifFile& nif, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info, map<void*, FbxNode*> nodeMap) :
+		RecursiveFieldVisitor(*this, info),
+		nif_file(nif),
+		//alreadyVisitedNodes(set<void*>()),
+		this_info(info),
+		scene(scene),
+		built_nodes(nodeMap)
+	{
+		build_stack.push_front(&sceneNode);
+		NiObjectRef rootNode = nif.GetRoot();
+		rootNode->accept(*this, info);
+		//Sort out skinning now
+		processSkins();
+	}
+
+	map<void*, FbxNode*> getBuiltNodesMap() { return built_nodes; }
 
 	virtual inline void start(NiObject& in, const NifInfo& info) {}
 
@@ -253,8 +290,8 @@ public:
 	inline void visit_object(T& obj) {
 		void* ptr = &obj;
 		FbxNode* parent = build_stack.front();
-		FbxNode* current = NULL;
-		if (alreadyVisitedNodes.insert(&obj).second) {
+		FbxNode* current = getBuiltNode(ptr);
+		if (current == NULL) {
 			current = build(obj, parent);
 			built_nodes[ptr] = current;
 			parent->AddChild(current);
@@ -303,9 +340,21 @@ public:
 
 
 void FBXWrangler::AddNif(NifFile& nif) {
-	//will cause problems due to the skinned meshes having flattened hierarchy, use an appropriate method
+	//will cause problems due to the skinned meshes having flattened hierarchy, use an appropriate method AddExternalSkinnedMeshes
 	if (!nif.hasExternalSkin())
 		FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo());
+}
+
+void FBXWrangler::AddExternalSkinnedMeshes(NifFile& skeleton, set<NifFile*> meshes) {
+	map<void*, FbxNode*> skeleton_nodes;
+	if (skeleton.isSkeletonOnly())
+		skeleton_nodes = FBXBuilderVisitor(skeleton, *scene->GetRootNode(), *scene, skeleton.GetInfo()).getBuiltNodesMap();
+	else
+		return;
+
+	for (auto& mesh : meshes)
+		if (mesh->hasExternalSkin())
+			FBXBuilderVisitor(*mesh, *scene->GetRootNode(), *scene, mesh->GetInfo(), skeleton_nodes);
 }
 
 //void FBXWrangler::AddSkeleton(NifFile* nif, bool onlyNonSkeleton) {
