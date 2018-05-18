@@ -150,7 +150,6 @@ int NifFile::Load(const std::string& fileName) {
 
 int NifFile::Load(std::istream& stream) {
 	Clear();
-	Clear();
 	try {
 		blocks = ReadNifList(stream, &hdr);
 	}
