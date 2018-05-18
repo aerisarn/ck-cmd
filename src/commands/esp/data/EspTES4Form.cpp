@@ -1,4 +1,12 @@
+#include "stdafx.h"
 #include <commands\esp\data\EspTES4Form.h>
+#include <core\log.h>
+
+EspTES4Form::EspTES4Form(const EspTES4Hedr hedr, const EspUInt32 intv)
+	: HEDR(hedr), INTV(intv), INCC(0)
+{
+	Log::Info("Creating default file header.");
+}
 
 void EspTES4Form::Write(EspWriter& w)
 {
@@ -64,6 +72,7 @@ void EspTES4Form::Write(EspWriter& w)
 	}
 }
 
+// Update form dataSize when editing info
 void EspTES4Form::UpdateSize()
 {
 	EspUInt16 size = 28; // All mandatory data is 28 bytes

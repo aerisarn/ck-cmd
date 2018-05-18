@@ -6,7 +6,8 @@ private: \
     type name; \
 public: \
     const type& Get##name##() const { return name; } \
-    void Set##name##(const type& val) { name = val; }
+    void Set##name##(const type& val) { name = val; \
+		UpdateSize(); }
 
 #include <commands\esp\data\EspForm.h>
 #include <vector>
@@ -44,8 +45,7 @@ class EspTES4Form : public EspForm
 	FORM_MEMBER(EspUInt32, INCC)
 
 public:
-	EspTES4Form(const EspTES4Hedr hedr, const EspUInt32 intv) 
-		: HEDR(hedr), INTV(intv), INCC(0) {}
+	EspTES4Form(const EspTES4Hedr hedr, const EspUInt32 intv);
 	~EspTES4Form() {}
 
 	void UpdateSize();

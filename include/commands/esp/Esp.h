@@ -9,6 +9,7 @@ class Esp
 {
 public:
 	Esp(std::string name, fs::path path, bool isMaster);
+	Esp(std::string name, bool isMaster);
 	~Esp();
 
 	void Save();

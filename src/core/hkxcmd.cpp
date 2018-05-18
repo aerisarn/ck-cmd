@@ -231,7 +231,6 @@ hkxcmdLine::hkxcmdLine(int argc, char **argv)
    this->argv = argv;
 }
 
-
 int _tmain(int argc, _TCHAR* argv[])
 {
 	ConsoleLogger console;
