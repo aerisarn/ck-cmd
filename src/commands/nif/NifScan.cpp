@@ -195,14 +195,12 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 
 	NiObjectRef root = GetFirstRoot(blocks);
 
-	info.userVersion = 12;
-	info.userVersion2 = 83;
-	info.version = Niflib::VER_20_2_0_7;
-
 	bsx_flags_t calculated = calculateSkyrimBSXFlags(blocks, info);
 	bsx_flags_t actual;
 
 	bool write = false;
+	bool hasVFOnShader = false;
+	vector<string> names = vector<string>();
 
 	for (int i = 0; i != blocks.size(); i++) {
 
@@ -254,7 +252,6 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 			Log::Info("Block[%i]: NiTriStrips needs to be triangulated.", i);
 		}
 
-		//not tested this.
 		if (blocks[i]->IsSameType(NiSkinPartition::TYPE)) {
 			for (SkinPartition partition : DynamicCast<NiSkinPartition>(blocks[i])->GetPartition()) {
 				if (partition.numStrips > 0)
@@ -282,10 +279,18 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 				}
 			}
 		}
+		if (blocks[i]->IsDerivedType(NiObjectNET::TYPE)) {
+			NiObjectNETRef  node = DynamicCast<NiObjectNET>(blocks[i]);
+			if (std::find(names.begin(), names.end(), node->GetName()) == names.end()) {
+				names.push_back(node->GetName());
+			}
+		}
 
 		if (blocks[i]->IsSameType(BSLightingShaderProperty::TYPE)) {
 			BSLightingShaderPropertyRef  shaderprop = DynamicCast<BSLightingShaderProperty>(blocks[i]);
-
+			if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) == SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) {
+				hasVFOnShader = true;
+			}
 			if (shaderprop->GetSkyrimShaderType() == BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP /*|| BSLightingShaderPropertyShaderType::ST_EYE_ENVMAP*/) {
 				if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) != SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) {
 					Log::Info("Block[%i]: ShaderType is 'Environment', but ShaderFlags1 does not include 'Environment Mapping'.", i);
@@ -349,7 +354,11 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 		if (blocks[i]->IsSameType(NiTriShape::TYPE)) {
 			NiTriShapeRef shape = DynamicCast<NiTriShape>(blocks[i]);
 			NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(shape->GetData());
+
 			if (data != NULL && shape != NULL && data != NULL) {
+				if (data->GetHasVertexColors() != hasVFOnShader) {
+					Log::Info("Block[%i]: Has Vertex Colors flag in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty", i);
+				}
 				if ((data->GetHasVertexColors()) && shape->GetShaderProperty() != NULL && (shape->GetShaderProperty()->GetShaderFlags2() & SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) != SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) {
 					vector<Color4> vc = data->GetVertexColors();
 					bool allWhite = true;
@@ -367,7 +376,6 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 
 			//scan if normals are incorrect
 			//scan if NiAlphaProperty is below BSLightingShaderProperty
-			//scan to check if vertex is checked AND shader flag is.
 		}
 
 		//check NiNode children names and if they are unique to their parent.
@@ -407,8 +415,7 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine) {
 
 		for (const auto& bsa : games.bsas(Games::TES5)) {
 			std::cout << "Scan: " << bsa.filename() << std::endl;
-			if (bsa.filename() != "Skywind.bsa")
-				continue;
+
 			BSAFile bsa_file(bsa);
 			for (const auto& nif : bsa_file.assets(".*\.nif")) {
 				Log::Info("Current File: %s", nif.c_str());
