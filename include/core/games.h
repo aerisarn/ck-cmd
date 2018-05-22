@@ -50,6 +50,11 @@ namespace ckcmd {
 				}
 			}
 
+			const inline bool isGameInstalled(const Game& game) {
+				return pathMaps.find(game) != pathMaps.end() &&
+					fs::is_directory(pathMaps.at(game));
+			}
+
 			const inline fs::path data(const Game& game) {
 				return pathMaps.at(game) / "Data";
 			}
