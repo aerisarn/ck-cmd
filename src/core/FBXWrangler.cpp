@@ -39,6 +39,7 @@ void FBXWrangler::NewScene() {
 	scene = FbxScene::Create(sdkManager, "ckcmd");
 	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
 	scene->GetGlobalSettings().SetAxisSystem(maxSystem);
+	scene->GetRootNode()->LclScaling.Set(FbxDouble3(1.0, 1.0, 1.0));
 }
 
 void FBXWrangler::CloseScene() {
@@ -54,10 +55,13 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	const NifInfo& this_info;
 	FbxScene& scene;
 	deque<FbxNode*> build_stack;
-	//set<void*>& alreadyVisitedNodes; 
+	set<void*>& alreadyVisitedNodes;
+	set<void*>& alreadyStartedNodes;
 	map<void*, FbxNode*> built_nodes;
 	map<NiSkinInstance*, NiTriBasedGeom*> skins;
+	set<NiControllerManager*>& managers;
 	NifFile& nif_file;
+	FbxAnimStack* lAnimStack = NULL;
 
 	FbxNode* AddGeometry(NiTriStrips& node) {
 		const string& shapeName = node.GetName();
@@ -162,6 +166,13 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		return mNode;
 	}
 
+	FbxNode* setNullTransform(FbxNode* node) {
+		node->LclTranslation.Set(FbxDouble3(0.0,0.0,0.0));
+		node->LclScaling.Set(FbxDouble3(1.0,1.0,1.0));
+
+		return node;
+	}
+
 	FbxNode* setTransform(NiAVObject* av, FbxNode* node) {
 		Vector3 translation = av->GetTranslation();
 		//
@@ -195,6 +206,22 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		return NULL;
 	}
 
+	FbxNode* getBuiltNode(const string& name) {
+		for (pair<void*, FbxNode*> nodes : built_nodes)
+		{
+			NiObject* node = (NiObject*)nodes.first;
+			if (node->IsDerivedType(NiAVObject::TYPE))
+			{
+				NiAVObjectRef build = DynamicCast<NiAVObject>((NiObject*)nodes.first);
+				if(build != NULL && 
+					(build->GetName() == name || build->GetName() == name + (char)0 || build->GetName()+ (char)0 == name)) {
+					return nodes.second;
+				}
+			}
+		}
+		return NULL;
+	}
+
 	void processSkins() {
 		if (skins.empty())
 			return;
@@ -222,12 +249,12 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					Quaternion rotation = data->GetSkinTransform().rotation.AsQuaternion();
 					float scale = data->GetSkinTransform().scale;
 
-					FbxAMatrix matrix;
-					matrix.SetT(FbxDouble3(translation.x, translation.y, translation.z));
-					matrix.SetQ(FbxQuaternion(rotation.x, rotation.y, rotation.z, rotation.w));
-					matrix.SetS(FbxVector4(scale, scale, scale));
+					//FbxAMatrix matrix;
+					//matrix.SetT(FbxDouble3(translation.x, translation.y, translation.z));
+					//matrix.SetQ(FbxQuaternion(rotation.x, rotation.y, rotation.z, rotation.w));
+					//matrix.SetS(FbxVector4(scale, scale, scale));
 
-					aCluster->SetTransformLinkMatrix(matrix);
+					aCluster->SetTransformLinkMatrix(jointNode->EvaluateGlobalTransform());
 
 					for (BoneVertData& boneVertData : boneData.vertexWeights) {
 						aCluster->AddControlPointIndex(boneVertData.index, boneVertData.weight);
@@ -245,14 +272,258 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		}
 	}
 
+	string getPalettedString(NiStringPaletteRef nipalette, unsigned int offset) {
+		int find = nipalette->GetPalette().palette.find((char)0, offset);
+		string ret = nipalette->GetPalette().palette.substr(
+			offset,
+			find - offset
+		);
+		return ret;
+	}
+
+	template<typename interpolatorT>
+	void addTrack(interpolatorT& interpolator, FbxNode* node, FbxAnimLayer *lAnimLayer) {
+		//		throw runtime_error("addTrack: Unsupported interpolator type!");
+	}
+
+
+	// For reference
+	//enum KeyType {
+	//	LINEAR_KEY = 1, /*!< Use linear interpolation. */
+	//	QUADRATIC_KEY = 2, /*!< Use quadratic interpolation.  Forward and back tangents will be stored. */
+	//	TBC_KEY = 3, /*!< Use Tension Bias Continuity interpolation.  Tension, bias, and continuity will be stored. */
+	//	XYZ_ROTATION_KEY = 4, /*!< For use only with rotation data.  Separate X, Y, and Z keys will be stored instead of using quaternions. */
+	//	CONST_KEY = 5, /*!< Step function. Used for visibility keys in NiBoolData. */
+	//};
+
+
+	template<typename T>
+	bool getFieldIsValid(T* object, unsigned int field) {
+		vector<unsigned int> valid_translations_fields = object->GetValidFieldsIndices(this_info);
+		return find(valid_translations_fields.begin(), valid_translations_fields.end(), field)
+			!= valid_translations_fields.end();
+	}
+
+	void addKeys(KeyGroup<Vector3>& translations, FbxNode* node, FbxAnimLayer *lAnimLayer) {
+		if (translations.numKeys > 0) {
+			FbxAnimCurve* lCurve_Trans_X = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
+			if (lCurve_Trans_X == NULL)
+				lCurve_Trans_X = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+			FbxAnimCurve* lCurve_Trans_Y = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, false);
+			if (lCurve_Trans_Y == NULL)
+				lCurve_Trans_Y = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+			FbxAnimCurve* lCurve_Trans_Z = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, false);
+			if (lCurve_Trans_Z == NULL)
+				lCurve_Trans_Z = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+
+			FbxAnimCurveDef::EInterpolationType translation_interpolation_type = FbxAnimCurveDef::eInterpolationLinear;
+
+			if (getFieldIsValid(&translations, KeyGroup<Vector3>::FIELDS::interpolation)) {
+				switch (translations.interpolation) {
+				case CONST_KEY:
+					translation_interpolation_type = FbxAnimCurveDef::eInterpolationConstant;
+					break;
+				case LINEAR_KEY:
+					translation_interpolation_type = FbxAnimCurveDef::eInterpolationLinear;
+					break;
+				case QUADRATIC_KEY:
+					translation_interpolation_type = FbxAnimCurveDef::eInterpolationCubic;
+					break;
+				}
+			}
+
+			for (const Key<Vector3>& key : translations.keys) {
+
+				FbxTime lTime;
+				//key.time
+				lTime.SetTime(0, 0, key.time, 0, 0, 0, lTime.eFrames30);
+
+				lCurve_Trans_X->KeyModifyBegin();
+				int lKeyIndex = lCurve_Trans_X->KeyAdd(lTime);
+				lCurve_Trans_X->KeySetValue(lKeyIndex, key.data.x);
+				lCurve_Trans_X->KeySetInterpolation(lKeyIndex, translation_interpolation_type);
+				lCurve_Trans_X->KeyModifyEnd();
+
+				lCurve_Trans_Y->KeyModifyBegin();
+				lKeyIndex = lCurve_Trans_Y->KeyAdd(lTime);
+				lCurve_Trans_Y->KeySetValue(lKeyIndex, key.data.y);
+				lCurve_Trans_Y->KeySetInterpolation(lKeyIndex, translation_interpolation_type);
+				lCurve_Trans_Y->KeyModifyEnd();
+
+				lCurve_Trans_Z->KeyModifyBegin();
+				lKeyIndex = lCurve_Trans_Z->KeyAdd(lTime);
+				lCurve_Trans_Z->KeySetValue(lKeyIndex, key.data.z);
+				lCurve_Trans_Z->KeySetInterpolation(lKeyIndex, translation_interpolation_type);
+				lCurve_Trans_Z->KeyModifyEnd();
+			}
+		}
+	}
+
+
+
+	void addKeys(const Niflib::array<3, KeyGroup<float > >& rotations, FbxNode* node, FbxAnimLayer *lAnimLayer) {
+		if (!rotations.empty()) {
+			FbxAnimCurve* lCurve_Rot_X = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
+			if (lCurve_Rot_X == NULL)
+				lCurve_Rot_X = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+			FbxAnimCurve* lCurve_Rot_Y = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, false);
+			if (lCurve_Rot_Y == NULL)
+				lCurve_Rot_Y = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+			FbxAnimCurve* lCurve_Rot_Z = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, false);
+			if (lCurve_Rot_Z == NULL)
+				lCurve_Rot_Z = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+
+			Niflib::array<3, FbxAnimCurve* > curves;
+			curves[0] = lCurve_Rot_X;
+			curves[1] = lCurve_Rot_Y;
+			curves[2] = lCurve_Rot_Z;
+
+			for (int i = 0; i < 3; i++) {
+				for (const Key<float>& key : rotations.at(i).keys) {
+
+					FbxTime lTime;
+					//key.time
+					lTime.SetTime(0, 0, key.time, 0, 0, 0, lTime.eFrames30);
+
+					curves[i]->KeyModifyBegin();
+					int lKeyIndex = curves[i]->KeyAdd(lTime);
+					curves[i]->KeySetValue(lKeyIndex, float(rad2deg(key.data)));
+					curves[i]->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+					curves[i]->KeySetLeftDerivative(lKeyIndex, key.backward_tangent);
+					curves[i]->KeySetRightDerivative(lKeyIndex, key.forward_tangent);
+					curves[i]->KeyModifyEnd();
+				}
+			}
+		}
+	}
+
+	void addKeys(const vector<Key<Quaternion > >& rotations, FbxNode* node, FbxAnimLayer *lAnimLayer) {
+		if (!rotations.empty()) {
+			FbxAnimCurve* lCurve_Rot_X = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
+			if (lCurve_Rot_X == NULL)
+				lCurve_Rot_X = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+			FbxAnimCurve* lCurve_Rot_Y = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, false);
+			if (lCurve_Rot_Y == NULL)
+				lCurve_Rot_Y = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+			FbxAnimCurve* lCurve_Rot_Z = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, false);
+			if (lCurve_Rot_Z == NULL)
+				lCurve_Rot_Z = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+
+			for (const Key<Quaternion>& key : rotations) {
+				FbxTime lTime;
+				//key.time
+				lTime.SetTime(0, 0, key.time, 0, 0, 0, lTime.eFrames30);
+
+				FbxQuaternion fbx_quat(key.data.x, key.data.y, key.data.z, key.data.w);
+				FbxVector4 xyz = fbx_quat.DecomposeSphericalXYZ();
+
+				lCurve_Rot_X->KeyModifyBegin();
+				int lKeyIndex = lCurve_Rot_X->KeyAdd(lTime);
+				lCurve_Rot_X->KeySetValue(lKeyIndex, xyz[0]);
+				lCurve_Rot_X->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+				lCurve_Rot_X->KeyModifyEnd();
+
+				lCurve_Rot_Y->KeyModifyBegin();
+				lKeyIndex = lCurve_Rot_Y->KeyAdd(lTime);
+				lCurve_Rot_Y->KeySetValue(lKeyIndex, xyz[1]);
+				lCurve_Rot_Y->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+				lCurve_Rot_Y->KeyModifyEnd();
+
+				lCurve_Rot_Z->KeyModifyBegin();
+				lKeyIndex = lCurve_Rot_Z->KeyAdd(lTime);
+				lCurve_Rot_Z->KeySetValue(lKeyIndex, xyz[2]);
+				lCurve_Rot_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+				lCurve_Rot_Z->KeyModifyEnd();
+			}
+		}
+	}
+
+	template<>
+	void addTrack(NiTransformInterpolator& interpolator, FbxNode* node, FbxAnimLayer *lAnimLayer) {
+		//here we have an initial transform to be applied and a set of keys
+		FbxAMatrix local = node->EvaluateLocalTransform();
+		NiQuatTransform interp_local = interpolator.GetTransform();
+		//TODO: check these;
+		NiTransformDataRef data = interpolator.GetData();
+
+		if (data != NULL) {
+
+			//translations:
+			addKeys(data->GetTranslations(), node, lAnimLayer);
+
+			//rotations:
+			if (getFieldIsValid(&*data, NiKeyframeData::FIELDS::rotationType)) {
+				if (data->GetRotationType() == XYZ_ROTATION_KEY) {
+					//single float groups with tangents
+					addKeys(data->GetXyzRotations(), node, lAnimLayer);
+				}
+				else {
+					//threat as quaternion?
+					addKeys(data->GetQuaternionKeys(), node, lAnimLayer);
+				}
+			}
+			else {
+				addKeys(data->GetQuaternionKeys(), node, lAnimLayer);
+			}
+			//TODO: scale
+			//data->getS
+		}
+
+	}
+
+	void exportKFSequence(NiControllerSequenceRef ref) {
+		FbxAnimLayer* layer = FbxAnimLayer::Create(&scene, ref->GetName().c_str());
+		for (ControlledBlock block : ref->GetControlledBlocks()) {
+			//find the node
+			string controlledBlockID;
+			if (ref->GetStringPalette() != NULL) {
+				controlledBlockID = getPalettedString(ref->GetStringPalette(), block.nodeNameOffset);
+			}
+			else {
+				//default palette
+				controlledBlockID = block.nodeName;
+			}
+			FbxNode* animatedNode = getBuiltNode(controlledBlockID);
+
+			if (animatedNode == NULL)
+				throw runtime_error("exportKFSequence: Referenced node not found by name:" + controlledBlockID);
+			//TODO: use palette here too
+			//NiInterpolatorRef interpolator = block.interpolator;
+			if (block.interpolator != NULL) {
+				if (block.interpolator->IsDerivedType(NiTransformInterpolator::TYPE))
+					addTrack(*DynamicCast<NiTransformInterpolator>(block.interpolator), animatedNode, layer);
+				else
+					addTrack(*block.interpolator, animatedNode, layer);
+			}
+
+		}
+		lAnimStack->AddMember(layer);
+	}
+
+	void buildManagers() {
+		//Usually the root node for animations sequences
+		//if animation layer doesn't exist in the file, create it
+		if (!lAnimStack)
+			lAnimStack = FbxAnimStack::Create(&scene, "KF");
+
+		for (NiControllerManager* obj : managers) {
+			//Next Controller can be ignored because it should be referred by individual sequences
+			for (NiControllerSequenceRef ref : obj->GetControllerSequences()) {
+				exportKFSequence(ref);
+			}
+		}
+	}
+
 public:
 
 	FBXBuilderVisitor(NifFile& nif, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info) :
 		RecursiveFieldVisitor(*this, info),
 		nif_file(nif),
-		//alreadyVisitedNodes(set<void*>()),
+		alreadyVisitedNodes(set<void*>()),
+		alreadyStartedNodes(set<void*>()),
 		this_info(info),
 		scene(scene),
+		managers(set<NiControllerManager*>()),
 		built_nodes(map<void*, FbxNode*>())
 	{
 		build_stack.push_front(&sceneNode);
@@ -260,46 +531,65 @@ public:
 		rootNode->accept(*this, info);
 		//Sort out skinning now
 		processSkins();
+		buildManagers();
 	}
 
 	FBXBuilderVisitor(NifFile& nif, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info, map<void*, FbxNode*> nodeMap) :
 		RecursiveFieldVisitor(*this, info),
 		nif_file(nif),
-		//alreadyVisitedNodes(set<void*>()),
+		alreadyVisitedNodes(set<void*>()),
+		alreadyStartedNodes(set<void*>()),
 		this_info(info),
 		scene(scene),
+		managers(set<NiControllerManager*>()),
 		built_nodes(nodeMap)
 	{
 		build_stack.push_front(&sceneNode);
-		NiObjectRef rootNode = nif.GetRoot();
-		rootNode->accept(*this, info);
+		NiNodeRef rootNode = DynamicCast<NiNode>(nif.GetRoot());
+		for (NiObjectRef child : rootNode->GetChildren())
+			child->accept(*this, info);
 		//Sort out skinning now
 		processSkins();
+		buildManagers();
 	}
 
 	map<void*, FbxNode*> getBuiltNodesMap() { return built_nodes; }
 
-	virtual inline void start(NiObject& in, const NifInfo& info) {}
+	virtual inline void start(NiObject& in, const NifInfo& info) {
+		alreadyStartedNodes.insert(&in);
+	}
 
 	virtual inline void end(NiObject& in, const NifInfo& info) {
-		build_stack.pop_front(); 
+		if (alreadyVisitedNodes.find(&in) == alreadyVisitedNodes.end()) {
+			build_stack.pop_front();
+			alreadyVisitedNodes.insert(&in);
+		}
+		alreadyStartedNodes.erase(alreadyStartedNodes.find(&in));
 	}
 
 	//Always insert into the stack to be consistant
 	template<class T>
 	inline void visit_object(T& obj) {
-		void* ptr = &obj;
-		FbxNode* parent = build_stack.front();
-		FbxNode* current = getBuiltNode(ptr);
-		if (current == NULL) {
-			current = build(obj, parent);
-			built_nodes[ptr] = current;
-			parent->AddChild(current);
+		if (alreadyVisitedNodes.find(&obj) == alreadyVisitedNodes.end()) {
+			void* ptr = &obj;
+			FbxNode* parent = build_stack.front();
+			FbxNode* current = getBuiltNode(ptr);
+			if (current == NULL) {
+				current = build(obj, parent);
+				built_nodes[ptr] = current;
+				parent->AddChild(current);
+			}
+			build_stack.push_front(current);
 		}
-		else {
-			current = built_nodes[ptr];			
+	}
+
+	//Tailored over oblivion right now
+	template<>
+	inline void visit_object(NiControllerManager& obj) {
+		if (alreadyVisitedNodes.find(&obj) == alreadyVisitedNodes.end()) {
+			managers.insert(&obj);
+			alreadyVisitedNodes.insert(&obj);
 		}
-		build_stack.push_front(current);
 	}
 
 	template<class T>
@@ -314,10 +604,35 @@ public:
 		if (pobj->IsDerivedType(NiAVObject::TYPE)) {
 			NiAVObjectRef av = DynamicCast<NiAVObject>(pobj);
 			FbxNode* node = FbxNode::Create(&scene, av->GetName().c_str());
+			/*if (nif_file.isSkeletonOnly() && (av->GetName().find("NPC") == 0 || av->GetName().find("Bip") == 0)) {
+				NiNodeRef nibone = DynamicCast<NiNode>(av);
+				bool isTerminal = true;
+				bool isRoot = true;
+				for (NiAVObjectRef child : nibone->GetChildren()) {
+					if (child->GetName().find("NPC") == 0 || child->GetName().find("Bip") == 0)
+						isTerminal = false;
+				}
+				for (FbxNode* n : build_stack) {
+					std::string name(n->GetName());
+					if (name.find("NPC") == 0 || name.find("Bip") == 0)
+						isRoot = false;
+				}
+				FbxSkeleton* skel = FbxSkeleton::Create(&scene, av->GetName().c_str());
+				if (isRoot)
+					skel->SetSkeletonType(FbxSkeleton::eRoot);
+				else if (isTerminal)
+					skel->SetSkeletonType(FbxSkeleton::eEffector);
+				else
+					skel->SetSkeletonType(FbxSkeleton::eLimbNode);
+
+				node->SetNodeAttribute(skel);
+			}*/
 			//parent->AddChild(node);
 			return setTransform(av, node);
 		}
-		return FbxNode::Create(&scene, pobj->GetInternalType().GetTypeName().c_str());
+		return setNullTransform(
+			FbxNode::Create(&scene, pobj->GetInternalType().GetTypeName().c_str())
+		);
 	}
 
 	template<>
@@ -325,6 +640,7 @@ public:
 		//need to import the whole tree structure before skinning, so defer into a list
 		if (obj.GetSkinInstance() != NULL)
 			skins[&*(obj.GetSkinInstance())] = &obj;
+		//TODO: handle materials
 		return setTransform(&obj, AddGeometry(obj));
 	}
 
@@ -333,16 +649,16 @@ public:
 		//need to import the whole tree structure before skinning, so defer into a list
 		if (obj.GetSkinInstance() != NULL)
 			skins[&*(obj.GetSkinInstance())] = &obj;
+		//TODO: handle materials
 		return setTransform(&obj, AddGeometry(obj));
 	}
 
 };
 
-
 void FBXWrangler::AddNif(NifFile& nif) {
 	//will cause problems due to the skinned meshes having flattened hierarchy, use an appropriate method AddExternalSkinnedMeshes
-	if (!nif.hasExternalSkin())
-		FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo());
+	//if (!nif.hasExternalSkin())
+	FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo());
 }
 
 void FBXWrangler::AddExternalSkinnedMeshes(NifFile& skeleton, set<NifFile*> meshes) {

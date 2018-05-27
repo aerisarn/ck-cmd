@@ -38,10 +38,15 @@ using namespace Niflib;
 			bool hasUnknown = false;
 			bool hasExternalSkinning = false;
 			bool isSkeleton = false;
+			bool hasNiSequence = false;
+
+			set<void*> skinned_bones;
 
 			void PrepareData();
 
 		public:
+			string name;
+
 			NifFile() {}
 
 			NifFile(const std::string& fileName) {
@@ -68,6 +73,7 @@ using namespace Niflib;
 			bool HasUnknown() { return hasUnknown; }
 			bool hasExternalSkin() { return hasExternalSkinning; }
 			bool isSkeletonOnly() { return isSkeleton; }
+			bool hasAnimation() { return hasNiSequence; }
 	
 
 			void Create(const NifInfo& version);
