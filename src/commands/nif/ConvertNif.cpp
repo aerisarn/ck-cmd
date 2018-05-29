@@ -7,28 +7,29 @@
 #include <commands/Geometry.h>
 #include <core/games.h>
 #include <core/bsa.h>
+#include <core/NifFile.h>
 
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 using namespace ckcmd::Geometry;
+using namespace ckcmd::NIF;
 
 NiObjectRef rootNode;
 
 BSFadeNode* convert_root(NiObject* root)
 {
-	NiNode* rootRef = (NiNode*)(root);
-	BSFadeNode* fadeNode = new BSFadeNode();
-	fadeNode->SetName(rootRef->GetName());
-	fadeNode->SetExtraDataList(rootRef->GetExtraDataList());
-	fadeNode->SetFlags(524302);
-	fadeNode->SetController(rootRef->GetController());
-	fadeNode->SetCollisionObject(rootRef->GetCollisionObject());
-	fadeNode->SetChildren(rootRef->GetChildren());
+	int numref = root->GetNumRefs();
+	void* fadeNodeMem = (BSFadeNode*)malloc(sizeof(BSFadeNode));
+	BSFadeNode* fadeNode = new (fadeNodeMem) BSFadeNode();
 
 	//trick to overcome strong types inside refobjects;
-	memcpy(root, fadeNode, sizeof(BSFadeNode));
+	memcpy(root, fadeNode, sizeof(NiObject));
+	for (int i = 0; i < numref; i++)
+		root->AddRef();
+	//root->AddRef();
+	free(fadeNodeMem);
 
-	return fadeNode;
+	return (BSFadeNode*)root;
 }
 
 NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
@@ -53,8 +54,10 @@ NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
 
 	shapeData->SetHasVertices(stripsData->GetHasVertices());
 	shapeData->SetVertices(stripsData->GetVertices());
-	shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(4097));
+	shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(stripsData->GetVectorFlags()));
 	shapeData->SetUvSets(stripsData->GetUvSets());
+	if (!shapeData->GetUvSets().empty())
+		shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(shapeData->GetBsVectorFlags() | BSVF_HAS_UV));
 	shapeData->SetCenter(stripsData->GetCenter());
 	shapeData->SetRadius(stripsData->GetRadius());
 	shapeData->SetHasVertexColors(stripsData->GetHasVertexColors());
@@ -65,7 +68,8 @@ NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
 	shapeData->SetNumTrianglePoints(triangles.size() * 3);
 	shapeData->SetHasTriangles(1);
 	shapeData->SetTriangles(triangles);
-	shapeData->SetHasNormals(1);
+
+	shapeData->SetHasNormals(stripsData->GetHasNormals());
 	shapeData->SetNormals(stripsData->GetNormals());
 
 	vector<Vector3> vertices = shapeData->GetVertices();
@@ -78,12 +82,23 @@ NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
 		vector<TexCoord> uvs = shapeData->GetUvSets()[0];
 		TriGeometryContext g(vertices, COM, faces, uvs, normals);
 		shapeData->SetHasNormals(1);
-		shapeData->SetNormals(normals);
+		//recalculate
+		shapeData->SetNormals(g.normals);
 		shapeData->SetTangents(g.tangents);
 		shapeData->SetBitangents(g.bitangents);
+		if (vertices.size() != g.normals.size() || vertices.size() != g.tangents.size() || vertices.size() != g.bitangents.size())
+			throw runtime_error("Geometry mismatch!");
+		shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(shapeData->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
+	}
+	else {
+		shapeData->SetTangents(stripsData->GetTangents());
+		shapeData->SetBitangents(stripsData->GetBitangents());
 	}
 
 	shapeRef->SetData(DynamicCast<NiGeometryData>(shapeData));
+
+	//TODO: shared normals no more supported
+	shapeData->SetMatchGroups(vector<MatchGroup>{});
 
 	return shapeRef;
 }
@@ -123,7 +138,57 @@ public:
 
 			index++;
 		}
+		//TODO
+		//properties are deprecated
+		obj.SetProperties(vector<NiPropertyRef>{});
 		obj.SetChildren(children);
+	}
+
+	template<>
+	inline void visit_object(NiBillboardNode& obj) {
+		vector<Ref<NiAVObject>> children = obj.GetChildren();
+		int index = 0;
+		for (NiAVObjectRef& block : children)
+		{
+			if (block == NULL) {
+				children.erase(children.begin() + index);
+				continue;
+			}
+			if (block->IsSameType(NiTriStrips::TYPE)) {
+				NiTriStripsRef stripsRef = DynamicCast<NiTriStrips>(block);
+				if (stripsRef->IsSameType(NiTriStrips::TYPE)) {
+					NiTriShapeRef shape = convert_strip(stripsRef);
+					children[index] = shape;
+				}
+			}
+
+			index++;
+		}
+		//TODO
+		//properties are deprecated
+		obj.SetProperties(vector<NiPropertyRef>{});
+		obj.SetChildren(children);
+	}
+
+	template<>
+	inline void visit_object(NiTriShapeData& obj) {
+		VectorFlags vf = obj.GetVectorFlags();
+		BSVectorFlags bvf = obj.GetBsVectorFlags();
+		if (vf & VF_UV_2 || /*!< VF_UV_2 */
+			vf & VF_UV_4 || /*!< VF_UV_4 */
+			vf & VF_UV_8 || /*!< VF_UV_8 */
+			vf & VF_UV_16 || /*!< VF_UV_16 */
+			vf & VF_UV_32 /*!< VF_UV_32 */)
+		{
+			throw runtime_error("VF Unhandled");
+		}
+
+		if (vf != 0) {
+			obj.SetBsVectorFlags(static_cast<BSVectorFlags>(obj.GetBsVectorFlags() | obj.GetVectorFlags()));
+		}
+
+		//TODO: shared normals no more supported
+		obj.SetMatchGroups(vector<MatchGroup>{});
 	}
 
 	template<>
@@ -150,19 +215,25 @@ public:
 			if (property->IsSameType(NiTexturingProperty::TYPE)) {
 				texturing = DynamicCast<NiTexturingProperty>(property);
 				string textureName;
-				textureName += texturing->GetBaseTexture().source->GetFileName();
-				textureName.insert(9, "tes4\\");
-				string textureNormal = textureName;
-				textureNormal.erase(textureNormal.end() - 4, textureNormal.end());
-				textureNormal += "_n.dds";
+				if (texturing->GetBaseTexture().source != NULL) {
+					textureName += texturing->GetBaseTexture().source->GetFileName();
+					//fix for orconebraid
+					if (textureName == "Grey.dds")
+						textureName = "textures\\characters\\hair\\Grey.dds";
 
-				//setup textureSet (TODO)
-				std::vector<std::string> textures(9);
-				textures[0] = textureName;
-				textures[1] = textureNormal;
+					textureName.insert(9, "tes4\\");
+					string textureNormal = textureName;
+					textureNormal.erase(textureNormal.end() - 4, textureNormal.end());
+					textureNormal += "_n.dds";
 
-				//finally set them.
-				textureSet->SetTextures(textures);
+					//setup textureSet (TODO)
+					std::vector<std::string> textures(9);
+					textures[0] = textureName;
+					textures[1] = textureNormal;
+
+					//finally set them.
+					textureSet->SetTextures(textures);
+				}
 			}
 			if (property->IsSameType(NiStencilProperty::TYPE)) {
 				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() + SkyrimShaderPropertyFlags2::SLSF2_DOUBLE_SIDED));
@@ -193,6 +264,23 @@ public:
 	}
 
 	template<>
+	inline void visit_object(NiPSysData& obj) {
+		//TODO: how do we handle this geometry then?
+		//NiPSysData no longer inherits geometry, so clear out
+		obj.SetBsMaxVertices(obj.GetVertices().size());
+		obj.SetVertices(vector<Vector3>{});
+		obj.SetHasVertices(false);
+		obj.SetVertexColors(vector<Color4>{});
+		obj.SetHasVertexColors(false);
+	}
+
+	template<>
+	inline void visit_object(NiParticleSystem& obj) {
+		//TODO: I don't even know how particle systems work in skyrim
+		obj.SetProperties(vector<NiPropertyRef>{});
+	}
+
+	template<>
 	inline void visit_object(NiControllerSequence& obj)
 	{
 		vector<ControlledBlock> blocks = obj.GetControlledBlocks();
@@ -203,14 +291,19 @@ public:
 			NiInterpolator* intp = blocks[i].interpolator;
 			if (intp == NULL)
 				continue;
-			NiTransformInterpolator* tintp = DynamicCast<NiTransformInterpolator>(intp);
-			if (tintp == NULL)
-				continue;
-			if (tintp->GetData() == NULL)
+			if (intp->IsDerivedType(NiTransformInterpolator::TYPE)) {
+				NiTransformInterpolator* tintp = DynamicCast<NiTransformInterpolator>(intp);
+				if (tintp->GetData() == NULL)
+					continue;
+			}
+			//Deprecated. Maybe we can handle with tri facegens
+			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiGeomMorpherController::TYPE))
 				continue;
 
-			blocks[i].nodeName = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].nodeNameOffset);
-			blocks[i].controllerType = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].controllerTypeOffset);
+			if (blocks[i].stringPalette != NULL) {
+				blocks[i].nodeName = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].nodeNameOffset);
+				blocks[i].controllerType = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].controllerTypeOffset);
+			}
 
 			//set to default... if above doesn't work
 			if (blocks[i].controllerType == "")
@@ -221,6 +314,15 @@ public:
 		}
 		obj.SetControlledBlocks(nblocks);
 		obj.SetStringPalette(NULL);
+	}
+
+	template<>
+	inline void visit_object(NiTransformController& obj)
+	{
+		//disable geomorph on ghost skeleton
+		if (obj.GetNextController() != NULL && obj.GetNextController()->IsDerivedType(NiGeomMorpherController::TYPE))
+			obj.SetNextController(NULL);
+
 	}
 
 	template<>
@@ -236,6 +338,13 @@ public:
 
 		obj.SetTextKeys(textKeys);
 			
+	}
+
+	//COLLISIONS TODO:
+	template<>
+	inline void visit_object(bhkNiTriStripsShape& obj)
+	{
+		obj.SetStripsData(vector<NiTriStripsDataRef>{});
 	}
 };
 
@@ -271,33 +380,62 @@ bool BeginConversion() {
 		Games& games = Games::Instance();
 		const Games::GamesPathMapT& installations = games.getGames();
 
-//		for (const auto& bsa : games.bsas(Games::TES4)) {
-//			std::cout << "Checking: " << bsa.filename() << std::endl;
-//			BSAFile bsa_file(bsa);
-//			for (const auto& nif : bsa_file.assets(".*\.nif")) {
-//				Log::Info("Current File: %s", nif.c_str());
-//
-//				vector<uint8_t> data(bsa_file.extract(nif));
-//				std::string sdata((char*)data.data(), data.size());
-//				std::istringstream iss(sdata);
-//
-//				vector<NiObjectRef> blocks = ReadNifList(iss, &info);
-//				NiObjectRef root = GetFirstRoot(blocks);
-//
-//				info.userVersion = 12;
-//				info.userVersion2 = 83;
-//				info.version = Niflib::VER_20_2_0_7;
-//
-//				ConverterVisitor fimpl(info);
-//				root->accept(fimpl, info);
-//				BSFadeNode* bs_root = convert_root(root);
-//
-//				fs::path out_path = nif_out / nif;
-//				fs::create_directories(out_path.parent_path());
-//				WriteNifTree(out_path.string(), root, info);
-////				delete bs_root;
-//			}
-//		}	
+		for (const auto& bsa : games.bsas(Games::TES4)) {
+			std::cout << "Checking: " << bsa.filename() << std::endl;
+			BSAFile bsa_file(bsa);
+			for (const auto& nif : bsa_file.assets(".*\.nif")) {
+				Log::Info("Current File: %s", nif.c_str());
+
+				if (nif.find("meshes\\landscape\\lod") != string::npos) {
+					Log::Warn("Ignored LOD file: %s", nif.c_str());
+					continue;
+				}
+				if (nif.find("\\marker_") != string::npos) {
+					Log::Warn("Ignored marker file: %s", nif.c_str());
+					continue;
+				}
+				if (nif.find("\\minotaurold") != string::npos) {
+					Log::Warn("Ignored malformed file: %s", nif.c_str());
+					continue;
+				}
+				if (nif.find("\\sky\\") != string::npos) {
+					Log::Warn("Ignored obsolete sky nifs: %s", nif.c_str());
+					continue;
+				}
+
+				size_t size = -1;
+				const uint8_t* data = bsa_file.extract(nif, size);
+
+				std::string sdata((char*)data, size);
+				std::istringstream iss(sdata);
+
+				vector<NiObjectRef> blocks = ReadNifList(iss, &info);
+				NiObjectRef root = GetFirstRoot(blocks);
+				NiNode* rootn = DynamicCast<NiNode>(root);
+
+				ConverterVisitor fimpl(info);
+				root->accept(fimpl, info);
+				if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
+					root = convert_root(root);
+				}
+
+				info.userVersion = 12;
+				info.userVersion2 = 83;
+				info.version = Niflib::VER_20_2_0_7;
+
+				//BSFadeNode* bs_root = convert_root(root);
+
+				fs::path out_path = nif_out / nif;
+				fs::create_directories(out_path.parent_path());
+				WriteNifTree(out_path.string(), root, info);
+				// Ensure valid
+				NifFile check(out_path.string());
+				NiObject* lroot = check.GetRoot();
+				if (lroot == NULL)
+					throw runtime_error("Error converting");
+				delete data;
+			}
+		}	
 	}
 	else {
 
@@ -323,7 +461,6 @@ bool BeginConversion() {
 			fs::path out_path = nif_out / nifs[i].filename();
 			fs::create_directories(out_path.parent_path());
 			WriteNifTree(out_path.string(), newrefroot, info);
-			// Ensure root doesn't go out of scope
 
 		}
 	}
