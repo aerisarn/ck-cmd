@@ -21,17 +21,21 @@
 #include <fstream>
 #include <utility>
 
+#include <bitset>
 #include <filesystem>
 
 namespace fs = std::experimental::filesystem;
 
-static const fs::path nif_in = ".\\resources\\in";
-static const fs::path nif_err = "D:\\git\\ck-cmd\\resources\\err";
+static const fs::path nif_scan_in = ".\\resources\\in";
+static const fs::path nif_scan_err = "D:\\git\\ck-cmd\\resources\\err";
 
 namespace ckcmd {
 	namespace nifscan {
 
 		using namespace Niflib;
+
+		typedef bitset<12> bsx_flags_t;
+		bsx_flags_t calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const NifInfo& info);
 
 		class SingleChunkFlagVerifier : public RecursiveFieldVisitor<SingleChunkFlagVerifier> {
 

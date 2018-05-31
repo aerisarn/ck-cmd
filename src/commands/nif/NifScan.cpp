@@ -4,8 +4,6 @@
 #include <core/hkfutils.h>
 #include <core/log.h>
 
-#include <bitset>
-
 using namespace ckcmd;
 using namespace ckcmd::nifscan;
 
@@ -39,9 +37,9 @@ inline bool isSingleChain(const NiObjectRef& root, const NifInfo& info) {
 	return SingleChunkFlagVerifier(*root, info).singleChunkVerified;
 }
 
-typedef bitset<12> bsx_flags_t;
 
-bsx_flags_t calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const NifInfo& info) {
+
+bsx_flags_t ckcmd::nifscan::calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const NifInfo& info) {
 	bsx_flags_t flags = 0;
 	NiObjectRef root = GetFirstRoot(blocks);
 	int num_collisions = 0;
