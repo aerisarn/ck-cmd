@@ -924,6 +924,35 @@ public:
 	}
 };
 
+
+class RebuildVisitor : public RecursiveFieldVisitor<RebuildVisitor> {
+	set<NiObject*> objects;
+public:
+	vector<NiObjectRef> blocks;
+
+	RebuildVisitor(NiObject* root, const NifInfo& info) :
+		RecursiveFieldVisitor(*this, info) {
+		root->accept(*this, info);
+		
+		for (NiObject* ptr : objects) {
+			blocks.push_back(ptr);
+		}
+	}
+
+
+	template<class T>
+	inline void visit_object(T& obj) {
+		objects.insert(&obj);
+	}
+
+	template<class T>
+	inline void visit_compound(T& obj) {
+	}
+
+	template<class T>
+	inline void visit_field(T& obj) {}
+};
+
 void findFiles(fs::path startingDir, string extension, vector<fs::path>& results) {
 	if (!exists(startingDir) || !is_directory(startingDir)) return;
 	for (auto& dirEntry : std::experimental::filesystem::recursive_directory_iterator(startingDir))
@@ -1027,9 +1056,13 @@ bool BeginConversion() {
 			info.userVersion2 = 83;
 			info.version = Niflib::VER_20_2_0_7;
 
-			if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
-				bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(blocks, info);
+			if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {			
 				root = convert_root(root);
+
+				//to calculate the right flags, we need to rebuild the blocks
+				vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
+
+				bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
 				for (NiObjectRef ref : blocks) {
 					if (ref->IsDerivedType(BSXFlags::TYPE)) {
 						BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
