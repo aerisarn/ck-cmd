@@ -15,6 +15,7 @@
 #include <Physics\Dynamics\Constraint\Bilateral\Hinge\hkpHingeConstraintData.h>
 #include <Physics\Dynamics\Constraint\Bilateral\LimitedHinge\hkpLimitedHingeConstraintData.h>
 #include <Physics\Dynamics\Constraint\Bilateral\Prismatic\hkpPrismaticConstraintData.h>
+#include <Physics\Dynamics\Constraint\Bilateral\StiffSpring\hkpStiffSpringConstraintData.h>
 #include <Physics\Dynamics\Constraint\Malleable\hkpMalleableConstraintData.h>
 
 using namespace ckcmd::info;
@@ -221,8 +222,95 @@ SkyrimLayer convert_havok_layer(OblivionLayer layer) {
 #define COLLISION_RATIO 0.1f
 class bhkRigidBodyUpgrader {};
 
+bhkShapeRef upgrade_shape(const bhkShapeRef& shape) {
+	bhkShapeRef out;
+	//TODO: wire genmopp;
+	return out;
+}
+
+vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes) {
+	vector<bhkShapeRef> out;
+	for (bhkShapeRef shape : shapes) {
+		if (shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
+				shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
+				shape->IsSameType(bhkPackedNiTriStripsShape::TYPE))
+			out.push_back(upgrade_shape(shape));
+		else
+			out.push_back(shape);
+	}
+	return out;
+}
+
+
 template<>
 class Accessor<bhkRigidBodyUpgrader> {
+
+	bhkBallAndSocketConstraintRef create_ball_socket(MalleableDescriptor& descriptor) {
+		bhkBallAndSocketConstraintRef constraint = new bhkBallAndSocketConstraint();
+		constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
+		constraint->SetBallAndSocket(descriptor.ballAndSocket);
+		return constraint;
+	}
+
+	bhkHingeConstraintRef create_hinge(MalleableDescriptor& descriptor) {
+		bhkHingeConstraintRef constraint = new bhkHingeConstraint();
+		constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
+		constraint->SetHinge(descriptor.hinge);
+		return constraint;
+	}
+
+	bhkLimitedHingeConstraintRef create_limited_hinge(MalleableDescriptor& descriptor) {
+		bhkLimitedHingeConstraintRef constraint = new bhkLimitedHingeConstraint();
+		constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
+		constraint->SetLimitedHinge(descriptor.limitedHinge);
+		return constraint;
+	}
+
+	bhkPrismaticConstraintRef create_prismatic(MalleableDescriptor& descriptor) {
+		bhkPrismaticConstraintRef constraint = new bhkPrismaticConstraint();
+		constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
+		constraint->SetPrismatic(descriptor.prismatic);
+		return constraint;
+	}
+
+	bhkRagdollConstraintRef create_ragdoll(MalleableDescriptor& descriptor) {
+		bhkRagdollConstraintRef constraint = new bhkRagdollConstraint();
+		constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
+		constraint->SetRagdoll(descriptor.ragdoll);
+		return constraint;
+	}
+
+	bhkStiffSpringConstraintRef create_stiff_spring(MalleableDescriptor& descriptor) {
+		bhkStiffSpringConstraintRef constraint = new bhkStiffSpringConstraint();
+		constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
+		constraint->SetStiffSpring(descriptor.stiffSpring);
+		return constraint;
+	}
+
+
+	bhkSerializableRef convert_malleable(bhkMalleableConstraintRef malleable) {
+		//Malleables really don't suit skyrim afaik
+		switch (malleable->GetMalleable().type) {
+			case BALLANDSOCKET:
+				return create_ball_socket(malleable->GetMalleable());
+			case HINGE:
+				return create_hinge(malleable->GetMalleable());
+			case LIMITED_HINGE:
+				return create_limited_hinge(malleable->GetMalleable());
+			case PRISMATIC:
+				return create_prismatic(malleable->GetMalleable());
+			case RAGDOLL:
+				return create_ragdoll(malleable->GetMalleable());
+			case STIFFSPRING:
+				return create_stiff_spring(malleable->GetMalleable());
+			case MALLEABLE:
+				throw runtime_error("Nested Malleable constraints!");
+			default:
+				throw runtime_error("Unknown malleable inner type!");
+		}
+		return NULL;
+	}
+
 public:
 	Accessor<bhkRigidBodyUpgrader>(bhkRigidBody& obj) {
 		//zero out
@@ -253,6 +341,25 @@ public:
 		obj.center.x *= COLLISION_RATIO;
 		obj.center.y *= COLLISION_RATIO;
 		obj.center.z *= COLLISION_RATIO;
+
+		//bhkMalleableConstraints are no more supported I guess;
+		for (int i = 0; i < obj.constraints.size(); i++) {
+			if (obj.constraints[i]->IsDerivedType(bhkMalleableConstraint::TYPE)) {
+				obj.constraints[i] = convert_malleable(DynamicCast<bhkMalleableConstraint>(obj.constraints[i]));
+			}
+		}
+
+		//Seems like the old havok settings must be deactivated
+		obj.motionSystem = MO_SYS_BOX_INERTIA;
+		obj.qualityType = MO_QUAL_FIXED;
+
+		//obsolete collisions
+		if (obj.shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
+			obj.shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
+			obj.shape->IsSameType(bhkPackedNiTriStripsShape::TYPE)) {
+			obj.shape = upgrade_shape(obj.shape);
+		}
+			
 	}
 };
 
@@ -619,119 +726,6 @@ public:
 	bhkCollisionObject/bhkRigidBodyT/bhkSphereShape/
 	*/
 
-	//void convert_wo(bhkWorldObjectRef wo)
-	//{
-	//	if (wo == NULL)
-	//		throw runtime_error("NULL bhkWorldObjectRef!");
-
-	//	int numref = wo->GetNumRefs();
-
-	//	void* new_rb_mem = NULL;
-
-	//	if (wo->IsSameType(bhkRigidBodyT::TYPE)) {
-	//		new_rb_mem = malloc(sizeof(bhkRigidBodyT));
-	//		new_rb_mem = new (new_rb_mem) bhkRigidBodyT();
-	//		convert_rb((bhkRigidBody*)new_rb_mem, DynamicCast<bhkRigidBody>(wo));
-	//		memcpy(&*wo, new_rb_mem, sizeof(bhkRigidBodyT));
-	//	}
-	//	else if (wo->IsSameType(bhkRigidBody::TYPE)) {
-	//		new_rb_mem = malloc(sizeof(bhkRigidBody));
-	//		new_rb_mem = new (new_rb_mem) bhkRigidBody();
-	//		convert_rb((bhkRigidBody*)new_rb_mem, DynamicCast<bhkRigidBody>(wo));
-	//		memcpy(&*wo, new_rb_mem, sizeof(bhkRigidBody));
-	//	}
-	//	else if (wo->IsSameType(bhkSimpleShapePhantom::TYPE)) {
-	//		new_rb_mem = malloc(sizeof(bhkSimpleShapePhantom));
-	//		new_rb_mem = new (new_rb_mem) bhkSimpleShapePhantom();
-	//		convert_sp((bhkSimpleShapePhantom*)new_rb_mem, DynamicCast<bhkSimpleShapePhantom>(wo));
-	//		memcpy(&*wo, new_rb_mem, sizeof(bhkSimpleShapePhantom));
-	//	}
-	//	else {
-	//		throw runtime_error("Unknown bhkWorldObjectRef! " + wo->GetInternalType().GetTypeName());
-	//	}
-
-	//	//trick to overcome strong types inside refobjects;
-
-	//	for (int i = 0; i < numref; i++)
-	//		wo->AddRef();
-	//	free(new_rb_mem);
-
-	//}
-
-	
-
-	
-
-
-
-	//void convert_rb(bhkRigidBody* rb_dest, const bhkRigidBodyRef rb_source)
-	//{
-	//	rb_dest->SetShape(convert_shape(rb_source->GetShape()));
-	//	HavokFilter new_filter = rb_source->GetHavokFilter();
-	//	new_filter.layer_sk = convert_havok_layer(new_filter.layer_ob);
-	//	rb_dest->SetHavokFilter(new_filter);
-	//	rb_dest->SetHavokFilterCopy(new_filter);
-	//	rb_dest->SetBroadPhaseType(rb_source->GetBroadPhaseType());
-	//	//CInfo is really an havok exported property and should probably not be changed;
-	//	rb_dest->SetCollisionResponse(rb_source->GetCollisionResponse());
-	//	rb_dest->SetProcessContactCallbackDelay(rb_source->GetProcessContactCallbackDelay());
-	//	rb_dest->SetCollisionResponse2(rb_source->GetCollisionResponse2());
-	//	rb_dest->SetProcessContactCallbackDelay2(rb_source->GetProcessContactCallbackDelay2());
-
-	//	//Geometry
-	//	Vector4 translation = rb_source->GetTranslation();
-	//	translation.x *= COLLISION_RATIO;
-	//	translation.y *= COLLISION_RATIO;
-	//	translation.z *= COLLISION_RATIO;
-	//	rb_dest->SetTranslation(translation);
-	//	rb_dest->SetRotation(rb_source->GetRotation());
-	//	//TODO: does velocity needs adjustments?
-	//	rb_dest->SetLinearVelocity(rb_source->GetLinearVelocity());
-	//	rb_dest->SetAngularVelocity(rb_source->GetAngularVelocity());
-	//	//TODO: does inertia needs adjustments? Very tempted to calculate this
-	//	rb_dest->SetInertiaTensor(rb_source->GetInertiaTensor());
-	//	Vector4 center = rb_source->GetCenter();
-	//	center.x *= COLLISION_RATIO;
-	//	center.y *= COLLISION_RATIO;
-	//	center.z *= COLLISION_RATIO;
-	//	rb_dest->SetCenter(center);
-
-	//	//Physics
-	//	rb_dest->SetMass(rb_source->GetMass());
-	//	rb_dest->SetLinearDamping(rb_source->GetLinearDamping());
-	//	rb_dest->SetAngularDamping(rb_source->GetAngularDamping());
-	//	//probably the rolling friction multiplier must be tuned to enable a simulation of static/dynamic friction, but havok sets it at 0 by default
-	//	rb_dest->SetFriction(rb_source->GetFriction());
-	//	rb_dest->SetRestitution(rb_source->GetRestitution());
-	//	rb_dest->SetMaxLinearVelocity(rb_source->GetMaxLinearVelocity());
-	//	rb_dest->SetMaxAngularVelocity(rb_source->GetMaxAngularVelocity());
-	//	rb_dest->SetPenetrationDepth(rb_source->GetPenetrationDepth());
-
-	//	//Physics Solver. There should be no difference between oblivion and skyrim
-	//	rb_dest->SetMotionSystem(rb_source->GetMotionSystem());
-	//	rb_dest->SetDeactivatorType(rb_source->GetDeactivatorType());
-	//	//rb_dest->SetSolverDeactivation(rb_source->GetSolverDeactivation());
-	//	rb_dest->SetEnableDeactivation(rb_source->GetSolverDeactivation() != SOLVER_DEACTIVATION_OFF);
-	//	rb_dest->SetQualityType(rb_source->GetQualityType());
-
-	//	//Constraints
-	//	rb_dest->SetConstraints(rb_source->GetConstraints());
-
-	//	//Gamebryo flags
-	//	rb_dest->SetBodyFlags(rb_source->GetBodyFlags());
-
-	//}
-
-	void convert_sp(bhkSimpleShapePhantom* sp_dest, const bhkSimpleShapePhantomRef sp_source)
-	{
-
-	}
-
-	void convert_constraint_descriptor(BallAndSocketDescriptor& descriptor) {
-		descriptor.pivotA *= COLLISION_RATIO;
-		descriptor.pivotB *= COLLISION_RATIO;
-	}
-
 	//from now on, we must switch from an old type to hkTransform, so it is useful to directly use havok data
 
 	static inline Niflib::Vector3 TOVECTOR3(const hkVector4& v) {
@@ -777,38 +771,7 @@ public:
 		return Vector4(q(row,0),q(row,1),q(row,2),q(row,3));
 	}
 
-	
 
-	void convert_constraint_descriptor(PrismaticDescriptor& descriptor) {
-
-	}
-
-	void convert_constraint_descriptor(RagdollDescriptor& descriptor) {
-
-	}
-
-	void convert_constraint_descriptor(StiffSpringDescriptor& descriptor) {
-
-	}
-
-	bhkSerializableRef convert_constraint(bhkSerializableRef constraint) {
-		//Malleables really don't suit skyrim afaik
-		if (constraint->IsSameType(bhkMalleableConstraint::TYPE)) {
-			//extract the inner constraint
-			bhkMalleableConstraintRef malleable = DynamicCast<bhkMalleableConstraint>(constraint);
-			switch (malleable->GetMalleable().type) {
-			case BALLANDSOCKET:
-			case HINGE:
-			case LIMITED_HINGE:
-			case PRISMATIC:
-			case RAGDOLL:
-			case STIFFSPRING:
-			case MALLEABLE:
-				throw runtime_error("Nested Malleable constraints!");
-			}
-		}
-
-	}
 
 	template<>
 	inline void visit_object(bhkRigidBody& obj) {
@@ -831,6 +794,55 @@ public:
 		shape.SetRadius(shape.GetRadius() * COLLISION_RATIO);
 	}
 
+	//Containers
+	template<>
+	inline void visit_object(bhkConvexTransformShape& obj) {
+		if (already_upgraded.insert(&obj).second) {
+			convertMaterialAndRadius(obj);
+			Matrix44 transform = obj.GetTransform();
+			transform[3][0] = transform[3][0] * COLLISION_RATIO;
+			transform[3][1] = transform[3][1] * COLLISION_RATIO;
+			transform[3][2] = transform[3][2] * COLLISION_RATIO;
+			obj.SetTransform(transform);
+			obj.SetShape(upgrade_shape(obj.GetShape()));
+		}
+	}
+
+	template<>
+	inline void visit_object(bhkTransformShape& obj) {
+		if (already_upgraded.insert(&obj).second) {
+			convertMaterialAndRadius(obj);
+			Matrix44 transform = obj.GetTransform();
+			transform[3][0] = transform[3][0] * COLLISION_RATIO;
+			transform[3][1] = transform[3][1] * COLLISION_RATIO;
+			transform[3][2] = transform[3][2] * COLLISION_RATIO;
+			obj.SetTransform(transform);
+			obj.SetShape(upgrade_shape(obj.GetShape()));
+		}
+	}
+
+	template<>
+	inline void visit_object(bhkListShape& obj) {
+		if (already_upgraded.insert(&obj).second) {
+			HavokMaterial material = obj.GetMaterial();
+			material.material_sk = convert_havok_material(material.material_ob);
+			obj.SetMaterial(material);
+			obj.SetSubShapes(upgrade_shapes(obj.GetSubShapes()));
+		}
+	}
+
+	//TODO: need to upgrade shapes into containers
+
+
+
+	//Shapes
+	template<>
+	inline void visit_object(bhkSphereShape& obj) {
+		if (already_upgraded.insert(&obj).second) {
+			convertMaterialAndRadius(obj);
+		}
+	}
+
 	template<>
 	inline void visit_object(bhkBoxShape& obj) {
 		if (already_upgraded.insert(&obj).second) {
@@ -840,6 +852,19 @@ public:
 			half_extent.y *= COLLISION_RATIO;
 			half_extent.z *= COLLISION_RATIO;
 			obj.SetDimensions(half_extent);
+		}
+	}
+
+	template<>
+	inline void visit_object(bhkCapsuleShape& obj) {
+		if (already_upgraded.insert(&obj).second) {
+			HavokMaterial material = obj.GetMaterial();
+			material.material_sk = convert_havok_material(material.material_ob);
+			obj.SetMaterial(material);
+			obj.SetRadius1(obj.GetRadius1() * COLLISION_RATIO);
+			obj.SetRadius2(obj.GetRadius2() * COLLISION_RATIO);
+			obj.SetFirstPoint(obj.GetFirstPoint() * COLLISION_RATIO);
+			obj.SetSecondPoint(obj.GetSecondPoint() * COLLISION_RATIO);
 		}
 	}
 
@@ -861,6 +886,8 @@ public:
 			obj.SetNormals(normals);
 		}
 	}
+
+	//Upgrade Constraints
 
 	template<>
 	void visit_compound(HingeDescriptor& descriptor) {
@@ -912,6 +939,74 @@ public:
 			descriptor.axleB = HKMATRIXROW(hkB, 0);
 			descriptor.perp2AxleInB1 = HKMATRIXROW(hkB, 1);
 			descriptor.perp2AxleInB2 = HKMATRIXROW(hkB, 2);
+			descriptor.pivotB = TOVECTOR4(hkB.getTranslation());
+		}
+	}
+
+	template<>
+	void visit_compound(BallAndSocketDescriptor& descriptor) {
+		//Nothing to do;
+	}
+
+	template<>
+	void visit_compound(PrismaticDescriptor& descriptor) {
+		if (already_upgraded.insert(&descriptor).second) {
+			hkpPrismaticConstraintData data;
+			data.setInBodySpace(
+				TOVECTOR4(descriptor.parentSpace.pivot),
+				TOVECTOR4(descriptor.childSpace.pivot),
+				TOVECTOR4(descriptor.parentSpace.referenceSystem.xAxis),
+				TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis),
+				TOVECTOR4(descriptor.parentSpace.referenceSystem.yAxis),
+				TOVECTOR4(descriptor.childSpace.referenceSystem.yAxis)
+			);
+
+			//TODO: Check if plane has to be used
+
+			hkTransform& hkA = data.m_atoms.m_transforms.m_transformA;
+			hkTransform& hkB = data.m_atoms.m_transforms.m_transformB;
+
+			descriptor.slidingA = HKMATRIXROW(hkA, 0);
+			descriptor.rotationA = HKMATRIXROW(hkA, 1);
+			descriptor.planeA = HKMATRIXROW(hkA, 2);
+			descriptor.pivotA = TOVECTOR4(hkA.getTranslation());
+
+			descriptor.slidingB = HKMATRIXROW(hkB, 0);
+			descriptor.rotationB = HKMATRIXROW(hkB, 1);
+			descriptor.planeB = HKMATRIXROW(hkB, 2);
+			descriptor.pivotB = TOVECTOR4(hkB.getTranslation());
+		}
+	}
+
+	template<>
+	void visit_compound(StiffSpringDescriptor& descriptor) {
+		//Nothing to do;
+	}
+
+	template<>
+	void visit_compound(RagdollDescriptor& descriptor) {
+		if (already_upgraded.insert(&descriptor).second) {
+			hkpRagdollConstraintData data;
+			data.setInBodySpace(
+				TOVECTOR4(descriptor.parentSpace.pivot),
+				TOVECTOR4(descriptor.childSpace.pivot),
+				TOVECTOR4(descriptor.parentSpace.referenceSystem.xAxis),
+				TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis),
+				TOVECTOR4(descriptor.parentSpace.referenceSystem.yAxis),
+				TOVECTOR4(descriptor.childSpace.referenceSystem.yAxis)
+			);
+
+			hkTransform& hkA = data.m_atoms.m_transforms.m_transformA;
+			hkTransform& hkB = data.m_atoms.m_transforms.m_transformB;
+
+			descriptor.twistA = HKMATRIXROW(hkA, 0);
+			descriptor.planeA = HKMATRIXROW(hkA, 1);
+			descriptor.motorA = HKMATRIXROW(hkA, 2);
+			descriptor.pivotA = TOVECTOR4(hkA.getTranslation());
+
+			descriptor.twistB = HKMATRIXROW(hkB, 0);
+			descriptor.planeB = HKMATRIXROW(hkB, 1);
+			descriptor.motorB = HKMATRIXROW(hkB, 2);
 			descriptor.pivotB = TOVECTOR4(hkB.getTranslation());
 		}
 	}
@@ -1063,6 +1158,24 @@ bool BeginConversion() {
 				vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
 
 				bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
+				//if (calculated_flags[7] == true) {
+				//	//has a single chain, let's promote it. EXPERIMENTAL
+				//	BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
+				//	for (NiObjectRef ref : new_blocks) {
+				//		if (ref->IsDerivedType(bhkCollisionObject::TYPE)) {
+				//			bhkCollisionObjectRef bsc = DynamicCast<bhkCollisionObject>(ref);
+				//			if (bsc->GetBody() != NULL && bsc->GetBody()->IsDerivedType(bhkRigidBody::TYPE)) {
+				//				bhkRigidBodyRef bsbody = DynamicCast<bhkRigidBody>(bsc->GetBody());
+				//				if (bsbody->GetConstraints().empty()) {
+				//					bsroot->SetCollisionObject(DynamicCast<NiCollisionObject>(bsc));
+				//					calculated_flags[3] = false;
+				//				}
+				//			}
+				//		}
+				//	}
+				//}
+
+
 				for (NiObjectRef ref : blocks) {
 					if (ref->IsDerivedType(BSXFlags::TYPE)) {
 						BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
