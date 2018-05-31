@@ -222,19 +222,250 @@ SkyrimLayer convert_havok_layer(OblivionLayer layer) {
 #define COLLISION_RATIO 0.1f
 class bhkRigidBodyUpgrader {};
 
-bhkShapeRef upgrade_shape(const bhkShapeRef& shape) {
-	bhkShapeRef out;
-	//TODO: wire genmopp;
-	return out;
+
+class CMSPacker {};
+
+template<>
+class Accessor<CMSPacker> {
+public:
+	Accessor(hkpCompressedMeshShape* pCompMesh, bhkCompressedMeshShapeDataRef pData) 
+	{
+		short                                   chunkIdxNif(0);
+
+		pData->SetBoundsMin(Vector4(pCompMesh->m_bounds.m_min(0), pCompMesh->m_bounds.m_min(1), pCompMesh->m_bounds.m_min(2), pCompMesh->m_bounds.m_min(3)));
+		pData->SetBoundsMax(Vector4(pCompMesh->m_bounds.m_max(0), pCompMesh->m_bounds.m_max(1), pCompMesh->m_bounds.m_max(2), pCompMesh->m_bounds.m_max(3)));
+
+		//  resize and copy bigVerts
+		//vector<bhkCMSDBigTris > (pCompMesh->m_bigVertices.getSize())
+
+		//pData->SetNumBigVerts(pCompMesh->m_bigVertices.getSize());
+
+		//vector<Vector4 > bigVerts(pData->GetNumBigVerts())
+
+		vector<Vector4 > tVec4Vec(pCompMesh->m_bigVertices.getSize());
+		for (unsigned int idx(0); idx < pCompMesh->m_bigVertices.getSize(); ++idx)
+		{
+			tVec4Vec[idx].x = pCompMesh->m_bigVertices[idx](0);
+			tVec4Vec[idx].y = pCompMesh->m_bigVertices[idx](1);
+			tVec4Vec[idx].z = pCompMesh->m_bigVertices[idx](2);
+			tVec4Vec[idx].w = pCompMesh->m_bigVertices[idx](3);
+		}
+		pData->SetBigVerts(tVec4Vec);
+
+		//  resize and copy bigTris
+		// pData->SetNumBigTris(pCompMesh->m_bigTriangles.getSize());
+		vector<bhkCMSDBigTris > tBTriVec(pCompMesh->m_bigTriangles.getSize());
+		//tBTriVec.resize(pData->GetNumBigTris());
+		for (unsigned int idx(0); idx < pCompMesh->m_bigTriangles.getSize(); ++idx)
+		{
+			tBTriVec[idx].triangle1 = pCompMesh->m_bigTriangles[idx].m_a;
+			tBTriVec[idx].triangle2 = pCompMesh->m_bigTriangles[idx].m_b;
+			tBTriVec[idx].triangle3 = pCompMesh->m_bigTriangles[idx].m_c;
+			tBTriVec[idx].material = pCompMesh->m_bigTriangles[idx].m_material;
+			tBTriVec[idx].weldingInfo = pCompMesh->m_bigTriangles[idx].m_weldingInfo;
+		}
+		pData->SetBigTris(tBTriVec);
+
+		//  resize and copy transform data
+		//pData->SetNumTransforms(pCompMesh->m_transforms.getSize());
+		vector<bhkCMSDTransform > tTranVec(pCompMesh->m_transforms.getSize());
+		//tTranVec.resize(pData->GetNumTransforms());
+		for (unsigned int idx(0); idx < pCompMesh->m_transforms.getSize(); ++idx)
+		{
+			tTranVec[idx].translation.x = pCompMesh->m_transforms[idx].m_translation(0);
+			tTranVec[idx].translation.y = pCompMesh->m_transforms[idx].m_translation(1);
+			tTranVec[idx].translation.z = pCompMesh->m_transforms[idx].m_translation(2);
+			tTranVec[idx].translation.w = pCompMesh->m_transforms[idx].m_translation(3);
+			tTranVec[idx].rotation.x = pCompMesh->m_transforms[idx].m_rotation(0);
+			tTranVec[idx].rotation.y = pCompMesh->m_transforms[idx].m_rotation(1);
+			tTranVec[idx].rotation.z = pCompMesh->m_transforms[idx].m_rotation(2);
+			tTranVec[idx].rotation.w = pCompMesh->m_transforms[idx].m_rotation(3);
+		}
+		pData->chunkTransforms = tTranVec;
+
+		vector<bhkCMSDMaterial > tMtrlVec(pCompMesh->m_materials.getSize());
+		
+		for (unsigned int idx(0); idx < pCompMesh->m_materials.getSize(); ++idx)
+		{
+			bhkCMSDMaterial& material = tMtrlVec[idx];
+			material.material = (SkyrimHavokMaterial)pCompMesh->m_materials[idx];
+			//TODO;
+			material.filter.layer_sk = SKYL_STATIC;
+		}
+
+		//  set material list
+		pData->chunkMaterials = tMtrlVec;
+
+		vector<bhkCMSDChunk> chunkListNif(pCompMesh->m_chunks.getSize());
+
+		//  for each chunk
+		for (hkArray<hkpCompressedMeshShape::Chunk>::iterator pCIterHvk = pCompMesh->m_chunks.begin(); pCIterHvk != pCompMesh->m_chunks.end(); pCIterHvk++)
+		{
+			//  get nif chunk
+			bhkCMSDChunk&	chunkNif = chunkListNif[chunkIdxNif];
+
+			//  set offset => translation
+			chunkNif.translation.x = pCIterHvk->m_offset(0);
+			chunkNif.translation.y = pCIterHvk->m_offset(1);
+			chunkNif.translation.z = pCIterHvk->m_offset(2);
+			chunkNif.translation.w = pCIterHvk->m_offset(3);
+
+			//  force flags to fixed values
+			chunkNif.materialIndex = pCIterHvk->m_materialInfo;
+			chunkNif.reference = 65535;
+			chunkNif.transformIndex = pCIterHvk->m_transformIndex;
+
+			//  vertices
+			chunkNif.numVertices = pCIterHvk->m_vertices.getSize();
+			chunkNif.vertices.resize(chunkNif.numVertices);
+			for (unsigned int i(0); i < chunkNif.numVertices; ++i)
+			{
+				chunkNif.vertices[i] = pCIterHvk->m_vertices[i];
+			}
+
+			//  indices
+			chunkNif.numIndices = pCIterHvk->m_indices.getSize();
+			chunkNif.indices.resize(chunkNif.numIndices);
+			for (unsigned int i(0); i < chunkNif.numIndices; ++i)
+			{
+				chunkNif.indices[i] = pCIterHvk->m_indices[i];
+			}
+
+			//  strips
+			chunkNif.numStrips = pCIterHvk->m_stripLengths.getSize();
+			chunkNif.strips.resize(chunkNif.numStrips);
+			for (unsigned int i(0); i < chunkNif.numStrips; ++i)
+			{
+				chunkNif.strips[i] = pCIterHvk->m_stripLengths[i];
+			}
+
+			chunkNif.weldingInfo.resize(pCIterHvk->m_weldingInfo.getSize());
+			for (int k = 0; k < pCIterHvk->m_weldingInfo.getSize(); k++) {
+				chunkNif.weldingInfo[k] = pCIterHvk->m_weldingInfo[k];
+			}
+
+			++chunkIdxNif;
+
+		}  //  for (hkArray<hkpCompressedMeshShape::Chunk>::iterator pCIterHvk = 
+
+		   //  set modified chunk list to compressed mesh shape data
+		pData->chunks = chunkListNif;
+		//----  Merge  ----  END
+	}
+};
+
+class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor> {
+	
+	hkGeometry geometry;
+
+	void calculate_collision()
+	{	
+		//----  Havok  ----  START
+		hkpCompressedMeshShape*					pCompMesh(NULL);
+		hkpMoppCode*							pMoppCode(NULL);
+		hkpMoppBvTreeShape*						pMoppBvTree(NULL);
+		hkpCompressedMeshShapeBuilder			shapeBuilder;
+		hkpMoppCompilerInput					mci;
+		vector<int>								geometryIdxVec;
+		vector<bhkCMSDMaterial>					tMtrlVec;
+		int										subPartId(0);
+		int										tChunkSize(0);
+
+		bhkCompressedMeshShapeDataRef pData = new bhkCompressedMeshShapeData();
+	
+		//  initialize shape Builder
+		shapeBuilder.m_stripperPasses = 5000;
+	
+		//  create compressedMeshShape
+		pCompMesh = shapeBuilder.createMeshShape(0.001f, hkpCompressedMeshShape::MATERIAL_SINGLE_VALUE_PER_CHUNK);
+	
+		//  add geometry to shape
+		subPartId = shapeBuilder.beginSubpart(pCompMesh);
+		shapeBuilder.addGeometry(geometry, hkMatrix4::getIdentity(), pCompMesh);
+		shapeBuilder.endSubpart(pCompMesh);
+		shapeBuilder.addInstance(subPartId, hkMatrix4::getIdentity(), pCompMesh);
+	
+	
+		   //  create welding info
+		mci.m_enableChunkSubdivision = false;  //  PC version
+		pMoppCode = hkpMoppUtility::buildCode(pCompMesh, mci);
+		pMoppBvTree = new hkpMoppBvTreeShape(pCompMesh, pMoppCode);
+		hkpMeshWeldingUtility::computeWeldingInfo(pCompMesh, pMoppBvTree, hkpWeldingUtility::WELDING_TYPE_TWO_SIDED);
+		//----  Havok  ----  END
+	
+		//----  Merge  ----  START
+		hkArray<hkpCompressedMeshShape::Chunk>  chunkListHvk;
+		//vector<bhkCMSDChunk>                    chunkListNif = pData->Get
+		vector<Vector4>                         tVec4Vec;
+		vector<bhkCMSDBigTris>                  tBTriVec;
+		vector<bhkCMSDTransform>                tTranVec;
+		map<unsigned int, bhkCMSDMaterial>		tMtrlMap;
+
+	
+		//  --- modify MoppBvTree ---
+		// set origin
+		pMoppShape->SetOrigin(Vector3(pMoppBvTree->getMoppCode()->m_info.m_offset(0), pMoppBvTree->getMoppCode()->m_info.m_offset(1), pMoppBvTree->getMoppCode()->m_info.m_offset(2)));
+	
+		// set scale
+		pMoppShape->SetScale(pMoppBvTree->getMoppCode()->m_info.getScale());
+	
+		// set build Type
+		pMoppShape->SetBuildType(MoppDataBuildType((Niflib::byte) pMoppCode->m_buildType));
+	
+		//  copy mopp data
+		pMoppShape->SetMoppData(vector<Niflib::byte>(pMoppBvTree->m_moppData, pMoppBvTree->m_moppData + pMoppBvTree->m_moppDataSize));
+	
+		Accessor<CMSPacker> packer(pCompMesh, pData);
+
+		bhkCompressedMeshShapeRef shape = new bhkCompressedMeshShape();
+		shape->SetRadius(pCompMesh->m_radius);
+		shape->SetRadiusCopy(pCompMesh->m_radius);
+		shape->SetData(pData);
+
+		pMoppShape->SetShape(DynamicCast<bhkShape>(shape));
+	}
+
+public:
+
+	bhkMoppBvTreeShapeRef pMoppShape;
+
+	CollisionShapeVisitor(bhkShapeRef shape, const NifInfo& info) :
+		RecursiveFieldVisitor(*this, info) {
+		shape->accept(*this, info);
+	}
+
+	template<class T>
+	inline void visit_object(T& obj) {}
+
+	template<class T>
+	inline void visit_compound(T& obj) {}
+
+	template<class T>
+	inline void visit_field(T& obj) {}
+
+	template<>
+	inline void visit_object(bhkMoppBvTreeShape& obj) {
+		pMoppShape = &obj;
+	}
+
+	template<>
+	inline void visit_object(bhkPackedNiTriStripsShape& obj) {}
+
+	template<>
+	inline void visit_object(bhkNiTriStripsShape& obj) {}
+};
+
+bhkShapeRef upgrade_shape(const bhkShapeRef& shape, const NifInfo& info) {	
+	return CollisionShapeVisitor(shape,info).pMoppShape;
 }
 
-vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes) {
+vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes, const NifInfo& info) {
 	vector<bhkShapeRef> out;
 	for (bhkShapeRef shape : shapes) {
 		if (shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
 				shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
 				shape->IsSameType(bhkPackedNiTriStripsShape::TYPE))
-			out.push_back(upgrade_shape(shape));
+			out.push_back(upgrade_shape(shape, info));
 		else
 			out.push_back(shape);
 	}
@@ -311,8 +542,10 @@ class Accessor<bhkRigidBodyUpgrader> {
 		return NULL;
 	}
 
+	const NifInfo& this_info;
+
 public:
-	Accessor<bhkRigidBodyUpgrader>(bhkRigidBody& obj) {
+	Accessor(bhkRigidBody& obj, const NifInfo& info) : this_info(info) {
 		//zero out
 		obj.unknownInt = 0;
 
@@ -357,7 +590,7 @@ public:
 		if (obj.shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
 			obj.shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
 			obj.shape->IsSameType(bhkPackedNiTriStripsShape::TYPE)) {
-			obj.shape = upgrade_shape(obj.shape);
+			obj.shape = upgrade_shape(obj.shape, this_info);
 		}
 			
 	}
@@ -776,13 +1009,13 @@ public:
 	template<>
 	inline void visit_object(bhkRigidBody& obj) {
 		if (already_upgraded.insert(&obj).second)
-			Accessor<bhkRigidBodyUpgrader> upgrader(obj);
+			Accessor<bhkRigidBodyUpgrader> upgrader(obj, this_info);
 	}
 
 	template<>
 	inline void visit_object(bhkRigidBodyT& obj) {
 		if (already_upgraded.insert(&obj).second)
-			Accessor<bhkRigidBodyUpgrader> upgrader(obj);
+			Accessor<bhkRigidBodyUpgrader> upgrader(obj, this_info);
 	}
 
 	//Upgrade shapes
@@ -804,7 +1037,7 @@ public:
 			transform[3][1] = transform[3][1] * COLLISION_RATIO;
 			transform[3][2] = transform[3][2] * COLLISION_RATIO;
 			obj.SetTransform(transform);
-			obj.SetShape(upgrade_shape(obj.GetShape()));
+			obj.SetShape(upgrade_shape(obj.GetShape(), this_info));
 		}
 	}
 
@@ -817,7 +1050,7 @@ public:
 			transform[3][1] = transform[3][1] * COLLISION_RATIO;
 			transform[3][2] = transform[3][2] * COLLISION_RATIO;
 			obj.SetTransform(transform);
-			obj.SetShape(upgrade_shape(obj.GetShape()));
+			obj.SetShape(upgrade_shape(obj.GetShape(), this_info));
 		}
 	}
 
@@ -827,7 +1060,7 @@ public:
 			HavokMaterial material = obj.GetMaterial();
 			material.material_sk = convert_havok_material(material.material_ob);
 			obj.SetMaterial(material);
-			obj.SetSubShapes(upgrade_shapes(obj.GetSubShapes()));
+			obj.SetSubShapes(upgrade_shapes(obj.GetSubShapes(), this_info));
 		}
 	}
 
