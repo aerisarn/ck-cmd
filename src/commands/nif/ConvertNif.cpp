@@ -1522,24 +1522,31 @@ bool BeginConversion() {
 				//to calculate the right flags, we need to rebuild the blocks
 				vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
 
-				bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
-				//if (calculated_flags[7] == true) {
-				//	//has a single chain, let's promote it. EXPERIMENTAL
-				//	BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
-				//	for (NiObjectRef ref : new_blocks) {
-				//		if (ref->IsDerivedType(bhkCollisionObject::TYPE)) {
-				//			bhkCollisionObjectRef bsc = DynamicCast<bhkCollisionObject>(ref);
-				//			if (bsc->GetBody() != NULL && bsc->GetBody()->IsDerivedType(bhkRigidBody::TYPE)) {
-				//				bhkRigidBodyRef bsbody = DynamicCast<bhkRigidBody>(bsc->GetBody());
-				//				if (bsbody->GetConstraints().empty()) {
-				//					bsroot->SetCollisionObject(DynamicCast<NiCollisionObject>(bsc));
-				//					calculated_flags[3] = false;
-				//				}
-				//			}
-				//		}
-				//	}
-				//}
+				if (DynamicCast<NiNode>(root) != NULL && DynamicCast<NiNode>(root)->GetCollisionObject() == NULL) {
+					bhkCollisionObjectRef root_collision = NULL;
+					int num_collisions = 0;
+					//Optimize single collision models
+					for (NiObjectRef block : new_blocks) {
+						if (block->IsDerivedType(bhkCollisionObject::TYPE))
+						{
+							num_collisions++;
+							root_collision = DynamicCast<bhkCollisionObject>(block);
+						}
+					}
+					if (num_collisions == 1 && root_collision != NULL) {
+						BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
+						vector<NiAVObjectRef> children = bsroot->GetChildren();
+						auto root_collision_position = find(children.begin(), children.end(), StaticCast<NiAVObject>(root_collision));
+						if (root_collision_position != children.end()) {
+							children.erase(root_collision_position);
+							bsroot->SetCollisionObject(StaticCast<NiCollisionObject>(root_collision));
+							bsroot->SetChildren(children);
+						}
+					}
+				}
 
+
+				bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
 
 				for (NiObjectRef ref : blocks) {
 					if (ref->IsDerivedType(BSXFlags::TYPE)) {
