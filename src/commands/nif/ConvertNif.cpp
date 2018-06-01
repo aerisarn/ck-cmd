@@ -286,7 +286,7 @@ public:
 		pData->SetBitsPerWIndex(pCompMesh->m_bitsPerWIndex);
 		pData->SetMaskIndex(pCompMesh->m_indexMask);
 		pData->SetMaskWIndex(pCompMesh->m_wIndexMask);
-		pData->SetWeldingType(pCompMesh->m_weldingType);
+		pData->SetWeldingType(0); //seems to be fixed for skyrim pData->SetWeldingType(pCompMesh->m_weldingType);
 		pData->SetMaterialType(1); //seems to be fixed for skyrim pData->SetMaterialType(pCompMesh->m_materialType);
 		pData->SetError(pCompMesh->m_error);
 
@@ -391,9 +391,9 @@ public:
 
 			++chunkIdxNif;
 
-		}  //  for (hkArray<hkpCompressedMeshShape::Chunk>::iterator pCIterHvk = 
+		}
 
-		   //  set modified chunk list to compressed mesh shape data
+		//  set modified chunk list to compressed mesh shape data
 		pData->chunks = chunkListNif;
 		//----  Merge  ----  END
 	}
@@ -438,8 +438,7 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		for (int i = 0; i < materials.size(); i++) {
 			pCompMesh->m_materials.pushBack(i);
 		}
-	
-	
+		
 		//create welding info
 		mci.m_enableChunkSubdivision = false;  //  PC version
 		pMoppCode = hkpMoppUtility::buildCode(pCompMesh, mci);
@@ -448,13 +447,6 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		//----  Havok  ----  END
 	
 		//----  Merge  ----  START
-		hkArray<hkpCompressedMeshShape::Chunk>  chunkListHvk;
-		//vector<bhkCMSDChunk>                    chunkListNif = pData->Get
-		vector<Vector4>                         tVec4Vec;
-		vector<bhkCMSDBigTris>                  tBTriVec;
-		vector<bhkCMSDTransform>                tTranVec;
-		map<unsigned int, bhkCMSDMaterial>		tMtrlMap;
-
 	
 		//  --- modify MoppBvTree ---
 		// set origin
@@ -514,7 +506,6 @@ public:
 	template<>
 	inline void visit_object(bhkPackedNiTriStripsShape& obj) {
 		hkPackedNiTriStripsDataRef	pData(DynamicCast<hkPackedNiTriStripsData>(obj.GetData()));
-
 
 		if (pData != NULL)
 		{
