@@ -18,6 +18,8 @@
 #include <Physics\Dynamics\Constraint\Bilateral\StiffSpring\hkpStiffSpringConstraintData.h>
 #include <Physics\Dynamics\Constraint\Malleable\hkpMalleableConstraintData.h>
 
+#include <Physics\Collide\Util\hkpTriangleUtil.h>
+
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 using namespace ckcmd::Geometry;
@@ -407,6 +409,20 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 
 	NiAVObject*					target = NULL;
 
+	bool isGeometryDegenerate() {
+		for (hkGeometry::Triangle t : geometry.m_triangles) {
+			if (!hkpTriangleUtil::isDegenerate(
+				geometry.m_vertices[t.m_a],
+				geometry.m_vertices[t.m_b],
+				geometry.m_vertices[t.m_c]
+			)) {
+				return false;
+			}
+				
+		}
+		return true;
+	}
+
 	void calculate_collision()
 	{	
 		//----  Havok  ----  START
@@ -428,20 +444,25 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		//  create compressedMeshShape
 		pCompMesh = shapeBuilder.createMeshShape(0.001f, hkpCompressedMeshShape::MATERIAL_SINGLE_VALUE_PER_CHUNK);
 	
-		//  add geometry to shape
-		subPartId = shapeBuilder.beginSubpart(pCompMesh);
-		shapeBuilder.addGeometry(geometry, hkMatrix4::getIdentity(), pCompMesh);
-		shapeBuilder.endSubpart(pCompMesh);
-		shapeBuilder.addInstance(subPartId, hkMatrix4::getIdentity(), pCompMesh);
+		try {
+			//  add geometry to shape
+			subPartId = shapeBuilder.beginSubpart(pCompMesh);
+			shapeBuilder.addGeometry(geometry, hkMatrix4::getIdentity(), pCompMesh);
+			shapeBuilder.endSubpart(pCompMesh);
+			shapeBuilder.addInstance(subPartId, hkMatrix4::getIdentity(), pCompMesh);
 
-		//add materials to shape
-		for (int i = 0; i < materials.size(); i++) {
-			pCompMesh->m_materials.pushBack(i);
+			//add materials to shape
+			for (int i = 0; i < materials.size(); i++) {
+				pCompMesh->m_materials.pushBack(i);
+			}
+			//create welding info
+			mci.m_enableChunkSubdivision = false;  //  PC version
+
+			pMoppCode = hkpMoppUtility::buildCode(pCompMesh, mci);
 		}
-		
-		//create welding info
-		mci.m_enableChunkSubdivision = false;  //  PC version
-		pMoppCode = hkpMoppUtility::buildCode(pCompMesh, mci);
+		catch (...) {
+			throw runtime_error("Unable to calculate MOPP code!");
+		}
 		pMoppBvTree = new hkpMoppBvTreeShape(pCompMesh, pMoppCode);
 		hkpMeshWeldingUtility::computeWeldingInfo(pCompMesh, pMoppBvTree, hkpWeldingUtility::WELDING_TYPE_TWO_SIDED);
 		//----  Havok  ----  END
@@ -470,6 +491,19 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		shape->SetTarget(target);
 
 		pMoppShape->SetShape(DynamicCast<bhkShape>(shape));
+
+		delete pMoppCode;
+		delete pMoppBvTree;
+		delete pCompMesh;
+	}
+
+	bool isGeometryValid() {
+		return  
+			!geometry.m_triangles.isEmpty() &&
+			!geometry.m_vertices.isEmpty() &&
+			!materials.empty() &&
+			!layers.empty() &&
+			!isGeometryDegenerate();
 	}
 
 public:
@@ -480,13 +514,22 @@ public:
 		target(target),
 		RecursiveFieldVisitor(*this, info) {
 		shape->accept(*this, info);
-		if (pMoppShape == NULL ||
-			geometry.m_triangles.isEmpty() ||
-			geometry.m_vertices.isEmpty() ||
-			materials.empty() ||
-			layers.empty())
-			throw runtime_error("Invalid Collision Geometry data: cannot calculate collision!");
-		calculate_collision();
+		if (pMoppShape == NULL)
+			pMoppShape = new bhkMoppBvTreeShape();
+
+		if (isGeometryValid()) {
+			try {
+				calculate_collision();
+			}
+			catch (...) {
+				Log::Warn("Unable to upgrade shape, making a new convex hull");
+				//Something bad happened, try to make a new collision
+			}
+		}
+		else {
+			//here we definetly want to generate a new collision. An example is paintbrush01
+
+		}
 	}
 
 	template<class T>
@@ -537,11 +580,28 @@ public:
 							material_indexes[i] = m;
 					}
 				}
+				int selected_index = material_indexes[0];
 				if (material_indexes[0] != material_indexes[1] ||
 					material_indexes[1] != material_indexes[2] ||
-					material_indexes[0] != material_indexes[2])
-					throw new runtime_error("Found Triangle with heterogeneus material!");
-				SkyrimHavokMaterial s_material = convert_havok_material(shapes[material_indexes[0]].material.material_ob);
+					material_indexes[0] != material_indexes[2]) 
+				{
+					Log::Info("Found Triangle with heterogeneus material!");
+					std::map<int, int> frequencyMap;
+					int maxFrequency = 0;
+					int mostFrequentElement = 0;
+					for (int x : material_indexes)
+					{
+						int f = ++frequencyMap[x];
+						if (f > maxFrequency)
+						{
+							maxFrequency = f;
+							mostFrequentElement = x;
+						}
+					}
+
+					selected_index = mostFrequentElement;
+				}
+				SkyrimHavokMaterial s_material = convert_havok_material(shapes[selected_index].material.material_ob);
 				int material_index = -1;
 				auto material_it = find(materials.begin(), materials.end(), s_material);
 				if (material_it != materials.end())
@@ -552,7 +612,7 @@ public:
 					materials.push_back(s_material);
 				}
 
-				SkyrimLayer s_layer = convert_havok_layer(shapes[material_indexes[0]].havokFilter.layer_ob);
+				SkyrimLayer s_layer = convert_havok_layer(shapes[selected_index].havokFilter.layer_ob);
 				int layer_index = -1;
 				auto layer_it = find(layers.begin(), layers.end(), s_layer);
 				if (layer_it != layers.end())
@@ -633,10 +693,69 @@ public:
 			shape_index++;
 		}
 	}
+
+	template<>
+	inline void visit_object(bhkMeshShape& obj) {
+		vector<NiTriStripsDataRef> shapes(obj.GetStripsData());
+
+		//this is mysterious
+		float							factor(0.0143f);
+
+		int shape_index = 0;
+
+		for (auto& shape : shapes) {
+			size_t voffset = geometry.m_vertices.getSize();
+
+			vector<Vector3> vertices(shape->GetVertices());
+			for (auto& v : vertices) {
+				geometry.m_vertices.pushBack(TOVECTOR4(v * factor));
+			}
+
+			SkyrimHavokMaterial s_material = material_from_flags(shape->GetVectorFlags());
+			int material_index = -1;
+			auto material_it = find(materials.begin(), materials.end(), s_material);
+			if (material_it != materials.end())
+				material_index = distance(materials.begin(), material_it);
+			else
+			{
+				material_index = materials.size();
+				materials.push_back(s_material);
+			}
+
+			SkyrimLayer s_layer = SKYL_STATIC;
+			int layer_index = -1;
+			auto layer_it = find(layers.begin(), layers.end(), s_layer);
+			if (layer_it != layers.end())
+				material_index = distance(layers.begin(), layer_it);
+			else
+			{
+				layer_index = layers.size();
+				layers.push_back(s_layer);
+			}
+
+			vector<Triangle> in_triangles(triangulate(shape->GetPoints()));
+
+			for (int t = 0; t < in_triangles.size(); t++) {
+				hkGeometry::Triangle htri;
+				htri.m_a = in_triangles[t][0] + voffset;
+				htri.m_b = in_triangles[t][1] + voffset;
+				htri.m_c = in_triangles[t][2] + voffset;
+				htri.m_material = material_index;
+
+				geometry.m_triangles.pushBack(htri);
+			}
+			shape_index++;
+		}
+	}
 };
 
 bhkShapeRef upgrade_shape(const bhkShapeRef& shape, const NifInfo& info, NiAVObject* target) {
-	return CollisionShapeVisitor(shape, info, target).pMoppShape;
+	if (shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
+		shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
+		shape->IsSameType(bhkPackedNiTriStripsShape::TYPE))
+		return CollisionShapeVisitor(shape, info, target).pMoppShape;
+	else
+		return shape;
 }
 
 vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes, const NifInfo& info, NiAVObject* target) {
@@ -755,11 +874,12 @@ public:
 		obj.center.y *= COLLISION_RATIO;
 		obj.center.z *= COLLISION_RATIO;
 
-		//bhkMalleableConstraints are no more supported I guess;
+		//bhkMalleableConstraints are no more supported I guess; Nor limited hinges?
 		for (int i = 0; i < obj.constraints.size(); i++) {
 			if (obj.constraints[i]->IsDerivedType(bhkMalleableConstraint::TYPE)) {
 				obj.constraints[i] = convert_malleable(DynamicCast<bhkMalleableConstraint>(obj.constraints[i]));
 			}
+
 		}
 
 		//Seems like the old havok settings must be deactivated
@@ -983,7 +1103,7 @@ public:
 				if (texturing->GetBaseTexture().source != NULL) {
 					textureName += texturing->GetBaseTexture().source->GetFileName();
 					//fix for orconebraid
-					if (textureName == "Grey.dds")
+					if (textureName == "Grey.dds" || textureName == "grey.dds")
 						textureName = "textures\\characters\\hair\\Grey.dds";
 
 					textureName.insert(9, "tes4\\");
@@ -1220,9 +1340,7 @@ public:
 	template<>
 	inline void visit_object(bhkCapsuleShape& obj) {
 		if (already_upgraded.insert(&obj).second) {
-			HavokMaterial material = obj.GetMaterial();
-			material.material_sk = convert_havok_material(material.material_ob);
-			obj.SetMaterial(material);
+			convertMaterialAndRadius(obj);
 			obj.SetRadius1(obj.GetRadius1() * COLLISION_RATIO);
 			obj.SetRadius2(obj.GetRadius2() * COLLISION_RATIO);
 			obj.SetFirstPoint(obj.GetFirstPoint() * COLLISION_RATIO);
