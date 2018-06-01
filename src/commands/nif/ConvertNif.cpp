@@ -287,7 +287,8 @@ public:
 		pData->SetMaskIndex(pCompMesh->m_indexMask);
 		pData->SetMaskWIndex(pCompMesh->m_wIndexMask);
 		pData->SetWeldingType(pCompMesh->m_weldingType);
-		pData->SetMaterialType(pCompMesh->m_materialType);
+		pData->SetMaterialType(1); //seems to be fixed for skyrim pData->SetMaterialType(pCompMesh->m_materialType);
+		pData->SetError(pCompMesh->m_error);
 
 		//  resize and copy bigVerts
 		vector<Vector4 > tVec4Vec(pCompMesh->m_bigVertices.getSize());
@@ -404,6 +405,8 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 	vector<SkyrimHavokMaterial> materials;
 	vector<SkyrimLayer>			layers; //one per triangle
 
+	NiAVObject*					target = NULL;
+
 	void calculate_collision()
 	{	
 		//----  Havok  ----  START
@@ -472,6 +475,7 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		shape->SetRadius(pCompMesh->m_radius);
 		shape->SetRadiusCopy(pCompMesh->m_radius);
 		shape->SetData(pData);
+		shape->SetTarget(target);
 
 		pMoppShape->SetShape(DynamicCast<bhkShape>(shape));
 	}
@@ -480,7 +484,8 @@ public:
 
 	bhkMoppBvTreeShapeRef pMoppShape;
 
-	CollisionShapeVisitor(bhkShapeRef shape, const NifInfo& info) :
+	CollisionShapeVisitor(bhkShapeRef shape, const NifInfo& info, NiAVObject* target) :
+		target(target),
 		RecursiveFieldVisitor(*this, info) {
 		shape->accept(*this, info);
 		if (pMoppShape == NULL ||
@@ -639,17 +644,17 @@ public:
 	}
 };
 
-bhkShapeRef upgrade_shape(const bhkShapeRef& shape, const NifInfo& info) {	
-	return CollisionShapeVisitor(shape,info).pMoppShape;
+bhkShapeRef upgrade_shape(const bhkShapeRef& shape, const NifInfo& info, NiAVObject* target) {
+	return CollisionShapeVisitor(shape, info, target).pMoppShape;
 }
 
-vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes, const NifInfo& info) {
+vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes, const NifInfo& info, NiAVObject* target) {
 	vector<bhkShapeRef> out;
 	for (bhkShapeRef shape : shapes) {
 		if (shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
 				shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
 				shape->IsSameType(bhkPackedNiTriStripsShape::TYPE))
-			out.push_back(upgrade_shape(shape, info));
+			out.push_back(upgrade_shape(shape, info, target));
 		else
 			out.push_back(shape);
 	}
@@ -729,7 +734,7 @@ class Accessor<bhkRigidBodyUpgrader> {
 	const NifInfo& this_info;
 
 public:
-	Accessor(bhkRigidBody& obj, const NifInfo& info) : this_info(info) {
+	Accessor(bhkRigidBody& obj, const NifInfo& info, NiAVObject* target) : this_info(info) {
 		//zero out
 		obj.unknownInt = 0;
 
@@ -774,7 +779,7 @@ public:
 		if (obj.shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
 			obj.shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
 			obj.shape->IsSameType(bhkPackedNiTriStripsShape::TYPE)) {
-			obj.shape = upgrade_shape(obj.shape, this_info);
+			obj.shape = upgrade_shape(obj.shape, this_info, target);
 		}
 			
 	}
@@ -870,6 +875,9 @@ NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
 class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
 	const NifInfo& this_info;
 	set<void*> already_upgraded;
+
+	map<void*, void*> collision_target_map;
+
 public:
 	ConverterVisitor(const NifInfo& info) :
 		RecursiveFieldVisitor(*this, info), this_info(info)
@@ -1106,55 +1114,46 @@ public:
 
 	}
 
-	/*
-	bhkCollisionObject/bhkRigidBody/bhkBoxShape/
-	bhkCollisionObject/bhkRigidBody/bhkCapsuleShape/
-	bhkCollisionObject/bhkRigidBody/bhkConvexVerticesShape/
-	bhkCollisionObject/bhkRigidBody/bhkHingeConstraint/
-	bhkCollisionObject/bhkRigidBody/bhkLimitedHingeConstraint/
-	bhkCollisionObject/bhkRigidBody/bhkListShape/bhkCapsuleShape/
-	bhkCollisionObject/bhkRigidBody/bhkListShape/bhkConvexTransformShape/bhkBoxShape/
-	bhkCollisionObject/bhkRigidBody/bhkListShape/bhkConvexTransformShape/bhkSphereShape/
-	bhkCollisionObject/bhkRigidBody/bhkListShape/bhkConvexVerticesShape/
-	bhkCollisionObject/bhkRigidBody/bhkListShape/bhkMultiSphereShape/
-	bhkCollisionObject/bhkRigidBody/bhkMalleableConstraint/
-	bhkCollisionObject/bhkRigidBody/bhkMoppBvTreeShape/bhkNiTriStripsShape/NiTriStripsData/
-	bhkCollisionObject/bhkRigidBody/bhkMoppBvTreeShape/bhkPackedNiTriStripsShape/hkPackedNiTriStripsData/
-	bhkCollisionObject/bhkRigidBody/bhkNiTriStripsShape/NiTriStripsData/
-	bhkCollisionObject/bhkRigidBody/bhkPrismaticConstraint/
-	bhkCollisionObject/bhkRigidBody/bhkRagdollConstraint/
-	bhkCollisionObject/bhkRigidBody/bhkSphereShape/
-	bhkCollisionObject/bhkRigidBody/bhkStiffSpringConstraint/
-	bhkCollisionObject/bhkRigidBodyT/bhkBoxShape/
-	bhkCollisionObject/bhkRigidBodyT/bhkCapsuleShape/
-	bhkCollisionObject/bhkRigidBodyT/bhkConvexVerticesShape/
-	bhkCollisionObject/bhkRigidBodyT/bhkLimitedHingeConstraint/
-	bhkCollisionObject/bhkRigidBodyT/bhkListShape/bhkCapsuleShape/
-	bhkCollisionObject/bhkRigidBodyT/bhkListShape/bhkConvexTransformShape/bhkBoxShape/
-	bhkCollisionObject/bhkRigidBodyT/bhkListShape/bhkConvexTransformShape/bhkSphereShape/
-	bhkCollisionObject/bhkRigidBodyT/bhkListShape/bhkConvexVerticesShape/
-	bhkCollisionObject/bhkRigidBodyT/bhkListShape/bhkTransformShape/bhkConvexSweepShape/bhkBoxShape/
-	bhkCollisionObject/bhkRigidBodyT/bhkMoppBvTreeShape/bhkMeshShape/NiTriStripsData/
-	bhkCollisionObject/bhkRigidBodyT/bhkMoppBvTreeShape/bhkNiTriStripsShape/NiTriStripsData/
-	bhkCollisionObject/bhkRigidBodyT/bhkMoppBvTreeShape/bhkPackedNiTriStripsShape/hkPackedNiTriStripsData/
-	bhkCollisionObject/bhkRigidBodyT/bhkNiTriStripsShape/NiTriStripsData/
-	bhkCollisionObject/bhkRigidBodyT/bhkPrismaticConstraint/
-	bhkCollisionObject/bhkRigidBodyT/bhkRagdollConstraint/
-	bhkCollisionObject/bhkRigidBodyT/bhkSphereShape/
-	*/
-
 	//from now on, we must switch from an old type to hkTransform, so it is useful to directly use havok data
 
 	template<>
+	inline void visit_object(bhkCollisionObject& obj) {
+		if (already_upgraded.insert(&obj).second) {
+			if (obj.GetBody() != NULL)
+				collision_target_map[&*obj.GetBody()] = obj.GetTarget();
+		}
+	}
+
+	template<>
+	inline void visit_object(bhkBlendCollisionObject& obj) {
+		if (already_upgraded.insert(&obj).second) {
+			if (obj.GetBody() != NULL)
+				collision_target_map[&*obj.GetBody()] = obj.GetTarget();
+		}
+	}
+
+	template<>
+	inline void visit_object(bhkSPCollisionObject& obj) {
+		if (already_upgraded.insert(&obj).second) {
+			if (obj.GetBody() != NULL)
+				collision_target_map[&*obj.GetBody()] = obj.GetTarget();
+		}
+	}
+
+	template<>
 	inline void visit_object(bhkRigidBody& obj) {
-		if (already_upgraded.insert(&obj).second)
-			Accessor<bhkRigidBodyUpgrader> upgrader(obj, this_info);
+		if (already_upgraded.insert(&obj).second) {
+			NiAVObject* target = (NiAVObject*)collision_target_map[&obj];
+			Accessor<bhkRigidBodyUpgrader> upgrader(obj, this_info, target);
+		}
 	}
 
 	template<>
 	inline void visit_object(bhkRigidBodyT& obj) {
-		if (already_upgraded.insert(&obj).second)
-			Accessor<bhkRigidBodyUpgrader> upgrader(obj, this_info);
+		if (already_upgraded.insert(&obj).second) {
+			NiAVObject* target = (NiAVObject*)collision_target_map[&obj];
+			Accessor<bhkRigidBodyUpgrader> upgrader(obj, this_info, target);
+		}
 	}
 
 	//Upgrade shapes
@@ -1176,7 +1175,7 @@ public:
 			transform[3][1] = transform[3][1] * COLLISION_RATIO;
 			transform[3][2] = transform[3][2] * COLLISION_RATIO;
 			obj.SetTransform(transform);
-			obj.SetShape(upgrade_shape(obj.GetShape(), this_info));
+			obj.SetShape(upgrade_shape(obj.GetShape(), this_info, NULL));
 		}
 	}
 
@@ -1189,7 +1188,7 @@ public:
 			transform[3][1] = transform[3][1] * COLLISION_RATIO;
 			transform[3][2] = transform[3][2] * COLLISION_RATIO;
 			obj.SetTransform(transform);
-			obj.SetShape(upgrade_shape(obj.GetShape(), this_info));
+			obj.SetShape(upgrade_shape(obj.GetShape(), this_info, NULL));
 		}
 	}
 
@@ -1199,7 +1198,7 @@ public:
 			HavokMaterial material = obj.GetMaterial();
 			material.material_sk = convert_havok_material(material.material_ob);
 			obj.SetMaterial(material);
-			obj.SetSubShapes(upgrade_shapes(obj.GetSubShapes(), this_info));
+			obj.SetSubShapes(upgrade_shapes(obj.GetSubShapes(), this_info, NULL));
 		}
 	}
 
@@ -1518,6 +1517,9 @@ bool BeginConversion() {
 
 			if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {			
 				root = convert_root(root);
+				BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
+				//fixed?
+				bsroot->SetFlags(524302);
 
 				//to calculate the right flags, we need to rebuild the blocks
 				vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
@@ -1534,7 +1536,7 @@ bool BeginConversion() {
 						}
 					}
 					if (num_collisions == 1 && root_collision != NULL) {
-						BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
+						
 						vector<NiAVObjectRef> children = bsroot->GetChildren();
 						auto root_collision_position = find(children.begin(), children.end(), StaticCast<NiAVObject>(root_collision));
 						if (root_collision_position != children.end()) {
