@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include <core/hkxcmd.h>
 #include <core/hkfutils.h>
 #include <core/log.h>
@@ -23,6 +23,50 @@ using namespace ckcmd::BSA;
 using namespace ckcmd::Geometry;
 using namespace ckcmd::NIF;
 using namespace ckcmd::nifscan;
+
+static inline Niflib::Vector3 TOVECTOR3(const hkVector4& v) {
+	return Niflib::Vector3(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2));
+}
+
+static inline Niflib::Vector4 TOVECTOR4(const hkVector4& v) {
+	return Niflib::Vector4(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
+}
+
+static inline hkVector4 TOVECTOR4(const Niflib::Vector4& v) {
+	return hkVector4(v.x, v.y, v.z, v.w);
+}
+
+static inline Niflib::Quaternion TOQUAT(const ::hkQuaternion& q, bool inverse = false) {
+	Niflib::Quaternion qt(q.m_vec.getSimdAt(3), q.m_vec.getSimdAt(0), q.m_vec.getSimdAt(1), q.m_vec.getSimdAt(2));
+	return inverse ? qt.Inverse() : qt;
+}
+
+static inline ::hkQuaternion TOQUAT(const Niflib::Quaternion& q, bool inverse = false) {
+	hkVector4 v(q.x, q.y, q.z, q.w);
+	v.normalize4();
+	::hkQuaternion qt(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
+	if (inverse) qt.setInverse(qt);
+	return qt;
+}
+
+static inline ::hkQuaternion TOQUAT(const Niflib::hkQuaternion& q, bool inverse = false) {
+	hkVector4 v(q.x, q.y, q.z, q.w);
+	v.normalize4();
+	::hkQuaternion qt(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
+	if (inverse) qt.setInverse(qt);
+	return qt;
+}
+
+static inline hkMatrix3 TOMATRIX3(const Niflib::InertiaMatrix& q, bool inverse = false) {
+	hkMatrix3 m3;
+	m3.setCols(TOVECTOR4(q.rows[0]), TOVECTOR4(q.rows[1]), TOVECTOR4(q.rows[2]));
+	if (inverse) m3.invert(0.001);
+}
+
+static inline Vector4 HKMATRIXROW(const hkTransform& q, const unsigned int row) {
+	return Vector4(q(row, 0), q(row, 1), q(row, 2), q(row, 3));
+}
+
 
 SkyrimHavokMaterial convert_havok_material(OblivionHavokMaterial material) {
 	switch (material) {
@@ -220,6 +264,9 @@ SkyrimLayer convert_havok_layer(OblivionLayer layer) {
 }
 
 #define COLLISION_RATIO 0.1f
+
+#define MATERIAL_MASK 1984
+
 class bhkRigidBodyUpgrader {};
 
 
@@ -228,20 +275,21 @@ class CMSPacker {};
 template<>
 class Accessor<CMSPacker> {
 public:
-	Accessor(hkpCompressedMeshShape* pCompMesh, bhkCompressedMeshShapeDataRef pData) 
+	Accessor(hkpCompressedMeshShape* pCompMesh, bhkCompressedMeshShapeDataRef pData, const vector<SkyrimHavokMaterial>& materials)
 	{
 		short                                   chunkIdxNif(0);
 
 		pData->SetBoundsMin(Vector4(pCompMesh->m_bounds.m_min(0), pCompMesh->m_bounds.m_min(1), pCompMesh->m_bounds.m_min(2), pCompMesh->m_bounds.m_min(3)));
 		pData->SetBoundsMax(Vector4(pCompMesh->m_bounds.m_max(0), pCompMesh->m_bounds.m_max(1), pCompMesh->m_bounds.m_max(2), pCompMesh->m_bounds.m_max(3)));
 
+		pData->SetBitsPerIndex(pCompMesh->m_bitsPerIndex);
+		pData->SetBitsPerWIndex(pCompMesh->m_bitsPerWIndex);
+		pData->SetMaskIndex(pCompMesh->m_indexMask);
+		pData->SetMaskWIndex(pCompMesh->m_wIndexMask);
+		pData->SetWeldingType(pCompMesh->m_weldingType);
+		pData->SetMaterialType(pCompMesh->m_materialType);
+
 		//  resize and copy bigVerts
-		//vector<bhkCMSDBigTris > (pCompMesh->m_bigVertices.getSize())
-
-		//pData->SetNumBigVerts(pCompMesh->m_bigVertices.getSize());
-
-		//vector<Vector4 > bigVerts(pData->GetNumBigVerts())
-
 		vector<Vector4 > tVec4Vec(pCompMesh->m_bigVertices.getSize());
 		for (unsigned int idx(0); idx < pCompMesh->m_bigVertices.getSize(); ++idx)
 		{
@@ -253,9 +301,7 @@ public:
 		pData->SetBigVerts(tVec4Vec);
 
 		//  resize and copy bigTris
-		// pData->SetNumBigTris(pCompMesh->m_bigTriangles.getSize());
 		vector<bhkCMSDBigTris > tBTriVec(pCompMesh->m_bigTriangles.getSize());
-		//tBTriVec.resize(pData->GetNumBigTris());
 		for (unsigned int idx(0); idx < pCompMesh->m_bigTriangles.getSize(); ++idx)
 		{
 			tBTriVec[idx].triangle1 = pCompMesh->m_bigTriangles[idx].m_a;
@@ -267,9 +313,7 @@ public:
 		pData->SetBigTris(tBTriVec);
 
 		//  resize and copy transform data
-		//pData->SetNumTransforms(pCompMesh->m_transforms.getSize());
 		vector<bhkCMSDTransform > tTranVec(pCompMesh->m_transforms.getSize());
-		//tTranVec.resize(pData->GetNumTransforms());
 		for (unsigned int idx(0); idx < pCompMesh->m_transforms.getSize(); ++idx)
 		{
 			tTranVec[idx].translation.x = pCompMesh->m_transforms[idx].m_translation(0);
@@ -288,8 +332,8 @@ public:
 		for (unsigned int idx(0); idx < pCompMesh->m_materials.getSize(); ++idx)
 		{
 			bhkCMSDMaterial& material = tMtrlVec[idx];
-			material.material = (SkyrimHavokMaterial)pCompMesh->m_materials[idx];
-			//TODO;
+			material.material = materials[pCompMesh->m_materials[idx]];
+			//TODO: may be unnecessary due to the fact that MOPP shouldn't be used for anything else;
 			material.filter.layer_sk = SKYL_STATIC;
 		}
 
@@ -356,7 +400,9 @@ public:
 
 class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor> {
 	
-	hkGeometry geometry;
+	hkGeometry					geometry; //vetrices and triangles with materials indices
+	vector<SkyrimHavokMaterial> materials;
+	vector<SkyrimLayer>			layers; //one per triangle
 
 	void calculate_collision()
 	{	
@@ -384,9 +430,14 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		shapeBuilder.addGeometry(geometry, hkMatrix4::getIdentity(), pCompMesh);
 		shapeBuilder.endSubpart(pCompMesh);
 		shapeBuilder.addInstance(subPartId, hkMatrix4::getIdentity(), pCompMesh);
+
+		//add materials to shape
+		for (int i = 0; i < materials.size(); i++) {
+			pCompMesh->m_materials.pushBack(i);
+		}
 	
 	
-		   //  create welding info
+		//create welding info
 		mci.m_enableChunkSubdivision = false;  //  PC version
 		pMoppCode = hkpMoppUtility::buildCode(pCompMesh, mci);
 		pMoppBvTree = new hkpMoppBvTreeShape(pCompMesh, pMoppCode);
@@ -415,7 +466,7 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		//  copy mopp data
 		pMoppShape->SetMoppData(vector<Niflib::byte>(pMoppBvTree->m_moppData, pMoppBvTree->m_moppData + pMoppBvTree->m_moppDataSize));
 	
-		Accessor<CMSPacker> packer(pCompMesh, pData);
+		Accessor<CMSPacker> packer(pCompMesh, pData, materials);
 
 		bhkCompressedMeshShapeRef shape = new bhkCompressedMeshShape();
 		shape->SetRadius(pCompMesh->m_radius);
@@ -432,6 +483,13 @@ public:
 	CollisionShapeVisitor(bhkShapeRef shape, const NifInfo& info) :
 		RecursiveFieldVisitor(*this, info) {
 		shape->accept(*this, info);
+		if (pMoppShape == NULL ||
+			geometry.m_triangles.isEmpty() ||
+			geometry.m_vertices.isEmpty() ||
+			materials.empty() ||
+			layers.empty())
+			throw runtime_error("Invalid Collision Geometry data: cannot calculate collision!");
+		calculate_collision();
 	}
 
 	template<class T>
@@ -449,10 +507,136 @@ public:
 	}
 
 	template<>
-	inline void visit_object(bhkPackedNiTriStripsShape& obj) {}
+	inline void visit_object(bhkPackedNiTriStripsShape& obj) {
+		hkPackedNiTriStripsDataRef	pData(DynamicCast<hkPackedNiTriStripsData>(obj.GetData()));
+
+
+		if (pData != NULL)
+		{
+			vector<Vector3> vertices(pData->GetVertices());
+			vector<TriangleData> in_triangles(pData->GetTriangles());
+
+			geometry.m_vertices.setSize(vertices.size());
+			geometry.m_triangles.setSize(in_triangles.size());
+
+			for (int v = 0; v < vertices.size(); v++) {
+				geometry.m_vertices[v] = TOVECTOR4(vertices[v]* COLLISION_RATIO);
+			}
+
+
+			vector<unsigned int> material_bounds;
+			vector<OblivionSubShape> shapes(obj.GetSubShapes());
+
+			for (auto& shape : shapes) {
+				material_bounds.push_back(shape.numVertices);
+			}
+
+			//vertices should be ordered by material, given the subshapes
+			for (int t = 0; t < in_triangles.size(); t++) {
+				int material_indexes[3];
+				for (int i = 0; i < 3; i++) {
+					int vertex_index = in_triangles[t].triangle[i];
+					for (int m = 0; m < material_bounds.size(); m++) {
+						if (vertex_index < material_bounds[m])
+							material_indexes[i] = m;
+					}
+				}
+				if (material_indexes[0] != material_indexes[1] ||
+					material_indexes[1] != material_indexes[2] ||
+					material_indexes[0] != material_indexes[2])
+					throw new runtime_error("Found Triangle with heterogeneus material!");
+				SkyrimHavokMaterial s_material = convert_havok_material(shapes[material_indexes[0]].material.material_ob);
+				int material_index = -1;
+				auto material_it = find(materials.begin(), materials.end(), s_material);
+				if (material_it != materials.end())
+					material_index = distance(materials.begin(), material_it);
+				else
+				{
+					material_index = materials.size();
+					materials.push_back(s_material);
+				}
+
+				SkyrimLayer s_layer = convert_havok_layer(shapes[material_indexes[0]].havokFilter.layer_ob);
+				int layer_index = -1;
+				auto layer_it = find(layers.begin(), layers.end(), s_layer);
+				if (layer_it != layers.end())
+					material_index = distance(layers.begin(), layer_it);
+				else
+				{
+					layer_index = layers.size();
+					layers.push_back(s_layer);
+				}
+
+				hkGeometry::Triangle htri;
+				htri.m_a = in_triangles[t].triangle[0];
+				htri.m_b = in_triangles[t].triangle[1];
+				htri.m_c = in_triangles[t].triangle[2];
+				htri.m_material = material_index;
+
+				geometry.m_triangles[t] = htri;
+			}
+		}
+	}
+
+	SkyrimHavokMaterial material_from_flags(const VectorFlags& vf) {
+		int value = (vf & MATERIAL_MASK) >> 6;
+		return convert_havok_material((OblivionHavokMaterial)(value));
+	}
 
 	template<>
-	inline void visit_object(bhkNiTriStripsShape& obj) {}
+	inline void visit_object(bhkNiTriStripsShape& obj) {
+		vector<NiTriStripsDataRef> shapes(obj.GetStripsData());
+		vector<HavokFilter> data_layers(obj.GetDataLayers());
+
+		//this is mysterious
+		float							factor(0.0143f);
+
+		int shape_index = 0;
+
+		for (auto& shape : shapes) {
+			size_t voffset = geometry.m_vertices.getSize();
+
+			vector<Vector3> vertices(shape->GetVertices());
+			for (auto& v : vertices) {
+				geometry.m_vertices.pushBack(TOVECTOR4(v * factor));
+			}
+
+			SkyrimHavokMaterial s_material = material_from_flags(shape->GetVectorFlags());
+			int material_index = -1;
+			auto material_it = find(materials.begin(), materials.end(), s_material);
+			if (material_it != materials.end())
+				material_index = distance(materials.begin(), material_it);
+			else
+			{
+				material_index = materials.size();
+				materials.push_back(s_material);
+			}
+
+			SkyrimLayer s_layer = convert_havok_layer(data_layers[shape_index].layer_ob);
+			int layer_index = -1;
+			auto layer_it = find(layers.begin(), layers.end(), s_layer);
+			if (layer_it != layers.end())
+				material_index = distance(layers.begin(), layer_it);
+			else
+			{
+				layer_index = layers.size();
+				layers.push_back(s_layer);
+			}
+
+			vector<Triangle> in_triangles(triangulate(shape->GetPoints()));
+
+			for (int t = 0; t < in_triangles.size(); t++) {
+				hkGeometry::Triangle htri;
+				htri.m_a = in_triangles[t][0] + voffset;
+				htri.m_b = in_triangles[t][1] + voffset;
+				htri.m_c = in_triangles[t][2] + voffset;
+				htri.m_material = material_index;
+
+				geometry.m_triangles.pushBack(htri);
+			}
+			shape_index++;
+		}
+	}
 };
 
 bhkShapeRef upgrade_shape(const bhkShapeRef& shape, const NifInfo& info) {	
@@ -961,51 +1145,6 @@ public:
 
 	//from now on, we must switch from an old type to hkTransform, so it is useful to directly use havok data
 
-	static inline Niflib::Vector3 TOVECTOR3(const hkVector4& v) {
-		return Niflib::Vector3(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2));
-	}
-
-	static inline Niflib::Vector4 TOVECTOR4(const hkVector4& v) {
-		return Niflib::Vector4(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
-	}
-
-	static inline hkVector4 TOVECTOR4(const Niflib::Vector4& v) {
-		return hkVector4(v.x, v.y, v.z, v.w);
-	}
-
-	static inline Niflib::Quaternion TOQUAT(const ::hkQuaternion& q, bool inverse = false) {
-		Niflib::Quaternion qt(q.m_vec.getSimdAt(3), q.m_vec.getSimdAt(0), q.m_vec.getSimdAt(1), q.m_vec.getSimdAt(2));
-		return inverse ? qt.Inverse() : qt;
-	}
-
-	static inline ::hkQuaternion TOQUAT(const Niflib::Quaternion& q, bool inverse = false) {
-		hkVector4 v(q.x, q.y, q.z, q.w);
-		v.normalize4();
-		::hkQuaternion qt(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
-		if (inverse) qt.setInverse(qt);
-		return qt;
-	}
-
-	static inline ::hkQuaternion TOQUAT(const Niflib::hkQuaternion& q, bool inverse = false) {
-		hkVector4 v(q.x, q.y, q.z, q.w);
-		v.normalize4();
-		::hkQuaternion qt(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
-		if (inverse) qt.setInverse(qt);
-		return qt;
-	}
-
-	static inline hkMatrix3 TOMATRIX3(const Niflib::InertiaMatrix& q, bool inverse = false) {
-		hkMatrix3 m3;
-		m3.setCols(TOVECTOR4(q.rows[0]), TOVECTOR4(q.rows[1]), TOVECTOR4(q.rows[2]));
-		if (inverse) m3.invert(0.001);
-	}
-
-	static inline Vector4 HKMATRIXROW(const hkTransform& q, const unsigned int row) {
-		return Vector4(q(row,0),q(row,1),q(row,2),q(row,3));
-	}
-
-
-
 	template<>
 	inline void visit_object(bhkRigidBody& obj) {
 		if (already_upgraded.insert(&obj).second)
@@ -1474,7 +1613,9 @@ static void CloseHavok()
 }
 
 static bool ExecuteCmd(hkxcmdLine &cmdLine) {
+	InitializeHavok();
 	BeginConversion();
+	CloseHavok();
 	return true;
 }
 
