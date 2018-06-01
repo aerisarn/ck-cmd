@@ -1382,13 +1382,6 @@ public:
 			descriptor.pivotB = TOVECTOR4(hkB.getTranslation());
 		}
 	}
-
-	//COLLISIONS TODO:
-	template<>
-	inline void visit_object(bhkNiTriStripsShape& obj)
-	{
-		obj.SetStripsData(vector<NiTriStripsDataRef>{});
-	}
 };
 
 
