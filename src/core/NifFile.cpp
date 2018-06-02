@@ -1114,9 +1114,15 @@ void NifFile::PrepareData() {
 }
 
 
+
 bool NifFile::hasExternalSkinnedMesh(vector<NiObjectRef>& ext_blocks, NiNode* root) {
 	bool hasExternalSkinning = false;
 	set<void*> skinned_bones;
+
+	for (auto& extra_data : root->GetExtraDataList()) {
+		if (extra_data->GetName().find("Prn") != string::npos)
+			return true;
+	}
 
 	for (auto& block : ext_blocks) {
 		if (block->IsDerivedType(NiSkinInstance::TYPE)) {
@@ -1128,7 +1134,8 @@ bool NifFile::hasExternalSkinnedMesh(vector<NiObjectRef>& ext_blocks, NiNode* ro
 		}
 	}
 
-	if (skinned_bones.size() > 1) {
+	if (skinned_bones.size() > 1 || 
+		(skinned_bones.size() == 1 && DynamicCast<NiNode>((NiObject*)*skinned_bones.begin()) && DynamicCast<NiNode>((NiObject*)*skinned_bones.begin())->GetName().find("Bip")!=string::npos)) {
 		for (auto& child : root->GetChildren()) {
 			set<void*>::iterator it = skinned_bones.find(&*child);
 			if (it != skinned_bones.end()) {

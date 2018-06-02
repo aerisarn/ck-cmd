@@ -265,7 +265,7 @@ SkyrimLayer convert_havok_layer(OblivionLayer layer) {
 	return SKYL_STATIC;
 }
 
-#define COLLISION_RATIO 0.1f
+#define COLLISION_RATIO 0.0999682116260354643752272923431f
 
 #define MATERIAL_MASK 1984
 
@@ -566,8 +566,10 @@ public:
 			vector<unsigned int> material_bounds;
 			vector<OblivionSubShape> shapes(obj.GetSubShapes());
 
+			int bound = 0;
 			for (auto& shape : shapes) {
-				material_bounds.push_back(shape.numVertices);
+				bound += shape.numVertices;
+				material_bounds.push_back(bound);
 			}
 
 			//vertices should be ordered by material, given the subshapes
@@ -645,7 +647,7 @@ public:
 		vector<HavokFilter> data_layers(obj.GetDataLayers());
 
 		//this is mysterious
-		float							factor(0.0143f);
+		float							factor(COLLISION_RATIO * 0.1428f);
 
 		int shape_index = 0;
 
@@ -699,7 +701,7 @@ public:
 		vector<NiTriStripsDataRef> shapes(obj.GetStripsData());
 
 		//this is mysterious
-		float							factor(0.0143f);
+		float							factor(COLLISION_RATIO * 0.1428f);
 
 		int shape_index = 0;
 
@@ -1590,6 +1592,46 @@ bool BeginConversion() {
 				root->accept(fimpl, info);
 				if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
 					root = convert_root(root);
+					BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
+					//fixed?
+					bsroot->SetFlags(524302);
+
+					//to calculate the right flags, we need to rebuild the blocks
+					vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
+
+					if (DynamicCast<NiNode>(root) != NULL && DynamicCast<NiNode>(root)->GetCollisionObject() == NULL) {
+						bhkCollisionObjectRef root_collision = NULL;
+						int num_collisions = 0;
+						//Optimize single collision models
+						for (NiObjectRef block : new_blocks) {
+							if (block->IsDerivedType(bhkCollisionObject::TYPE))
+							{
+								num_collisions++;
+								root_collision = DynamicCast<bhkCollisionObject>(block);
+							}
+						}
+						if (num_collisions == 1 && root_collision != NULL) {
+
+							vector<NiAVObjectRef> children = bsroot->GetChildren();
+							auto root_collision_position = find(children.begin(), children.end(), StaticCast<NiAVObject>(root_collision));
+							if (root_collision_position != children.end()) {
+								children.erase(root_collision_position);
+								bsroot->SetCollisionObject(StaticCast<NiCollisionObject>(root_collision));
+								bsroot->SetChildren(children);
+							}
+						}
+					}
+
+
+					bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
+
+					for (NiObjectRef ref : blocks) {
+						if (ref->IsDerivedType(BSXFlags::TYPE)) {
+							BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
+							bref->SetIntegerData(calculated_flags.to_ulong());
+							break;
+						}
+					}
 				}
 
 				info.userVersion = 12;
@@ -1663,6 +1705,7 @@ bool BeginConversion() {
 					if (ref->IsDerivedType(BSXFlags::TYPE)) {
 						BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
 						bref->SetIntegerData(calculated_flags.to_ulong());
+						break;
 					}
 				}
 			}
