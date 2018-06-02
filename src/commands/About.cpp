@@ -1,27 +1,46 @@
 #include "stdafx.h"
 
+#include <commands\About.h>
+
 #include <core/hkxcmd.h>
 #include <core/log.h>
 using namespace std;
 
-static void HelpString(hkxcmd::HelpType type){
-   switch (type)
-   {
-   case hkxcmd::htShort: Log::Info("About - Help about this program."); break;
-   case hkxcmd::htLong:  
-      {
-         char fullName[MAX_PATH], exeName[MAX_PATH];
-         GetModuleFileName(NULL, fullName, MAX_PATH);
-         _splitpath(fullName, NULL, NULL, exeName, NULL);
-         Log::Info("Usage: %s about", exeName);
-		 Log::Info("  Prints additional information about this program.");
-      }
-      break;
-   }
+
+REGISTER_COMMAND_CPP(About)
+
+About::About()
+{
 }
 
+About::~About()
+{
+}
 
-static bool ExecuteCmd(hkxcmdLine &cmdLine)
+string About::GetName() const
+{
+    return "About";
+}
+
+string About::GetHelp() const
+{
+    const char help[] = "Prints additional information about this program";
+
+    string name = GetName();
+    transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    // Usage: ck-cmd about
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + "\r\n";
+
+    return usage + help;
+}
+
+string About::GetHelpShort() const
+{
+    return "Help about this program";
+}
+
+bool About::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
    cout << "Copyright (c) 2018" << endl
         << "All rights reserved." << endl
@@ -77,5 +96,3 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 
    return true;
 }
-
-REGISTER_COMMAND(About, HelpString, ExecuteCmd);

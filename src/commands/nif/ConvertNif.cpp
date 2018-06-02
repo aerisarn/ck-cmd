@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 #include <core/hkxcmd.h>
 #include <core/hkfutils.h>
 #include <core/log.h>
@@ -900,6 +900,53 @@ public:
 	}
 };
 
+static bool BeginConversion();
+static void InitializeHavok();
+static void CloseHavok();
+
+REGISTER_COMMAND_CPP(ConvertNif)
+
+ConvertNif::ConvertNif()
+{
+}
+
+ConvertNif::~ConvertNif()
+{
+}
+
+string ConvertNif::GetName() const
+{
+    return "ConvertNif";
+}
+
+string ConvertNif::GetHelp() const
+{
+    string name = GetName();
+    transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    // Usage: ck-cmd convertnif
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + "\r\n";
+
+    const char help[] = "TODO: Short description for ConvertNif";
+
+    return usage + help;
+}
+
+string ConvertNif::GetHelpShort() const
+{
+    return "TODO: Short help message for ConvertNif";
+}
+
+bool ConvertNif::InternalRunCommand(map<string, docopt::value> parsedArgs)
+{
+    InitializeHavok();
+    BeginConversion();
+    CloseHavok();
+    return true;
+}
+
+NiObjectRef rootNode;
+
 BSFadeNode* convert_root(NiObject* root)
 {
 	int numref = root->GetNumRefs();
@@ -1541,7 +1588,7 @@ void findFiles(fs::path startingDir, string extension, vector<fs::path>& results
 }
 
 
-bool BeginConversion() {
+static bool BeginConversion() {
 	char fullName[MAX_PATH], exeName[MAX_PATH];
 	GetModuleFileName(NULL, fullName, MAX_PATH);
 	_splitpath(fullName, NULL, NULL, exeName, NULL);
@@ -1724,21 +1771,6 @@ bool BeginConversion() {
 	return true;
 }
 
-static void HelpString(hkxcmd::HelpType type) {
-	switch (type)
-	{
-	case hkxcmd::htShort: Log::Info("About - Help about this program."); break;
-	case hkxcmd::htLong: {
-		char fullName[MAX_PATH], exeName[MAX_PATH];
-		GetModuleFileName(NULL, fullName, MAX_PATH);
-		_splitpath(fullName, NULL, NULL, exeName, NULL);
-		Log::Info("Usage: %s about", exeName);
-		Log::Info("  Prints additional information about this program.");
-	}
-						 break;
-	}
-}
-
 //Havok initialization
 
 static void HK_CALL errorReport(const char* msg, void*)
@@ -1767,12 +1799,3 @@ static void CloseHavok()
 	hkBaseSystem::quit();
 	hkMemoryInitUtil::quit();
 }
-
-static bool ExecuteCmd(hkxcmdLine &cmdLine) {
-	InitializeHavok();
-	BeginConversion();
-	CloseHavok();
-	return true;
-}
-
-REGISTER_COMMAND(ConvertNif, HelpString, ExecuteCmd);

@@ -1,5 +1,7 @@
 #include "stdafx.h"
 
+#include <commands/DumpList.h>
+
 #include <core/hkxcmd.h>
 #include <core/hkxutils.h>
 #include <core/hkfutils.h>
@@ -39,36 +41,56 @@
 
 using namespace std;
 
-static void HelpString(hkxcmd::HelpType type){
-	switch (type)
-	{
-	case hkxcmd::htShort: Log::Info("DumpList - Dump the transform or float list for a given skeleton"); break;
-	case hkxcmd::htLong:  
-		{
-			char fullName[MAX_PATH], exeName[MAX_PATH];
-			GetModuleFileName(NULL, fullName, MAX_PATH);
-			_splitpath(fullName, NULL, NULL, exeName, NULL);
-			Log::Info("Usage: %s DumpList [-opts[modifiers]] [infile] [outfile]", exeName);
-			Log::Info("  Dump the transform or float list for a given skeleton.");
-			Log::Info("    This is useful when exporting animation to get bone list synchronized with source.");
-			Log::Info("");
-			Log::Info("<Switches>");
-			Log::Info(" -i <path>          Input File or directory");
-			Log::Info(" -o <path>          Output File - Defaults to input file with '-out' appended");
-			Log::Info("");
-		}
-		break;
-	}
+REGISTER_COMMAND_CPP(DumpList)
+
+DumpList::DumpList()
+{
 }
 
-static bool ExecuteCmd(hkxcmdLine &cmdLine)
+DumpList::~DumpList()
 {
-	string inpath;
-	string outpath;
-	int argc = cmdLine.argc;
-	char **argv = cmdLine.argv;
+}
+
+string DumpList::GetName() const
+{
+    return "DumpList";
+}
+
+string DumpList::GetHelp() const
+{
+    string name = GetName();
+    transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    // Usage: ck-cmd dumplist <infile> [-o <outfile]
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <infile> [-o <outfile]\r\n";
+
+    const char help[] = 
+R"(Dump the transform or float list for a given skeleton
+This is useful when exporting animation to get bone list synchronized with source
+
+Arguments:
+    <infile>    Input File or directory
+
+Options:
+    -o <outfile>    Output File - Defaults to input file with '-out' appended)";
+
+    return usage + help;
+}
+
+string DumpList::GetHelpShort() const
+{
+    return "Dump the transform or float list for a given skeleton";
+}
+
+bool DumpList::InternalRunCommand(map<string, docopt::value> parsedArgs)
+{
+    // TODO: SafeExecuteCmd
+
+	string inpath   = parsedArgs["<infile>"].asString();
+	string outpath  = parsedArgs["-o"].asString();
 	hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT|hkSerializeUtil::SAVE_TEXT_NUMBERS);
 
+    /*
 #pragma region Handle Input Args
 	for (int i = 0; i < argc; i++)
 	{
@@ -171,9 +193,10 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 		}
 	}
 #pragma endregion
+*/
 
 	if (inpath.empty()){
-		HelpString(hkxcmd::htLong);
+        Log::Info(GetHelp().c_str());
 		return false;
 	}
 	if (PathIsDirectory(inpath.c_str()))
@@ -351,14 +374,3 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 
 	return true;
 }
-static bool SafeExecuteCmd(hkxcmdLine &cmdLine)
-{
-   __try{
-      return ExecuteCmd(cmdLine);
-   } __except (EXCEPTION_EXECUTE_HANDLER){
-      return false;
-   }
-}
-
-REGISTER_COMMAND(DumpList, HelpString, SafeExecuteCmd);
-

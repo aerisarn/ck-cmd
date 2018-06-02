@@ -1,3 +1,6 @@
+// Command Base
+#include <commands/CommandBase.h>
+
 #include <filesystem>
 
 #include <niflib.h>
@@ -31,6 +34,23 @@ static const fs::path nif_scan_err = "D:\\git\\ck-cmd\\resources\\err";
 
 namespace ckcmd {
 	namespace nifscan {
+
+        class NifScan : public CommandBase
+        {
+            REGISTER_COMMAND_HEADER(NifScan)
+
+        private:
+            NifScan();
+            virtual ~NifScan();
+
+        public:
+            virtual string GetName() const;
+            virtual string GetHelp() const;
+            virtual string GetHelpShort() const;
+
+        protected:
+            virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
+        };
 
 		using namespace Niflib;
 

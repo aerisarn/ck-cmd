@@ -1,5 +1,7 @@
 #include "stdafx.h"
 
+#include <commands/Report.h>
+
 #include <core/hkxcmd.h>
 #include <core/hkxutils.h>
 #include <core/hkfutils.h>
@@ -41,26 +43,163 @@
 // Serialize
 #include <Common/Serialize/Util/hkSerializeUtil.h>
 
+void SetRootPath(LPCSTR path);
+void HK_CALL DumpClassesAll();
 
-static void HelpString(hkxcmd::HelpType type){
-	switch (type)
-	{
-	case hkxcmd::htShort: Log::Info("Report - Generate a simple report for all supported Havok classes"); break;
-	case hkxcmd::htLong:  
-		{
-			char fullName[MAX_PATH], exeName[MAX_PATH];
-			GetModuleFileName(NULL, fullName, MAX_PATH);
-			_splitpath(fullName, NULL, NULL, exeName, NULL);
-			Log::Info("Usage: %s report [-opts[modifiers]] [outdir]", exeName);
-				Log::Info("  Generate a simple report for all supported Havok classes");
-				Log::Info("");
-				Log::Info("<Switches>");
-				Log::Info(" -o <path>     Output Directory - ");
-				Log::Info("");
-				;
-		}
-		break;
-	}
+using namespace std;
+
+REGISTER_COMMAND_CPP(Report)
+
+Report::Report()
+{
+}
+
+Report::~Report()
+{
+}
+
+string Report::GetName() const
+{
+    return "Report";
+}
+
+string Report::GetHelp() const
+{
+    string name = GetName();
+    transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    // Usage: ck-cmd report <outpath> [-d <level>]
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <outpath> [-d <level>]\r\n";
+
+    const char help[] = 
+R"(Generate a simple report for all supported Havok classes
+
+Arguments:
+    <outpath>   Output directory
+
+Options:
+    -d <level>  Debug Level: ERROR, WARN, INFO, DEBUG, VERBOSE 
+                [default: INFO])";
+
+    return usage + help;
+}
+
+string Report::GetHelpShort() const
+{
+    return "Generate a simple report for all supported Havok classes";
+}
+
+bool Report::InternalRunCommand(map<string, docopt::value> parsedArgs)
+{
+    // TODO: SafeExecuteCmd
+
+    string outpath = parsedArgs["<outfile>"].asString();
+    Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
+
+    hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT | hkSerializeUtil::SAVE_TEXT_NUMBERS);
+
+    list<hkxcmd *> plugins;
+
+    /*
+#pragma region Handle Input Args
+    for (int i = 0; i < argc; i++)
+    {
+        char *arg = argv[i];
+        if (arg == NULL)
+            continue;
+        if (arg[0] == '-' || arg[0] == '/')
+        {
+
+            switch (tolower(arg[1]))
+            {
+            case 'd':
+            {
+                const char *param = arg + 2;
+                if (*param == ':' || *param == '=') ++param;
+                argv[i] = NULL;
+                if (param[0] == 0 && (i + 1<argc && (argv[i + 1][0] != '-' || argv[i + 1][0] != '/'))) {
+                    param = argv[++i];
+                    argv[i] = NULL;
+                }
+                if (param[0] == 0)
+                {
+                    Log::SetLogLevel(LOG_DEBUG);
+                    break;
+                }
+                else
+                {
+                    Log::SetLogLevel((LogLevel)StringToEnum(param, LogFlags, LOG_INFO));
+                }
+            } break;
+
+            case 'o':
+            {
+                const char *param = arg + 2;
+                if (*param == ':' || *param == '=') ++param;
+                argv[i] = NULL;
+                if (param[0] == 0 && (i + 1<argc && (argv[i + 1][0] != '-' || argv[i + 1][0] != '/'))) {
+                    param = argv[++i];
+                    argv[i] = NULL;
+                }
+                if (param[0] == 0)
+                    break;
+                if (outpath.empty())
+                {
+                    outpath = param;
+                }
+                else
+                {
+                    Log::Error("Output file already specified as '%s'", outpath.c_str());
+                }
+            } break;
+
+            default:
+                Log::Error("Unknown argument specified '%s'", arg);
+                break;
+            }
+        }
+        else if (outpath.empty())
+        {
+            outpath = arg;
+        }
+    }
+#pragma endregion
+*/
+
+    if (outpath.empty()) {
+        Log::Info(GetHelp().c_str());
+        return false;
+    }
+    hkMallocAllocator baseMalloc;
+    // Need to have memory allocated for the solver. Allocate 1mb for it.
+    hkMemoryRouter* memoryRouter = hkMemoryInitUtil::initDefault(&baseMalloc, hkMemorySystem::FrameInfo(1024 * 1024));
+    hkBaseSystem::init(memoryRouter, errorReport);
+
+    // Normally all the patches would be added to the global singleton but
+    // for this example we'll use a private manager to keep the scope small
+    // and not leave useless patches in the global registry
+    {
+        hkVersionPatchManager patchManager;
+        {
+            extern void HK_CALL CustomRegisterPatches(hkVersionPatchManager& patchManager);
+            CustomRegisterPatches(patchManager);
+        }
+        hkDefaultClassNameRegistry &dynamicRegistry = hkDefaultClassNameRegistry::getInstance();
+        {
+            extern void HK_CALL CustomRegisterDefaultClasses();
+            extern void HK_CALL ValidateClassSignatures();
+            CustomRegisterDefaultClasses();
+            ValidateClassSignatures();
+        }
+
+        SetRootPath(outpath.c_str());
+        DumpClassesAll();
+    }
+
+    hkBaseSystem::quit();
+    hkMemoryInitUtil::quit();
+
+    return true;
 }
 
 extern LPCSTR LookupClassHeader(LPCSTR name);
@@ -575,111 +714,7 @@ void HK_CALL DumpClassesAll()
 
 static bool ExecuteCmd(hkxcmdLine &cmdLine)
 {
-	string outpath;
-	int argc = cmdLine.argc;
-	char **argv = cmdLine.argv;
-	hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT|hkSerializeUtil::SAVE_TEXT_NUMBERS);
-
-	list<hkxcmd *> plugins;
-
-#pragma region Handle Input Args
-	for (int i = 0; i < argc; i++)
-	{
-		char *arg = argv[i];
-		if (arg == NULL)
-			continue;
-		if (arg[0] == '-' || arg[0] == '/')
-		{
-
-			switch (tolower(arg[1]))
-			{
-			case 'd':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-					{
-						Log::SetLogLevel(LOG_DEBUG);
-						break;
-					}
-					else
-					{
-						Log::SetLogLevel((LogLevel)StringToEnum(param, LogFlags, LOG_INFO));
-					}
-				} break;
-
-			case 'o':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-						break;
-					if (outpath.empty())
-					{
-						outpath = param;
-					}
-					else
-					{
-						Log::Error("Output file already specified as '%s'", outpath.c_str());
-					}
-				} break;
-
-			default:
-				Log::Error("Unknown argument specified '%s'", arg);
-				break;
-			}
-		}
-		else if (outpath.empty())
-		{
-			outpath = arg;
-		}
-	}
-#pragma endregion
-   if (outpath.empty()){
-      HelpString(hkxcmd::htLong);
-      return false;
-   }
-   hkMallocAllocator baseMalloc;
-   // Need to have memory allocated for the solver. Allocate 1mb for it.
-   hkMemoryRouter* memoryRouter = hkMemoryInitUtil::initDefault( &baseMalloc, hkMemorySystem::FrameInfo(1024 * 1024) );
-   hkBaseSystem::init( memoryRouter, errorReport );
-
-   // Normally all the patches would be added to the global singleton but
-   // for this example we'll use a private manager to keep the scope small
-   // and not leave useless patches in the global registry
-   {
-      hkVersionPatchManager patchManager;
-      {
-         extern void HK_CALL CustomRegisterPatches(hkVersionPatchManager& patchManager);
-         CustomRegisterPatches(patchManager);
-      }
-      hkDefaultClassNameRegistry &dynamicRegistry = hkDefaultClassNameRegistry::getInstance();
-      {
-         extern void HK_CALL CustomRegisterDefaultClasses();
-         extern void HK_CALL ValidateClassSignatures();
-         CustomRegisterDefaultClasses();
-         ValidateClassSignatures();
-      } 
-
-      SetRootPath(outpath.c_str());
-      DumpClassesAll();
-   }
-
-   hkBaseSystem::quit();
-	hkMemoryInitUtil::quit();
-
-
-	return true;
+	
 }
 
 static bool SafeExecuteCmd(hkxcmdLine &cmdLine)
@@ -690,5 +725,3 @@ static bool SafeExecuteCmd(hkxcmdLine &cmdLine)
       return false;
    }
 }
-
-REGISTER_COMMAND(Report, HelpString, SafeExecuteCmd);

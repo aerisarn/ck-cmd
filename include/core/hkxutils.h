@@ -136,6 +136,7 @@ extern int StringToEnum(string value, const EnumLookupType *table, int defaultVa
 extern int EnumToIndex(int value, const EnumLookupType *table);
 
 extern string FlagsToString(int value, const EnumLookupType *table);
+extern int StringToFlags(const vector<string>& value, const EnumLookupType *table, int defaultValue=0);
 extern int StringToFlags(string value, const EnumLookupType *table, int defaultValue=0);
 #pragma endregion
 

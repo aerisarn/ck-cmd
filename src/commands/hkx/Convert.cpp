@@ -1,6 +1,8 @@
 #pragma region Headers
 #include "stdafx.h"
 
+#include <commands\Convert.h>
+
 #include <core/hkxcmd.h>
 #include <core/hkxutils.h>
 #include <core/hkfutils.h>
@@ -47,62 +49,92 @@
 
 using namespace std;
 
-static void HelpString(hkxcmd::HelpType type){
-	switch (type)
-	{
-	case hkxcmd::htShort: Log::Info("Convert - Read/write with no modifications but with different format"); break;
-	case hkxcmd::htLong:  
-		{
-			char fullName[MAX_PATH], exeName[MAX_PATH];
-			GetModuleFileName(NULL, fullName, MAX_PATH);
-			_splitpath(fullName, NULL, NULL, exeName, NULL);
-			Log::Info("Usage: %s convert [-opts[modifiers]] [infile] [outfile]", exeName);
-				Log::Info("  Simply read and write the file back out with specified format.");
-				Log::Info("");
-				Log::Info("<Switches>");
-				Log::Info(" -i <path>          Input File or directory");
-				Log::Info(" -o <path>          Output File - Defaults to input file with '-out' appended");
-				Log::Info("");
-            Log::Info(" -v:<flags>     Havok Save Options");
-            Log::Info("    DEFAULT     Save as Default Format (MSVC Win32 Packed)");
-            Log::Info("    XML         Save as Packed Binary Xml Format");
-            Log::Info("    WIN32       Save as Win32 Format");
-            Log::Info("    AMD64       Save as AMD64 Format");
-            Log::Info("    XBOX        Save as XBOX Format");
-            Log::Info("    XBOX360     Save as XBOX360 Format");
-            Log::Info("    TAGFILE     Save as TagFile Format");
-            Log::Info("    TAGXML      Save as TagFile XML Format");
-            Log::Info("");
-            Log::Info(" -f <flags>         Havok saving flags (Defaults:  SAVE_TEXT_FORMAT|SAVE_TEXT_NUMBERS)");
-				Log::Info("     SAVE_DEFAULT           = All flags default to OFF, enable whichever are needed");
-				Log::Info("     SAVE_TEXT_FORMAT       = Use text (usually XML) format, default is binary format if available.");
-				Log::Info("     SAVE_SERIALIZE_IGNORED_MEMBERS = Write members which are usually ignored.");
-				Log::Info("     SAVE_WRITE_ATTRIBUTES  = Include extended attributes in metadata, default is to write minimum metadata.");
-				Log::Info("     SAVE_CONCISE           = Doesn't provide any extra information which would make the file easier to interpret. ");
-				Log::Info("                              E.g. additionally write hex floats as text comments.");
-				Log::Info("     SAVE_TEXT_NUMBERS      = Floating point numbers output as text, not as binary.  ");
-				Log::Info("                              Makes them easily readable/editable, but values may not be exact.");
-				Log::Info("");
-            ;
-		}
-		break;
-	}
+REGISTER_COMMAND_CPP(Convert)
+
+Convert::Convert()
+{
+}
+
+Convert::~Convert()
+{
+}
+
+string Convert::GetName() const
+{
+    return "Convert";
+}
+
+string Convert::GetHelp() const
+{
+    string name = GetName();
+    transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    // Usage: ck-cmd convert <infile> [-o <outfile>] [-d <level>] [-v <flags>] [-f <flags> ...]
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <infile> [-o <outfile>] [-d <level>] [-v <flags>] [-f <flags> ...]\r\n";
+
+const char help[] =
+R"(Simply read and write the file back out with specified format
+
+Arguments:
+    <infile>    Input File or directory
+
+Options:
+    -o <outfile>    Output File - Defaults to input file with '-out' appended
+    -d <level>      Debug Level: ERROR, WARN, INFO, DEBUG, VERBOSE
+                    [default: INFO]
+    -v <flags>      Havok Packfile saving flags: DEFAULT, XML, WIN32, AMD64, XBOX, XBOX360, TAGFILE, TAGXML
+                    [default: DEFAULT]
+    -f <flags>      Havok saving flags: SAVE_DEFAULT, SAVE_TEXT_FORMAT, SAVE_SERIALIZE_IGNORED_MEMBERS, SAVE_WRITE_ATTRIBUTES, SAVE_CONCISE, SAVE_TEXT_NUMBERS
+                    [default: SAVE_TEXT_FORMAT SAVE_TEXT_NUMBERS]
+
+Havok packfile saving flags:
+    DEFAULT Save as Default Format (MSVC Win32 Packed)
+    XML     Save as Packed Binary Xml Format
+    WIN32   Save as Win32 Forma
+    AMD64   Save as AMD64 Format
+    XBOX    Save as XBOX Format
+    XBOX360 Save as XBOX360 Format
+    TAGFILE Save as TagFile Format
+    TAGXML  Save as TagFile XML Format
+
+Havok saving flags:
+    SAVE_DEFAULT                    All flags default to OFF, enable whichever are needed
+    SAVE_TEXT_FORMAT                Use text (usually XML) format, default is binary format if available
+    SAVE_SERIALIZE_IGNORED_MEMBERS  Write members which are usually ignored
+    SAVE_WRITE_ATTRIBUTES           Include extended attributes in metadata, default is to write minimum metadata
+    SAVE_CONCISE                    Doesn't provide any extra information which would make the file easier to interpret. 
+                                    E.g. additionally write hex floats as text comments
+    SAVE_TEXT_NUMBERS               Floating point numbers output as text, not as binary. 
+                                    Makes them easily readable/editable, but values may not be exact)";
+
+    return usage + help;
+}
+
+string Convert::GetHelpShort() const
+{
+    return "Read/write with no modifications but with different format";
 }
 
 typedef void (__stdcall * DumpClassesAllDecl)();
 
-
-
-static bool ExecuteCmd(hkxcmdLine &cmdLine)
+bool Convert::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
-	string inpath;
-	string outpath;
-	int argc = cmdLine.argc;
-	char **argv = cmdLine.argv;
-   bool flagsSpecified = false;
-	hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_DEFAULT);
-   hkPackFormat pkFormat = HKPF_DEFAULT;
+    // TODO: SafeExecuteCmd
 
+    string inpath;
+    string outpath;
+    bool flagsSpecified = false;
+    hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_DEFAULT);
+    hkPackFormat pkFormat = HKPF_DEFAULT;
+
+    inpath = parsedArgs["<infile>"].asString();
+
+    outpath     = parsedArgs["-o"].asString();
+    pkFormat    = (hkPackFormat)StringToEnum(parsedArgs["-v"].asString(), PackFlags, HKPF_DEFAULT);
+    flags       = (hkSerializeUtil::SaveOptionBits)StringToFlags(parsedArgs["-f"].asStringList(), SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
+    Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
+
+    /*
 	list<hkxcmd *> plugins;
 
 #pragma region Handle Input Args
@@ -222,9 +254,9 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 		}
 	}
 #pragma endregion
-
+*/
 	if (inpath.empty()){
-		HelpString(hkxcmd::htLong);
+        Log::Info(GetHelp().c_str());
 		return false;
 	}
 	if (PathIsDirectory(inpath.c_str()))
@@ -382,18 +414,5 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 	hkBaseSystem::quit();
 	hkMemoryInitUtil::quit();
 
-
 	return true;
 }
-
-static bool SafeExecuteCmd(hkxcmdLine &cmdLine)
-{
-   __try{
-      return ExecuteCmd(cmdLine);
-   } __except (EXCEPTION_EXECUTE_HANDLER){
-      return false;
-   }
-}
-
-REGISTER_COMMAND(Convert, HelpString, SafeExecuteCmd);
-
