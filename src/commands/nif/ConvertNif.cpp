@@ -578,8 +578,10 @@ public:
 				for (int i = 0; i < 3; i++) {
 					int vertex_index = in_triangles[t].triangle[i];
 					for (int m = 0; m < material_bounds.size(); m++) {
-						if (vertex_index < material_bounds[m])
+						if (vertex_index < material_bounds[m]) {
 							material_indexes[i] = m;
+							break;
+						}
 					}
 				}
 				int selected_index = material_indexes[0];
@@ -618,7 +620,7 @@ public:
 				int layer_index = -1;
 				auto layer_it = find(layers.begin(), layers.end(), s_layer);
 				if (layer_it != layers.end())
-					material_index = distance(layers.begin(), layer_it);
+					layer_index = distance(layers.begin(), layer_it);
 				else
 				{
 					layer_index = layers.size();
@@ -674,7 +676,7 @@ public:
 			int layer_index = -1;
 			auto layer_it = find(layers.begin(), layers.end(), s_layer);
 			if (layer_it != layers.end())
-				material_index = distance(layers.begin(), layer_it);
+				layer_index = distance(layers.begin(), layer_it);
 			else
 			{
 				layer_index = layers.size();
@@ -728,7 +730,7 @@ public:
 			int layer_index = -1;
 			auto layer_it = find(layers.begin(), layers.end(), s_layer);
 			if (layer_it != layers.end())
-				material_index = distance(layers.begin(), layer_it);
+				layer_index = distance(layers.begin(), layer_it);
 			else
 			{
 				layer_index = layers.size();
