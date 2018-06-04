@@ -998,18 +998,21 @@ public:
 		RecursiveFieldVisitor(*this, info), this_info(info)
 	{}
 	template<class T>
-	inline void visit_object(T& obj) {}
+	inline void visit_object(T& obj) {
+	}
 
 	template<class T>
 	inline void visit_compound(T& obj) {
 	}
 
 	template<class T>
-	inline void visit_field(T& obj) {}
+	inline void visit_field(T& obj) {
+	}
 
 	template<>
 	inline void visit_object(NiNode& obj) {
 		vector<Ref<NiAVObject>> children = obj.GetChildren();
+		vector<Ref<NiExtraData>> extras = obj.GetExtraDataList();
 		int index = 0;
 		for (NiAVObjectRef& block : children)
 		{
@@ -1027,10 +1030,51 @@ public:
 
 			index++;
 		}
-		//TODO
-		//properties are deprecated
+		index = 0;
+		//need to do furnitures here, we need to change BSFurnitureMarker to BSFurnitureMarkerNode
+		for (NiExtraDataRef extra : extras)
+		{
+			if (extra->IsSameType(BSFurnitureMarker::TYPE)) {
+				BSFurnitureMarkerRef oldNode = DynamicCast<BSFurnitureMarker>(extra);
+				BSFurnitureMarkerNode newNode = BSFurnitureMarkerNode();
+				newNode.SetName(IndexString("FRN")); //fix for furniture nodes with names which isn't FRN
+				vector<FurniturePosition> newpositions;
+				vector<FurniturePosition> positions = oldNode->GetPositions();
+
+				for (FurniturePosition pos : positions)
+				{
+					FurniturePosition newpos = FurniturePosition();
+					newpos.offset = pos.offset;
+					newpos.offset.z += 35;
+
+					if (pos.positionRef1 == 1) {
+						newpos.animationType == AnimationType::SLEEP;
+						newpos.entryProperties == FurnitureEntryPoints::RIGHT;
+						newpos.offset.x += 75;
+					}
+					if (pos.positionRef1 == 2) {
+						newpos.animationType == AnimationType::SLEEP;
+						newpos.entryProperties == FurnitureEntryPoints::LEFT;
+						newpos.offset.x -= 75;
+					}
+					if (pos.positionRef1 == 3) {
+						newpos.animationType == AnimationType::SLEEP;
+						newpos.entryProperties == FurnitureEntryPoints::RIGHT;
+						newpos.offset.x += -75;
+					}
+
+					newpositions.push_back(newpos);
+				}
+				newNode.SetPositions(newpositions);
+				//extras[index] = DynamicCast<BSFurnitureMarkerNode>(newNode);
+				index++;
+			}
+		}
+			//TODO
+			//properties are deprecated
 		obj.SetProperties(vector<NiPropertyRef>{});
 		obj.SetChildren(children);
+		obj.SetExtraDataList(extras);
 	}
 
 	template<>
@@ -1496,7 +1540,6 @@ public:
 	}
 };
 
-
 class RebuildVisitor : public RecursiveFieldVisitor<RebuildVisitor> {
 	set<NiObject*> objects;
 public:
@@ -1505,7 +1548,7 @@ public:
 	RebuildVisitor(NiObject* root, const NifInfo& info) :
 		RecursiveFieldVisitor(*this, info) {
 		root->accept(*this, info);
-		
+
 		for (NiObject* ptr : objects) {
 			blocks.push_back(ptr);
 		}
@@ -1562,6 +1605,9 @@ bool BeginConversion() {
 			BSAFile bsa_file(bsa);
 			for (const auto& nif : bsa_file.assets(".*\.nif")) {
 				Log::Info("Current File: %s", nif.c_str());
+				if (nif.find("furniture") == string::npos) {
+					continue;
+				}
 
 				if (nif.find("meshes\\landscape\\lod") != string::npos) {
 					Log::Warn("Ignored LOD file: %s", nif.c_str());
