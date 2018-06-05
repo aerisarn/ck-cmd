@@ -344,6 +344,8 @@ SkyrimLayer convert_havok_layer(OblivionLayer layer) {
 
 #define MATERIAL_MASK 1984
 
+#define STEP_SIZE 0.3
+
 class bhkRigidBodyUpgrader {};
 
 
@@ -496,6 +498,12 @@ struct vertexInfo {
 
 };
 
+bool is_equal(const hkGeometry::Triangle& t1, const hkGeometry::Triangle& t2) {
+	return t1.m_a == t2.m_a &&
+		t2.m_b == t2.m_b &&
+		t2.m_c == t2.m_c;
+}
+
 class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor> {
 	
 	hkGeometry					geometry; //vetrices and triangles with materials indices
@@ -554,6 +562,14 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		return false;
 	}
 
+	struct is_triangle_equal {
+		bool operator() (const hkGeometry::Triangle& t1, const hkGeometry::Triangle& t2) const {
+			return t1.m_a == t2.m_a &&
+				t2.m_b == t2.m_b &&
+				t2.m_c == t2.m_c;
+		}
+	};
+
 	bool is_adjacent(const hkGeometry::Triangle& t1, const hkGeometry::Triangle& t2) {
 		int count = 0;
 		for (int i = 0; i < 3; i++) {
@@ -609,103 +625,297 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		return move(result);
 	}
 
+	struct adjiacency_t {
+		hkGeometry::Triangle a;
+		hkGeometry::Triangle b;
+	};
+
+	hkVector4 centeroid(const vector<hkGeometry::Triangle>& triangles) {
+		hkVector4 res(0.0,0.0,0.0);
+		for (hkGeometry::Triangle t : triangles) {
+			res.add4(geometry.m_vertices[t.m_a]);
+			res.add4(geometry.m_vertices[t.m_b]);
+			res.add4(geometry.m_vertices[t.m_c]);
+		}
+		int div = triangles.size() * 3;
+		return hkVector4(res(0) / div, res(1) / div, res(2) / div);
+	}
+
+	struct side {
+		int a;
+		int b;
+		hkGeometry::Triangle source;
+		int source_index = -1;
+
+		side(int a, int b, hkGeometry::Triangle source, int source_index) :a(a), b(b), source(source), source_index(source_index) {}
+
+		bool operator==(const side& other) const
+		{
+			return (a == other.a &&  b == other.b) || (a == other.b &&  b == other.a);
+		}
+	};
+
+	bool is_adjacent(const side& s, const hkGeometry::Triangle& t, int& other_index) {
+		int count = 0;
+		int last_count = count;
+		bool isit = false;
+		for (int i = 0; i < 3; i++) {
+			if (s.a == get_vertex_index(t, i) || s.b == get_vertex_index(t, i)) count++;
+			if (last_count == count)  other_index = i;
+			if (count == 2) isit = true;
+			last_count = count;
+		}
+		return isit;
+	}
+
+	vector<side> find_outer_sides(const vector<hkGeometry::Triangle>& isle) {
+		vector<side> sides;
+		vector<side> out;
+		vector<int> references;
+		for (hkGeometry::Triangle tr : isle) {
+			side ab(tr.m_a, tr.m_b, tr, 0);
+			side ac(tr.m_a, tr.m_c, tr, 1);
+			side bc(tr.m_b, tr.m_c, tr, 2);
+			vector<side>::iterator find_ab = find(sides.begin(), sides.end(), ab);
+			if (find_ab != sides.end()) {
+				references[distance(sides.begin(), find_ab)] += 1;
+			}
+			else {
+				sides.push_back(ab);
+				references.push_back(1);
+			}
+			vector<side>::iterator find_ac = find(sides.begin(), sides.end(), ac);
+			if (find_ac != sides.end()) {
+				references[distance(sides.begin(), find_ac)] += 1;
+			}
+			else {
+				sides.push_back(ac);
+				references.push_back(1);
+			}
+			vector<side>::iterator find_bc = find(sides.begin(), sides.end(), bc);
+			if (find_bc != sides.end()) {
+				references[distance(sides.begin(), find_bc)] += 1;
+			}
+			else {
+				sides.push_back(bc);
+				references.push_back(1);
+			}
+		}
+		for (int i = 0; i < sides.size(); i++) {
+			if (references[i] == 1)
+				out.push_back(sides[i]);
+		}
+		return out;
+	}
+
 	//madness.
 	bool hasStairs() {
 
-		vector<hkGeometry::Triangle> planar_x_triangles = get_planar_triangles<PLANE_X>();
-		vector<hkGeometry::Triangle> planar_y_triangles = get_planar_triangles<PLANE_Y>();
 		vector<hkGeometry::Triangle> planar_z_triangles = get_planar_triangles<PLANE_Z>();
 
 		vector<vector<hkGeometry::Triangle>> planes_set;
 		float last_z_value = numeric_limits<float>::lowest();
 		for (const hkGeometry::Triangle& info : planar_z_triangles) {
-			if (abs(last_z_value - geometry.m_vertices[info.m_a](PLANE_Z))>0.1) {
+			float minz = min_z(info);
+			if (abs(last_z_value - minz)>0.1) {
 				planes_set.push_back(vector<hkGeometry::Triangle>());
 			}
 			planes_set.back().push_back(info);
-			last_z_value = geometry.m_vertices[info.m_a](PLANE_Z);
+			last_z_value = minz;
 		}
 		vector<float> distances;
+		distances.push_back(0.0);
 		vector<hkGeometry::Triangle> stairs;
 		//calculate distances
+		vector<vector<vector<hkGeometry::Triangle>>> walkable_isles;
 		for (int i = 1; i < planes_set.size(); i++) {
-			float distance = abs(geometry.m_vertices[planes_set[i][0].m_a](PLANE_Z) -
-				geometry.m_vertices[planes_set[i - 1][0].m_a](PLANE_Z));
+			float distance = abs(min_z(planes_set[i][0]) -
+				min_z(planes_set[i - 1][0]));
 			distances.push_back(distance);
-			if (distance > 0.32 && distance < 0.35) {
+		}
+		for (int i = 0; i < planes_set.size(); i++) {
+			//if (distance > (STEP_SIZE - 0.1) && distance < (STEP_SIZE + 0.1)) {
 				//get all the separate partitions on the plane 
 				vector<vector<hkGeometry::Triangle>> partitions_current;
-				for (hkGeometry::Triangle& plane_triangle : planes_set[i]) {
-					bool found_my_partition = false;
-					for (vector<hkGeometry::Triangle>& partition : partitions_current) {
-						for (const hkGeometry::Triangle& partition_triangle : partition) {
-							if (is_adjacent(partition_triangle, plane_triangle)) {
-								partition.push_back(plane_triangle);
-								found_my_partition = true;
+				//partitions_current.push_back({ planes_set[i][0] });
+				vector<hkGeometry::Triangle> this_plane = planes_set[i];
+				//prepare couples
+				vector<adjiacency_t> adjiacency_map;
+
+				for (hkGeometry::Triangle& plane_triangle_1 : this_plane) {
+					for (hkGeometry::Triangle& plane_triangle_2 : this_plane) {
+						adjiacency_t adjacency;
+						if ( !is_equal(plane_triangle_1, plane_triangle_2) && is_adjacent(plane_triangle_1, plane_triangle_2)) {
+							adjacency.a = plane_triangle_1;
+							adjacency.b = plane_triangle_2;
+							adjiacency_map.push_back(adjacency);
+						}
+					}
+				}
+
+				vector<adjiacency_t>::iterator it = adjiacency_map.begin();
+				vector<hkGeometry::Triangle> chain;
+				chain.push_back( planes_set[i][0]);
+				if (adjiacency_map.empty()) {
+					partitions_current.push_back(chain);
+				}
+				while (adjiacency_map.size() > 0) {
+					for (it; it != adjiacency_map.end(); it) {
+						bool found = false;
+						for (const hkGeometry::Triangle& chain_triangle : chain) {
+							hkGeometry::Triangle a = it->a;
+							hkGeometry::Triangle b = it->b;
+							if (is_equal(a, chain_triangle)) {
+								found = true;
+								if (find_if(chain.begin(), chain.end(),
+									[b](const hkGeometry::Triangle& chain_triangle) -> bool {
+									return is_equal(b, chain_triangle); }
+								) == chain.end()
+										) {
+									chain.push_back(b);
+								}
+							}
+							if (is_equal(b, chain_triangle)) {
+								found = true;
+								if (find_if(chain.begin(), chain.end(),
+									[a](const hkGeometry::Triangle& chain_triangle) -> bool {
+									return is_equal(a, chain_triangle); }
+								) == chain.end()
+										) {
+									chain.push_back(a);
+								}
+							}
+						}
+						if (found)
+							it = adjiacency_map.erase(it);
+						else it++;
+					}
+					
+
+					partitions_current.push_back(chain);
+					if (adjiacency_map.size() > 0) {
+						chain.clear();
+						chain.push_back(adjiacency_map.begin()->a);
+					}
+					it = adjiacency_map.begin();
+				}
+				//now we have isles of adjiacent triangles
+				walkable_isles.push_back(partitions_current);
+			//}
+		}
+		for (int i = 0; i < walkable_isles.size(); i++) {
+			vector<vector<hkGeometry::Triangle>> isles = walkable_isles[i];
+			for (int k = 0; k < isles.size(); k++) {
+				vector<hkGeometry::Triangle> isle = isles[k];
+				vector<side> outer_sides = find_outer_sides(isle);
+				for (side s : outer_sides) {
+					hkGeometry::Triangle down_adjacent;
+					down_adjacent.m_a = -1;
+					down_adjacent.m_b = -1;
+					down_adjacent.m_c = -1;
+					hkGeometry::Triangle down_touching;
+					down_touching.m_a = -1;
+					down_touching.m_b = -1;
+					down_touching.m_c = -1;
+					for (int t = 0; t < geometry.m_triangles.getSize(); t++) {
+						if (is_adjacent(s.source, geometry.m_triangles[t])) {
+							hkGeometry::Triangle temp = geometry.m_triangles[t];
+							float max_a = max_z(geometry.m_triangles[t]);
+							float min_s = min_z(s.source);
+							if (down_adjacent.m_a != -1) break;
+							if (max_a < min_s)
+							{
+								down_adjacent = geometry.m_triangles[t];
+								break;
+							}
+							if (min_s < 0 && max_a < 0 && max_a > min_s)
+							{
+								down_adjacent = geometry.m_triangles[t];
+								break;
+							}
+							if (i >= 1) {
+								for (hkGeometry::Triangle downstair_triangle : planes_set[i - 1])
+								{
+									if (touches(geometry.m_triangles[t], downstair_triangle)) {
+										down_adjacent = geometry.m_triangles[t];
+										break;
+									}
+								}
 							}
 						}
 					}
-					if (!found_my_partition)
-						partitions_current.push_back({ plane_triangle });
-				}
-
-				for (vector<hkGeometry::Triangle>& partition : partitions_current) {
-					if (partition.size() == 2) {
-						for (const hkGeometry::Triangle& partition_triangle : partition) {
-							stairs.push_back(partition_triangle);
-						}
-					}
-				}
-
-				//now each triangle in the partition should have an adjacent triangle and a touching triangle. If not, like in waterfrontbridge01, it's either a funny collision or a starting step
-				//find the adjacent	
 				
-				for (vector<hkGeometry::Triangle>& partition : partitions_current) {
-					if (partition.size() == 2) {
-						for (const hkGeometry::Triangle& partition_triangle : partition) {
-							hkGeometry::Triangle adjiacents[2];
-							//hkGeometry::Triangle touching[2];
-							bool adjiacent_is_valid = false;
-							for (hkGeometry::Triangle& other_triangle : geometry.m_triangles) {
-								if (is_adjacent(other_triangle, partition_triangle) &&
-									find_if(partition.begin(), partition.end(), [&other_triangle](const hkGeometry::Triangle& partition_triangle) -> bool {
-									return other_triangle.m_a != partition_triangle.m_a &&
-										other_triangle.m_b != partition_triangle.m_b &&
-										other_triangle.m_c != partition_triangle.m_c;
-								}
-									) == partition.end()) {
-									if (max_z(other_triangle) > max_z(partition_triangle)) {
-										adjiacents[1] = other_triangle;
-										stairs.push_back(other_triangle);
-										adjiacent_is_valid = true;
-									}
-									else {
-										adjiacents[0] = other_triangle;
-										stairs.push_back(other_triangle);
-										adjiacent_is_valid = true;
-									}
+
+					if (down_adjacent.m_a != -1) {
+						for (int t = 0; t < geometry.m_triangles.getSize(); t++) {
+							if (is_adjacent(down_adjacent, geometry.m_triangles[t]) && touches(geometry.m_triangles[t], s.source)) {
+								down_touching = geometry.m_triangles[t];
+							}
+						}
+					}
+					if (down_adjacent.m_a != -1) {
+						bool inserted = false;
+						float step_distance = abs(min_z(down_adjacent) - max_z(s.source));
+						bool touching_down = false;
+						if (i >=1 && distances[i]>STEP_SIZE-0.1) {
+							stairs.push_back(s.source);
+							for (hkGeometry::Triangle isle_adjoint : isle) {
+								if (!is_equal(isle_adjoint,s.source) && is_adjacent(isle_adjoint, s.source))
+									stairs.push_back(isle_adjoint);
+							}
+							stairs.push_back(down_adjacent);
+							inserted = true;
+						}
+						else { // is it gowing all down?
+							bool toward_minus_z = true;
+							for (hkGeometry::Triangle lower_z : planes_set[0]) {
+								bool cond = min_z(lower_z) < 0 ? min_z(lower_z) > min_z(down_adjacent) : min_z(lower_z) < min_z(down_adjacent);
+								if (cond)
+								{
+									toward_minus_z = false;
+									break;
 								}
 							}
-							for (hkGeometry::Triangle other_triangle : geometry.m_triangles) {
-								if (is_adjacent(other_triangle, adjiacents[0]) && touches(other_triangle, partition_triangle))
-									//touching[0] = other_triangle;
-									stairs.push_back(other_triangle);
-								else if (is_adjacent(other_triangle, adjiacents[1]) && touches(other_triangle, partition_triangle))
-									//touching[1] = other_triangle;
-									stairs.push_back(other_triangle);
+							if (toward_minus_z) {
+								stairs.push_back(s.source);
+								for (hkGeometry::Triangle isle_adjoint : isle) {
+									if (!is_equal(isle_adjoint, s.source) && is_adjacent(isle_adjoint, s.source))
+										stairs.push_back(isle_adjoint);
+								}
+								stairs.push_back(down_adjacent);
+								inserted = true;
 							}
+						}
+						if (inserted && down_touching.m_a != -1) {
+							stairs.push_back(down_touching);
 						}
 					}
 				}
 			}
 		}
+
+
+		//find stairs
+		//if (isles_at_step_distance.size() > 0) {
+		//	//handle initial step
+		//}
+		//if (isles_at_step_distance.size() > 1)
+		//for (int i = 1; i < isles_at_step_distance.size(); i++) {
+		//	vector<vector<hkGeometry::Triangle>> lower_partitions = isles_at_step_distance[i - 1];
+		//	vector<vector<hkGeometry::Triangle>> higher_partitions = isles_at_step_distance[i];
+		//	//the higher partition should have at lease one adjiacent and one touching triangle per side of an isle,
+		//	//otherwise it's actually a barrier
+		//	for (vector<hkGeometry::Triangle> higher_partition : higher_partitions) {
+		//		//find centeroid
+		//		hkVector4 higher_partition_centeroid = centeroid(higher_partition);
+
+		//	}
+		//}
 		for (hkGeometry::Triangle& triangle : geometry.m_triangles) {
 			for (hkGeometry::Triangle& stair : stairs) {
-				if (triangle.m_a == stair.m_a &&
-					triangle.m_b == stair.m_b &&
-					triangle.m_c == stair.m_c &&
+				if (is_equal(triangle, stair) &&
 					!is_stairs_material(materials[triangle.m_material])) {
-					triangle.m_material = convert_to_stairs(triangle.m_material);
+						triangle.m_material = convert_to_stairs(triangle.m_material);
 				}
 			}
 		}
@@ -956,7 +1166,14 @@ public:
 		if (pData != NULL)
 		{
 			vector<Vector3> vertices(pData->GetVertices());
-			vector<TriangleData> in_triangles(pData->GetTriangles());
+			vector<TriangleData> in_packed_triangles(pData->GetTriangles());
+			vector<unsigned short> points(in_packed_triangles.size() * 3);
+			for (TriangleData tpd : in_packed_triangles) {
+				points.push_back(tpd.triangle.v1);
+				points.push_back(tpd.triangle.v2);
+				points.push_back(tpd.triangle.v3);
+			}
+			vector<Triangle> in_triangles(triangulate(points));
 
 			geometry.m_vertices.setSize(vertices.size());
 			geometry.m_triangles.setSize(in_triangles.size());
@@ -968,6 +1185,10 @@ public:
 
 			vector<unsigned int> material_bounds;
 			vector<OblivionSubShape> shapes(obj.GetSubShapes());
+			if (shapes.empty()) {
+				//fo
+				shapes = pData->GetSubShapes();
+			}
 
 			int bound = 0;
 			for (auto& shape : shapes) {
@@ -979,7 +1200,7 @@ public:
 			for (int t = 0; t < in_triangles.size(); t++) {
 				int material_indexes[3];
 				for (int i = 0; i < 3; i++) {
-					int vertex_index = in_triangles[t].triangle[i];
+					int vertex_index = in_triangles[t][i];
 					for (int m = 0; m < material_bounds.size(); m++) {
 						if (vertex_index < material_bounds[m]) {
 							material_indexes[i] = m;
@@ -1031,9 +1252,9 @@ public:
 				}
 
 				hkGeometry::Triangle htri;
-				htri.m_a = in_triangles[t].triangle[0];
-				htri.m_b = in_triangles[t].triangle[1];
-				htri.m_c = in_triangles[t].triangle[2];
+				htri.m_a = in_triangles[t][0];
+				htri.m_b = in_triangles[t][1];
+				htri.m_c = in_triangles[t][2];
 				htri.m_material = material_index;
 
 				geometry.m_triangles[t] = htri;
