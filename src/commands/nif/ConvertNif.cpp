@@ -20,6 +20,8 @@
 
 #include <Physics\Collide\Util\hkpTriangleUtil.h>
 
+#include <limits>
+
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 using namespace ckcmd::Geometry;
@@ -106,31 +108,31 @@ SkyrimHavokMaterial convert_havok_material(OblivionHavokMaterial material) {
 	case OB_HAV_MAT_STONE_STAIRS: /*!< Stone Stairs */
 		return SKY_HAV_MAT_STAIRS_STONE; // = 899511101, /*!< Stairs Stone */
 	case OB_HAV_MAT_CLOTH_STAIRS: /*!< Cloth Stairs */
-		return SKY_HAV_MAT_CLOTH; // = 3839073443, /*!< Cloth */
+		return SKY_HAV_MAT_STAIRS_WOOD;
 	case OB_HAV_MAT_DIRT_STAIRS: /*!< Dirt Stairs */
-		return SKY_HAV_MAT_DIRT; // = 3106094762, /*!< Dirt */
+		return SKY_HAV_MAT_STAIRS_BROKEN_STONE;
 	case OB_HAV_MAT_GLASS_STAIRS: /*!< Glass Stairs */
-		return SKY_HAV_MAT_GLASS; // = 3739830338, /*!< Glass */
+		return SKY_HAV_MAT_STAIRS_STONE; // = 3739830338, /*!< Glass */
 	case OB_HAV_MAT_GRASS_STAIRS: /*!< Grass Stairs */
-		return SKY_HAV_MAT_GRASS; //= 1848600814, /*!< Grass */
+		return SKY_HAV_MAT_STAIRS_WOOD; //= 1848600814, /*!< Grass */
 	case OB_HAV_MAT_METAL_STAIRS: /*!< Metal Stairs */
-		return SKY_HAV_MAT_SOLID_METAL; // = 1288358971, /*!< Solid Metal */
+		return SKY_HAV_MAT_STAIRS_STONE; // = 1288358971, /*!< Solid Metal */
 	case OB_HAV_MAT_ORGANIC_STAIRS: /*!< Organic Stairs */
-		return SKY_HAV_MAT_ORGANIC; // = 2974920155, /*!< Organic */
+		return SKY_HAV_MAT_STAIRS_WOOD; // = 2974920155, /*!< Organic */
 	case OB_HAV_MAT_SKIN_STAIRS: /*!< Skin Stairs */
-		return SKY_HAV_MAT_SKIN; // = 591247106, /*!< Skin */
+		return SKY_HAV_MAT_STAIRS_WOOD; // = 591247106, /*!< Skin */
 	case OB_HAV_MAT_WATER_STAIRS: /*!< Water Stairs */
-		return SKY_HAV_MAT_WATER; // = 1024582599, /*!< Water */
+		return SKY_HAV_MAT_STAIRS_SNOW; // = 1024582599, /*!< Water */
 	case OB_HAV_MAT_WOOD_STAIRS: /*!< Wood Stairs */
 		return SKY_HAV_MAT_STAIRS_WOOD; // = 1461712277, /*!< Stairs Wood */
 	case OB_HAV_MAT_HEAVY_STONE_STAIRS: /*!< Heavy Stone Stairs */
-		return SKY_HAV_MAT_HEAVY_STONE; // = 1570821952, /*!< Heavy Stone */
+		return SKY_HAV_MAT_STAIRS_STONE; // = 1570821952, /*!< Heavy Stone */
 	case OB_HAV_MAT_HEAVY_METAL_STAIRS: /*!< Heavy Metal Stairs */
-		return SKY_HAV_MAT_HEAVY_METAL; // = 2229413539, /*!< Heavy Metal */
+		return SKY_HAV_MAT_STAIRS_STONE; // = 2229413539, /*!< Heavy Metal */
 	case OB_HAV_MAT_HEAVY_WOOD_STAIRS: /*!< Heavy Wood Stairs */
-		return SKY_HAV_MAT_HEAVY_WOOD; // = 3070783559, /*!< Heavy Wood */
+		return SKY_HAV_MAT_STAIRS_WOOD; // = 3070783559, /*!< Heavy Wood */
 	case OB_HAV_MAT_CHAIN_STAIRS: /*!< Chain Stairs */
-		return SKY_HAV_MAT_MATERIAL_CHAIN; // = 3074114406, /*!< Material Chain */ TODO: maybe SKY_HAV_MAT_MATERIAL_CHAIN_METAL?
+		return SKY_HAV_MAT_STAIRS_STONE; // = 3074114406, /*!< Material Chain */ TODO: maybe SKY_HAV_MAT_MATERIAL_CHAIN_METAL?
 	case OB_HAV_MAT_SNOW_STAIRS: /*!< Snow Stairs */
 		return SKY_HAV_MAT_STAIRS_SNOW; // = 1560365355, /*!< Stairs Snow */
 	case OB_HAV_MAT_ELEVATOR: /*!< Elevator */
@@ -140,6 +142,79 @@ SkyrimHavokMaterial convert_havok_material(OblivionHavokMaterial material) {
 	}
 	//DEFAULT
 	return SKY_HAV_MAT_STONE; // = 3741512247, /*!< Stone */
+}
+
+SkyrimHavokMaterial convert_material_to_stairs(SkyrimHavokMaterial to_convert) {
+	switch (to_convert) {
+		case SKY_HAV_MAT_MATERIAL_BOULDER_LARGE: // = 1885326971, /*!< Material Boulder Large */
+		case SKY_HAV_MAT_MATERIAL_STONE_AS_STAIRS: // = 1886078335, /*!< Material Stone As Stairs */
+		case SKY_HAV_MAT_MATERIAL_BLADE_2HAND: // = 2022742644, /*!< Material Blade 2Hand */
+		case SKY_HAV_MAT_MATERIAL_BOTTLE_SMALL: // = 2025794648, /*!< Material Bottle Small */
+		case SKY_HAV_MAT_SAND: // = 2168343821, /*!< Sand */
+		case SKY_HAV_MAT_HEAVY_METAL: // = 2229413539, /*!< Heavy Metal */
+		case SKY_HAV_MAT_UNKNOWN_2290050264: // = 2290050264, /*!< Unknown in Creation Kit v1.9.32.0. Found in Dawnguard DLC in meshes\dlc01\clutter\dlc01sabrecatpelt.nif. */
+		case SKY_HAV_MAT_DRAGON: // = 2518321175, /*!< Dragon */
+		case SKY_HAV_MAT_MATERIAL_BLADE_1HAND_SMALL: // = 2617944780, /*!< Material Blade 1Hand Small */
+		case SKY_HAV_MAT_MATERIAL_SKIN_SMALL: // = 2632367422, /*!< Material Skin Small */
+		case SKY_HAV_MAT_MATERIAL_SKIN_LARGE: // = 2965929619, /*!< Material Skin Large */
+		case SKY_HAV_MAT_ORGANIC: // = 2974920155, /*!< Organic */
+		case SKY_HAV_MAT_MATERIAL_BONE: // = 3049421844, /*!< Material Bone */
+		case SKY_HAV_MAT_HEAVY_WOOD: // = 3070783559, /*!< Heavy Wood */
+		case SKY_HAV_MAT_MATERIAL_CHAIN: // = 3074114406, /*!< Material Chain */
+		case SKY_HAV_MAT_DIRT: // = 3106094762, /*!< Dirt */
+		case SKY_HAV_MAT_MATERIAL_ARMOR_LIGHT: // = 3424720541, /*!< Material Armor Light */
+		case SKY_HAV_MAT_MATERIAL_SHIELD_LIGHT: // = 3448167928, /*!< Material Shield Light */
+		case SKY_HAV_MAT_MATERIAL_COIN: // = 3589100606, /*!< Material Coin */
+		case SKY_HAV_MAT_MATERIAL_SHIELD_HEAVY: // = 3702389584, /*!< Material Shield Heavy */
+		case SKY_HAV_MAT_MATERIAL_ARMOR_HEAVY: // = 3708432437, /*!< Material Armor Heavy */
+		case SKY_HAV_MAT_MATERIAL_ARROW: // = 3725505938, /*!< Material Arrow */
+		case SKY_HAV_MAT_GLASS: // = 3739830338, /*!< Glass */
+		case SKY_HAV_MAT_STONE: // = 3741512247, /*!< Stone */
+		case SKY_HAV_MAT_CLOTH: // = 3839073443, /*!< Cloth */
+		case SKY_HAV_MAT_MATERIAL_BLUNT_2HAND: // = 3969592277, /*!< Material Blunt 2Hand */
+		case SKY_HAV_MAT_UNKNOWN_4239621792: // = 4239621792, /*!< Unknown in Creation Kit v1.9.32.0. Found in Dawnguard DLC in meshes\dlc01\prototype\dlc1protoswingingbridge.nif. */
+		case SKY_HAV_MAT_MATERIAL_BOULDER_MEDIUM: // = 4283869410, /*!< Material Boulder Medium */
+		case SKY_HAV_MAT_HEAVY_STONE: // = 1570821952, /*!< Heavy Stone */
+		case SKY_HAV_MAT_UNKNOWN_1574477864: // = 1574477864, /*!< Unknown in Creation Kit v1.6.89.0. Found in actors\dragon\character assets\skeleton.nif. */
+		case SKY_HAV_MAT_UNKNOWN_1591009235: // = 1591009235, /*!< Unknown in Creation Kit v1.6.89.0. Found in trap objects or clutter\displaycases\displaycaselgangled01.nif or actors\deer\character assets\skeleton.nif. */
+		case SKY_HAV_MAT_MATERIAL_BOWS_STAVES: // = 1607128641, /*!< Material Bows Staves */
+		case SKY_HAV_MAT_MATERIAL_WOOD_AS_STAIRS: // = 1803571212, /*!< Material Wood As Stairs */
+		case SKY_HAV_MAT_WATER: // = 1024582599, /*!< Water */
+		case SKY_HAV_MAT_UNKNOWN_1028101969: // = 1028101969, /*!< Unknown in Creation Kit v1.6.89.0. Found in actors\draugr\character assets\skeletons.nif. */
+		case SKY_HAV_MAT_MATERIAL_BLADE_1HAND: // = 1060167844, /*!< Material Blade 1 Hand */
+		case SKY_HAV_MAT_MATERIAL_BOOK: // = 1264672850, /*!< Material Book */
+		case SKY_HAV_MAT_MATERIAL_CARPET: // = 1286705471, /*!< Material Carpet */
+		case SKY_HAV_MAT_SOLID_METAL: // = 1288358971, /*!< Solid Metal */
+		case SKY_HAV_MAT_MATERIAL_AXE_1HAND: // = 1305674443, /*!< Material Axe 1Hand */
+		case SKY_HAV_MAT_UNKNOWN_1440721808: // = 1440721808, /*!< Unknown in Creation Kit v1.6.89.0. Found in armor\draugr\draugrbootsfemale_go.nif or armor\amuletsandrings\amuletgnd.nif. */
+		case SKY_HAV_MAT_GRAVEL: // = 428587608, /*!< Gravel */
+		case SKY_HAV_MAT_MATERIAL_CHAIN_METAL: // = 438912228, /*!< Material Chain Metal */
+		case SKY_HAV_MAT_BOTTLE: // = 493553910, /*!< Bottle */
+			return SKY_HAV_MAT_STAIRS_STONE;
+		case SKY_HAV_MAT_MUD: // = 1486385281, /*!< Mud */
+		case SKY_HAV_MAT_MATERIAL_BOULDER_SMALL: // = 1550912982, /*!< Material Boulder Small */
+		case SKY_HAV_MAT_WOOD: // = 500811281, /*!< Wood */
+		case SKY_HAV_MAT_SKIN: // = 591247106, /*!< Skin */
+		case SKY_HAV_MAT_UNKNOWN_617099282: // = 617099282, /*!< Unknown in Creation Kit v1.9.32.0. Found in Dawnguard DLC in meshes\dlc01\clutter\dlc01deerskin.nif. */
+		case SKY_HAV_MAT_BARREL: // = 732141076, /*!< Barrel */
+		case SKY_HAV_MAT_MATERIAL_CERAMIC_MEDIUM: // = 781661019, /*!< Material Ceramic Medium */
+		case SKY_HAV_MAT_MATERIAL_BASKET: // = 790784366, /*!< Material Basket */
+		case SKY_HAV_MAT_LIGHT_WOOD: // = 365420259, /*!< Light Wood */
+			return SKY_HAV_MAT_STAIRS_WOOD;
+		case SKY_HAV_MAT_BROKEN_STONE: // = 131151687, /*!< Broken Stone */
+			return SKY_HAV_MAT_STAIRS_BROKEN_STONE;
+		case SKY_HAV_MAT_ICE: // = 873356572, /*!< Ice */
+		case SKY_HAV_MAT_SNOW: // = 398949039, /*!< Snow */
+			return SKY_HAV_MAT_STAIRS_SNOW;
+	}
+	return SKY_HAV_MAT_STAIRS_STONE;
+}
+
+bool is_stairs_material(SkyrimHavokMaterial material) {
+	return material == SKY_HAV_MAT_STAIRS_STONE ||
+		material == SKY_HAV_MAT_STAIRS_WOOD ||
+		material == SKY_HAV_MAT_STAIRS_SNOW ||
+		material == SKY_HAV_MAT_STAIRS_BROKEN_STONE;
 }
 
 SkyrimLayer convert_havok_layer(OblivionLayer layer) {
@@ -401,6 +476,26 @@ public:
 	}
 };
 
+struct vertexInfo {
+	hkVector4 vertex;
+	unsigned int index;
+
+	vertexInfo(hkVector4 v, unsigned int i) : vertex(v), index(i) {}
+
+	vertexInfo & operator=(vertexInfo & source) {
+		vertex = source.vertex;
+		index = source.index;
+		return *this;
+	}
+
+	vertexInfo & operator=(const vertexInfo & source) {
+		vertex = source.vertex;
+		index = source.index;
+		return *this;
+	}
+
+};
+
 class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor> {
 	
 	hkGeometry					geometry; //vetrices and triangles with materials indices
@@ -420,6 +515,312 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 			}
 				
 		}
+		return true;
+	}
+
+	int convert_to_stairs(int material) {
+		int material_index = -1;
+		SkyrimHavokMaterial stair_material = convert_material_to_stairs(materials[material]);
+		auto material_it = find(materials.begin(), materials.end(), stair_material);
+		if (material_it != materials.end())
+			return distance(materials.begin(), material_it);
+		material_index = materials.size();
+		materials.push_back(stair_material);
+		return material_index;
+	}
+
+	enum TrianglePlane {
+		PLANE_X = 0,
+		PLANE_Y = 1,
+		PLANE_Z = 2
+	};
+
+	int get_vertex_index(const hkGeometry::Triangle& t, int index) {
+		switch (index) {
+		case 0: return t.m_a;
+		case 1: return t.m_b;
+		case 2: return t.m_c;
+		}
+		throw runtime_error("Invalid triangle index!");
+	}
+
+	bool touches(const hkGeometry::Triangle& t1, const hkGeometry::Triangle& t2) {
+		int count = 0;
+		for (int i = 0; i < 3; i++) {
+			for (int j = 0; j < 3; j++) {
+				if (get_vertex_index(t1, i) == get_vertex_index(t2, j)) return true;
+			}
+		}
+		return false;
+	}
+
+	bool is_adjacent(const hkGeometry::Triangle& t1, const hkGeometry::Triangle& t2) {
+		int count = 0;
+		for (int i = 0; i < 3; i++) {
+			for (int j = 0; j < 3; j++) {
+				if (get_vertex_index(t1,i) == get_vertex_index(t2,j)) count++;
+				if (count == 2) return true;
+			}
+		}
+		return false;
+	}
+
+	float min_z(const hkGeometry::Triangle& t1) {
+		return geometry.m_vertices[t1.m_a](2) < geometry.m_vertices[t1.m_b](2) ?
+			geometry.m_vertices[t1.m_a](2) < geometry.m_vertices[t1.m_c](2) ?
+			geometry.m_vertices[t1.m_a](2) : geometry.m_vertices[t1.m_c](2) :
+			geometry.m_vertices[t1.m_b](2) < geometry.m_vertices[t1.m_c](2) ?
+			geometry.m_vertices[t1.m_b](2) : geometry.m_vertices[t1.m_c](2);
+	}
+
+	float max_z(const hkGeometry::Triangle& t1) {
+		return geometry.m_vertices[t1.m_a](2) > geometry.m_vertices[t1.m_b](2) ?
+			geometry.m_vertices[t1.m_a](2) > geometry.m_vertices[t1.m_c](2) ?
+			geometry.m_vertices[t1.m_a](2) : geometry.m_vertices[t1.m_c](2) :
+			geometry.m_vertices[t1.m_b](2) > geometry.m_vertices[t1.m_c](2) ?
+			geometry.m_vertices[t1.m_b](2) : geometry.m_vertices[t1.m_c](2);
+	}
+
+	template<TrianglePlane plane>
+	struct order_by_plane_up {
+		const hkGeometry& geometry;
+
+		order_by_plane_up(const hkGeometry& geometry) : geometry(geometry) {}
+
+		bool operator()(const hkGeometry::Triangle& v1, const hkGeometry::Triangle& v2) const {
+			return geometry.m_vertices[v1.m_a](plane) < geometry.m_vertices[v2.m_a](plane);
+		}
+	};
+
+	template<TrianglePlane plane>
+	vector<hkGeometry::Triangle> get_planar_triangles() {
+		vector<hkGeometry::Triangle> result;
+		for (int t = 0; t < geometry.m_triangles.getSize(); t++) {
+			hkVector4 a = geometry.m_vertices[geometry.m_triangles[t].m_a];
+			hkVector4 b = geometry.m_vertices[geometry.m_triangles[t].m_b];
+			hkVector4 c = geometry.m_vertices[geometry.m_triangles[t].m_c];
+
+			if (abs(a(plane) - b(plane)) < 0.1 &&
+				abs(a(plane) - c(plane)) < 0.1 &&
+				abs(b(plane) - c(plane)) < 0.1)
+				result.push_back(geometry.m_triangles[t]);
+		}
+		sort(result.begin(), result.end(), order_by_plane_up<plane>(geometry));
+		return move(result);
+	}
+
+	//madness.
+	bool hasStairs() {
+
+		vector<hkGeometry::Triangle> planar_x_triangles = get_planar_triangles<PLANE_X>();
+		vector<hkGeometry::Triangle> planar_y_triangles = get_planar_triangles<PLANE_Y>();
+		vector<hkGeometry::Triangle> planar_z_triangles = get_planar_triangles<PLANE_Z>();
+
+		vector<vector<hkGeometry::Triangle>> planes_set;
+		float last_z_value = numeric_limits<float>::lowest();
+		for (const hkGeometry::Triangle& info : planar_z_triangles) {
+			if (abs(last_z_value - geometry.m_vertices[info.m_a](PLANE_Z))>0.1) {
+				planes_set.push_back(vector<hkGeometry::Triangle>());
+			}
+			planes_set.back().push_back(info);
+			last_z_value = geometry.m_vertices[info.m_a](PLANE_Z);
+		}
+		vector<float> distances;
+		vector<hkGeometry::Triangle> stairs;
+		//calculate distances
+		for (int i = 1; i < planes_set.size(); i++) {
+			float distance = abs(geometry.m_vertices[planes_set[i][0].m_a](PLANE_Z) -
+				geometry.m_vertices[planes_set[i - 1][0].m_a](PLANE_Z));
+			distances.push_back(distance);
+			if (distance > 0.32 && distance < 0.35) {
+				//get all the separate partitions on the plane 
+				vector<vector<hkGeometry::Triangle>> partitions_current;
+				for (hkGeometry::Triangle& plane_triangle : planes_set[i]) {
+					bool found_my_partition = false;
+					for (vector<hkGeometry::Triangle>& partition : partitions_current) {
+						for (const hkGeometry::Triangle& partition_triangle : partition) {
+							if (is_adjacent(partition_triangle, plane_triangle)) {
+								partition.push_back(plane_triangle);
+								found_my_partition = true;
+							}
+						}
+					}
+					if (!found_my_partition)
+						partitions_current.push_back({ plane_triangle });
+				}
+
+				for (vector<hkGeometry::Triangle>& partition : partitions_current) {
+					if (partition.size() == 2) {
+						for (const hkGeometry::Triangle& partition_triangle : partition) {
+							stairs.push_back(partition_triangle);
+						}
+					}
+				}
+
+				//now each triangle in the partition should have an adjacent triangle and a touching triangle. If not, like in waterfrontbridge01, it's either a funny collision or a starting step
+				//find the adjacent	
+				
+				for (vector<hkGeometry::Triangle>& partition : partitions_current) {
+					if (partition.size() == 2) {
+						for (const hkGeometry::Triangle& partition_triangle : partition) {
+							hkGeometry::Triangle adjiacents[2];
+							//hkGeometry::Triangle touching[2];
+							bool adjiacent_is_valid = false;
+							for (hkGeometry::Triangle& other_triangle : geometry.m_triangles) {
+								if (is_adjacent(other_triangle, partition_triangle) &&
+									find_if(partition.begin(), partition.end(), [&other_triangle](const hkGeometry::Triangle& partition_triangle) -> bool {
+									return other_triangle.m_a != partition_triangle.m_a &&
+										other_triangle.m_b != partition_triangle.m_b &&
+										other_triangle.m_c != partition_triangle.m_c;
+								}
+									) == partition.end()) {
+									if (max_z(other_triangle) > max_z(partition_triangle)) {
+										adjiacents[1] = other_triangle;
+										stairs.push_back(other_triangle);
+										adjiacent_is_valid = true;
+									}
+									else {
+										adjiacents[0] = other_triangle;
+										stairs.push_back(other_triangle);
+										adjiacent_is_valid = true;
+									}
+								}
+							}
+							for (hkGeometry::Triangle other_triangle : geometry.m_triangles) {
+								if (is_adjacent(other_triangle, adjiacents[0]) && touches(other_triangle, partition_triangle))
+									//touching[0] = other_triangle;
+									stairs.push_back(other_triangle);
+								else if (is_adjacent(other_triangle, adjiacents[1]) && touches(other_triangle, partition_triangle))
+									//touching[1] = other_triangle;
+									stairs.push_back(other_triangle);
+							}
+						}
+					}
+				}
+			}
+		}
+		for (hkGeometry::Triangle& triangle : geometry.m_triangles) {
+			for (hkGeometry::Triangle& stair : stairs) {
+				if (triangle.m_a == stair.m_a &&
+					triangle.m_b == stair.m_b &&
+					triangle.m_c == stair.m_c &&
+					!is_stairs_material(materials[triangle.m_material])) {
+					triangle.m_material = convert_to_stairs(triangle.m_material);
+				}
+			}
+		}
+			////				if ((geometry.m_triangles[t].m_a == vinfo.index ||
+			////					geometry.m_triangles[t].m_b == vinfo.index ||
+			////					geometry.m_triangles[t].m_b == vinfo.index ) &&
+			////						!is_stairs_material(materials[geometry.m_triangles[t].m_material]))
+			////					geometry.m_triangles[t].m_material = convert_to_stairs(geometry.m_triangles[t].m_material);
+			////			}
+
+		//stairs are more or less 0.32-0.35
+
+
+		//vector<vector<vertexInfo>> triangle_planes_set;
+		//for (const vector<vertexInfo>& plane : planes_set) {
+		//	if (plane.size() < 3) triangle_planes_set.push_back(vector<vertexInfo>());
+		//	vector<vector<vertexInfo>> vertices_permutations;
+		//	do
+		//	{
+		//		vector<vertexInfo> tris;
+		//		for (int i = 0; i < 3; ++i)
+		//		{
+		//			tris.push_back(plane[i]);
+		//		}
+		//		vertices_permutations.push_back(tris);
+		//	} while (next_combination(plane.begin(), plane.begin() + 3, plane.end()));
+
+		//	//for (vertexInfo info : plane) {
+		//	//	for (int t = 0; t < geometry.m_triangles.getSize(); t++) {
+
+		//	//	}
+		//	//}
+		//}
+
+		//sort(vertex_map_y.begin(), vertex_map_y.end(), less_y());
+		//float y_min = vertex_map_y.begin()->vertex(1);
+		//float y_max = (vertex_map_y.end()-1)->vertex(1);
+
+		//float step = (y_max - y_min) / vertex_map_y.size()*100;
+
+
+
+
+
+		////float last_z_value = numeric_limits<float>::lowest();
+		////for (const vertexInfo& info : vertex_map) {
+		////	if (abs(last_z_value - info.vertex(2))>0.002) {
+		////		planes_set.push_back(vector<vertexInfo>());
+		////	}
+		////	planes_set.back().push_back(info);
+		////	last_z_value = info.vertex(2);
+		////}
+		////vector<float> z_x_discrete_derivative(vertex_map_x.size()-1);
+		////for (int i = 1; i < vertex_map_x.size(); i++) {
+		////	float div = (vertex_map_x[i].vertex(0) - vertex_map_x[i - 1].vertex(0));
+		////	div = div != 0 ? div : numeric_limits<float>::lowest();
+		////	z_x_discrete_derivative[i - 1] = (vertex_map_x[i].vertex(2) - vertex_map_x[i - 1].vertex(2)) / div;
+		////}
+		////vector<float> z_y_derivative;
+		////float last_z = 0.0;
+		////for (float i = y_min; i < y_max; i+=step) {
+		////	vector<float> these_z;
+		////	for (int index = 1; index < vertex_map_y.size(); index++) {
+		////		if (abs(vertex_map_y[index].vertex(1) - i) < step)
+		////			these_z.push_back(vertex_map_y[index].vertex(2));
+		////	}
+		////	if (these_z.size() == 0)
+		////		continue;
+		////	float this_z = 0.0;
+		////	for (float zz : these_z) {
+		////		this_z += zz;
+		////	}
+		////	this_z = this_z / these_z.size();
+		////	z_y_derivative.push_back((this_z - last_z) / step);
+		////	last_z = this_z;
+		////}
+
+		//vector<double> areas;
+		////for (vector<vertexInfo>& plane : planes_set) {
+		////	sort_by_polar_angle(plane);
+		////	areas.push_back(polygonArea(plane));
+		////}
+		////Log::Info("ordered!");
+		////vector<vector<vertexInfo>> stairs;
+		////double last_area = numeric_limits<float>::lowest();
+		////for (int i = 0; i < areas.size(); i++) {
+		////	double area = areas[i];
+		////	if (//area > 0.01 && 
+		////		abs(last_area - area) < 2000.0 &&
+		////		//planes_set[i].size() % 4 == 0 &&
+		////		planes_set[i].size() < 64 &&
+		////		abs(planes_set[i][0].vertex(2) - planes_set[i-1][0].vertex(2)) > 0 &&
+		////		abs(planes_set[i][0].vertex(2) - planes_set[i-1][0].vertex(2)) < 0.4
+		////		)
+		////	{
+		////		if (stairs.empty())
+		////			stairs.push_back(planes_set[i-1]);
+		////		stairs.push_back(planes_set[i]);
+		////	}
+		////	last_area = area;
+		////}
+		////if (stairs.size() > 2) {
+		////	for (int t = 0; t < geometry.m_triangles.getSize(); t++) {
+		////		for (auto & stair : stairs) {
+		////			for (auto& vinfo : stair) {
+		////				if ((geometry.m_triangles[t].m_a == vinfo.index ||
+		////					geometry.m_triangles[t].m_b == vinfo.index ||
+		////					geometry.m_triangles[t].m_b == vinfo.index ) &&
+		////						!is_stairs_material(materials[geometry.m_triangles[t].m_material]))
+		////					geometry.m_triangles[t].m_material = convert_to_stairs(geometry.m_triangles[t].m_material);
+		////			}
+		////		}
+		////	}
+		////}
+
 		return true;
 	}
 
@@ -516,6 +917,8 @@ public:
 		shape->accept(*this, info);
 		if (pMoppShape == NULL)
 			pMoppShape = new bhkMoppBvTreeShape();
+
+		bool madness = hasStairs();
 
 		if (isGeometryValid()) {
 			try {
@@ -860,7 +1263,7 @@ public:
 		obj.gravityFactor = (float)1.0;
 		obj.rollingFrictionMultiplier = (float)0.0;
 
-		obj.enableDeactivation = obj.solverDeactivation != SOLVER_DEACTIVATION_OFF;
+		obj.enableDeactivation = true; //Seems has to be fixed; obj.solverDeactivation != SOLVER_DEACTIVATION_OFF;
 		obj.unknownFloat1 = (float)0.0;
 
 		obj.unknownBytes1 = { 0,0,0,0,0,0,0,0,0,0,0,0 };
@@ -887,8 +1290,8 @@ public:
 		}
 
 		//Seems like the old havok settings must be deactivated
-		obj.motionSystem = MO_SYS_BOX_INERTIA;
-		obj.qualityType = MO_QUAL_FIXED;
+		obj.motionSystem = MO_SYS_BOX_STABILIZED;
+		obj.qualityType = MO_QUAL_INVALID;
 
 		//obsolete collisions
 		if (obj.shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
@@ -998,21 +1401,18 @@ public:
 		RecursiveFieldVisitor(*this, info), this_info(info)
 	{}
 	template<class T>
-	inline void visit_object(T& obj) {
-	}
+	inline void visit_object(T& obj) {}
 
 	template<class T>
 	inline void visit_compound(T& obj) {
 	}
 
 	template<class T>
-	inline void visit_field(T& obj) {
-	}
+	inline void visit_field(T& obj) {}
 
 	template<>
 	inline void visit_object(NiNode& obj) {
 		vector<Ref<NiAVObject>> children = obj.GetChildren();
-		vector<Ref<NiExtraData>> extras = obj.GetExtraDataList();
 		int index = 0;
 		for (NiAVObjectRef& block : children)
 		{
@@ -1030,74 +1430,10 @@ public:
 
 			index++;
 		}
-		index = 0;
-		//need to do furnitures here, we need to change BSFurnitureMarker to BSFurnitureMarkerNode
-		for (NiExtraDataRef extra : extras)
-		{
-			if (extra->IsSameType(BSFurnitureMarker::TYPE)) {
-				BSFurnitureMarkerRef oldNode = DynamicCast<BSFurnitureMarker>(extra);
-				BSFurnitureMarkerNodeRef newNode = new BSFurnitureMarkerNode();
-				newNode->SetName(IndexString("FRN")); //fix for furniture nodes with names which isn't FRN
-				vector<FurniturePosition> newpositions;
-				vector<FurniturePosition> positions = oldNode->GetPositions();
-
-				for (FurniturePosition pos : positions)
-				{
-					FurniturePosition newpos = FurniturePosition();
-					newpos.offset = pos.offset;
-					newpos.offset.z += 35;
-
-					if (pos.positionRef1 == 1) {
-						newpos.animationType = AnimationType::SLEEP;
-						newpos.entryProperties = FurnitureEntryPoints::LEFT;
-						newpos.offset.x -= -90.826172f;
-					}
-					if (pos.positionRef1 == 2) {
-						newpos.animationType = AnimationType::SLEEP;
-						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
-						newpos.offset.x -= 90.826172f;
-					}
-					if (pos.positionRef1 == 3) {
-						newpos.animationType = AnimationType::SLEEP;
-						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
-					}
-					if (pos.positionRef1 == 4) {
-						newpos.animationType = AnimationType::SLEEP;
-						newpos.entryProperties = FurnitureEntryPoints::BEHIND;
-					}
-					if (pos.positionRef1 == 11) {
-						newpos.animationType = AnimationType::SIT;
-						newpos.entryProperties = FurnitureEntryPoints::LEFT;
-						newpos.offset.x -= -51.330994f;
-					}
-					if (pos.positionRef1 == 12) {
-						newpos.animationType = AnimationType::SIT;
-						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
-						newpos.offset.x -= 51.826050f;
-					}
-					if (pos.positionRef1 == 13) {
-						newpos.animationType = AnimationType::SIT;
-						newpos.entryProperties = FurnitureEntryPoints::BEHIND;
-						newpos.offset.y -= -54.735596f;
-					}
-					if (pos.positionRef1 == 14) {
-						newpos.animationType = AnimationType::SIT;
-						newpos.entryProperties = FurnitureEntryPoints::FRONT;
-						newpos.offset.y -= 55.295258f;
-					}
-					newpositions.push_back(newpos);
-				}
-				newNode->SetPositions(newpositions);
-				if(extras.size() > 1) //fix markermatsideentry.nif vector crash.
-					index++;
-				extras[index] = DynamicCast<BSFurnitureMarkerNode>(newNode);
-			}
-		}
-			//TODO
-			//properties are deprecated
+		//TODO
+		//properties are deprecated
 		obj.SetProperties(vector<NiPropertyRef>{});
 		obj.SetChildren(children);
-		obj.SetExtraDataList(extras);
 	}
 
 	template<>
@@ -1201,6 +1537,19 @@ public:
 				obj.SetAlphaProperty(alpha);
 			}
 		}
+		NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(obj.GetData());
+		if (data != NULL) {
+			
+			if (!data->GetVertexColors().empty()) {
+				data->SetHasVertexColors(true);
+				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() | SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
+			}
+			else {
+				data->SetHasVertexColors(false);
+				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
+			}
+		}
+
 		lightingProperty->SetTextureSet(textureSet);
 		obj.SetShaderProperty(DynamicCast<BSShaderProperty>(lightingProperty));
 		obj.SetExtraDataList(vector<Ref<NiExtraData>> {});
@@ -1365,11 +1714,11 @@ public:
 	inline void visit_object(bhkTransformShape& obj) {
 		if (already_upgraded.insert(&obj).second) {
 			convertMaterialAndRadius(obj);
-			Vector3 trans = obj.GetTransform().GetTranslation();
-			trans.x *= COLLISION_RATIO;
-			trans.y *= COLLISION_RATIO;
-			trans.z *= COLLISION_RATIO;
-			obj.SetTransform(Matrix44(trans, obj.GetTransform().GetRotation(), obj.GetTransform().GetScale()));
+			Matrix44 transform = obj.GetTransform();
+			transform[3][0] = transform[3][0] * COLLISION_RATIO;
+			transform[3][1] = transform[3][1] * COLLISION_RATIO;
+			transform[3][2] = transform[3][2] * COLLISION_RATIO;
+			obj.SetTransform(transform);
 			obj.SetShape(upgrade_shape(obj.GetShape(), this_info, NULL));
 		}
 	}
@@ -1563,6 +1912,7 @@ public:
 	}
 };
 
+
 class RebuildVisitor : public RecursiveFieldVisitor<RebuildVisitor> {
 	set<NiObject*> objects;
 public:
@@ -1571,7 +1921,7 @@ public:
 	RebuildVisitor(NiObject* root, const NifInfo& info) :
 		RecursiveFieldVisitor(*this, info) {
 		root->accept(*this, info);
-
+		
 		for (NiObject* ptr : objects) {
 			blocks.push_back(ptr);
 		}
@@ -1628,6 +1978,7 @@ bool BeginConversion() {
 			BSAFile bsa_file(bsa);
 			for (const auto& nif : bsa_file.assets(".*\.nif")) {
 				Log::Info("Current File: %s", nif.c_str());
+
 				if (nif.find("meshes\\landscape\\lod") != string::npos) {
 					Log::Warn("Ignored LOD file: %s", nif.c_str());
 					continue;
