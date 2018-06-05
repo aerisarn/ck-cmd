@@ -1036,8 +1036,8 @@ public:
 		{
 			if (extra->IsSameType(BSFurnitureMarker::TYPE)) {
 				BSFurnitureMarkerRef oldNode = DynamicCast<BSFurnitureMarker>(extra);
-				BSFurnitureMarkerNode newNode = BSFurnitureMarkerNode();
-				newNode.SetName(IndexString("FRN")); //fix for furniture nodes with names which isn't FRN
+				BSFurnitureMarkerNodeRef newNode = new BSFurnitureMarkerNode();
+				newNode->SetName(IndexString("FRN")); //fix for furniture nodes with names which isn't FRN
 				vector<FurniturePosition> newpositions;
 				vector<FurniturePosition> positions = oldNode->GetPositions();
 
@@ -1048,26 +1048,49 @@ public:
 					newpos.offset.z += 35;
 
 					if (pos.positionRef1 == 1) {
-						newpos.animationType == AnimationType::SLEEP;
-						newpos.entryProperties == FurnitureEntryPoints::RIGHT;
-						newpos.offset.x += 75;
+						newpos.animationType = AnimationType::SLEEP;
+						newpos.entryProperties = FurnitureEntryPoints::LEFT;
+						newpos.offset.x -= -90.826172f;
 					}
 					if (pos.positionRef1 == 2) {
-						newpos.animationType == AnimationType::SLEEP;
-						newpos.entryProperties == FurnitureEntryPoints::LEFT;
-						newpos.offset.x -= 75;
+						newpos.animationType = AnimationType::SLEEP;
+						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
+						newpos.offset.x -= 90.826172f;
 					}
 					if (pos.positionRef1 == 3) {
-						newpos.animationType == AnimationType::SLEEP;
-						newpos.entryProperties == FurnitureEntryPoints::RIGHT;
-						newpos.offset.x += -75;
+						newpos.animationType = AnimationType::SLEEP;
+						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
 					}
-
+					if (pos.positionRef1 == 4) {
+						newpos.animationType = AnimationType::SLEEP;
+						newpos.entryProperties = FurnitureEntryPoints::BEHIND;
+					}
+					if (pos.positionRef1 == 11) {
+						newpos.animationType = AnimationType::SIT;
+						newpos.entryProperties = FurnitureEntryPoints::LEFT;
+						newpos.offset.x -= -51.330994f;
+					}
+					if (pos.positionRef1 == 12) {
+						newpos.animationType = AnimationType::SIT;
+						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
+						newpos.offset.x -= 51.826050f;
+					}
+					if (pos.positionRef1 == 13) {
+						newpos.animationType = AnimationType::SIT;
+						newpos.entryProperties = FurnitureEntryPoints::BEHIND;
+						newpos.offset.y -= -54.735596f;
+					}
+					if (pos.positionRef1 == 14) {
+						newpos.animationType = AnimationType::SIT;
+						newpos.entryProperties = FurnitureEntryPoints::FRONT;
+						newpos.offset.y -= 55.295258f;
+					}
 					newpositions.push_back(newpos);
 				}
-				newNode.SetPositions(newpositions);
-				//extras[index] = DynamicCast<BSFurnitureMarkerNode>(newNode);
-				index++;
+				newNode->SetPositions(newpositions);
+				if(extras.size() > 1) //fix markermatsideentry.nif vector crash.
+					index++;
+				extras[index] = DynamicCast<BSFurnitureMarkerNode>(newNode);
 			}
 		}
 			//TODO
@@ -1329,11 +1352,11 @@ public:
 	inline void visit_object(bhkConvexTransformShape& obj) {
 		if (already_upgraded.insert(&obj).second) {
 			convertMaterialAndRadius(obj);
-			Matrix44 transform = obj.GetTransform();
-			transform[3][0] = transform[3][0] * COLLISION_RATIO;
-			transform[3][1] = transform[3][1] * COLLISION_RATIO;
-			transform[3][2] = transform[3][2] * COLLISION_RATIO;
-			obj.SetTransform(transform);
+			Vector3 trans = obj.GetTransform().GetTranslation();
+			trans.x *= COLLISION_RATIO;
+			trans.y *= COLLISION_RATIO;
+			trans.z *= COLLISION_RATIO;
+			obj.SetTransform(Matrix44(trans, obj.GetTransform().GetRotation(), obj.GetTransform().GetScale()));
 			obj.SetShape(upgrade_shape(obj.GetShape(), this_info, NULL));
 		}
 	}
@@ -1342,11 +1365,11 @@ public:
 	inline void visit_object(bhkTransformShape& obj) {
 		if (already_upgraded.insert(&obj).second) {
 			convertMaterialAndRadius(obj);
-			Matrix44 transform = obj.GetTransform();
-			transform[3][0] = transform[3][0] * COLLISION_RATIO;
-			transform[3][1] = transform[3][1] * COLLISION_RATIO;
-			transform[3][2] = transform[3][2] * COLLISION_RATIO;
-			obj.SetTransform(transform);
+			Vector3 trans = obj.GetTransform().GetTranslation();
+			trans.x *= COLLISION_RATIO;
+			trans.y *= COLLISION_RATIO;
+			trans.z *= COLLISION_RATIO;
+			obj.SetTransform(Matrix44(trans, obj.GetTransform().GetRotation(), obj.GetTransform().GetScale()));
 			obj.SetShape(upgrade_shape(obj.GetShape(), this_info, NULL));
 		}
 	}
@@ -1605,10 +1628,6 @@ bool BeginConversion() {
 			BSAFile bsa_file(bsa);
 			for (const auto& nif : bsa_file.assets(".*\.nif")) {
 				Log::Info("Current File: %s", nif.c_str());
-				if (nif.find("furniture") == string::npos) {
-					continue;
-				}
-
 				if (nif.find("meshes\\landscape\\lod") != string::npos) {
 					Log::Warn("Ignored LOD file: %s", nif.c_str());
 					continue;
