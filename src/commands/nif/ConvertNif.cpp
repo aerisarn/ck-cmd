@@ -1550,7 +1550,7 @@ public:
 
 	template<>
 	inline void visit_object(NiTriShape& obj) {
-		bool hasAlpha = false;
+		bool hasSpecular = false;
 
 		BSLightingShaderPropertyRef lightingProperty = new BSLightingShaderProperty();
 		BSShaderTextureSetRef textureSet = new BSShaderTextureSet();
@@ -1568,7 +1568,44 @@ public:
 				lightingProperty->SetEmissiveMultiple(1);
 				lightingProperty->SetGlossiness(material->GetGlossiness());
 				lightingProperty->SetAlpha(material->GetAlpha());
+
+				//TODO:: Create some kind of recursive method to modify GetNextControllers.
+				if (material->GetController() != NULL) {
+					if (material->GetController()->IsSameType(NiMaterialColorController::TYPE)) {
+						NiMaterialColorControllerRef oldController = DynamicCast<NiMaterialColorController>(material->GetController());
+						BSLightingShaderPropertyColorControllerRef controller = new BSLightingShaderPropertyColorController();
+						controller->SetFlags(oldController->GetFlags());
+						controller->SetFrequency(oldController->GetFrequency());
+						controller->SetPhase(oldController->GetPhase());
+						controller->SetStartTime(oldController->GetStartTime());
+						controller->SetStopTime(oldController->GetStopTime());
+						controller->SetTarget(lightingProperty);
+						controller->SetInterpolator(oldController->GetInterpolator());
+						if (oldController->GetTargetColor() == MaterialColor::TC_SELF_ILLUM)
+							controller->SetTypeOfControlledColor(LightingShaderControlledColor::LSCC_EMISSIVE_COLOR);
+						//constructor sets to specular.
+
+						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
+
+						if (material->GetController()->IsSameType(NiAlphaController::TYPE)) {
+							NiAlphaControllerRef oldController = DynamicCast<NiAlphaController>(material->GetController());
+							BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
+							controller->SetFlags(oldController->GetFlags());
+							controller->SetFrequency(oldController->GetFrequency());
+							controller->SetPhase(oldController->GetPhase());
+							controller->SetStartTime(oldController->GetStartTime());
+							controller->SetStopTime(oldController->GetStopTime());
+							controller->SetTarget(lightingProperty);
+							controller->SetInterpolator(oldController->GetInterpolator());
+							controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
+
+							lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
+						}
+					}
+				}
+
 			}
+
 			if (property->IsSameType(NiTexturingProperty::TYPE)) {
 				texturing = DynamicCast<NiTexturingProperty>(property);
 				string textureName;
@@ -1601,10 +1638,13 @@ public:
 				alpha->SetThreshold(DynamicCast<NiAlphaProperty>(property)->GetThreshold());
 				obj.SetAlphaProperty(alpha);
 			}
+			if (property->IsSameType(NiSpecularProperty::TYPE)) {
+				hasSpecular = true;
+			}
 		}
 		NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(obj.GetData());
 		if (data != NULL) {
-			
+
 			if (!data->GetVertexColors().empty()) {
 				data->SetHasVertexColors(true);
 				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() | SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
@@ -1614,25 +1654,14 @@ public:
 				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
 			}
 		}
+		if(!hasSpecular)
+			lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_SPECULAR));
 
 		lightingProperty->SetTextureSet(textureSet);
 		obj.SetShaderProperty(DynamicCast<BSShaderProperty>(lightingProperty));
 		obj.SetExtraDataList(vector<Ref<NiExtraData>> {});
 		obj.SetProperties(vector<Ref<NiProperty>> {});
 	}
-
-	template<>
-	inline void visit_object(NiControllerManager& obj)
-	{
-		//obj.SetTarget(DynamicCast<NiAVObject>(rootNode));
-	}
-
-	template<>
-	inline void visit_object(NiMultiTargetTransformController& obj)
-	{
-		//obj.SetTarget(DynamicCast<NiAVObject>(rootNode));
-	}
-
 	template<>
 	inline void visit_object(NiPSysData& obj) {
 		//TODO: how do we handle this geometry then?
