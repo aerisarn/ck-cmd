@@ -1673,11 +1673,20 @@ public:
 			if (blocks[i].stringPalette != NULL) {
 				blocks[i].nodeName = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].nodeNameOffset);
 				blocks[i].controllerType = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].controllerTypeOffset);
+
+				if(blocks[i].propertyTypeOffset != 4294967295)
+					blocks[i].propertyType = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].propertyTypeOffset);
+
+				if (blocks[i].controllerIdOffset != 4294967295)
+					blocks[i].controllerId = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].controllerIdOffset);
+
+				if (blocks[i].interpolatorIdOffset != 4294967295)
+					blocks[i].interpolatorId = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].interpolatorIdOffset);
 			}
 
 			//set to default... if above doesn't work
 			if (blocks[i].controllerType == "")
-				blocks[i].controllerType = "NiTransformController";
+				throw runtime_error("controller type is null; will cause errors.");
 
 			blocks[i].stringPalette = NULL;
 			nblocks.push_back(blocks[i]);
