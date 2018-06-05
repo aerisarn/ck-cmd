@@ -1413,6 +1413,7 @@ public:
 	template<>
 	inline void visit_object(NiNode& obj) {
 		vector<Ref<NiAVObject>> children = obj.GetChildren();
+		vector<Ref<NiExtraData>> extras = obj.GetExtraDataList();
 		int index = 0;
 		for (NiAVObjectRef& block : children)
 		{
@@ -1430,10 +1431,74 @@ public:
 
 			index++;
 		}
+		index = 0;
+		//need to do furnitures here, we need to change BSFurnitureMarker to BSFurnitureMarkerNode
+		for (NiExtraDataRef extra : extras)
+		{
+			if (extra->IsSameType(BSFurnitureMarker::TYPE)) {
+				BSFurnitureMarkerRef oldNode = DynamicCast<BSFurnitureMarker>(extra);
+				BSFurnitureMarkerNodeRef newNode = new BSFurnitureMarkerNode();
+				newNode->SetName(IndexString("FRN")); //fix for furniture nodes with names which isn't FRN
+				vector<FurniturePosition> newpositions;
+				vector<FurniturePosition> positions = oldNode->GetPositions();
+
+				for (FurniturePosition pos : positions)
+				{
+					FurniturePosition newpos = FurniturePosition();
+					newpos.offset = pos.offset;
+					newpos.offset.z += 35;
+
+					if (pos.positionRef1 == 1) {
+						newpos.animationType = AnimationType::SLEEP;
+						newpos.entryProperties = FurnitureEntryPoints::LEFT;
+						newpos.offset.x -= -90.826172f;
+					}
+					if (pos.positionRef1 == 2) {
+						newpos.animationType = AnimationType::SLEEP;
+						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
+						newpos.offset.x -= 90.826172f;
+					}
+					if (pos.positionRef1 == 3) {
+						newpos.animationType = AnimationType::SLEEP;
+						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
+					}
+					if (pos.positionRef1 == 4) {
+						newpos.animationType = AnimationType::SLEEP;
+						newpos.entryProperties = FurnitureEntryPoints::BEHIND;
+					}
+					if (pos.positionRef1 == 11) {
+						newpos.animationType = AnimationType::SIT;
+						newpos.entryProperties = FurnitureEntryPoints::LEFT;
+						newpos.offset.x -= -51.330994f;
+					}
+					if (pos.positionRef1 == 12) {
+						newpos.animationType = AnimationType::SIT;
+						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
+						newpos.offset.x -= 51.826050f;
+					}
+					if (pos.positionRef1 == 13) {
+						newpos.animationType = AnimationType::SIT;
+						newpos.entryProperties = FurnitureEntryPoints::BEHIND;
+						newpos.offset.y -= -54.735596f;
+					}
+					if (pos.positionRef1 == 14) {
+						newpos.animationType = AnimationType::SIT;
+						newpos.entryProperties = FurnitureEntryPoints::FRONT;
+						newpos.offset.y -= 55.295258f;
+					}
+					newpositions.push_back(newpos);
+				}
+				newNode->SetPositions(newpositions);
+				if (extras.size() > 1) //fix markermatsideentry.nif vector crash.
+					index++;
+				extras[index] = DynamicCast<BSFurnitureMarkerNode>(newNode);
+			}
+		}
 		//TODO
 		//properties are deprecated
 		obj.SetProperties(vector<NiPropertyRef>{});
 		obj.SetChildren(children);
+		obj.SetExtraDataList(extras);
 	}
 
 	template<>
