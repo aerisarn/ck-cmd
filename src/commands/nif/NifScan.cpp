@@ -213,17 +213,12 @@ static void CheckDDS(fs::path filename, int slot, bool hasAlpha, bool isSpecular
 		is.read((char*)&header.ddspf.dwSize, sizeof(DWORD));
 		is.read((char*)&header.ddspf.dwFlags, sizeof(DWORD));
 		is.read((char*)&header.ddspf.dwFourCC, sizeof(DWORD)); //DXT1, DXT3 or DXT5
-		is.read((char*)&header.ddspf.dwRGBBitCount, sizeof(DWORD));
-		is.read((char*)&header.ddspf.dwRBitMask, sizeof(DWORD));
-		is.read((char*)&header.ddspf.dwGBitMask, sizeof(DWORD));
-		is.read((char*)&header.ddspf.dwBBitMask, sizeof(DWORD));
-		is.read((char*)&header.ddspf.dwABitMask, sizeof(DWORD));
-		is.read((char*)&header.dwSurfaceFlags, sizeof(DWORD));
-		is.read((char*)&header.dwCubemapFlags, sizeof(DWORD));
-		is.read((char*)&header.dwReserved1, sizeof(DWORD) * 3);
 
 		if (header.ddspf.dwFourCC == DDS_DXT3)
 			Log::Info("DXT3 is not used in Skyrim.");
+
+		if (header.dwMipMapCount == 0)
+			Log::Info("No mipmaps found. Mipmaps should be generated for optimisation.");
 
 		if (slot == 0) {
 			if (hasAlpha && header.ddspf.dwFourCC == DDS_DXT1)
@@ -233,6 +228,8 @@ static void CheckDDS(fs::path filename, int slot, bool hasAlpha, bool isSpecular
 			if (isSpecular && header.ddspf.dwFourCC == DDS_DXT1)
 				Log::Info("Block has specular flag but normal texture is DXT1. Needs to be DXT5.");
 		}
+
+		is.close();
 	}
 }
 
