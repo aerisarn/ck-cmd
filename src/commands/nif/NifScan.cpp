@@ -3,6 +3,7 @@
 #include <core/hkxcmd.h>
 #include <core/hkfutils.h>
 #include <core/log.h>
+#include <commands/DDS.h>
 
 using namespace ckcmd;
 using namespace ckcmd::nifscan;
@@ -186,6 +187,55 @@ void findFilesn(fs::path startingDir, string extension, vector<fs::path>& result
 	}
 }
 
+static void CheckDDS(fs::path filename, int slot, bool hasAlpha, bool isSpecular)
+{
+	ifstream is;
+	int magic;
+	DDS_HEADER header = {};
+
+	is.open(filename, ios::binary);
+
+	if (is.is_open())
+	{
+		is.read((char*)&magic, sizeof(int));
+
+		if (magic != DDS_MAGIC)
+			return;
+
+		is.read((char*)&header.dwSize, sizeof(DWORD));
+		is.read((char*)&header.dwFlags, sizeof(DWORD));
+		is.read((char*)&header.dwHeight, sizeof(DWORD));
+		is.read((char*)&header.dwWidth, sizeof(DWORD));
+		is.read((char*)&header.dwPitchOrLinearSize, sizeof(DWORD));
+		is.read((char*)&header.dwDepth, sizeof(DWORD));
+		is.read((char*)&header.dwMipMapCount, sizeof(DWORD));
+		is.read((char*)&header.dwReserved1, sizeof(DWORD)*11);
+		is.read((char*)&header.ddspf.dwSize, sizeof(DWORD));
+		is.read((char*)&header.ddspf.dwFlags, sizeof(DWORD));
+		is.read((char*)&header.ddspf.dwFourCC, sizeof(DWORD)); //DXT1, DXT3 or DXT5
+		is.read((char*)&header.ddspf.dwRGBBitCount, sizeof(DWORD));
+		is.read((char*)&header.ddspf.dwRBitMask, sizeof(DWORD));
+		is.read((char*)&header.ddspf.dwGBitMask, sizeof(DWORD));
+		is.read((char*)&header.ddspf.dwBBitMask, sizeof(DWORD));
+		is.read((char*)&header.ddspf.dwABitMask, sizeof(DWORD));
+		is.read((char*)&header.dwSurfaceFlags, sizeof(DWORD));
+		is.read((char*)&header.dwCubemapFlags, sizeof(DWORD));
+		is.read((char*)&header.dwReserved1, sizeof(DWORD) * 3);
+
+		if (header.ddspf.dwFourCC == DDS_DXT3)
+			Log::Info("DXT3 is not used in Skyrim.");
+
+		if (slot == 0) {
+			if (hasAlpha && header.ddspf.dwFourCC == DDS_DXT1)
+				Log::Info("Block has alpha but diffuse texture is DXT1. Needs to be DXT5.");
+		}
+		else if (slot == 1) {
+			if (isSpecular && header.ddspf.dwFourCC == DDS_DXT1)
+				Log::Info("Block has specular flag but normal texture is DXT1. Needs to be DXT5.");
+		}
+	}
+}
+
 void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 {
 	Games& games = Games::Instance();
@@ -306,7 +356,6 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 				}
 			}
 			if (shaderprop->GetSkyrimShaderType() == BSLightingShaderPropertyShaderType::ST_GLOW_SHADER) {
-				Log::Info("Block is glow shader.");
 				if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE) != SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE) {
 					Log::Info("Block[%i]: ShaderType is 'Glow', but ShaderFlags1 does not include 'External Emittance'.", i);
 				}
@@ -327,33 +376,21 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 			}
 		}
 
-		if (blocks[i]->IsSameType(BSShaderTextureSet::TYPE)) {
-			BSShaderTextureSetRef set = DynamicCast<BSShaderTextureSet>(blocks[i]);
-			if (set->GetTextures().size() != 0) {
-				for (std::string texture : set->GetTextures()) {
-					bool isTexture = (texture.substr(0, 7) != "textures"); //Possible issue: If the user has capitalized "textures"#
-					if (!isTexture) {
-						Log::Info("Block[%i]: TextureSet includes paths not relative to data.", i);
-					}
-					else {
-						bool doesExist = false;
-						if ((fs::exists(games.data(Games::TES5) / texture)) || (fs::exists(games.data(Games::TES5) / "textures" / texture))) { //this needs sorting out.
-							doesExist = true;
-						}
-						if (!doesExist) {
-							Log::Info("Block[%i]: Texture: '%s' does not exist!", i, texture.c_str());
-						}
-					}
-
-				}
-			}
-		}
-
 		if (blocks[i]->IsSameType(NiTriShape::TYPE)) {
+			bool hasAlpha = false;
+			bool isSpecular = false;
+
 			NiTriShapeRef shape = DynamicCast<NiTriShape>(blocks[i]);
 			NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(shape->GetData());
+			BSLightingShaderPropertyRef  shaderprop = DynamicCast<BSLightingShaderProperty>(shape->GetShaderProperty());
 
-			if (data != NULL && shape != NULL && data != NULL) {
+			if (data != NULL && shape != NULL && shaderprop != NULL) {
+				if (shape->GetAlphaProperty() != NULL)
+					hasAlpha = true;
+				
+				if (shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_SPECULAR)
+					isSpecular = true;
+
 				if (data->GetHasVertexColors() != hasVFOnShader) {
 					Log::Info("Block[%i]: Has Vertex Colors flag in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty", i);
 				}
@@ -369,14 +406,31 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 					if (allWhite)
 						Log::Info("Block[%i]: Redundant all white #FFFFFFFF vertex colors.", i);
 				}
+				//*beep boop* test
+				BSShaderTextureSetRef set = DynamicCast<BSShaderTextureSet>(shaderprop->GetTextureSet());
+				if (set->GetTextures().size() != 0) {
+					stringvector textures = set->GetTextures();
+					for (int i = 0; i != textures.size(); i++) {
+						bool isTexture = (textures[i].substr(0, 7) != "textures"); //Possible issue: If the user has capitalized "textures"#
+						if (!isTexture) {
+							Log::Info("Block[%i]: TextureSet includes paths not relative to data.", i);
+						}
+						else {
+							bool doesExist = false;
+							if (textures[i] != "") {
+								if ((fs::exists(games.data(Games::TES5) / textures[i])) || (fs::exists(games.data(Games::TES5) / "textures" / textures[i]))) { //this needs sorting out.
+									Log::Info("Checking texture data of %s", (textures[i]).c_str());
+									CheckDDS(games.data(Games::TES5) / textures[i], i, hasAlpha, isSpecular);
+									doesExist = true;
+								}
+								if (!doesExist)
+									Log::Info("Block[%i]: Texture: '%s' does not exist!", i, textures[i].c_str());
+							}
+						}
+					}
+				}
 			}
-
-
-			//scan if normals are incorrect
-			//scan if NiAlphaProperty is below BSLightingShaderProperty
 		}
-
-		//check NiNode children names and if they are unique to their parent.
 	}
 }
 
@@ -410,7 +464,6 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine) {
 	if (nifs.empty())
 	{
 		Log::Info("No NIFs found. Checking BSAs.");
-
 		for (const auto& bsa : games.bsas(Games::TES5)) {
 			std::cout << "Scan: " << bsa.filename() << std::endl;
 
@@ -457,5 +510,4 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine) {
 	//	WriteNifTree(out_path.string(), root, info);
 	//}
 }
-
 REGISTER_COMMAND(NifScan, HelpString, ExecuteCmd);
