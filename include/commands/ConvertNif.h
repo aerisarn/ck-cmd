@@ -66,7 +66,7 @@
 
 namespace fs = std::experimental::filesystem;
 
-static const fs::path nif_in = "I:\\git_ref\\resources\\nifs\\inc";
+static const fs::path nif_in = "D:\\git\\ck-cmd\\resources\\in";
 static const fs::path resources = "resources\\";
 static const fs::path nif_out = "D:\\git\\ck-cmd\\resources\\out";
 
