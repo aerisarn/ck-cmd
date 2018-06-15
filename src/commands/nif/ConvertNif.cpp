@@ -21,6 +21,8 @@
 #include <Physics\Collide\Util\hkpTriangleUtil.h>
 
 #include <limits>
+#include <array>
+#include <unordered_map>
 
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
@@ -146,66 +148,66 @@ SkyrimHavokMaterial convert_havok_material(OblivionHavokMaterial material) {
 
 SkyrimHavokMaterial convert_material_to_stairs(SkyrimHavokMaterial to_convert) {
 	switch (to_convert) {
-		case SKY_HAV_MAT_MATERIAL_BOULDER_LARGE: // = 1885326971, /*!< Material Boulder Large */
-		case SKY_HAV_MAT_MATERIAL_STONE_AS_STAIRS: // = 1886078335, /*!< Material Stone As Stairs */
-		case SKY_HAV_MAT_MATERIAL_BLADE_2HAND: // = 2022742644, /*!< Material Blade 2Hand */
-		case SKY_HAV_MAT_MATERIAL_BOTTLE_SMALL: // = 2025794648, /*!< Material Bottle Small */
-		case SKY_HAV_MAT_SAND: // = 2168343821, /*!< Sand */
-		case SKY_HAV_MAT_HEAVY_METAL: // = 2229413539, /*!< Heavy Metal */
-		case SKY_HAV_MAT_UNKNOWN_2290050264: // = 2290050264, /*!< Unknown in Creation Kit v1.9.32.0. Found in Dawnguard DLC in meshes\dlc01\clutter\dlc01sabrecatpelt.nif. */
-		case SKY_HAV_MAT_DRAGON: // = 2518321175, /*!< Dragon */
-		case SKY_HAV_MAT_MATERIAL_BLADE_1HAND_SMALL: // = 2617944780, /*!< Material Blade 1Hand Small */
-		case SKY_HAV_MAT_MATERIAL_SKIN_SMALL: // = 2632367422, /*!< Material Skin Small */
-		case SKY_HAV_MAT_MATERIAL_SKIN_LARGE: // = 2965929619, /*!< Material Skin Large */
-		case SKY_HAV_MAT_ORGANIC: // = 2974920155, /*!< Organic */
-		case SKY_HAV_MAT_MATERIAL_BONE: // = 3049421844, /*!< Material Bone */
-		case SKY_HAV_MAT_HEAVY_WOOD: // = 3070783559, /*!< Heavy Wood */
-		case SKY_HAV_MAT_MATERIAL_CHAIN: // = 3074114406, /*!< Material Chain */
-		case SKY_HAV_MAT_DIRT: // = 3106094762, /*!< Dirt */
-		case SKY_HAV_MAT_MATERIAL_ARMOR_LIGHT: // = 3424720541, /*!< Material Armor Light */
-		case SKY_HAV_MAT_MATERIAL_SHIELD_LIGHT: // = 3448167928, /*!< Material Shield Light */
-		case SKY_HAV_MAT_MATERIAL_COIN: // = 3589100606, /*!< Material Coin */
-		case SKY_HAV_MAT_MATERIAL_SHIELD_HEAVY: // = 3702389584, /*!< Material Shield Heavy */
-		case SKY_HAV_MAT_MATERIAL_ARMOR_HEAVY: // = 3708432437, /*!< Material Armor Heavy */
-		case SKY_HAV_MAT_MATERIAL_ARROW: // = 3725505938, /*!< Material Arrow */
-		case SKY_HAV_MAT_GLASS: // = 3739830338, /*!< Glass */
-		case SKY_HAV_MAT_STONE: // = 3741512247, /*!< Stone */
-		case SKY_HAV_MAT_CLOTH: // = 3839073443, /*!< Cloth */
-		case SKY_HAV_MAT_MATERIAL_BLUNT_2HAND: // = 3969592277, /*!< Material Blunt 2Hand */
-		case SKY_HAV_MAT_UNKNOWN_4239621792: // = 4239621792, /*!< Unknown in Creation Kit v1.9.32.0. Found in Dawnguard DLC in meshes\dlc01\prototype\dlc1protoswingingbridge.nif. */
-		case SKY_HAV_MAT_MATERIAL_BOULDER_MEDIUM: // = 4283869410, /*!< Material Boulder Medium */
-		case SKY_HAV_MAT_HEAVY_STONE: // = 1570821952, /*!< Heavy Stone */
-		case SKY_HAV_MAT_UNKNOWN_1574477864: // = 1574477864, /*!< Unknown in Creation Kit v1.6.89.0. Found in actors\dragon\character assets\skeleton.nif. */
-		case SKY_HAV_MAT_UNKNOWN_1591009235: // = 1591009235, /*!< Unknown in Creation Kit v1.6.89.0. Found in trap objects or clutter\displaycases\displaycaselgangled01.nif or actors\deer\character assets\skeleton.nif. */
-		case SKY_HAV_MAT_MATERIAL_BOWS_STAVES: // = 1607128641, /*!< Material Bows Staves */
-		case SKY_HAV_MAT_MATERIAL_WOOD_AS_STAIRS: // = 1803571212, /*!< Material Wood As Stairs */
-		case SKY_HAV_MAT_WATER: // = 1024582599, /*!< Water */
-		case SKY_HAV_MAT_UNKNOWN_1028101969: // = 1028101969, /*!< Unknown in Creation Kit v1.6.89.0. Found in actors\draugr\character assets\skeletons.nif. */
-		case SKY_HAV_MAT_MATERIAL_BLADE_1HAND: // = 1060167844, /*!< Material Blade 1 Hand */
-		case SKY_HAV_MAT_MATERIAL_BOOK: // = 1264672850, /*!< Material Book */
-		case SKY_HAV_MAT_MATERIAL_CARPET: // = 1286705471, /*!< Material Carpet */
-		case SKY_HAV_MAT_SOLID_METAL: // = 1288358971, /*!< Solid Metal */
-		case SKY_HAV_MAT_MATERIAL_AXE_1HAND: // = 1305674443, /*!< Material Axe 1Hand */
-		case SKY_HAV_MAT_UNKNOWN_1440721808: // = 1440721808, /*!< Unknown in Creation Kit v1.6.89.0. Found in armor\draugr\draugrbootsfemale_go.nif or armor\amuletsandrings\amuletgnd.nif. */
-		case SKY_HAV_MAT_GRAVEL: // = 428587608, /*!< Gravel */
-		case SKY_HAV_MAT_MATERIAL_CHAIN_METAL: // = 438912228, /*!< Material Chain Metal */
-		case SKY_HAV_MAT_BOTTLE: // = 493553910, /*!< Bottle */
-			return SKY_HAV_MAT_STAIRS_STONE;
-		case SKY_HAV_MAT_MUD: // = 1486385281, /*!< Mud */
-		case SKY_HAV_MAT_MATERIAL_BOULDER_SMALL: // = 1550912982, /*!< Material Boulder Small */
-		case SKY_HAV_MAT_WOOD: // = 500811281, /*!< Wood */
-		case SKY_HAV_MAT_SKIN: // = 591247106, /*!< Skin */
-		case SKY_HAV_MAT_UNKNOWN_617099282: // = 617099282, /*!< Unknown in Creation Kit v1.9.32.0. Found in Dawnguard DLC in meshes\dlc01\clutter\dlc01deerskin.nif. */
-		case SKY_HAV_MAT_BARREL: // = 732141076, /*!< Barrel */
-		case SKY_HAV_MAT_MATERIAL_CERAMIC_MEDIUM: // = 781661019, /*!< Material Ceramic Medium */
-		case SKY_HAV_MAT_MATERIAL_BASKET: // = 790784366, /*!< Material Basket */
-		case SKY_HAV_MAT_LIGHT_WOOD: // = 365420259, /*!< Light Wood */
-			return SKY_HAV_MAT_STAIRS_WOOD;
-		case SKY_HAV_MAT_BROKEN_STONE: // = 131151687, /*!< Broken Stone */
-			return SKY_HAV_MAT_STAIRS_BROKEN_STONE;
-		case SKY_HAV_MAT_ICE: // = 873356572, /*!< Ice */
-		case SKY_HAV_MAT_SNOW: // = 398949039, /*!< Snow */
-			return SKY_HAV_MAT_STAIRS_SNOW;
+	case SKY_HAV_MAT_MATERIAL_BOULDER_LARGE: // = 1885326971, /*!< Material Boulder Large */
+	case SKY_HAV_MAT_MATERIAL_STONE_AS_STAIRS: // = 1886078335, /*!< Material Stone As Stairs */
+	case SKY_HAV_MAT_MATERIAL_BLADE_2HAND: // = 2022742644, /*!< Material Blade 2Hand */
+	case SKY_HAV_MAT_MATERIAL_BOTTLE_SMALL: // = 2025794648, /*!< Material Bottle Small */
+	case SKY_HAV_MAT_SAND: // = 2168343821, /*!< Sand */
+	case SKY_HAV_MAT_HEAVY_METAL: // = 2229413539, /*!< Heavy Metal */
+	case SKY_HAV_MAT_UNKNOWN_2290050264: // = 2290050264, /*!< Unknown in Creation Kit v1.9.32.0. Found in Dawnguard DLC in meshes\dlc01\clutter\dlc01sabrecatpelt.nif. */
+	case SKY_HAV_MAT_DRAGON: // = 2518321175, /*!< Dragon */
+	case SKY_HAV_MAT_MATERIAL_BLADE_1HAND_SMALL: // = 2617944780, /*!< Material Blade 1Hand Small */
+	case SKY_HAV_MAT_MATERIAL_SKIN_SMALL: // = 2632367422, /*!< Material Skin Small */
+	case SKY_HAV_MAT_MATERIAL_SKIN_LARGE: // = 2965929619, /*!< Material Skin Large */
+	case SKY_HAV_MAT_ORGANIC: // = 2974920155, /*!< Organic */
+	case SKY_HAV_MAT_MATERIAL_BONE: // = 3049421844, /*!< Material Bone */
+	case SKY_HAV_MAT_HEAVY_WOOD: // = 3070783559, /*!< Heavy Wood */
+	case SKY_HAV_MAT_MATERIAL_CHAIN: // = 3074114406, /*!< Material Chain */
+	case SKY_HAV_MAT_DIRT: // = 3106094762, /*!< Dirt */
+	case SKY_HAV_MAT_MATERIAL_ARMOR_LIGHT: // = 3424720541, /*!< Material Armor Light */
+	case SKY_HAV_MAT_MATERIAL_SHIELD_LIGHT: // = 3448167928, /*!< Material Shield Light */
+	case SKY_HAV_MAT_MATERIAL_COIN: // = 3589100606, /*!< Material Coin */
+	case SKY_HAV_MAT_MATERIAL_SHIELD_HEAVY: // = 3702389584, /*!< Material Shield Heavy */
+	case SKY_HAV_MAT_MATERIAL_ARMOR_HEAVY: // = 3708432437, /*!< Material Armor Heavy */
+	case SKY_HAV_MAT_MATERIAL_ARROW: // = 3725505938, /*!< Material Arrow */
+	case SKY_HAV_MAT_GLASS: // = 3739830338, /*!< Glass */
+	case SKY_HAV_MAT_STONE: // = 3741512247, /*!< Stone */
+	case SKY_HAV_MAT_CLOTH: // = 3839073443, /*!< Cloth */
+	case SKY_HAV_MAT_MATERIAL_BLUNT_2HAND: // = 3969592277, /*!< Material Blunt 2Hand */
+	case SKY_HAV_MAT_UNKNOWN_4239621792: // = 4239621792, /*!< Unknown in Creation Kit v1.9.32.0. Found in Dawnguard DLC in meshes\dlc01\prototype\dlc1protoswingingbridge.nif. */
+	case SKY_HAV_MAT_MATERIAL_BOULDER_MEDIUM: // = 4283869410, /*!< Material Boulder Medium */
+	case SKY_HAV_MAT_HEAVY_STONE: // = 1570821952, /*!< Heavy Stone */
+	case SKY_HAV_MAT_UNKNOWN_1574477864: // = 1574477864, /*!< Unknown in Creation Kit v1.6.89.0. Found in actors\dragon\character assets\skeleton.nif. */
+	case SKY_HAV_MAT_UNKNOWN_1591009235: // = 1591009235, /*!< Unknown in Creation Kit v1.6.89.0. Found in trap objects or clutter\displaycases\displaycaselgangled01.nif or actors\deer\character assets\skeleton.nif. */
+	case SKY_HAV_MAT_MATERIAL_BOWS_STAVES: // = 1607128641, /*!< Material Bows Staves */
+	case SKY_HAV_MAT_MATERIAL_WOOD_AS_STAIRS: // = 1803571212, /*!< Material Wood As Stairs */
+	case SKY_HAV_MAT_WATER: // = 1024582599, /*!< Water */
+	case SKY_HAV_MAT_UNKNOWN_1028101969: // = 1028101969, /*!< Unknown in Creation Kit v1.6.89.0. Found in actors\draugr\character assets\skeletons.nif. */
+	case SKY_HAV_MAT_MATERIAL_BLADE_1HAND: // = 1060167844, /*!< Material Blade 1 Hand */
+	case SKY_HAV_MAT_MATERIAL_BOOK: // = 1264672850, /*!< Material Book */
+	case SKY_HAV_MAT_MATERIAL_CARPET: // = 1286705471, /*!< Material Carpet */
+	case SKY_HAV_MAT_SOLID_METAL: // = 1288358971, /*!< Solid Metal */
+	case SKY_HAV_MAT_MATERIAL_AXE_1HAND: // = 1305674443, /*!< Material Axe 1Hand */
+	case SKY_HAV_MAT_UNKNOWN_1440721808: // = 1440721808, /*!< Unknown in Creation Kit v1.6.89.0. Found in armor\draugr\draugrbootsfemale_go.nif or armor\amuletsandrings\amuletgnd.nif. */
+	case SKY_HAV_MAT_GRAVEL: // = 428587608, /*!< Gravel */
+	case SKY_HAV_MAT_MATERIAL_CHAIN_METAL: // = 438912228, /*!< Material Chain Metal */
+	case SKY_HAV_MAT_BOTTLE: // = 493553910, /*!< Bottle */
+		return SKY_HAV_MAT_STAIRS_STONE;
+	case SKY_HAV_MAT_MUD: // = 1486385281, /*!< Mud */
+	case SKY_HAV_MAT_MATERIAL_BOULDER_SMALL: // = 1550912982, /*!< Material Boulder Small */
+	case SKY_HAV_MAT_WOOD: // = 500811281, /*!< Wood */
+	case SKY_HAV_MAT_SKIN: // = 591247106, /*!< Skin */
+	case SKY_HAV_MAT_UNKNOWN_617099282: // = 617099282, /*!< Unknown in Creation Kit v1.9.32.0. Found in Dawnguard DLC in meshes\dlc01\clutter\dlc01deerskin.nif. */
+	case SKY_HAV_MAT_BARREL: // = 732141076, /*!< Barrel */
+	case SKY_HAV_MAT_MATERIAL_CERAMIC_MEDIUM: // = 781661019, /*!< Material Ceramic Medium */
+	case SKY_HAV_MAT_MATERIAL_BASKET: // = 790784366, /*!< Material Basket */
+	case SKY_HAV_MAT_LIGHT_WOOD: // = 365420259, /*!< Light Wood */
+		return SKY_HAV_MAT_STAIRS_WOOD;
+	case SKY_HAV_MAT_BROKEN_STONE: // = 131151687, /*!< Broken Stone */
+		return SKY_HAV_MAT_STAIRS_BROKEN_STONE;
+	case SKY_HAV_MAT_ICE: // = 873356572, /*!< Ice */
+	case SKY_HAV_MAT_SNOW: // = 398949039, /*!< Snow */
+		return SKY_HAV_MAT_STAIRS_SNOW;
 	}
 	return SKY_HAV_MAT_STAIRS_STONE;
 }
@@ -345,6 +347,11 @@ SkyrimLayer convert_havok_layer(OblivionLayer layer) {
 #define MATERIAL_MASK 1984
 
 #define STEP_SIZE 0.3
+#define STEP_SIZE_TOLERANCE 0.15
+#define ALMOST_DISTANCE 0.075
+#define ALMOST_DISTANCE_TOUCH 0.1
+#define PLANAR_MAX_ANGLE_COS 0.3
+#define STEP_MAX_ANGLE_COS 0.1
 
 class bhkRigidBodyUpgrader {};
 
@@ -408,7 +415,7 @@ public:
 		pData->chunkTransforms = tTranVec;
 
 		vector<bhkCMSDMaterial > tMtrlVec(pCompMesh->m_materials.getSize());
-		
+
 		for (unsigned int idx(0); idx < pCompMesh->m_materials.getSize(); ++idx)
 		{
 			bhkCMSDMaterial& material = tMtrlVec[idx];
@@ -498,14 +505,36 @@ struct vertexInfo {
 
 };
 
-bool is_equal(const hkGeometry::Triangle& t1, const hkGeometry::Triangle& t2) {
-	return t1.m_a == t2.m_a &&
-		t2.m_b == t2.m_b &&
-		t2.m_c == t2.m_c;
+bool is_equal(const hkGeometry::Triangle& t1, const hkGeometry::Triangle& other) {
+	//return t1.m_a == t2.m_a &&
+	//	t2.m_b == t2.m_b &&
+	//	t2.m_c == t2.m_c;
+
+	return
+		(t1.m_a == other.m_a && t1.m_b == other.m_b && t1.m_c == other.m_c) ||
+		(t1.m_a == other.m_a && t1.m_b == other.m_c && t1.m_c == other.m_b) ||
+		(t1.m_a == other.m_b && t1.m_b == other.m_a && t1.m_c == other.m_c) ||
+		(t1.m_a == other.m_b && t1.m_b == other.m_c && t1.m_c == other.m_a) ||
+		(t1.m_a == other.m_c && t1.m_b == other.m_a && t1.m_c == other.m_b) ||
+		(t1.m_a == other.m_c && t1.m_b == other.m_b && t1.m_c == other.m_a);
+}
+
+bool is_equal(const hkGeometry::Triangle& t1, const std::array<int, 3 >& other) {
+	//return t1.m_a == t2.m_a &&
+	//	t2.m_b == t2.m_b &&
+	//	t2.m_c == t2.m_c;
+
+	return
+		(t1.m_a == other[0] && t1.m_b == other[1] && t1.m_c == other[2]) ||
+		(t1.m_a == other[0] && t1.m_b == other[2] && t1.m_c == other[1]) ||
+		(t1.m_a == other[1] && t1.m_b == other[0] && t1.m_c == other[2]) ||
+		(t1.m_a == other[1] && t1.m_b == other[2] && t1.m_c == other[0]) ||
+		(t1.m_a == other[2] && t1.m_b == other[0] && t1.m_c == other[1]) ||
+		(t1.m_a == other[2] && t1.m_b == other[1] && t1.m_c == other[0]);
 }
 
 class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor> {
-	
+
 	hkGeometry					geometry; //vetrices and triangles with materials indices
 	vector<SkyrimHavokMaterial> materials;
 	vector<SkyrimLayer>			layers; //one per triangle
@@ -521,7 +550,7 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 			)) {
 				return false;
 			}
-				
+
 		}
 		return true;
 	}
@@ -537,505 +566,314 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		return material_index;
 	}
 
-	enum TrianglePlane {
-		PLANE_X = 0,
-		PLANE_Y = 1,
-		PLANE_Z = 2
-	};
+	typedef hkGeometry::Triangle hkTriangle;
 
-	int get_vertex_index(const hkGeometry::Triangle& t, int index) {
-		switch (index) {
-		case 0: return t.m_a;
-		case 1: return t.m_b;
-		case 2: return t.m_c;
+	class walker {
+
+		struct side_comparator {
+			bool operator()(const std::array<int, 2>& c1, const std::array<int, 2>& c2) const {
+				return c1[0] == c2[0] && c1[1] == c2[1];
+			}
+
+			size_t operator()(const std::array<int, 2>& c1) const
+			{	// hash _Keyval to size_t value
+				return hash<size_t>()((uint64_t)c1[0] << 32 | c1[1]);
+			}
+		};
+
+		typedef unordered_map< std::array<int, 2>, int, side_comparator> adjacent_map_t;
+
+		hkGeometry& geometry;
+		vector < std::array<int, 3 >> planes;
+		vector < std::array<int, 3 >> normal_planes;
+		adjacent_map_t adjacent_map;
+		set < std::array<int, 2 >> visited;
+		set<std::array<int, 3 >> current_stair;
+
+		struct order_by_plane_up {
+
+			const hkGeometry& geometry;
+
+			order_by_plane_up(const hkGeometry& geometry) : geometry(geometry) {}
+
+			bool operator() (const std::array<int, 3>& v1, const std::array<int, 3>& v2) const {
+				return geometry.m_vertices[v1[2]](2) < geometry.m_vertices[v2[2]](2);
+			}
+		};
+
+		float calculate_angle_with_z(const hkGeometry::Triangle& v1) {
+			hkVector4 v1ab = geometry.m_vertices[v1.m_b];
+			v1ab.sub4(geometry.m_vertices[v1.m_a]);
+			hkVector4 v1ac = geometry.m_vertices[v1.m_c];
+			v1ac.sub4(geometry.m_vertices[v1.m_a]);
+			hkVector4 z(0.0, 0.0, 1.0);
+			hkVector4 n; n.setCross(v1ab, v1ac); n.normalize3();
+			return n.dot3(z);
 		}
-		throw runtime_error("Invalid triangle index!");
-	}
 
-	bool touches(const hkGeometry::Triangle& t1, const hkGeometry::Triangle& t2) {
-		int count = 0;
-		for (int i = 0; i < 3; i++) {
-			for (int j = 0; j < 3; j++) {
-				if (get_vertex_index(t1, i) == get_vertex_index(t2, j)) return true;
+		void get_planar_z_triangles() {
+			for (int t = 0; t < geometry.m_triangles.getSize(); t++) {
+				float z_angle = calculate_angle_with_z(geometry.m_triangles[t]);
+				if (abs(z_angle) > 1 - PLANAR_MAX_ANGLE_COS)
+					planes.push_back({ geometry.m_triangles[t].m_a,geometry.m_triangles[t].m_b, geometry.m_triangles[t].m_c });
+			}
+			sort(planes.begin(), planes.end(), [this](const std::array<int, 3>& v1, const std::array<int, 3>& v2) -> bool {
+				return this->geometry.m_vertices[v1[0]](2) < this->geometry.m_vertices[v2[0]](2);
+			});
+		}
+
+		void get_normal_z_triangles() {
+			for (int t = 0; t < geometry.m_triangles.getSize(); t++) {
+				float z_angle = calculate_angle_with_z(geometry.m_triangles[t]);
+				if (abs(z_angle) < PLANAR_MAX_ANGLE_COS)
+					normal_planes.push_back({ geometry.m_triangles[t].m_a,geometry.m_triangles[t].m_b, geometry.m_triangles[t].m_c });
+			}
+			sort(normal_planes.begin(), normal_planes.end(), [this](const std::array<int, 3>& v1, const std::array<int, 3>& v2) -> bool {
+				return this->geometry.m_vertices[v1[0]](2) < this->geometry.m_vertices[v2[0]](2) &&
+					this->geometry.m_vertices[v1[1]](2) < this->geometry.m_vertices[v2[1]](2) &&
+					this->geometry.m_vertices[v1[2]](2) < this->geometry.m_vertices[v2[2]](2);
+			});
+		}
+
+		void split(const std::array<int, 2>& side, int c, int opposite_c) {
+			//current_stair.insert({ side[0], side[1],  c });
+			//current_stair.insert({ side[1], side[0],  opposite_c });
+			//vector<int> down_adjacent_side = almost_adjacent_side(source, down_adjacent); // a, b
+			//int down_adjiacent_down_vertex_index = min_z_component(down_adjacent); // c
+			//vector<int> down_touching_side = almost_adjacent_side(down_adjacent, down_touching);
+			//int vertex_d = -1; //d
+			//if (find(down_touching_side.begin(), down_touching_side.end(), down_touching.m_a) == down_touching_side.end())
+			//	vertex_d = down_touching.m_a;
+			//if (find(down_touching_side.begin(), down_touching_side.end(), down_touching.m_b) == down_touching_side.end())
+			//	vertex_d = down_touching.m_b;
+			//if (vertex_d == -1)
+			//	vertex_d = down_touching.m_c;
+			//if (vertex_d == -1)
+			//	throw runtime_error("Unable to find the vertex_d in collision breaker!");
+
+			//hkVector4 tdist0; tdist0.setSub4(geometry.m_vertices[down_adjiacent_down_vertex_index], geometry.m_vertices[down_adjacent_side[0]]);
+			//hkVector4 tdist1; tdist1.setSub4(geometry.m_vertices[down_adjiacent_down_vertex_index], geometry.m_vertices[down_adjacent_side[1]]);
+
+			//int vertex_a = tdist0.length3() < tdist1.length3() ? down_adjacent_side[0] : down_adjacent_side[1];
+			//int vertex_b = vertex_a == down_adjacent_side[0] ? down_adjacent_side[1] : down_adjacent_side[0];
+			//int vertex_c = down_adjiacent_down_vertex_index;
+
+			////now calculate the break directions
+			//hkVector4 vector_a = geometry.m_vertices[vertex_a];
+			//hkVector4 vector_b = geometry.m_vertices[vertex_b];
+			//hkVector4 vector_c = geometry.m_vertices[vertex_c];
+			//hkVector4 vector_d = geometry.m_vertices[vertex_d];
+
+			//hkVector4 vector_ac; vector_ac.setSub4(vector_c, vector_a);
+			//hkVector4 vector_bd; vector_bd.setSub4(vector_d, vector_b);
+
+			//// norm / z_component = new_norm / step_size -> new_nomr = (norm/z_component) *step_size
+			//float ac_new_norm = STEP_SIZE / vector_ac.length3().getReal(); // (vector_ac.length3().getReal() / abs(vector_ac(2))) * STEP_SIZE;
+			//float bd_new_norm = STEP_SIZE / vector_bd.length3().getReal(); // (vector_bd.length3().getReal() / abs(vector_bd(2))) * STEP_SIZE;
+
+			//hkVector4 vector_ac_new = hkVector4(vector_ac(0)*ac_new_norm, vector_ac(1)*ac_new_norm, vector_ac(2)*ac_new_norm);
+			//hkVector4 vector_bd_new = hkVector4(vector_bd(0)*bd_new_norm, vector_bd(1)*bd_new_norm, vector_bd(2)*bd_new_norm);
+
+			//hkVector4 vector_a_new; vector_a_new.setAdd4(vector_a, vector_ac_new);
+			//hkVector4 vector_b_new; vector_b_new.setAdd4(vector_b, vector_bd_new);
+
+			//int vertex_a_new = geometry.m_vertices.getSize();
+			//geometry.m_vertices.pushBack(vector_a_new);
+			//int vertex_b_new = geometry.m_vertices.getSize();
+			//geometry.m_vertices.pushBack(vector_b_new);
+
+			////new triangles
+			//hkGeometry::Triangle stairs_down;
+			//stairs_down.m_a = vertex_a;
+			//stairs_down.m_b = vertex_b;
+			//stairs_down.m_c = vertex_a_new;
+			//stairs_down.m_material = 0;
+			//hkGeometry::Triangle stairs_touching;
+			//stairs_touching.m_a = vertex_a_new;
+			//stairs_touching.m_b = vertex_b_new;
+			//stairs_touching.m_c = vertex_b;
+			//stairs_touching.m_material = 0;
+			//hkGeometry::Triangle non_stairs_down;
+			//non_stairs_down.m_a = vertex_a_new;
+			//non_stairs_down.m_b = vertex_b_new;
+			//non_stairs_down.m_c = vertex_c;
+			//non_stairs_down.m_material = 0;
+			//hkGeometry::Triangle non_stairs_touching;
+			//non_stairs_touching.m_a = vertex_c;
+			//non_stairs_touching.m_b = vertex_d;
+			//non_stairs_touching.m_c = vertex_b_new;
+			//non_stairs_touching.m_material = 0;
+
+			//stairs.push_back(non_stairs_down);
+			//stairs.push_back(non_stairs_touching);
+
+			//down_adjacent = stairs_down;
+			//down_touching = stairs_touching;
+		}
+
+		std::array<int, 2> find_max_side(std::array<int, 3> tris) {
+			hkVector4 a = geometry.m_vertices[tris[0]];
+			hkVector4 b = geometry.m_vertices[tris[1]];
+			hkVector4 c = geometry.m_vertices[tris[2]];
+			hkVector4 ab = b; ab.sub4(a); float norm_ab = ab.lengthSquared3();
+			hkVector4 bc = c; ab.sub4(b); float norm_bc = bc.lengthSquared3();
+			hkVector4 ca = a; ab.sub4(c); float norm_ca = ca.lengthSquared3();
+			return  norm_ab > norm_bc ? 
+						norm_ab > norm_ca ? 
+							std::array<int, 2>({tris[0], tris[1]}) : 
+							std::array<int, 2>({tris[2], tris[0]}) :
+						norm_bc > norm_ca ? 
+							std::array<int, 2>({tris[1], tris[2]}) : 
+							std::array<int, 2>({tris[2], tris[0]}) ;
+		}
+
+		void step(const std::array<int, 2>& side, int c) {
+			if (visited.insert(side).second) {
+				adjacent_map_t::iterator opposite = adjacent_map.find({ side[1], side[0] });
+				if (opposite != adjacent_map.end() && opposite->second != c) {
+					hkVector4 opposite_c = geometry.m_vertices[opposite->second];
+					hkVector4 a = geometry.m_vertices[side[0]];
+					hkVector4 b = geometry.m_vertices[side[1]];
+					float max_ab_z = a(2) > b(2) ? a(2) : b(2);
+					float min_ab_z = a(2) < b(2) ? a(2) : b(2);
+					float step_size_left = abs(opposite_c(2) - max_ab_z);
+					float step_size_right = abs(opposite_c(2) - min_ab_z);
+					hkVector4 ab; ab.setSub4(b, a);
+					hkVector4 a_opposite_c; a_opposite_c.setSub4(opposite_c, a);
+					hkVector4 norm; norm.setCross(ab, a_opposite_c); norm.normalize3();
+					float angle = norm.dot3(hkVector4(0.0, 0.0, 1.0));
+					if (angle < sqrt(2) / 2) {
+						if (step_size_left > (STEP_SIZE - STEP_SIZE_TOLERANCE) && step_size_left < (STEP_SIZE + STEP_SIZE_TOLERANCE) ||
+								step_size_right >(STEP_SIZE - STEP_SIZE_TOLERANCE) && step_size_right < (STEP_SIZE + STEP_SIZE_TOLERANCE)) {
+							//this is a walkable step up
+							if (current_stair.empty()) {
+								//first step, get the other adjiacent too
+								std::array<int, 2> starting_side = find_max_side({ side[0], side[1],  c });
+								adjacent_map_t::iterator opposite = adjacent_map.find({ starting_side[1], starting_side[0] });
+								if (opposite != adjacent_map.end() && opposite->second != c) {
+									current_stair.insert({ starting_side[0], starting_side[1],  opposite->second });
+								}
+							}
+							current_stair.insert({ side[0], side[1],  c });
+							current_stair.insert({ side[1], side[0],  opposite->second });
+							
+							step({ side[0], opposite->second }, side[1]);
+							step({ opposite->second, side[1] }, side[0]);
+						}
+					}
+					else {
+						//Check corner cases: is there a really near normal plane
+
+						if (!current_stair.empty()) {
+							stairs.push_back(current_stair);
+							current_stair.clear();
+						}
+					}
+
+				}
 			}
 		}
-		return false;
-	}
 
-	struct is_triangle_equal {
-		bool operator() (const hkGeometry::Triangle& t1, const hkGeometry::Triangle& t2) const {
-			return t1.m_a == t2.m_a &&
-				t2.m_b == t2.m_b &&
-				t2.m_c == t2.m_c;
+		hkVector4 centeroid(const std::array<int, 3>& t) {
+			hkVector4 res(0.0, 0.0, 0.0);
+			res.add4(geometry.m_vertices[t[0]]);
+			res.add4(geometry.m_vertices[t[1]]);
+			res.add4(geometry.m_vertices[t[2]]);
+			return hkVector4(res(0) / 3, res(1) / 3, res(2) / 3);
 		}
-	};
 
-	bool is_adjacent(const hkGeometry::Triangle& t1, const hkGeometry::Triangle& t2) {
-		int count = 0;
-		for (int i = 0; i < 3; i++) {
-			for (int j = 0; j < 3; j++) {
-				if (get_vertex_index(t1,i) == get_vertex_index(t2,j)) count++;
-				if (count == 2) return true;
+		void restich() {
+			vector<hkVector4> true_vertices;
+			map<int, int> aliases;
+			for (int d = 0; d < geometry.m_vertices.getSize(); d++) {
+				bool is_alias = false;
+				int true_index = -1;
+				int alias_index = -1;
+				for (int i = 0; i < true_vertices.size(); i++) {
+					hkVector4 dist; dist.setSub4(geometry.m_vertices[d], true_vertices[i]);
+					if (dist.lengthSquared3() < 0.0001) {
+						is_alias = true;
+						aliases[d] = i;
+						break;
+					}
+				}
+				if (!is_alias) {
+					aliases[d] = true_vertices.size();
+					true_vertices.push_back(geometry.m_vertices[d]);
+				}
 			}
-		}
-		return false;
-	}
-
-	float min_z(const hkGeometry::Triangle& t1) {
-		return geometry.m_vertices[t1.m_a](2) < geometry.m_vertices[t1.m_b](2) ?
-			geometry.m_vertices[t1.m_a](2) < geometry.m_vertices[t1.m_c](2) ?
-			geometry.m_vertices[t1.m_a](2) : geometry.m_vertices[t1.m_c](2) :
-			geometry.m_vertices[t1.m_b](2) < geometry.m_vertices[t1.m_c](2) ?
-			geometry.m_vertices[t1.m_b](2) : geometry.m_vertices[t1.m_c](2);
-	}
-
-	float max_z(const hkGeometry::Triangle& t1) {
-		return geometry.m_vertices[t1.m_a](2) > geometry.m_vertices[t1.m_b](2) ?
-			geometry.m_vertices[t1.m_a](2) > geometry.m_vertices[t1.m_c](2) ?
-			geometry.m_vertices[t1.m_a](2) : geometry.m_vertices[t1.m_c](2) :
-			geometry.m_vertices[t1.m_b](2) > geometry.m_vertices[t1.m_c](2) ?
-			geometry.m_vertices[t1.m_b](2) : geometry.m_vertices[t1.m_c](2);
-	}
-
-	template<TrianglePlane plane>
-	struct order_by_plane_up {
-		const hkGeometry& geometry;
-
-		order_by_plane_up(const hkGeometry& geometry) : geometry(geometry) {}
-
-		bool operator()(const hkGeometry::Triangle& v1, const hkGeometry::Triangle& v2) const {
-			return geometry.m_vertices[v1.m_a](plane) < geometry.m_vertices[v2.m_a](plane);
-		}
-	};
-
-	template<TrianglePlane plane>
-	vector<hkGeometry::Triangle> get_planar_triangles() {
-		vector<hkGeometry::Triangle> result;
-		for (int t = 0; t < geometry.m_triangles.getSize(); t++) {
-			hkVector4 a = geometry.m_vertices[geometry.m_triangles[t].m_a];
-			hkVector4 b = geometry.m_vertices[geometry.m_triangles[t].m_b];
-			hkVector4 c = geometry.m_vertices[geometry.m_triangles[t].m_c];
-
-			if (abs(a(plane) - b(plane)) < 0.1 &&
-				abs(a(plane) - c(plane)) < 0.1 &&
-				abs(b(plane) - c(plane)) < 0.1)
-				result.push_back(geometry.m_triangles[t]);
-		}
-		sort(result.begin(), result.end(), order_by_plane_up<plane>(geometry));
-		return move(result);
-	}
-
-	struct adjiacency_t {
-		hkGeometry::Triangle a;
-		hkGeometry::Triangle b;
-	};
-
-	hkVector4 centeroid(const vector<hkGeometry::Triangle>& triangles) {
-		hkVector4 res(0.0,0.0,0.0);
-		for (hkGeometry::Triangle t : triangles) {
-			res.add4(geometry.m_vertices[t.m_a]);
-			res.add4(geometry.m_vertices[t.m_b]);
-			res.add4(geometry.m_vertices[t.m_c]);
-		}
-		int div = triangles.size() * 3;
-		return hkVector4(res(0) / div, res(1) / div, res(2) / div);
-	}
-
-	struct side {
-		int a;
-		int b;
-		hkGeometry::Triangle source;
-		int source_index = -1;
-
-		side(int a, int b, hkGeometry::Triangle source, int source_index) :a(a), b(b), source(source), source_index(source_index) {}
-
-		bool operator==(const side& other) const
-		{
-			return (a == other.a &&  b == other.b) || (a == other.b &&  b == other.a);
-		}
-	};
-
-	bool is_adjacent(const side& s, const hkGeometry::Triangle& t, int& other_index) {
-		int count = 0;
-		int last_count = count;
-		bool isit = false;
-		for (int i = 0; i < 3; i++) {
-			if (s.a == get_vertex_index(t, i) || s.b == get_vertex_index(t, i)) count++;
-			if (last_count == count)  other_index = i;
-			if (count == 2) isit = true;
-			last_count = count;
-		}
-		return isit;
-	}
-
-	vector<side> find_outer_sides(const vector<hkGeometry::Triangle>& isle) {
-		vector<side> sides;
-		vector<side> out;
-		vector<int> references;
-		for (hkGeometry::Triangle tr : isle) {
-			side ab(tr.m_a, tr.m_b, tr, 0);
-			side ac(tr.m_a, tr.m_c, tr, 1);
-			side bc(tr.m_b, tr.m_c, tr, 2);
-			vector<side>::iterator find_ab = find(sides.begin(), sides.end(), ab);
-			if (find_ab != sides.end()) {
-				references[distance(sides.begin(), find_ab)] += 1;
+			//clean triangle
+			for (hkTriangle& t: geometry.m_triangles) {
+				map<int, int>::iterator alias_it = aliases.find(t.m_a);
+				if (alias_it != aliases.end()) 
+					t.m_a = alias_it->second;
+				alias_it = aliases.find(t.m_b);
+				if (alias_it != aliases.end())
+					t.m_b = alias_it->second;
+				alias_it = aliases.find(t.m_c);
+				if (alias_it != aliases.end())
+					t.m_c = alias_it->second;
 			}
-			else {
-				sides.push_back(ab);
-				references.push_back(1);
-			}
-			vector<side>::iterator find_ac = find(sides.begin(), sides.end(), ac);
-			if (find_ac != sides.end()) {
-				references[distance(sides.begin(), find_ac)] += 1;
-			}
-			else {
-				sides.push_back(ac);
-				references.push_back(1);
-			}
-			vector<side>::iterator find_bc = find(sides.begin(), sides.end(), bc);
-			if (find_bc != sides.end()) {
-				references[distance(sides.begin(), find_bc)] += 1;
-			}
-			else {
-				sides.push_back(bc);
-				references.push_back(1);
-			}
+			//clean vertices
+			geometry.m_vertices.clear();
+			for (hkVector4 v : true_vertices)
+				geometry.m_vertices.pushBack(v);
+
+			Log::Info("restiched!");
 		}
-		for (int i = 0; i < sides.size(); i++) {
-			if (references[i] == 1)
-				out.push_back(sides[i]);
-		}
-		return out;
-	}
+
+		public:
+			vector< set < std::array<int, 3 > >> stairs;
+
+			walker(hkGeometry& geometry) : 
+				geometry(geometry) {
+				// vanilla collisions suck
+				restich();
+				// build adjacency map			
+				for (const hkTriangle& t : geometry.m_triangles) {
+					std::array<int, 2> side = { t.m_a, t.m_b };
+					adjacent_map[side] = t.m_c;
+					side = { t.m_b, t.m_c };
+					adjacent_map[side] = t.m_a;
+					side = { t.m_c, t.m_a };
+					adjacent_map[side] = t.m_b;
+				}
+				get_planar_z_triangles();
+				get_normal_z_triangles();
+				//walk all planes
+				for (auto& tri : planes) {
+					step({ tri[0],tri[1] }, tri[2]);
+					step({ tri[1],tri[2] }, tri[0]);
+					step({ tri[2],tri[0] }, tri[1]);
+				}
+			}
+		};
+	
 
 	//madness.
-	bool hasStairs() {
-
-		vector<hkGeometry::Triangle> planar_z_triangles = get_planar_triangles<PLANE_Z>();
-
-		vector<vector<hkGeometry::Triangle>> planes_set;
-		float last_z_value = numeric_limits<float>::lowest();
-		for (const hkGeometry::Triangle& info : planar_z_triangles) {
-			float minz = min_z(info);
-			if (abs(last_z_value - minz)>0.1) {
-				planes_set.push_back(vector<hkGeometry::Triangle>());
-			}
-			planes_set.back().push_back(info);
-			last_z_value = minz;
-		}
-		vector<float> distances;
-		distances.push_back(0.0);
-		vector<hkGeometry::Triangle> stairs;
-		//calculate distances
-		vector<vector<vector<hkGeometry::Triangle>>> walkable_isles;
-		for (int i = 1; i < planes_set.size(); i++) {
-			float distance = abs(min_z(planes_set[i][0]) -
-				min_z(planes_set[i - 1][0]));
-			distances.push_back(distance);
-		}
-		for (int i = 0; i < planes_set.size(); i++) {
-			//if (distance > (STEP_SIZE - 0.1) && distance < (STEP_SIZE + 0.1)) {
-				//get all the separate partitions on the plane 
-				vector<vector<hkGeometry::Triangle>> partitions_current;
-				//partitions_current.push_back({ planes_set[i][0] });
-				vector<hkGeometry::Triangle> this_plane = planes_set[i];
-				//prepare couples
-				vector<adjiacency_t> adjiacency_map;
-
-				for (hkGeometry::Triangle& plane_triangle_1 : this_plane) {
-					for (hkGeometry::Triangle& plane_triangle_2 : this_plane) {
-						adjiacency_t adjacency;
-						if ( !is_equal(plane_triangle_1, plane_triangle_2) && is_adjacent(plane_triangle_1, plane_triangle_2)) {
-							adjacency.a = plane_triangle_1;
-							adjacency.b = plane_triangle_2;
-							adjiacency_map.push_back(adjacency);
-						}
-					}
-				}
-
-				vector<adjiacency_t>::iterator it = adjiacency_map.begin();
-				vector<hkGeometry::Triangle> chain;
-				chain.push_back( planes_set[i][0]);
-				if (adjiacency_map.empty()) {
-					partitions_current.push_back(chain);
-				}
-				while (adjiacency_map.size() > 0) {
-					for (it; it != adjiacency_map.end(); it) {
-						bool found = false;
-						for (const hkGeometry::Triangle& chain_triangle : chain) {
-							hkGeometry::Triangle a = it->a;
-							hkGeometry::Triangle b = it->b;
-							if (is_equal(a, chain_triangle)) {
-								found = true;
-								if (find_if(chain.begin(), chain.end(),
-									[b](const hkGeometry::Triangle& chain_triangle) -> bool {
-									return is_equal(b, chain_triangle); }
-								) == chain.end()
-										) {
-									chain.push_back(b);
-								}
-							}
-							if (is_equal(b, chain_triangle)) {
-								found = true;
-								if (find_if(chain.begin(), chain.end(),
-									[a](const hkGeometry::Triangle& chain_triangle) -> bool {
-									return is_equal(a, chain_triangle); }
-								) == chain.end()
-										) {
-									chain.push_back(a);
-								}
-							}
-						}
-						if (found)
-							it = adjiacency_map.erase(it);
-						else it++;
-					}
-					
-
-					partitions_current.push_back(chain);
-					if (adjiacency_map.size() > 0) {
-						chain.clear();
-						chain.push_back(adjiacency_map.begin()->a);
-					}
-					it = adjiacency_map.begin();
-				}
-				//now we have isles of adjiacent triangles
-				walkable_isles.push_back(partitions_current);
-			//}
-		}
-		for (int i = 0; i < walkable_isles.size(); i++) {
-			vector<vector<hkGeometry::Triangle>> isles = walkable_isles[i];
-			for (int k = 0; k < isles.size(); k++) {
-				vector<hkGeometry::Triangle> isle = isles[k];
-				vector<side> outer_sides = find_outer_sides(isle);
-				for (side s : outer_sides) {
-					hkGeometry::Triangle down_adjacent;
-					down_adjacent.m_a = -1;
-					down_adjacent.m_b = -1;
-					down_adjacent.m_c = -1;
-					hkGeometry::Triangle down_touching;
-					down_touching.m_a = -1;
-					down_touching.m_b = -1;
-					down_touching.m_c = -1;
-					for (int t = 0; t < geometry.m_triangles.getSize(); t++) {
-						if (is_adjacent(s.source, geometry.m_triangles[t])) {
-							hkGeometry::Triangle temp = geometry.m_triangles[t];
-							float max_a = max_z(geometry.m_triangles[t]);
-							float min_s = min_z(s.source);
-							if (down_adjacent.m_a != -1) break;
-							if (max_a < min_s)
-							{
-								down_adjacent = geometry.m_triangles[t];
-								break;
-							}
-							if (min_s < 0 && max_a < 0 && max_a > min_s)
-							{
-								down_adjacent = geometry.m_triangles[t];
-								break;
-							}
-							if (i >= 1) {
-								for (hkGeometry::Triangle downstair_triangle : planes_set[i - 1])
-								{
-									if (touches(geometry.m_triangles[t], downstair_triangle)) {
-										down_adjacent = geometry.m_triangles[t];
-										break;
-									}
-								}
-							}
-						}
-					}
-				
-
-					if (down_adjacent.m_a != -1) {
-						for (int t = 0; t < geometry.m_triangles.getSize(); t++) {
-							if (is_adjacent(down_adjacent, geometry.m_triangles[t]) && touches(geometry.m_triangles[t], s.source)) {
-								down_touching = geometry.m_triangles[t];
-							}
-						}
-					}
-					if (down_adjacent.m_a != -1) {
-						bool inserted = false;
-						float step_distance = abs(min_z(down_adjacent) - max_z(s.source));
-						bool touching_down = false;
-						if (i >=1 && distances[i]>STEP_SIZE-0.1) {
-							stairs.push_back(s.source);
-							for (hkGeometry::Triangle isle_adjoint : isle) {
-								if (!is_equal(isle_adjoint,s.source) && is_adjacent(isle_adjoint, s.source))
-									stairs.push_back(isle_adjoint);
-							}
-							stairs.push_back(down_adjacent);
-							inserted = true;
-						}
-						else { // is it gowing all down?
-							bool toward_minus_z = true;
-							for (hkGeometry::Triangle lower_z : planes_set[0]) {
-								bool cond = min_z(lower_z) < 0 ? min_z(lower_z) > min_z(down_adjacent) : min_z(lower_z) < min_z(down_adjacent);
-								if (cond)
-								{
-									toward_minus_z = false;
-									break;
-								}
-							}
-							if (toward_minus_z) {
-								stairs.push_back(s.source);
-								for (hkGeometry::Triangle isle_adjoint : isle) {
-									if (!is_equal(isle_adjoint, s.source) && is_adjacent(isle_adjoint, s.source))
-										stairs.push_back(isle_adjoint);
-								}
-								stairs.push_back(down_adjacent);
-								inserted = true;
-							}
-						}
-						if (inserted && down_touching.m_a != -1) {
-							stairs.push_back(down_touching);
-						}
+	void check_stairs() {
+		vector< set < std::array<int, 3 > >>  stairs = walker(geometry).stairs;
+		//geometry.m_triangles.clear();
+		for (const set< std::array<int, 3 >>& stair : stairs) {
+			for (const std::array<int, 3 > &tris : stair) {
+				hkTriangle t;
+				t.m_a = tris[0];
+				t.m_b = tris[1];
+				t.m_c = tris[2];
+				//geometry.m_triangles.pushBack(t);
+				for (hkGeometry::Triangle& triangle : geometry.m_triangles) {
+					if (is_equal(t, triangle)) {
+						if (!is_stairs_material(materials[triangle.m_material]))
+							triangle.m_material = convert_to_stairs(triangle.m_material);
+						break;
 					}
 				}
 			}
 		}
-
-
-		//find stairs
-		//if (isles_at_step_distance.size() > 0) {
-		//	//handle initial step
-		//}
-		//if (isles_at_step_distance.size() > 1)
-		//for (int i = 1; i < isles_at_step_distance.size(); i++) {
-		//	vector<vector<hkGeometry::Triangle>> lower_partitions = isles_at_step_distance[i - 1];
-		//	vector<vector<hkGeometry::Triangle>> higher_partitions = isles_at_step_distance[i];
-		//	//the higher partition should have at lease one adjiacent and one touching triangle per side of an isle,
-		//	//otherwise it's actually a barrier
-		//	for (vector<hkGeometry::Triangle> higher_partition : higher_partitions) {
-		//		//find centeroid
-		//		hkVector4 higher_partition_centeroid = centeroid(higher_partition);
-
-		//	}
-		//}
-		for (hkGeometry::Triangle& triangle : geometry.m_triangles) {
-			for (hkGeometry::Triangle& stair : stairs) {
-				if (is_equal(triangle, stair) &&
-					!is_stairs_material(materials[triangle.m_material])) {
-						triangle.m_material = convert_to_stairs(triangle.m_material);
-				}
-			}
-		}
-			////				if ((geometry.m_triangles[t].m_a == vinfo.index ||
-			////					geometry.m_triangles[t].m_b == vinfo.index ||
-			////					geometry.m_triangles[t].m_b == vinfo.index ) &&
-			////						!is_stairs_material(materials[geometry.m_triangles[t].m_material]))
-			////					geometry.m_triangles[t].m_material = convert_to_stairs(geometry.m_triangles[t].m_material);
-			////			}
-
-		//stairs are more or less 0.32-0.35
-
-
-		//vector<vector<vertexInfo>> triangle_planes_set;
-		//for (const vector<vertexInfo>& plane : planes_set) {
-		//	if (plane.size() < 3) triangle_planes_set.push_back(vector<vertexInfo>());
-		//	vector<vector<vertexInfo>> vertices_permutations;
-		//	do
-		//	{
-		//		vector<vertexInfo> tris;
-		//		for (int i = 0; i < 3; ++i)
-		//		{
-		//			tris.push_back(plane[i]);
-		//		}
-		//		vertices_permutations.push_back(tris);
-		//	} while (next_combination(plane.begin(), plane.begin() + 3, plane.end()));
-
-		//	//for (vertexInfo info : plane) {
-		//	//	for (int t = 0; t < geometry.m_triangles.getSize(); t++) {
-
-		//	//	}
-		//	//}
-		//}
-
-		//sort(vertex_map_y.begin(), vertex_map_y.end(), less_y());
-		//float y_min = vertex_map_y.begin()->vertex(1);
-		//float y_max = (vertex_map_y.end()-1)->vertex(1);
-
-		//float step = (y_max - y_min) / vertex_map_y.size()*100;
-
-
-
-
-
-		////float last_z_value = numeric_limits<float>::lowest();
-		////for (const vertexInfo& info : vertex_map) {
-		////	if (abs(last_z_value - info.vertex(2))>0.002) {
-		////		planes_set.push_back(vector<vertexInfo>());
-		////	}
-		////	planes_set.back().push_back(info);
-		////	last_z_value = info.vertex(2);
-		////}
-		////vector<float> z_x_discrete_derivative(vertex_map_x.size()-1);
-		////for (int i = 1; i < vertex_map_x.size(); i++) {
-		////	float div = (vertex_map_x[i].vertex(0) - vertex_map_x[i - 1].vertex(0));
-		////	div = div != 0 ? div : numeric_limits<float>::lowest();
-		////	z_x_discrete_derivative[i - 1] = (vertex_map_x[i].vertex(2) - vertex_map_x[i - 1].vertex(2)) / div;
-		////}
-		////vector<float> z_y_derivative;
-		////float last_z = 0.0;
-		////for (float i = y_min; i < y_max; i+=step) {
-		////	vector<float> these_z;
-		////	for (int index = 1; index < vertex_map_y.size(); index++) {
-		////		if (abs(vertex_map_y[index].vertex(1) - i) < step)
-		////			these_z.push_back(vertex_map_y[index].vertex(2));
-		////	}
-		////	if (these_z.size() == 0)
-		////		continue;
-		////	float this_z = 0.0;
-		////	for (float zz : these_z) {
-		////		this_z += zz;
-		////	}
-		////	this_z = this_z / these_z.size();
-		////	z_y_derivative.push_back((this_z - last_z) / step);
-		////	last_z = this_z;
-		////}
-
-		//vector<double> areas;
-		////for (vector<vertexInfo>& plane : planes_set) {
-		////	sort_by_polar_angle(plane);
-		////	areas.push_back(polygonArea(plane));
-		////}
-		////Log::Info("ordered!");
-		////vector<vector<vertexInfo>> stairs;
-		////double last_area = numeric_limits<float>::lowest();
-		////for (int i = 0; i < areas.size(); i++) {
-		////	double area = areas[i];
-		////	if (//area > 0.01 && 
-		////		abs(last_area - area) < 2000.0 &&
-		////		//planes_set[i].size() % 4 == 0 &&
-		////		planes_set[i].size() < 64 &&
-		////		abs(planes_set[i][0].vertex(2) - planes_set[i-1][0].vertex(2)) > 0 &&
-		////		abs(planes_set[i][0].vertex(2) - planes_set[i-1][0].vertex(2)) < 0.4
-		////		)
-		////	{
-		////		if (stairs.empty())
-		////			stairs.push_back(planes_set[i-1]);
-		////		stairs.push_back(planes_set[i]);
-		////	}
-		////	last_area = area;
-		////}
-		////if (stairs.size() > 2) {
-		////	for (int t = 0; t < geometry.m_triangles.getSize(); t++) {
-		////		for (auto & stair : stairs) {
-		////			for (auto& vinfo : stair) {
-		////				if ((geometry.m_triangles[t].m_a == vinfo.index ||
-		////					geometry.m_triangles[t].m_b == vinfo.index ||
-		////					geometry.m_triangles[t].m_b == vinfo.index ) &&
-		////						!is_stairs_material(materials[geometry.m_triangles[t].m_material]))
-		////					geometry.m_triangles[t].m_material = convert_to_stairs(geometry.m_triangles[t].m_material);
-		////			}
-		////		}
-		////	}
-		////}
-
-		return true;
 	}
 
 	void calculate_collision()
-	{	
+	{
 		//----  Havok  ----  START
 		hkpCompressedMeshShape*					pCompMesh(NULL);
 		hkpMoppCode*							pMoppCode(NULL);
@@ -1048,13 +886,13 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		int										tChunkSize(0);
 
 		bhkCompressedMeshShapeDataRef pData = new bhkCompressedMeshShapeData();
-	
+
 		//  initialize shape Builder
 		shapeBuilder.m_stripperPasses = 5000;
-	
+
 		//  create compressedMeshShape
 		pCompMesh = shapeBuilder.createMeshShape(0.001f, hkpCompressedMeshShape::MATERIAL_SINGLE_VALUE_PER_CHUNK);
-	
+
 		try {
 			//  add geometry to shape
 			subPartId = shapeBuilder.beginSubpart(pCompMesh);
@@ -1077,22 +915,22 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		pMoppBvTree = new hkpMoppBvTreeShape(pCompMesh, pMoppCode);
 		hkpMeshWeldingUtility::computeWeldingInfo(pCompMesh, pMoppBvTree, hkpWeldingUtility::WELDING_TYPE_TWO_SIDED);
 		//----  Havok  ----  END
-	
+
 		//----  Merge  ----  START
-	
+
 		//  --- modify MoppBvTree ---
 		// set origin
 		pMoppShape->SetOrigin(Vector3(pMoppBvTree->getMoppCode()->m_info.m_offset(0), pMoppBvTree->getMoppCode()->m_info.m_offset(1), pMoppBvTree->getMoppCode()->m_info.m_offset(2)));
-	
+
 		// set scale
 		pMoppShape->SetScale(pMoppBvTree->getMoppCode()->m_info.getScale());
-	
+
 		// set build Type
 		pMoppShape->SetBuildType(MoppDataBuildType((Niflib::byte) pMoppCode->m_buildType));
-	
+
 		//  copy mopp data
 		pMoppShape->SetMoppData(vector<Niflib::byte>(pMoppBvTree->m_moppData, pMoppBvTree->m_moppData + pMoppBvTree->m_moppDataSize));
-	
+
 		Accessor<CMSPacker> packer(pCompMesh, pData, materials);
 
 		bhkCompressedMeshShapeRef shape = new bhkCompressedMeshShape();
@@ -1109,7 +947,7 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 	}
 
 	bool isGeometryValid() {
-		return  
+		return
 			!geometry.m_triangles.isEmpty() &&
 			!geometry.m_vertices.isEmpty() &&
 			!materials.empty() &&
@@ -1128,7 +966,7 @@ public:
 		if (pMoppShape == NULL)
 			pMoppShape = new bhkMoppBvTreeShape();
 
-		bool madness = hasStairs();
+		check_stairs();
 
 		if (isGeometryValid()) {
 			try {
@@ -1179,7 +1017,7 @@ public:
 			geometry.m_triangles.setSize(in_triangles.size());
 
 			for (int v = 0; v < vertices.size(); v++) {
-				geometry.m_vertices[v] = TOVECTOR4(vertices[v]* COLLISION_RATIO);
+				geometry.m_vertices[v] = TOVECTOR4(vertices[v] * COLLISION_RATIO);
 			}
 
 
@@ -1211,7 +1049,7 @@ public:
 				int selected_index = material_indexes[0];
 				if (material_indexes[0] != material_indexes[1] ||
 					material_indexes[1] != material_indexes[2] ||
-					material_indexes[0] != material_indexes[2]) 
+					material_indexes[0] != material_indexes[2])
 				{
 					Log::Info("Found Triangle with heterogeneus material!");
 					std::map<int, int> frequencyMap;
@@ -1390,8 +1228,8 @@ vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes, const NifI
 	vector<bhkShapeRef> out;
 	for (bhkShapeRef shape : shapes) {
 		if (shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
-				shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
-				shape->IsSameType(bhkPackedNiTriStripsShape::TYPE))
+			shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
+			shape->IsSameType(bhkPackedNiTriStripsShape::TYPE))
 			out.push_back(upgrade_shape(shape, info, target));
 		else
 			out.push_back(shape);
@@ -1449,22 +1287,22 @@ class Accessor<bhkRigidBodyUpgrader> {
 	bhkSerializableRef convert_malleable(bhkMalleableConstraintRef malleable) {
 		//Malleables really don't suit skyrim afaik
 		switch (malleable->GetMalleable().type) {
-			case BALLANDSOCKET:
-				return create_ball_socket(malleable->GetMalleable());
-			case HINGE:
-				return create_hinge(malleable->GetMalleable());
-			case LIMITED_HINGE:
-				return create_limited_hinge(malleable->GetMalleable());
-			case PRISMATIC:
-				return create_prismatic(malleable->GetMalleable());
-			case RAGDOLL:
-				return create_ragdoll(malleable->GetMalleable());
-			case STIFFSPRING:
-				return create_stiff_spring(malleable->GetMalleable());
-			case MALLEABLE:
-				throw runtime_error("Nested Malleable constraints!");
-			default:
-				throw runtime_error("Unknown malleable inner type!");
+		case BALLANDSOCKET:
+			return create_ball_socket(malleable->GetMalleable());
+		case HINGE:
+			return create_hinge(malleable->GetMalleable());
+		case LIMITED_HINGE:
+			return create_limited_hinge(malleable->GetMalleable());
+		case PRISMATIC:
+			return create_prismatic(malleable->GetMalleable());
+		case RAGDOLL:
+			return create_ragdoll(malleable->GetMalleable());
+		case STIFFSPRING:
+			return create_stiff_spring(malleable->GetMalleable());
+		case MALLEABLE:
+			throw runtime_error("Nested Malleable constraints!");
+		default:
+			throw runtime_error("Unknown malleable inner type!");
 		}
 		return NULL;
 	}
@@ -1520,7 +1358,7 @@ public:
 			obj.shape->IsSameType(bhkPackedNiTriStripsShape::TYPE)) {
 			obj.shape = upgrade_shape(obj.shape, this_info, target);
 		}
-			
+
 	}
 };
 
@@ -1880,7 +1718,7 @@ public:
 				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
 			}
 		}
-		if(!hasSpecular)
+		if (!hasSpecular)
 			lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_SPECULAR));
 
 		lightingProperty->SetTextureSet(textureSet);
@@ -1930,7 +1768,11 @@ public:
 				blocks[i].controllerType = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].controllerTypeOffset);
 
 				if (blocks[i].propertyTypeOffset != 4294967295)
+//<<<<<<< HEAD
 					blocks[i].propertyType = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].propertyTypeOffset);
+//=======
+//					blocks[i].propertyType = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].propertyTypeOffset);
+//>>>>>>> More on stairs
 
 				if (blocks[i].controllerIdOffset != 4294967295)
 					blocks[i].controllerId = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].controllerIdOffset);
@@ -2250,7 +2092,7 @@ public:
 	RebuildVisitor(NiObject* root, const NifInfo& info) :
 		RecursiveFieldVisitor(*this, info) {
 		root->accept(*this, info);
-		
+
 		for (NiObject* ptr : objects) {
 			blocks.push_back(ptr);
 		}
@@ -2413,7 +2255,7 @@ bool BeginConversion() {
 			info.userVersion2 = 83;
 			info.version = Niflib::VER_20_2_0_7;
 
-			if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {			
+			if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
 				root = convert_root(root);
 				BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
 				//fixed?
@@ -2434,7 +2276,7 @@ bool BeginConversion() {
 						}
 					}
 					if (num_collisions == 1 && root_collision != NULL) {
-						
+
 						vector<NiAVObjectRef> children = bsroot->GetChildren();
 						auto root_collision_position = find(children.begin(), children.end(), StaticCast<NiAVObject>(root_collision));
 						if (root_collision_position != children.end()) {
