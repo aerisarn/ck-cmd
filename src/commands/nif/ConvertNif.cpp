@@ -1540,6 +1540,13 @@ BSFadeNode* convert_root(NiObject* root)
 	return (BSFadeNode*)root;
 }
 
+IndexString getStringFromPalette(std::string palette, size_t offset)
+{
+	size_t findex = palette.find_first_of('\0', offset);
+	size_t len = findex - offset;
+	return palette.substr(offset, len);
+}
+
 NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
 {
 	//Convert NiTriStrips to NiTriShapes first of all.
@@ -1807,24 +1814,22 @@ public:
 						//constructor sets to specular.
 
 						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
+					}
+					if (material->GetController()->IsSameType(NiAlphaController::TYPE)) {
+						NiAlphaControllerRef oldController = DynamicCast<NiAlphaController>(material->GetController());
+						BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
+						controller->SetFlags(oldController->GetFlags());
+						controller->SetFrequency(oldController->GetFrequency());
+						controller->SetPhase(oldController->GetPhase());
+						controller->SetStartTime(oldController->GetStartTime());
+						controller->SetStopTime(oldController->GetStopTime());
+						controller->SetTarget(lightingProperty);
+						controller->SetInterpolator(oldController->GetInterpolator());
+						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
 
-						if (material->GetController()->IsSameType(NiAlphaController::TYPE)) {
-							NiAlphaControllerRef oldController = DynamicCast<NiAlphaController>(material->GetController());
-							BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
-							controller->SetFlags(oldController->GetFlags());
-							controller->SetFrequency(oldController->GetFrequency());
-							controller->SetPhase(oldController->GetPhase());
-							controller->SetStartTime(oldController->GetStartTime());
-							controller->SetStopTime(oldController->GetStopTime());
-							controller->SetTarget(lightingProperty);
-							controller->SetInterpolator(oldController->GetInterpolator());
-							controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
-
-							lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
-						}
+						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
 					}
 				}
-
 			}
 
 			if (property->IsSameType(NiTexturingProperty::TYPE)) {
@@ -1921,17 +1926,17 @@ public:
 				continue;
 
 			if (blocks[i].stringPalette != NULL) {
-				blocks[i].nodeName = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].nodeNameOffset);
-				blocks[i].controllerType = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].controllerTypeOffset);
+				blocks[i].nodeName = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].nodeNameOffset);
+				blocks[i].controllerType = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].controllerTypeOffset);
 
-				if(blocks[i].propertyTypeOffset != 4294967295)
-					blocks[i].propertyType = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].propertyTypeOffset);
+				if (blocks[i].propertyTypeOffset != 4294967295)
+					blocks[i].propertyType = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].propertyTypeOffset);
 
 				if (blocks[i].controllerIdOffset != 4294967295)
-					blocks[i].controllerId = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].controllerIdOffset);
+					blocks[i].controllerId = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].controllerIdOffset);
 
 				if (blocks[i].interpolatorIdOffset != 4294967295)
-					blocks[i].interpolatorId = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].interpolatorIdOffset);
+					blocks[i].interpolatorId = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].interpolatorIdOffset);
 			}
 
 			//set to default... if above doesn't work
