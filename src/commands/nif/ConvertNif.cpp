@@ -2104,8 +2104,53 @@ public:
 		objects.insert(&obj);
 	}
 
+
 	template<class T>
 	inline void visit_compound(T& obj) {
+	}
+			
+	template<class T>
+	inline void visit_field(T& obj) {}
+};
+
+class FixTargetsVisitor : public RecursiveFieldVisitor<FixTargetsVisitor> {
+	vector<NiObjectRef>& blocks;
+public:
+	
+
+	FixTargetsVisitor(NiObject* root, const NifInfo& info, vector<NiObjectRef>& blocks) :
+		RecursiveFieldVisitor(*this, info), blocks(blocks) {
+		root->accept(*this, info);
+	}
+
+
+	template<class T>
+	inline void visit_object(T& obj) {}
+
+	template<>
+	inline void visit_object(NiDefaultAVObjectPalette& obj) {
+		vector<AVObject > av_objects = obj.GetObjs();
+		for (AVObject& av_object : av_objects) {
+			for (NiObjectRef ref : blocks) {
+				if (ref->IsDerivedType(NiAVObject::TYPE)) {
+					NiAVObjectRef av_ref = DynamicCast<NiAVObject>(ref);
+					if (av_ref->GetName() == av_object.name) {
+						av_object.avObject = DynamicCast<NiAVObject>(av_ref);
+					}
+				}
+			}
+		}
+		obj.SetObjs(av_objects);
+	}
+
+	template<class T>
+	inline void visit_compound(T& obj) {
+	}
+
+	template<>
+	void visit_compound(AVObject& avlink) {
+		//relink av objects on converted nistrips;
+		
 	}
 
 	template<class T>
@@ -2188,6 +2233,9 @@ bool BeginConversion() {
 					//to calculate the right flags, we need to rebuild the blocks
 					vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
 
+					//fix targets from nitrishapes substitution
+					FixTargetsVisitor(root, info, new_blocks);
+
 					if (DynamicCast<NiNode>(root) != NULL && DynamicCast<NiNode>(root)->GetCollisionObject() == NULL) {
 						bhkCollisionObjectRef root_collision = NULL;
 						int num_collisions = 0;
@@ -2263,6 +2311,9 @@ bool BeginConversion() {
 
 				//to calculate the right flags, we need to rebuild the blocks
 				vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
+
+				//fix targets from nitrishapes substitution
+				FixTargetsVisitor(root, info, new_blocks);
 
 				if (DynamicCast<NiNode>(root) != NULL && DynamicCast<NiNode>(root)->GetCollisionObject() == NULL) {
 					bhkCollisionObjectRef root_collision = NULL;
