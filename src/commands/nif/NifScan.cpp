@@ -359,6 +359,7 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 			if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) != SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS && hasVFOnShader) {
 				Log::Error("Block[%i]: 'Has Vertex Colors' in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty flags", i);
 			}
+			hasVFOnShader = false; //Maybe this will fix issues
 			if (shaderprop->GetSkyrimShaderType() == BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP /*|| BSLightingShaderPropertyShaderType::ST_EYE_ENVMAP*/) {
 				if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) != SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) {
 					Log::Error("Block[%i]: ShaderType is 'Environment', but ShaderFlags1 does not include 'Environment Mapping'.", i);
