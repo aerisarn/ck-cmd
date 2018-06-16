@@ -66,11 +66,7 @@
 
 namespace fs = std::experimental::filesystem;
 
-//<<<<<<< Updated upstream
-//static const fs::path nif_in = "D:\\git\\ck-cmd\\resources\\in";
-//=======
-static const fs::path nif_in = "D:\\git\\ck-cmd\\resources\\nifs\\inc";
-//>>>>>>> Stashed changes
+static const fs::path nif_in = "D:\\git\\ck-cmd\\resources\\in";
 static const fs::path resources = "resources\\";
 static const fs::path nif_out = "D:\\git\\ck-cmd\\resources\\out";
 

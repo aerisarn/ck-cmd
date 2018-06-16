@@ -1462,21 +1462,10 @@ class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
 
 	map<void*, void*> collision_target_map;
 
-	vector<NiTriShapeRef> particle_geometry;
-
 public:
-	ConverterVisitor(const NifInfo& info, NiObjectRef root) :
+	ConverterVisitor(const NifInfo& info) :
 		RecursiveFieldVisitor(*this, info), this_info(info)
-	{
-		root->accept(*this, info);
-		if (root->IsDerivedType(NiNode::TYPE)) {
-			NiNodeRef ninroot = DynamicCast<NiNode>(root);
-			vector<Ref<NiAVObject>> children = ninroot->GetChildren();
-			for (NiTriShapeRef pg : particle_geometry)
-				children.push_back(StaticCast<NiAVObject>(pg));
-			ninroot->SetChildren(children);
-		}
-	}
+	{}
 	template<class T>
 	inline void visit_object(T& obj) {}
 
@@ -1504,10 +1493,6 @@ public:
 					NiTriShapeRef shape = convert_strip(stripsRef);
 					children[index] = shape;
 				}
-			}
-			if (block->IsSameType(NiParticleSystem::TYPE)) {
-				NiParticleSystemRef stripsRef = DynamicCast<NiParticleSystem>(block);
-				visit_particle(*stripsRef, obj);
 			}
 
 			index++;
@@ -1629,7 +1614,6 @@ public:
 		obj.SetMatchGroups(vector<MatchGroup>{});
 	}
 
-
 	template<>
 	inline void visit_object(NiTriShape& obj) {
 		bool hasSpecular = false;
@@ -1747,151 +1731,16 @@ public:
 		//TODO: how do we handle this geometry then?
 		//NiPSysData no longer inherits geometry, so clear out
 		obj.SetBsMaxVertices(obj.GetVertices().size());
-		//obj.SetVertices(vector<Vector3>{});
-		//obj.SetHasVertices(false);
-		//obj.SetVertexColors(vector<Color4>{});
-		//obj.SetHasVertexColors(false);
+		obj.SetVertices(vector<Vector3>{});
+		obj.SetHasVertices(false);
+		obj.SetVertexColors(vector<Color4>{});
+		obj.SetHasVertexColors(false);
 	}
 
-	inline void visit_particle(NiParticleSystem& obj, NiAVObject& parent) {
-		bool hasSpecular = false;
-
-		BSEffectShaderPropertyRef lightingProperty = new BSEffectShaderProperty();
-		//BSShaderTextureSetRef textureSet = new BSShaderTextureSet();
-		NiMaterialPropertyRef material = new NiMaterialProperty();
-		NiTexturingPropertyRef texturing = new NiTexturingProperty();
-		vector<Ref<NiProperty>> properties = obj.GetProperties();
-
-		for (NiPropertyRef property : properties)
-		{
-			if (property->IsSameType(NiMaterialProperty::TYPE)) {
-				material = DynamicCast<NiMaterialProperty>(property);
-				lightingProperty->SetShaderType(BSShaderType::SHADER_DEFAULT);
-				//lightingProperty->SetEmissiveColor(material->GetEmissiveColor());
-				//lightingProperty->SetSpecularColor(material->GetSpecularColor());
-				lightingProperty->SetEmissiveMultiple(1);
-				//lightingProperty->SetGlossiness(material->GetGlossiness());
-				//lightingProperty->SetAlpha(material->GetAlpha());
-
-				//TODO:: Create some kind of recursive method to modify GetNextControllers.
-				if (material->GetController() != NULL) {
-					if (material->GetController()->IsSameType(NiMaterialColorController::TYPE)) {
-						NiMaterialColorControllerRef oldController = DynamicCast<NiMaterialColorController>(material->GetController());
-						BSLightingShaderPropertyColorControllerRef controller = new BSLightingShaderPropertyColorController();
-						controller->SetFlags(oldController->GetFlags());
-						controller->SetFrequency(oldController->GetFrequency());
-						controller->SetPhase(oldController->GetPhase());
-						controller->SetStartTime(oldController->GetStartTime());
-						controller->SetStopTime(oldController->GetStopTime());
-						controller->SetTarget(lightingProperty);
-						controller->SetInterpolator(oldController->GetInterpolator());
-						if (oldController->GetTargetColor() == MaterialColor::TC_SELF_ILLUM)
-							controller->SetTypeOfControlledColor(LightingShaderControlledColor::LSCC_EMISSIVE_COLOR);
-						//constructor sets to specular.
-
-						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
-					}
-					if (material->GetController()->IsSameType(NiAlphaController::TYPE)) {
-						NiAlphaControllerRef oldController = DynamicCast<NiAlphaController>(material->GetController());
-						BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
-						controller->SetFlags(oldController->GetFlags());
-						controller->SetFrequency(oldController->GetFrequency());
-						controller->SetPhase(oldController->GetPhase());
-						controller->SetStartTime(oldController->GetStartTime());
-						controller->SetStopTime(oldController->GetStopTime());
-						controller->SetTarget(lightingProperty);
-						controller->SetInterpolator(oldController->GetInterpolator());
-						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
-
-						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
-					}
-				}
-			}
-
-			//if (property->IsSameType(NiTexturingProperty::TYPE)) {
-			//	texturing = DynamicCast<NiTexturingProperty>(property);
-			//	string textureName;
-			//	if (texturing->GetBaseTexture().source != NULL) {
-			//		textureName += texturing->GetBaseTexture().source->GetFileName();
-			//		//fix for orconebraid
-			//		if (textureName == "Grey.dds" || textureName == "grey.dds")
-			//			textureName = "textures\\characters\\hair\\Grey.dds";
-
-			//		textureName.insert(9, "tes4\\");
-			//		string textureNormal = textureName;
-			//		textureNormal.erase(textureNormal.end() - 4, textureNormal.end());
-			//		textureNormal += "_n.dds";
-
-			//		//setup textureSet (TODO)
-			//		std::vector<std::string> textures(9);
-			//		textures[0] = textureName;
-			//		textures[1] = textureNormal;
-
-			//		//finally set them.
-			//		textureSet->SetTextures(textures);
-			//	}
-			//}
-			if (property->IsSameType(NiStencilProperty::TYPE)) {
-				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() + SkyrimShaderPropertyFlags2::SLSF2_DOUBLE_SIDED));
-			}
-			if (property->IsSameType(NiAlphaProperty::TYPE)) {
-				NiAlphaPropertyRef alpha = new NiAlphaProperty();
-				alpha->SetFlags(DynamicCast<NiAlphaProperty>(property)->GetFlags());
-				alpha->SetThreshold(DynamicCast<NiAlphaProperty>(property)->GetThreshold());
-				obj.SetAlphaProperty(alpha);
-			}
-			if (property->IsSameType(NiSpecularProperty::TYPE)) {
-				hasSpecular = true;
-			}
-		}
-		//extract geometry
-		NiGeometryDataRef data = DynamicCast<NiGeometryData>(obj.NiGeometry::GetData());
-		if (data != NULL) {
-			NiTriShapeDataRef geom_data = new NiTriShapeData();
-			geom_data->SetHasVertices(data->GetHasVertices());
-			geom_data->SetVertices(data->GetVertices());
-			data->SetVertices(vector<Vector3>());
-			data->SetHasVertices(false);
-			geom_data->SetVertexColors(data->GetVertexColors());
-			data->SetVertexColors(vector<Color4>{});
-			geom_data->SetHasVertexColors(data->GetHasVertexColors());
-			data->SetHasVertexColors(false);
-
-			NiTriShapeRef particle_geom = new NiTriShape();
-			particle_geom->SetData(StaticCast<NiGeometryData>(geom_data));
-
-			particle_geom->SetName(obj.GetName() + "Emitter");
-
-			particle_geometry.push_back(particle_geom);
-
-			NiPSysMeshEmitterRef emitter = new NiPSysMeshEmitter();
-			vector<NiAVObject * > emittee = emitter->GetEmitterMeshes();
-			emittee.push_back(StaticCast<NiAVObject>(particle_geom));
-			emitter->SetEmitterMeshes(emittee);
-
-			vector<Ref<NiPSysModifier > > mods = obj.GetModifiers();
-			mods.push_back(StaticCast<NiPSysModifier>(emitter));
-			obj.SetModifiers(mods);
-
-			if (!data->GetVertexColors().empty()) {
-				data->SetHasVertexColors(true);
-				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() | SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
-			}
-			else {
-				data->SetHasVertexColors(false);
-				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
-			}
-		}
-		if (!hasSpecular)
-			lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_SPECULAR));
-
-		lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(SkyrimShaderPropertyFlags2::SLSF2_ZBUFFER_WRITE));
-		lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(SkyrimShaderPropertyFlags1::SLSF1_ZBUFFER_TEST | SkyrimShaderPropertyFlags1::SLSF1_OWN_EMIT));
-
-		//lightingProperty->SetTextureSet(textureSet);
-		obj.SetShaderProperty(DynamicCast<BSShaderProperty>(lightingProperty));
-		obj.SetExtraDataList(vector<Ref<NiExtraData>> {});
-		obj.SetProperties(vector<Ref<NiProperty>> {});
+	template<>
+	inline void visit_object(NiParticleSystem& obj) {
+		//TODO: I don't even know how particle systems work in skyrim
+		obj.SetProperties(vector<NiPropertyRef>{});
 	}
 
 	template<>
@@ -1912,10 +1761,6 @@ public:
 			}
 			//Deprecated. Maybe we can handle with tri facegens
 			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiGeomMorpherController::TYPE))
-				continue;
-
-			//Deprecated. To be traslated into shader effects
-			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiMaterialColorController::TYPE))
 				continue;
 
 			if (blocks[i].stringPalette != NULL) {
@@ -2377,8 +2222,8 @@ bool BeginConversion() {
 				NiObjectRef root = GetFirstRoot(blocks);
 				NiNode* rootn = DynamicCast<NiNode>(root);
 
-				ConverterVisitor fimpl(info, root);
-				//root->accept(fimpl, info);
+				ConverterVisitor fimpl(info);
+				root->accept(fimpl, info);
 				if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
 					root = convert_root(root);
 					BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
@@ -2451,8 +2296,8 @@ bool BeginConversion() {
 			NiObjectRef root = GetFirstRoot(blocks);
 			NiNode* rootn = DynamicCast<NiNode>(root);
 
-			ConverterVisitor fimpl(info, root);
-			//root->accept(fimpl, info);
+			ConverterVisitor fimpl(info);
+			root->accept(fimpl, info);
 
 			info.userVersion = 12;
 			info.userVersion2 = 83;
