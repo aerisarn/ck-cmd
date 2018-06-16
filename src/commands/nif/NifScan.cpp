@@ -327,7 +327,7 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 		if (blocks[i]->IsDerivedType(NiTimeController::TYPE)) {
 			NiTimeControllerRef ref = DynamicCast<NiTimeController>(blocks[i]);
 			if (ref->GetTarget() == NULL) {
-				Log::Error("Block[%i]: Controller as no target. This will increase the chances of a crash.", i);
+				Log::Error("Block[%i]: Controller has no target. This will increase the chances of a crash.", i);
 			}
 		}
 
@@ -353,8 +353,11 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 
 		if (blocks[i]->IsSameType(BSLightingShaderProperty::TYPE)) {
 			BSLightingShaderPropertyRef  shaderprop = DynamicCast<BSLightingShaderProperty>(blocks[i]);
-			if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) == SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) {
-				hasVFOnShader = true;
+			if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) == SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS && !hasVFOnShader) {
+				Log::Error("Block[%i]: 'Has Vertex Colors' in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty flags", i);
+			}
+			if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) != SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS && hasVFOnShader) {
+				Log::Error("Block[%i]: 'Has Vertex Colors' in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty flags", i);
 			}
 			if (shaderprop->GetSkyrimShaderType() == BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP /*|| BSLightingShaderPropertyShaderType::ST_EYE_ENVMAP*/) {
 				if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) != SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) {
@@ -430,8 +433,8 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 				if (shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_SPECULAR)
 					isSpecular = true;
 
-				if (data->GetHasVertexColors() != hasVFOnShader) {
-					Log::Error("Block[%i]: Has Vertex Colors flag in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty", i);
+				if (data->GetHasVertexColors()) {
+					hasVFOnShader = true;
 				}
 				if ((data->GetHasVertexColors()) && shape->GetShaderProperty() != NULL && (shape->GetShaderProperty()->GetShaderFlags2() & SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) != SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) {
 					vector<Color4> vc = data->GetVertexColors();
@@ -445,6 +448,29 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 					if (allWhite)
 						Log::Error("Block[%i]: Redundant all white #FFFFFFFF vertex colors.", i);
 				}
+
+				vector<Vector3> tangents = data->GetTangents();
+				bool allZero = true;
+				for (int x = 0; x != tangents.size(); x++) {
+					if (tangents[x].x != 0.0f || tangents[x].y != 0.0f || tangents[x].z != 0.0f) {
+						allZero = false;
+						break;
+					}
+				}
+				if (allZero)
+					Log::Error("Block[%i]: Tangents are all zero. Recalculate tangents.", i);
+
+				vector<Vector3> bitangents = data->GetBitangents();
+				allZero = true;
+				for (int x = 0; x != bitangents.size(); x++) {
+					if (bitangents[x].x != 0.0f || bitangents[x].y != 0.0f || bitangents[x].z != 0.0f) {
+						allZero = false;
+						break;
+					}
+				}
+				if (allZero)
+					Log::Error("Block[%i]: Bitangents are all zero. Recalculate bitangents.", i);
+
 				//*beep boop* test
 				BSShaderTextureSetRef set = DynamicCast<BSShaderTextureSet>(shaderprop->GetTextureSet());
 				if (set->GetTextures().size() != 0) {
@@ -543,6 +569,7 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine) {
 				Log::Info("ERROR: %s", e.what());
 			}
 		}
+		Log::Info("Done..");
 	}
 	
 	//if (write) {
