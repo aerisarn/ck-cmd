@@ -1459,14 +1459,19 @@ NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
 class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
 	const NifInfo& this_info;
 	set<void*> already_upgraded;
+	const vector<NiObjectRef>& blocks;
 
 	map<void*, void*> collision_target_map;
 
 	vector<NiTriShapeRef> particle_geometry;
 
 public:
-	ConverterVisitor(const NifInfo& info, NiObjectRef root) :
-		RecursiveFieldVisitor(*this, info), this_info(info)
+
+	map<NiMaterialColorControllerRef, BSLightingShaderPropertyColorControllerRef> material_controllers_map;
+	map<NiAlphaControllerRef, BSLightingShaderPropertyFloatControllerRef> material_alpha_controllers_map;
+
+	ConverterVisitor(const NifInfo& info, NiObjectRef root, const vector<NiObjectRef>& blocks) :
+		RecursiveFieldVisitor(*this, info), this_info(info), blocks(blocks)
 	{
 		root->accept(*this, info);
 		if (root->IsDerivedType(NiNode::TYPE)) {
@@ -1475,6 +1480,25 @@ public:
 			for (NiTriShapeRef pg : particle_geometry)
 				children.push_back(StaticCast<NiAVObject>(pg));
 			ninroot->SetChildren(children);
+		}
+		for (NiObjectRef obj : blocks) {
+			if (obj->IsDerivedType(NiControllerSequence::TYPE)) {
+				NiControllerSequenceRef nisblock = DynamicCast<NiControllerSequence>(obj);
+				vector<ControlledBlock> blocks = nisblock->GetControlledBlocks();
+				for (int i = 0; i != blocks.size(); i++) {
+					if (blocks[i].controller->IsDerivedType(NiMaterialColorController::TYPE)) {
+						map<NiMaterialColorControllerRef, BSLightingShaderPropertyColorControllerRef>::iterator cc = material_controllers_map.find(DynamicCast<NiMaterialColorController>(blocks[i].controller));
+						if (cc != material_controllers_map.end())
+							blocks[i].controller = cc->second;
+					}
+					if (blocks[i].controller->IsDerivedType(NiAlphaController::TYPE)) {
+						map<NiAlphaControllerRef, BSLightingShaderPropertyFloatControllerRef>::iterator cc = material_alpha_controllers_map.find(DynamicCast<NiAlphaController>(blocks[i].controller));
+						if (cc != material_alpha_controllers_map.end())
+							blocks[i].controller = cc->second;
+					}
+				}
+				nisblock->SetControlledBlocks(blocks);
+			}
 		}
 	}
 	template<class T>
@@ -1668,6 +1692,7 @@ public:
 						//constructor sets to specular.
 
 						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
+						material_controllers_map[oldController] = controller;
 					}
 					if (material->GetController()->IsSameType(NiAlphaController::TYPE)) {
 						NiAlphaControllerRef oldController = DynamicCast<NiAlphaController>(material->GetController());
@@ -1682,6 +1707,7 @@ public:
 						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
 
 						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
+						material_alpha_controllers_map[oldController] = controller;
 					}
 				}
 			}
@@ -1783,6 +1809,7 @@ public:
 						//constructor sets to specular.
 
 						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
+						material_controllers_map[oldController] = controller;
 					}
 					if (material->GetController()->IsSameType(NiAlphaController::TYPE)) {
 						NiAlphaControllerRef oldController = DynamicCast<NiAlphaController>(material->GetController());
@@ -1797,6 +1824,7 @@ public:
 						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
 
 						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
+						material_alpha_controllers_map[oldController] = controller;
 					}
 				}
 			}
@@ -2384,7 +2412,7 @@ bool BeginConversion() {
 				NiObjectRef root = GetFirstRoot(blocks);
 				NiNode* rootn = DynamicCast<NiNode>(root);
 
-				ConverterVisitor fimpl(info, root);
+				ConverterVisitor fimpl(info, root, blocks);
 				//root->accept(fimpl, info);
 				if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
 					root = convert_root(root);
@@ -2458,7 +2486,7 @@ bool BeginConversion() {
 			NiObjectRef root = GetFirstRoot(blocks);
 			NiNode* rootn = DynamicCast<NiNode>(root);
 
-			ConverterVisitor fimpl(info, root);
+			ConverterVisitor fimpl(info, root, blocks);
 			//root->accept(fimpl, info);
 
 			info.userVersion = 12;
