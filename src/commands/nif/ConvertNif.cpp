@@ -1915,6 +1915,16 @@ public:
 			//Deprecated. To be traslated into shader effects
 			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiMaterialColorController::TYPE))
 				continue;
+			//Deprecated. To be traslated into shader effects
+			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiTextureTransformController::TYPE))
+				continue;
+			//Deprecated. To be traslated into shader effects
+			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiFlipController::TYPE))
+				continue;
+			//Deprecated. To be traslated into shader effects
+			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiAlphaController::TYPE))
+				continue;
+
 
 			if (blocks[i].stringPalette != NULL) {
 				blocks[i].nodeName = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].nodeNameOffset);
