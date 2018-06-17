@@ -1505,10 +1505,10 @@ public:
 					children[index] = shape;
 				}
 			}
-			if (block->IsSameType(NiParticleSystem::TYPE)) {
-				NiParticleSystemRef stripsRef = DynamicCast<NiParticleSystem>(block);
-				visit_particle(*stripsRef, obj);
-			}
+			//if (block->IsSameType(NiParticleSystem::TYPE)) {
+			//	NiParticleSystemRef stripsRef = DynamicCast<NiParticleSystem>(block);
+			//	visit_particle(*stripsRef, obj);
+			//}
 
 			index++;
 		}
@@ -1743,7 +1743,9 @@ public:
 		obj.SetProperties(vector<Ref<NiProperty>> {});
 	}
 
-	inline void visit_particle(NiParticleSystem& obj, NiAVObject& parent) {
+	//inline void visit_particle(NiParticleSystem& obj, NiAVObject& parent) {
+	template<>
+	inline void visit_object(NiParticleSystem& obj) {
 		bool hasSpecular = false;
 
 		BSEffectShaderPropertyRef lightingProperty = new BSEffectShaderProperty();
@@ -1830,13 +1832,23 @@ public:
 			}
 		}
 		//extract geometry
-		NiGeometryDataRef data = DynamicCast<NiGeometryData>(obj.NiGeometry::GetData());
+		NiPSysDataRef data = DynamicCast<NiPSysData>(obj.NiGeometry::GetData());
 		if (data != NULL) {
+			//if (data->GetHasRadii()) {
+			//	data->SetRadii(vector<float>{});
+			//}
+			//if (data->GetHasSizes()) {
+			//	data->SetSizes(vector<float>{});
+			//}
+			//data->SetRotationAngles(vector<float>{});
+			//data->SetHasTextureIndices(!data->GetSubtextureOffsets().empty());
+
 			NiTriShapeDataRef geom_data = new NiTriShapeData();
 			geom_data->SetHasVertices(data->GetHasVertices());
 			geom_data->SetVertices(data->GetVertices());
-			data->SetHasVertices(true);
+			//data->SetHasVertices(true);
 			data->SetBsMaxVertices(data->GetVertices().size());
+			data->NiGeometryData::SetVertices(vector<Vector3>());
 			data->SetVertices(vector<Vector3>());
 			geom_data->SetVertexColors(data->GetVertexColors());
 			data->SetVertexColors(vector<Color4>{});
@@ -2496,7 +2508,10 @@ bool BeginConversion() {
 			fs::path out_path = nif_out / nifs[i].filename();
 			fs::create_directories(out_path.parent_path());
 			WriteNifTree(out_path.string(), root, info);
-
+			NifFile check(out_path.string());
+			NiObject* lroot = check.GetRoot();
+			if (lroot == NULL)
+				throw runtime_error("Error converting");
 		}
 	}
 	Log::Info("Done");
