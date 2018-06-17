@@ -1742,16 +1742,6 @@ public:
 		obj.SetExtraDataList(vector<Ref<NiExtraData>> {});
 		obj.SetProperties(vector<Ref<NiProperty>> {});
 	}
-	template<>
-	inline void visit_object(NiPSysData& obj) {
-		//TODO: how do we handle this geometry then?
-		//NiPSysData no longer inherits geometry, so clear out
-		obj.SetBsMaxVertices(obj.GetVertices().size());
-		//obj.SetVertices(vector<Vector3>{});
-		//obj.SetHasVertices(false);
-		//obj.SetVertexColors(vector<Color4>{});
-		//obj.SetHasVertexColors(false);
-	}
 
 	inline void visit_particle(NiParticleSystem& obj, NiAVObject& parent) {
 		bool hasSpecular = false;
@@ -1767,7 +1757,8 @@ public:
 			if (property->IsSameType(NiMaterialProperty::TYPE)) {
 				material = DynamicCast<NiMaterialProperty>(property);
 				lightingProperty->SetShaderType(BSShaderType::SHADER_DEFAULT);
-				//lightingProperty->SetEmissiveColor(material->GetEmissiveColor());
+				Color3 em = material->GetEmissiveColor();
+				lightingProperty->SetEmissiveColor(Color4(em.r, em.g, em.b, 0.0));
 				//lightingProperty->SetSpecularColor(material->GetSpecularColor());
 				lightingProperty->SetEmissiveMultiple(1);
 				//lightingProperty->SetGlossiness(material->GetGlossiness());
@@ -1808,29 +1799,23 @@ public:
 				}
 			}
 
-			//if (property->IsSameType(NiTexturingProperty::TYPE)) {
-			//	texturing = DynamicCast<NiTexturingProperty>(property);
-			//	string textureName;
-			//	if (texturing->GetBaseTexture().source != NULL) {
-			//		textureName += texturing->GetBaseTexture().source->GetFileName();
-			//		//fix for orconebraid
-			//		if (textureName == "Grey.dds" || textureName == "grey.dds")
-			//			textureName = "textures\\characters\\hair\\Grey.dds";
+			if (property->IsSameType(NiTexturingProperty::TYPE)) {
+				texturing = DynamicCast<NiTexturingProperty>(property);
+				string textureName;
+				if (texturing->GetBaseTexture().source != NULL) {
+					textureName += texturing->GetBaseTexture().source->GetFileName();
+					//fix for orconebraid
+					if (textureName == "Grey.dds" || textureName == "grey.dds")
+						textureName = "textures\\characters\\hair\\Grey.dds";
 
-			//		textureName.insert(9, "tes4\\");
-			//		string textureNormal = textureName;
-			//		textureNormal.erase(textureNormal.end() - 4, textureNormal.end());
-			//		textureNormal += "_n.dds";
+					textureName.insert(9, "tes4\\");
+					string textureNormal = textureName;
+					textureNormal.erase(textureNormal.end() - 4, textureNormal.end());
+					textureNormal += "_n.dds";
 
-			//		//setup textureSet (TODO)
-			//		std::vector<std::string> textures(9);
-			//		textures[0] = textureName;
-			//		textures[1] = textureNormal;
-
-			//		//finally set them.
-			//		textureSet->SetTextures(textures);
-			//	}
-			//}
+					lightingProperty->SetSourceTexture(textureName);
+				}
+			}
 			if (property->IsSameType(NiStencilProperty::TYPE)) {
 				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() + SkyrimShaderPropertyFlags2::SLSF2_DOUBLE_SIDED));
 			}
@@ -1850,8 +1835,9 @@ public:
 			NiTriShapeDataRef geom_data = new NiTriShapeData();
 			geom_data->SetHasVertices(data->GetHasVertices());
 			geom_data->SetVertices(data->GetVertices());
+			data->SetHasVertices(true);
+			data->SetBsMaxVertices(data->GetVertices().size());
 			data->SetVertices(vector<Vector3>());
-			data->SetHasVertices(false);
 			geom_data->SetVertexColors(data->GetVertexColors());
 			data->SetVertexColors(vector<Color4>{});
 			geom_data->SetHasVertexColors(data->GetHasVertexColors());
