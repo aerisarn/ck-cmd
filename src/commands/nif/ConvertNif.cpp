@@ -1908,40 +1908,39 @@ public:
 				if (tintp->GetData() == NULL)
 					continue;
 			}
-			//Deprecated. Maybe we can handle with tri facegens
-			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiGeomMorpherController::TYPE))
-				continue;
+			if (blocks[i].stringPalette != NULL)
+			{
+				//Deprecated. Maybe we can handle with tri facegens
+				if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiGeomMorpherController::TYPE))
+					continue;
 
-			//Deprecated. To be traslated into shader effects
-			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiMaterialColorController::TYPE))
-				continue;
-			//Deprecated. To be traslated into shader effects
-			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiTextureTransformController::TYPE))
-				continue;
-			//Deprecated. To be traslated into shader effects
-			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiFlipController::TYPE))
-				continue;
-			//Deprecated. To be traslated into shader effects
-			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiAlphaController::TYPE))
-				continue;
+				//Deprecated. To be traslated into shader effects. Not sure what we can convert this into. it has TT_ROTATE, which I don't know which block can replicate this.
+				if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiTextureTransformController::TYPE)) 
+					continue;
 
 
-			if (blocks[i].stringPalette != NULL) {
 				blocks[i].nodeName = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].nodeNameOffset);
 				blocks[i].controllerType = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].controllerTypeOffset);
 
 				if (blocks[i].propertyTypeOffset != 4294967295)
-					//<<<<<<< HEAD
 					blocks[i].propertyType = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].propertyTypeOffset);
-				//=======
-				//					blocks[i].propertyType = blocks[i].stringPalette->GetPalette().palette.substr(blocks[i].propertyTypeOffset);
-				//>>>>>>> More on stairs
 
 				if (blocks[i].controllerIdOffset != 4294967295)
 					blocks[i].controllerId = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].controllerIdOffset);
 
 				if (blocks[i].interpolatorIdOffset != 4294967295)
 					blocks[i].interpolatorId = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].interpolatorIdOffset);
+			}
+
+			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiMaterialColorController::TYPE))
+			{
+				blocks[i].propertyType = "BSLightingShaderProperty";
+				blocks[i].controllerType = "BSLightingShaderPropertyColorController";
+			}
+			if (blocks[i].controller != NULL && (blocks[i].controller->IsDerivedType(NiAlphaController::TYPE) || blocks[i].controller->IsDerivedType(NiFlipController::TYPE))) //hoping this works
+			{
+				blocks[i].propertyType = "BSLightingShaderProperty";
+				blocks[i].controllerType = "BSLightingShaderPropertyFloatController";
 			}
 
 			//set to default... if above doesn't work
@@ -1970,7 +1969,7 @@ public:
 		vector<Key<IndexString>> textKeys = obj.GetTextKeys();
 
 		for (int i = 0; i != textKeys.size(); i++) {
-			if (std::strstr(textKeys[i].data.c_str(), "Sound:")) {
+			if (std::strstr(textKeys[i].data.c_str(), "Sound:") || std::strstr(textKeys[i].data.c_str(), "sound:")) {
 				textKeys[i].data.insert(7, "TES4");
 			}
 		}
