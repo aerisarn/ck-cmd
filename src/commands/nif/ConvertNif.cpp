@@ -1469,6 +1469,8 @@ public:
 
 	map<NiMaterialColorControllerRef, BSLightingShaderPropertyColorControllerRef> material_controllers_map;
 	map<NiAlphaControllerRef, BSLightingShaderPropertyFloatControllerRef> material_alpha_controllers_map;
+	map<NiFlipControllerRef, BSLightingShaderPropertyFloatControllerRef> material_flip_controllers_map;
+	map<NiTextureTransformControllerRef, BSLightingShaderPropertyFloatControllerRef> material_transform_controllers_map;
 
 	ConverterVisitor(const NifInfo& info, NiObjectRef root, const vector<NiObjectRef>& blocks) :
 		RecursiveFieldVisitor(*this, info), this_info(info), blocks(blocks)
@@ -1494,6 +1496,16 @@ public:
 					if (blocks[i].controller->IsDerivedType(NiAlphaController::TYPE)) {
 						map<NiAlphaControllerRef, BSLightingShaderPropertyFloatControllerRef>::iterator cc = material_alpha_controllers_map.find(DynamicCast<NiAlphaController>(blocks[i].controller));
 						if (cc != material_alpha_controllers_map.end())
+							blocks[i].controller = cc->second;
+					}
+					if (blocks[i].controller->IsDerivedType(NiFlipController::TYPE)) {
+						map<NiFlipControllerRef, BSLightingShaderPropertyFloatControllerRef>::iterator cc = material_flip_controllers_map.find(DynamicCast<NiFlipController>(blocks[i].controller));
+						if (cc != material_flip_controllers_map.end())
+							blocks[i].controller = cc->second;
+					}
+					if (blocks[i].controller->IsDerivedType(NiTextureTransformController::TYPE)) {
+						map<NiTextureTransformControllerRef, BSLightingShaderPropertyFloatControllerRef>::iterator cc = material_transform_controllers_map.find(DynamicCast<NiTextureTransformController>(blocks[i].controller));
+						if (cc != material_transform_controllers_map.end())
 							blocks[i].controller = cc->second;
 					}
 				}
@@ -1657,7 +1669,6 @@ public:
 	template<>
 	inline void visit_object(NiTriShape& obj) {
 		bool hasSpecular = false;
-
 		BSLightingShaderPropertyRef lightingProperty = new BSLightingShaderProperty();
 		BSShaderTextureSetRef textureSet = new BSShaderTextureSet();
 		NiMaterialPropertyRef material = new NiMaterialProperty();
@@ -1734,6 +1745,50 @@ public:
 					//finally set them.
 					textureSet->SetTextures(textures);
 				}
+
+				if (texturing->GetController() == NULL)
+					continue;
+
+				if (texturing->GetController()->IsSameType(NiFlipController::TYPE)) {
+					NiFlipControllerRef oldController = DynamicCast<NiFlipController>(texturing->GetController());
+					BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
+					controller->SetFlags(oldController->GetFlags());
+					controller->SetFrequency(oldController->GetFrequency());
+					controller->SetPhase(oldController->GetPhase());
+					controller->SetStartTime(oldController->GetStartTime());
+					controller->SetStopTime(oldController->GetStopTime());
+					controller->SetTarget(lightingProperty);
+					controller->SetInterpolator(oldController->GetInterpolator());
+					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
+
+					lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
+					material_flip_controllers_map[oldController] = controller;
+				}
+
+				if (texturing->GetController()->IsSameType(NiTextureTransformController::TYPE)) {
+					NiTextureTransformControllerRef oldController = DynamicCast<NiTextureTransformController>(texturing->GetController());
+					BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
+					controller->SetFlags(oldController->GetFlags());
+					controller->SetFrequency(oldController->GetFrequency());
+					controller->SetPhase(oldController->GetPhase());
+					controller->SetStartTime(oldController->GetStartTime());
+					controller->SetStopTime(oldController->GetStopTime());
+					controller->SetTarget(lightingProperty);
+					controller->SetInterpolator(oldController->GetInterpolator());
+					if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_U)
+						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_OFFSET);
+					if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_V)
+						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
+					if (oldController->GetOperation() == TransformMember::TT_SCALE_U)
+						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_SCALE);
+					if (oldController->GetOperation() == TransformMember::TT_SCALE_V)
+						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_SCALE);
+					if (oldController->GetOperation() == TransformMember::TT_ROTATE)
+						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
+
+					lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
+					material_transform_controllers_map[oldController] = controller;
+				}
 			}
 			if (property->IsSameType(NiStencilProperty::TYPE)) {
 				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() + SkyrimShaderPropertyFlags2::SLSF2_DOUBLE_SIDED));
@@ -1762,6 +1817,9 @@ public:
 		}
 		if (!hasSpecular)
 			lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_SPECULAR));
+
+		if (textureSet->GetTextures().size() == 0)
+			obj.SetFlags(obj.GetFlags() + 1);
 
 		lightingProperty->SetTextureSet(textureSet);
 		obj.SetShaderProperty(DynamicCast<BSShaderProperty>(lightingProperty));
@@ -1844,6 +1902,50 @@ public:
 					textureNormal += "_n.dds";
 
 					lightingProperty->SetSourceTexture(textureName);
+
+					if (texturing->GetController() == NULL)
+						continue;
+
+					if (texturing->GetController()->IsSameType(NiFlipController::TYPE)) {
+						NiFlipControllerRef oldController = DynamicCast<NiFlipController>(texturing->GetController());
+						BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
+						controller->SetFlags(oldController->GetFlags());
+						controller->SetFrequency(oldController->GetFrequency());
+						controller->SetPhase(oldController->GetPhase());
+						controller->SetStartTime(oldController->GetStartTime());
+						controller->SetStopTime(oldController->GetStopTime());
+						controller->SetTarget(lightingProperty);
+						controller->SetInterpolator(oldController->GetInterpolator());
+						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_SCALE);
+
+						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
+						material_flip_controllers_map[oldController] = controller;
+					}
+
+					if (texturing->GetController()->IsSameType(NiTextureTransformController::TYPE)) {
+						NiTextureTransformControllerRef oldController = DynamicCast<NiTextureTransformController>(texturing->GetController());
+						BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
+						controller->SetFlags(oldController->GetFlags());
+						controller->SetFrequency(oldController->GetFrequency());
+						controller->SetPhase(oldController->GetPhase());
+						controller->SetStartTime(oldController->GetStartTime());
+						controller->SetStopTime(oldController->GetStopTime());
+						controller->SetTarget(lightingProperty);
+						controller->SetInterpolator(oldController->GetInterpolator());
+						if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_U)
+							controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_OFFSET);
+						if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_V)
+							controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
+						if (oldController->GetOperation() == TransformMember::TT_SCALE_U)
+							controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_SCALE);
+						if (oldController->GetOperation() == TransformMember::TT_SCALE_V)
+							controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_SCALE);
+						if (oldController->GetOperation() == TransformMember::TT_ROTATE)
+							controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
+
+						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
+						material_transform_controllers_map[oldController] = controller;
+					}
 				}
 			}
 			if (property->IsSameType(NiStencilProperty::TYPE)) {
@@ -1942,11 +2044,6 @@ public:
 				if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiGeomMorpherController::TYPE))
 					continue;
 
-				//Deprecated. To be traslated into shader effects. Not sure what we can convert this into. it has TT_ROTATE, which I don't know which block can replicate this.
-				if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiTextureTransformController::TYPE)) 
-					continue;
-
-
 				blocks[i].nodeName = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].nodeNameOffset);
 				blocks[i].controllerType = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].controllerTypeOffset);
 
@@ -1964,6 +2061,11 @@ public:
 			{
 				blocks[i].propertyType = "BSLightingShaderProperty";
 				blocks[i].controllerType = "BSLightingShaderPropertyColorController";
+			}
+			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiTextureTransformController::TYPE))
+			{
+				blocks[i].propertyType = "BSLightingShaderProperty";
+				blocks[i].controllerType = "BSLightingShaderPropertyFloatController";
 			}
 			if (blocks[i].controller != NULL && (blocks[i].controller->IsDerivedType(NiAlphaController::TYPE) || blocks[i].controller->IsDerivedType(NiFlipController::TYPE))) //hoping this works
 			{
