@@ -1467,6 +1467,52 @@ class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
 
 public:
 
+	//template<typename T>
+	//struct replace<Ref<T>>
+	//{		
+	//	map<Ref<T>, Ref<T>> replace_map;
+	//
+	//	template<typename Ref<T>>
+	//	Ref<T> convert(Ref<T> controller) {
+	//		return controller;
+	//	}
+
+	//	template<>
+	//	NiTimeControllerRef convert(NiMaterialColorControllerRef oldController) {
+	//		BSLightingShaderPropertyColorControllerRef controller = new BSLightingShaderPropertyColorController();
+	//		controller->SetFlags(oldController->GetFlags());
+	//		controller->SetFrequency(oldController->GetFrequency());
+	//		controller->SetPhase(oldController->GetPhase());
+	//		controller->SetStartTime(oldController->GetStartTime());
+	//		controller->SetStopTime(oldController->GetStopTime());
+	//		controller->SetTarget(replace()(oldController->GetTarget());
+	//		controller->SetInterpolator(oldController->GetInterpolator());
+	//		if (oldController->GetTargetColor() == MaterialColor::TC_SELF_ILLUM)
+	//			controller->SetTypeOfControlledColor(LightingShaderControlledColor::LSCC_EMISSIVE_COLOR);
+	//		//constructor sets to specular.
+	//		replace_map[oldController] = controller;
+	//		return controller;			
+	//	}
+
+	//	Ref<T> operator()(Ref<T> niobj) {
+	//		map<NiTimeControllerRef, NiTimeControllerRef>::iterator converted = replace_map.find(niobj);
+	//		if (converted != replace_map.end())
+	//			return converted->second;
+	//		return convert(converted->second);	
+	//	}
+
+	//	T* operator()(T* niptr) {
+	//		if (niptr != NULL) {
+	//			for (map<NiTimeControllerRef, NiTimeControllerRef>::iterator converted = replace_map.begin();
+	//				converted != replace_map.end(); converted++) {
+	//			if (niptr == &*(converter->first))
+	//				return &*converted->second;
+	//		}
+	//		return convert(converted->second);
+	//	}
+
+	//};
+
 	map<NiMaterialColorControllerRef, BSLightingShaderPropertyColorControllerRef> material_controllers_map;
 	map<NiAlphaControllerRef, BSLightingShaderPropertyFloatControllerRef> material_alpha_controllers_map;
 	map<NiFlipControllerRef, BSLightingShaderPropertyFloatControllerRef> material_flip_controllers_map;
@@ -1492,21 +1538,29 @@ public:
 						map<NiMaterialColorControllerRef, BSLightingShaderPropertyColorControllerRef>::iterator cc = material_controllers_map.find(DynamicCast<NiMaterialColorController>(blocks[i].controller));
 						if (cc != material_controllers_map.end())
 							blocks[i].controller = cc->second;
+						else
+							Log::Info("Not Found!");
 					}
 					if (blocks[i].controller->IsDerivedType(NiAlphaController::TYPE)) {
 						map<NiAlphaControllerRef, BSLightingShaderPropertyFloatControllerRef>::iterator cc = material_alpha_controllers_map.find(DynamicCast<NiAlphaController>(blocks[i].controller));
 						if (cc != material_alpha_controllers_map.end())
 							blocks[i].controller = cc->second;
+						else
+							Log::Info("Not Found!");
 					}
 					if (blocks[i].controller->IsDerivedType(NiFlipController::TYPE)) {
 						map<NiFlipControllerRef, BSLightingShaderPropertyFloatControllerRef>::iterator cc = material_flip_controllers_map.find(DynamicCast<NiFlipController>(blocks[i].controller));
 						if (cc != material_flip_controllers_map.end())
 							blocks[i].controller = cc->second;
+						else
+							Log::Info("Not Found!");
 					}
 					if (blocks[i].controller->IsDerivedType(NiTextureTransformController::TYPE)) {
 						map<NiTextureTransformControllerRef, BSLightingShaderPropertyFloatControllerRef>::iterator cc = material_transform_controllers_map.find(DynamicCast<NiTextureTransformController>(blocks[i].controller));
 						if (cc != material_transform_controllers_map.end())
 							blocks[i].controller = cc->second;
+						else
+							Log::Info("Not Found!");
 					}
 				}
 				nisblock->SetControlledBlocks(blocks);
@@ -1520,8 +1574,81 @@ public:
 	inline void visit_compound(T& obj) {
 	}
 
+	//Actual Handling
 	template<class T>
-	inline void visit_field(T& obj) {}
+	inline void visit_field(T& field) {
+	}
+
+	BSLightingShaderPropertyFloatControllerRef convert(NiTextureTransformControllerRef in) {
+		Log::Info("NiTimeControllerRef");
+		if (!in == NULL && in->IsDerivedType(NiTextureTransformController::TYPE)) {
+			NiTextureTransformControllerRef oldController = DynamicCast<NiTextureTransformController>(in);
+			map<NiTextureTransformControllerRef, BSLightingShaderPropertyFloatControllerRef>::iterator converted = material_transform_controllers_map.find(oldController);
+			if (converted != material_transform_controllers_map.end()) {
+				return converted->second;
+			}
+			else {
+				BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
+				controller->SetNextController(oldController->GetNextController());
+				controller->SetFlags(oldController->GetFlags());
+				controller->SetFrequency(oldController->GetFrequency());
+				controller->SetPhase(oldController->GetPhase());
+				controller->SetStartTime(oldController->GetStartTime());
+				controller->SetStopTime(oldController->GetStopTime());
+				controller->SetTarget(oldController->GetTarget());
+				controller->SetInterpolator(oldController->GetInterpolator());
+				if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_U)
+					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_OFFSET);
+				if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_V)
+					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
+				if (oldController->GetOperation() == TransformMember::TT_SCALE_U)
+					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_SCALE);
+				if (oldController->GetOperation() == TransformMember::TT_SCALE_V)
+					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_SCALE);
+				if (oldController->GetOperation() == TransformMember::TT_ROTATE)
+					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
+				material_transform_controllers_map[oldController] = controller;
+				return controller;
+			}
+		}
+	}
+
+
+	template<>
+	void visit_field(NiTimeControllerRef& in) {
+		Log::Info("NiTimeControllerRef");
+		if (!in == NULL && in->IsDerivedType(NiTextureTransformController::TYPE)) {
+			NiTextureTransformControllerRef oldController = DynamicCast<NiTextureTransformController>(in);
+			map<NiTextureTransformControllerRef, BSLightingShaderPropertyFloatControllerRef>::iterator converted = material_transform_controllers_map.find(oldController);
+			if (converted != material_transform_controllers_map.end()) {
+				in = converted->second;
+			}
+			else {
+				BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
+				controller->SetNextController(oldController->GetNextController());
+				controller->SetFlags(oldController->GetFlags());
+				controller->SetFrequency(oldController->GetFrequency());
+				controller->SetPhase(oldController->GetPhase());
+				controller->SetStartTime(oldController->GetStartTime());
+				controller->SetStopTime(oldController->GetStopTime());
+				controller->SetTarget(oldController->GetTarget());
+				controller->SetInterpolator(oldController->GetInterpolator());
+				if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_U)
+					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_OFFSET);
+				if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_V)
+					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
+				if (oldController->GetOperation() == TransformMember::TT_SCALE_U)
+					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_SCALE);
+				if (oldController->GetOperation() == TransformMember::TT_SCALE_V)
+					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_SCALE);
+				if (oldController->GetOperation() == TransformMember::TT_ROTATE)
+					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
+				material_transform_controllers_map[oldController] = controller;
+				in = controller;
+			}			
+		}
+	}
+
 
 	template<>
 	inline void visit_object(NiNode& obj) {
@@ -1767,27 +1894,22 @@ public:
 
 				if (texturing->GetController()->IsSameType(NiTextureTransformController::TYPE)) {
 					NiTextureTransformControllerRef oldController = DynamicCast<NiTextureTransformController>(texturing->GetController());
-					BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
-					controller->SetFlags(oldController->GetFlags());
-					controller->SetFrequency(oldController->GetFrequency());
-					controller->SetPhase(oldController->GetPhase());
-					controller->SetStartTime(oldController->GetStartTime());
-					controller->SetStopTime(oldController->GetStopTime());
+					BSLightingShaderPropertyFloatControllerRef controller = convert(oldController);
 					controller->SetTarget(lightingProperty);
-					controller->SetInterpolator(oldController->GetInterpolator());
-					if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_U)
-						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_OFFSET);
-					if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_V)
-						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
-					if (oldController->GetOperation() == TransformMember::TT_SCALE_U)
-						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_SCALE);
-					if (oldController->GetOperation() == TransformMember::TT_SCALE_V)
-						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_SCALE);
-					if (oldController->GetOperation() == TransformMember::TT_ROTATE)
-						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
-
 					lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
-					material_transform_controllers_map[oldController] = controller;
+					while (controller->GetNextController() != NULL) {
+						oldController = DynamicCast<NiTextureTransformController>(controller->GetNextController());
+						if (oldController != NULL) {
+							controller = convert(oldController);
+						}
+						else {
+							controller = DynamicCast<BSLightingShaderPropertyFloatController>(controller->GetNextController());
+						}
+						if (controller != NULL) {
+							controller->SetTarget(lightingProperty);
+						}
+
+					}
 				}
 			}
 			if (property->IsSameType(NiStencilProperty::TYPE)) {
