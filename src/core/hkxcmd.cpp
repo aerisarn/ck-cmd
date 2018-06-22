@@ -120,6 +120,56 @@ void hkxcmd::ParseLine (
    ++*numargs;
 }
 
+string hkxcmd::HelpString()
+{
+    // Usage: ck_cmd [--help] <command> [<args> ...]
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " <command> [<args> ...]\r\n";
+
+    string help =
+R"(
+See "ck-cmd help <command>" for more information on a specific command.
+
+Commands:\r\n)";
+
+    vector<CommandBase*> cmdList = ExeCommandList::GetCommandList();
+    for each (CommandBase* cmd in cmdList)
+    {
+        help += "    " + cmd->GetName() + " - " + cmd->GetHelpShort() + "\r\n";
+    }
+
+    return usage + help;
+}
+
+bool hkxcmd::ParseArgs(int argc, char **argv)
+{
+    bool result = false;
+
+    try
+    {
+        map<string, docopt::value> parsedArgs =
+            docopt::docopt(HelpString(), { argv, argv + argc }, false, ExeCommandList::GetExeVersion(), true);
+
+        string cmd = parsedArgs["<command>"].asString();
+        transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
+
+        if (cmd == "help")
+        {
+            docopt::value val = parsedArgs["<args>"];
+
+            if (val.asStringList().size() > 0)
+            {
+                Log::Info(ExeCommandList::GetCommandByName(val.asStringList().at(0))->GetHelp().c_str());
+            }
+            else
+            {
+                Log::Info(HelpString().c_str());
+            }
+        }
+        else
+        {
+            result = ExeCommandList::GetCommandByName(cmd)->RunCommand(argc, argv);
+        }
+    }
     catch (exception* e)
     {
         Log::Error("Exception occurred:");
