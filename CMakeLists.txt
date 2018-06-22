@@ -404,6 +404,7 @@ source_group("Geometry\\QuickHull" FILES ${QUICKHULL_SRCS})
 
 # Settings when compiling with MSVC.
 IF (MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
     # Update compiler flags.
     IF (PROJECT_STATIC_RUNTIME)

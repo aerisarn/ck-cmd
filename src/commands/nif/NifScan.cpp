@@ -3,6 +3,7 @@
 #include <core/hkxcmd.h>
 #include <core/hkfutils.h>
 #include <core/log.h>
+#include <commands/DDS.h>
 
 using namespace ckcmd;
 using namespace ckcmd::nifscan;
@@ -228,6 +229,72 @@ void findFilesn(fs::path startingDir, string extension, vector<fs::path>& result
 	}
 }
 
+static void CheckDDS(fs::path filename, int slot, bool hasAlpha, bool isSpecular)
+{
+	ifstream is;
+	int magic;
+	DDS_HEADER header = {};
+
+	is.open(filename, ios::binary);
+
+	if (is.is_open())
+	{
+		is.read((char*)&magic, sizeof(int));
+
+		if (magic != DDS_MAGIC)
+			return;
+
+		is.read((char*)&header.dwSize, sizeof(DWORD));
+		is.read((char*)&header.dwFlags, sizeof(DWORD));
+		is.read((char*)&header.dwHeight, sizeof(DWORD));
+		is.read((char*)&header.dwWidth, sizeof(DWORD));
+		is.read((char*)&header.dwPitchOrLinearSize, sizeof(DWORD));
+		is.read((char*)&header.dwDepth, sizeof(DWORD));
+		is.read((char*)&header.dwMipMapCount, sizeof(DWORD));
+		is.read((char*)&header.dwReserved1, sizeof(DWORD)*11);
+		is.read((char*)&header.ddspf.dwSize, sizeof(DWORD));
+		is.read((char*)&header.ddspf.dwFlags, sizeof(DWORD));
+		is.read((char*)&header.ddspf.dwFourCC, sizeof(DWORD)); //DXT1, DXT3 or DXT5
+
+		if (header.ddspf.dwFourCC == DDS_DXT3)
+			Log::Error("DXT3 is not used in Skyrim.");
+
+		if (header.dwMipMapCount == 0)
+			Log::Error("No mipmaps found. Mipmaps should be generated for optimisation.");
+
+		if (slot == 0) {
+			if (header.ddspf.dwFourCC == DDS_DXT1)
+			{
+				if (hasAlpha)
+					Log::Error("Block has alpha but diffuse texture is DXT1. Needs to be DXT5.");
+			}
+			else if (header.ddspf.dwFourCC == DDS_DXT5)
+			{
+				if (!hasAlpha)
+					Log::Error("Block does not have alpha but diffuse texture is DXT5. Needs to be DXT1.");
+			}
+		}
+		if (slot == 1) {
+			if (header.ddspf.dwFourCC == DDS_DXT1)
+			{
+				if (isSpecular)
+					Log::Error("Block has specular flag but normal texture is DXT1. Needs to be DXT5.");
+			}
+			else if (header.ddspf.dwFourCC == DDS_DXT5)
+			{
+				if (!isSpecular)
+					Log::Error("Block does not have specular flag but normal texture is DXT5. Needs to be DXT1.");
+			}
+		}
+		if (slot == 4 || slot == 5) {
+			if (header.ddspf.dwFourCC != DDS_DXT1)
+				Log::Error("Environment/Cube map is needs to be DXT1.");
+		}
+
+		is.close();
+	}
+}
+
 void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 {
 	Games& games = Games::Instance();
@@ -247,7 +314,7 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 		if (blocks[i]->IsSameType(BSXFlags::TYPE)) {
 			BSXFlagsRef ref = DynamicCast<BSXFlags>(blocks[i]);
 			if (ref->GetName() != "BSX") {
-				Log::Info("Block[%i]: A 'BSXFlag' block needs to be named 'BSX'", i);
+				Log::Error("Block[%i]: A 'BSXFlag' block needs to be named 'BSX'", i);
 			}
 			actual = ref->GetIntegerData();
 			//fxdragoncrashfurrow01 has bit 1 not set but I can't get why
@@ -260,49 +327,49 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 
 		if (blocks[i]->IsSameType(BSInvMarker::TYPE)) {
 			if (DynamicCast<BSInvMarker>(blocks[i])->GetName() != "INV") {
-				Log::Info("Block[%i]: A 'BSInvMarker' block needs to be named 'INV'", i);
+				Log::Error("Block[%i]: A 'BSInvMarker' block needs to be named 'INV'", i);
 			}
 		}
 
 		if (blocks[i]->IsSameType(BSFurnitureMarker::TYPE)) {
 			if (DynamicCast<BSFurnitureMarker>(blocks[i])->GetName() != "FRN") {
-				Log::Info("Block[%i]: A 'BSFurnitureMarker' block needs to be named 'FRN'", i);
+				Log::Error("Block[%i]: A 'BSFurnitureMarker' block needs to be named 'FRN'", i);
 			}
 		}
 
 		if (blocks[i]->IsSameType(BSBound::TYPE)) {
 			if (DynamicCast<BSBound>(blocks[i])->GetName() != "BBX") {
-				Log::Info("Block[%i]: A 'BSBound' block needs to be named 'BBX'", i);
+				Log::Error("Block[%i]: A 'BSBound' block needs to be named 'BBX'", i);
 			}
 		}
 
 		if (blocks[i]->IsSameType(Niflib::BSBehaviorGraphExtraData::TYPE)) {
 			if (DynamicCast<BSBehaviorGraphExtraData>(blocks[i])->GetName() != "BGED") {
-				Log::Info("Block[%i]: A 'BSBehaviorGraphExtraData' block needs to be named 'BGED'", i);
+				Log::Error("Block[%i]: A 'BSBehaviorGraphExtraData' block needs to be named 'BGED'", i);
 			}
 		}
 
 		if (blocks[i]->IsSameType(BSBoneLODExtraData::TYPE)) {
 			if (DynamicCast<Niflib::BSBoneLODExtraData>(blocks[i])->GetName() != "BSBoneLOD") {
-				Log::Info("Block[%i]: A 'BSBoneLODExtraData' block needs to be named 'BSBoneLOD'", i);
+				Log::Error("Block[%i]: A 'BSBoneLODExtraData' block needs to be named 'BSBoneLOD'", i);
 			}
 		}
 
 		if (blocks[i]->IsSameType(NiTriStrips::TYPE)) {
-			Log::Info("Block[%i]: NiTriStrips needs to be triangulated.", i);
+			Log::Error("Block[%i]: NiTriStrips needs to be triangulated.", i);
 		}
 
 		if (blocks[i]->IsSameType(NiSkinPartition::TYPE)) {
 			for (SkinPartition partition : DynamicCast<NiSkinPartition>(blocks[i])->GetPartition()) {
 				if (partition.numStrips > 0)
-					Log::Info("Block[%i]: NiSkinPartition contains strips. (Obsolete in SSE)", i);
+					Log::Error("Block[%i]: NiSkinPartition contains strips. (Obsolete in SSE)", i);
 			}
 		}
 
 		if (blocks[i]->IsDerivedType(NiTimeController::TYPE)) {
 			NiTimeControllerRef ref = DynamicCast<NiTimeController>(blocks[i]);
 			if (ref->GetTarget() == NULL) {
-				Log::Info("Block[%i]: Controller as no target. This will increase the chances of a crash.", i);
+				Log::Error("Block[%i]: Controller has no target. This will increase the chances of a crash.", i);
 			}
 		}
 
@@ -314,7 +381,7 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 
 				for (int y = 0; y != blocks.size(); y++) {
 					if (blocks[y].controllerType == "") {
-						Log::Info("Block[%i]: ControlledBlock number %i, has a blank controller type.", i, y);
+						Log::Error("Block[%i]: ControlledBlock number %i, has a blank controller type.", i, y);
 					}
 				}
 			}
@@ -328,76 +395,89 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 
 		if (blocks[i]->IsSameType(BSLightingShaderProperty::TYPE)) {
 			BSLightingShaderPropertyRef  shaderprop = DynamicCast<BSLightingShaderProperty>(blocks[i]);
-			if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) == SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) {
-				hasVFOnShader = true;
+			if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) == SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS && !hasVFOnShader) {
+				Log::Error("Block[%i]: 'Has Vertex Colors' in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty flags", i);
 			}
+			if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) != SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS && hasVFOnShader) {
+				Log::Error("Block[%i]: 'Has Vertex Colors' in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty flags", i);
+			}
+			hasVFOnShader = false; //Maybe this will fix issues
 			if (shaderprop->GetSkyrimShaderType() == BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP /*|| BSLightingShaderPropertyShaderType::ST_EYE_ENVMAP*/) {
 				if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) != SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) {
-					Log::Info("Block[%i]: ShaderType is 'Environment', but ShaderFlags1 does not include 'Environment Mapping'.", i);
+					Log::Error("Block[%i]: ShaderType is 'Environment', but ShaderFlags1 does not include 'Environment Mapping'.", i);
 				}
 				if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) == SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) {
-					Log::Info("Block[%i]: ShaderType is 'Environment', but ShaderFlags 2 has enabled 'glow' flag.", i);
+					Log::Error("Block[%i]: ShaderType is 'Environment', but ShaderFlags 2 has enabled 'glow' flag.", i);
 				}
 				if (shaderprop->GetTextureSet()->GetTextures().size() >= 5) {
 					if (shaderprop->GetTextureSet()->GetTextures()[4] == "") {
-						Log::Info("Block[%i]: ShaderType is 'Environment', but no 'Environment' texture is present.", i);
+						Log::Error("Block[%i]: ShaderType is 'Environment', but no 'Environment' texture is present.", i);
 					}
 				}
 				else {
-					Log::Info("Block[%i]: TextureSet size is too small to include 'Environment' texture.", i);
+					Log::Error("Block[%i]: TextureSet size is too small to include 'Environment' texture.", i);
 				}
 			}
 			if (shaderprop->GetSkyrimShaderType() == BSLightingShaderPropertyShaderType::ST_GLOW_SHADER) {
-				Log::Info("Block is glow shader.");
 				if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE) != SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE) {
-					Log::Info("Block[%i]: ShaderType is 'Glow', but ShaderFlags1 does not include 'External Emittance'.", i);
+					Log::Error("Block[%i]: ShaderType is 'Glow', but ShaderFlags1 does not include 'External Emittance'.", i);
 				}
 				if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) == SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) {
-					Log::Info("Block[%i]: ShaderType is 'Glow', but ShaderFlags1 includes 'Environment Mapping'.", i);
+					Log::Error("Block[%i]: ShaderType is 'Glow', but ShaderFlags1 includes 'Environment Mapping'.", i);
 				}
 				if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) != SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) {
-					Log::Info("Block[%i]: ShaderType is 'Glow', but ShaderFlags2 does not include 'Glow Map'.", i);
+					Log::Error("Block[%i]: ShaderType is 'Glow', but ShaderFlags2 does not include 'Glow Map'.", i);
 				}
 				if (shaderprop->GetTextureSet()->GetTextures().size() > 3) {
 					if (shaderprop->GetTextureSet()->GetTextures()[2] == "") {
-						Log::Info("Block[%i]: ShaderType is 'Glow', but no 'Glow' texture is present.", i);
+						Log::Error("Block[%i]: ShaderType is 'Glow', but no 'Glow' texture is present.", i);
 					}
 				}
 				else {
-					Log::Info("Block[%i]: TextureSet size is too small to include 'Glow' texture.", i);
+					Log::Error("Block[%i]: TextureSet size is too small to include 'Glow' texture.", i);
 				}
 			}
-		}
-
-		if (blocks[i]->IsSameType(BSShaderTextureSet::TYPE)) {
-			BSShaderTextureSetRef set = DynamicCast<BSShaderTextureSet>(blocks[i]);
-			if (set->GetTextures().size() != 0) {
-				for (std::string texture : set->GetTextures()) {
-					bool isTexture = (texture.substr(0, 7) != "textures"); //Possible issue: If the user has capitalized "textures"#
-					if (!isTexture) {
-						Log::Info("Block[%i]: TextureSet includes paths not relative to data.", i);
+			if (shaderprop->GetSkyrimShaderType() == BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP) {
+				if ((shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) != SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) {
+					Log::Error("Block[%i]: ShaderType is 'Environment', but ShaderFlags1 does not include 'Environment Mapping'.", i);
+				}
+				if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) == SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) {
+					Log::Error("Block[%i]: ShaderType is 'Environment', but ShaderFlags2 includes 'Glow Map'.", i);
+				}
+				if ((shaderprop->GetEnvironmentMapScale() == 0)) {
+					Log::Error("Block[%i]: ShaderType is 'Environment', but map scale equals 0, making it obsolete.", i);
+				}
+				if (shaderprop->GetTextureSet()->GetTextures().size() > 5) {
+					if (shaderprop->GetTextureSet()->GetTextures()[4] == "") {
+						Log::Error("Block[%i]: ShaderType is 'Environment', but no 'Cube map' texture is present.", i);
 					}
-					else {
-						bool doesExist = false;
-						if ((fs::exists(games.data(Games::TES5) / texture)) || (fs::exists(games.data(Games::TES5) / "textures" / texture))) { //this needs sorting out.
-							doesExist = true;
-						}
-						if (!doesExist) {
-							Log::Info("Block[%i]: Texture: '%s' does not exist!", i, texture.c_str());
-						}
+					if (shaderprop->GetTextureSet()->GetTextures()[5] == "") {
+						Log::Error("Block[%i]: ShaderType is 'Environment', but no 'mask' texture is present.", i);
 					}
-
+				}
+				else {
+					Log::Error("Block[%i]: TextureSet size is too small to include 'Environment' textures.", i);
 				}
 			}
 		}
 
 		if (blocks[i]->IsSameType(NiTriShape::TYPE)) {
+			bool hasAlpha = false;
+			bool isSpecular = false;
+
 			NiTriShapeRef shape = DynamicCast<NiTriShape>(blocks[i]);
 			NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(shape->GetData());
+			BSLightingShaderPropertyRef  shaderprop = DynamicCast<BSLightingShaderProperty>(shape->GetShaderProperty());
 
-			if (data != NULL && shape != NULL && data != NULL) {
-				if (data->GetHasVertexColors() != hasVFOnShader) {
-					Log::Info("Block[%i]: Has Vertex Colors flag in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty", i);
+			if (data != NULL && shape != NULL && shaderprop != NULL) {
+				if (shape->GetAlphaProperty() != NULL)
+					hasAlpha = true;
+				
+				if (shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_SPECULAR)
+					isSpecular = true;
+
+				if (data->GetHasVertexColors()) {
+					hasVFOnShader = true;
 				}
 				if ((data->GetHasVertexColors()) && shape->GetShaderProperty() != NULL && (shape->GetShaderProperty()->GetShaderFlags2() & SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) != SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) {
 					vector<Color4> vc = data->GetVertexColors();
@@ -409,16 +489,56 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 						}
 					}
 					if (allWhite)
-						Log::Info("Block[%i]: Redundant all white #FFFFFFFF vertex colors.", i);
+						Log::Error("Block[%i]: Redundant all white #FFFFFFFF vertex colors.", i);
+				}
+
+				vector<Vector3> tangents = data->GetTangents();
+				bool allZero = true;
+				for (int x = 0; x != tangents.size(); x++) {
+					if (tangents[x].x != 0.0f || tangents[x].y != 0.0f || tangents[x].z != 0.0f) {
+						allZero = false;
+						break;
+					}
+				}
+				if (allZero)
+					Log::Error("Block[%i]: Tangents are all zero. Recalculate tangents.", i);
+
+				vector<Vector3> bitangents = data->GetBitangents();
+				allZero = true;
+				for (int x = 0; x != bitangents.size(); x++) {
+					if (bitangents[x].x != 0.0f || bitangents[x].y != 0.0f || bitangents[x].z != 0.0f) {
+						allZero = false;
+						break;
+					}
+				}
+				if (allZero)
+					Log::Error("Block[%i]: Bitangents are all zero. Recalculate bitangents.", i);
+
+				//*beep boop* test
+				BSShaderTextureSetRef set = DynamicCast<BSShaderTextureSet>(shaderprop->GetTextureSet());
+				if (set->GetTextures().size() != 0) {
+					stringvector textures = set->GetTextures();
+					for (int i = 0; i != textures.size(); i++) {
+						bool isTexture = (textures[i].substr(0, 7) != "textures"); //Possible issue: If the user has capitalized "textures"#
+						if (!isTexture) {
+							Log::Error("Block[%i]: TextureSet includes paths not relative to data.", i);
+						}
+						else {
+							bool doesExist = false;
+							if (textures[i] != "") {
+								if ((fs::exists(games.data(Games::TES5) / textures[i])) || (fs::exists(games.data(Games::TES5) / "textures" / textures[i]))) { //this needs sorting out.
+									Log::Info("Checking texture data of %s", (textures[i]).c_str());
+									CheckDDS(games.data(Games::TES5) / textures[i], i, hasAlpha, isSpecular);
+									doesExist = true;
+								}
+								if (!doesExist)
+									Log::Error("Block[%i]: Texture: '%s' does not exist!", i, textures[i].c_str());
+							}
+						}
+					}
 				}
 			}
-
-
-			//scan if normals are incorrect
-			//scan if NiAlphaProperty is below BSLightingShaderProperty
 		}
-
-		//check NiNode children names and if they are unique to their parent.
 	}
 }
 
@@ -432,12 +552,13 @@ static bool BeginScan() {
 
 	vector<fs::path> nifs;
 
-	findFilesn(games.data(Games::TES5) / "meshes", ".nif", nifs);
+	//findFilesn(games.data(Games::TES5) / "meshes", ".nif", nifs);
+	fs::path nif_in = "D:\\git\\ck-cmd\\resources\\in";
+	findFilesn(nif_in, ".nif", nifs);
 
 	if (nifs.empty())
 	{
 		Log::Info("No NIFs found. Checking BSAs.");
-
 		for (const auto& bsa : games.bsas(Games::TES5)) {
 			std::cout << "Scan: " << bsa.filename() << std::endl;
 
@@ -476,6 +597,7 @@ static bool BeginScan() {
 				Log::Info("ERROR: %s", e.what());
 			}
 		}
+		Log::Info("Done..");
 	}
 	
 	//if (write) {
