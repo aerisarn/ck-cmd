@@ -11,6 +11,48 @@ using namespace ckcmd::nifscan;
 using namespace Niflib;
 using namespace std;
 
+static bool BeginScan();
+
+REGISTER_COMMAND_CPP(NifScan)
+
+NifScan::NifScan()
+{
+}
+
+NifScan::~NifScan()
+{
+}
+
+string NifScan::GetName() const
+{
+    return "NifScan";
+}
+
+string NifScan::GetHelp() const
+{
+    string name = GetName();
+    transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    // Usage: ck-cmd games
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + "\r\n";
+
+    const char help[] = "TODO: Short description for NifScan";
+
+    return usage + help;
+}
+
+string NifScan::GetHelpShort() const
+{
+    return "TODO: Short help message for ConvertNif";
+}
+
+bool NifScan::InternalRunCommand(map<string, docopt::value> parsedArgs)
+{
+    bool result = BeginScan();
+    Log::Info("NifScan Ended");
+    return result;
+}
+
 //BSXFlags
 /*
 <niobject name="BSXFlags" abstract="0" inherit="NiIntegerExtraData">
@@ -500,22 +542,7 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 	}
 }
 
-static void HelpString(hkxcmd::HelpType type) {
-	switch (type)
-	{
-	case hkxcmd::htShort: Log::Info("About - NifScan"); break;
-	case hkxcmd::htLong: {
-		char fullName[MAX_PATH], exeName[MAX_PATH];
-		GetModuleFileName(NULL, fullName, MAX_PATH);
-		_splitpath(fullName, NULL, NULL, exeName, NULL);
-		Log::Info("Usage: %s about", exeName);
-		Log::Info("  NifScan");
-	}
-						 break;
-	}
-}
-
-static bool ExecuteCmd(hkxcmdLine &cmdLine) {
+static bool BeginScan() {
 	Log::Info("Begin Scan");
 
 	Games& games = Games::Instance();
@@ -579,4 +606,3 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine) {
 	//	WriteNifTree(out_path.string(), root, info);
 	//}
 }
-REGISTER_COMMAND(NifScan, HelpString, ExecuteCmd);

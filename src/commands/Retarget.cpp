@@ -1,5 +1,7 @@
 #include "stdafx.h"
 
+#include <commands/Retarget.h>
+
 #include <core/hkxcmd.h>
 #include <core/hkxutils.h>
 #include <core/log.h>
@@ -225,6 +227,277 @@ const float FloatNegINF = *(float*)&IntegerNegInf;
 // Structures
 //////////////////////////////////////////////////////////////////////////
 
+//////////////////////////////////////////////////////////////////////////
+// Forward Declarations
+//////////////////////////////////////////////////////////////////////////
+
+static bool ExportFile(const char *baseSkel, const char *sourceAnim, const char *destAnim, 
+                       const hkPackfileWriter::Options& packFileOptions, hkSerializeUtil::SaveOptionBits flags);
+
+static hkPackfileWriter::Options GetWriteOptionsFromFormat(hkPackFormat format);
+
+//////////////////////////////////////////////////////////////////////////
+// Class
+//////////////////////////////////////////////////////////////////////////
+
+REGISTER_COMMAND_CPP(Retarget)
+
+Retarget::Retarget()
+{
+}
+
+Retarget::~Retarget()
+{
+}
+
+string Retarget::GetName() const
+{
+    return "Retarget";
+}
+
+string Retarget::GetHelp() const
+{
+    string name = GetName();
+    transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    // Usage: ck-cmd retarget <base_skel> <output_anim> [-i <anim>] [-n <name>] [-d <level>] [-v <flags>] [-f <flags> ...]
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <base_skel> <output_anim> [-i <anim>] [-n <name>] [-d <level>] [-v <flags>] [-f <flags> ...]\r\n";
+
+    const char help[] =
+R"(Convert Havok HKX animation to Gamebryo HKX animation using another skeleton
+
+Arguments:
+    <base_skel>     Path to Havok skeleton for animation binding
+    <output_anim>   Path to Havok animation to write
+
+Options:
+    -i <anim>   Path to Gamebryo animation to convert - Defaults to anim.hkx with kf extension
+    -n <name>   Skeleton name
+    -d <level>  Debug Level: ERROR, WARN, INFO, DEBUG, VERBOSE 
+                [default: INFO]
+    -v <flags>  Havok Packfile saving flags: DEFAULT, XML, WIN32, AMD64, XBOX, XBOX360 
+                [default: DEFAULT]
+    -f <flags>  Havok saving flags: SAVE_DEFAULT, SAVE_TEXT_FORMAT, SAVE_SERIALIZE_IGNORED_MEMBERS, SAVE_WRITE_ATTRIBUTES, SAVE_CONCISE, SAVE_TEXT_NUMBERS 
+                [default: SAVE_DEFAULT]
+
+Havok packfile saving flags:
+    DEFAULT Save as Default Format (MSVC Win32 Packed)
+    XML     Save as Xml Format
+    WIN32   Save as Win32 Forma
+    AMD64   Save as AMD64 Format
+    XBOX    Save as XBOX Format
+    XBOX360 Save as XBOX360 Format
+
+Havok saving flags:
+    SAVE_DEFAULT                    All flags default to OFF, enable whichever are needed
+    SAVE_TEXT_FORMAT                Use text (usually XML) format, default is binary format if available
+    SAVE_SERIALIZE_IGNORED_MEMBERS  Write members which are usually ignored
+    SAVE_WRITE_ATTRIBUTES           Include extended attributes in metadata, default is to write minimum metadata
+    SAVE_CONCISE                    Doesn't provide any extra information which would make the file easier to interpret. E.g. additionally write hex floats as text comments
+    SAVE_TEXT_NUMBERS               Floating point numbers output as text, not as binary. Makes them easily readable/editable, but values may not be exact)";
+
+    return usage + help;
+}
+
+string Retarget::GetHelpShort() const
+{
+    return "Convert Havok HKX animation to Gamebryo HKX animation using another skeleton";
+}
+
+bool Retarget::InternalRunCommand(map<string, docopt::value> parsedArgs)
+{
+    bool recursion = true;
+    string skelName, strBase, strSource, strDest;
+    hkPackFormat pkFormat = HKPF_DEFAULT;
+    hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
+
+    strBase = parsedArgs["<base_skel>"].asString();
+    strDest = parsedArgs["<output_anim>"].asString();
+
+    strSource = parsedArgs["-i"].asString();
+    skelName = parsedArgs["-n"].asString();
+
+    Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
+    pkFormat = (hkPackFormat)StringToEnum(parsedArgs["-v"].asString(), PackFlags, HKPF_DEFAULT);
+    flags = (hkSerializeUtil::SaveOptionBits)StringToFlags(parsedArgs["-f"].asStringList(), SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
+
+    /*
+#pragma region Handle Input Args
+    for (int i = 0; i < argc; i++)
+    {
+        char *arg = argv[i];
+        if (arg == NULL)
+            continue;
+        if (arg[0] == '-' || arg[0] == '/')
+        {
+            switch (tolower(arg[1]))
+            {
+            case 'f':
+            {
+                const char *param = arg + 2;
+                if (*param == ':' || *param == '=') ++param;
+                argv[i] = NULL;
+                if (param[0] == 0 && (i + 1<argc && (argv[i + 1][0] != '-' || argv[i + 1][0] != '/'))) {
+                    param = argv[++i];
+                    argv[i] = NULL;
+                }
+                if (param[0] == 0)
+                    break;
+                flags = (hkSerializeUtil::SaveOptionBits)StringToFlags(param, SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
+            } break;
+
+            case 'v':
+            {
+                const char *param = arg + 2;
+                if (*param == ':' || *param == '=') ++param;
+                argv[i] = NULL;
+                if (param[0] == 0 && (i + 1<argc && (argv[i + 1][0] != '-' || argv[i + 1][0] != '/'))) {
+                    param = argv[++i];
+                    argv[i] = NULL;
+                }
+                if (param[0] == 0)
+                    break;
+                pkFormat = (hkPackFormat)StringToEnum(param, PackFlags, HKPF_DEFAULT);
+            } break;
+
+            case 'd':
+            {
+                const char *param = arg + 2;
+                if (*param == ':' || *param == '=') ++param;
+                argv[i] = NULL;
+                if (param[0] == 0 && (i + 1<argc && (argv[i + 1][0] != '-' || argv[i + 1][0] != '/'))) {
+                    param = argv[++i];
+                    argv[i] = NULL;
+                }
+                if (param[0] == 0)
+                {
+                    Log::SetLogLevel(LOG_DEBUG);
+                    break;
+                }
+                else
+                {
+                    Log::SetLogLevel((LogLevel)StringToEnum(param, LogFlags, LOG_INFO));
+                }
+            } break;
+
+            case 'b':
+            {
+                const char *param = arg + 2;
+                if (*param == ':' || *param == '=') ++param;
+                argv[i] = NULL;
+                if (param[0] == 0 && (i + 1<argc && (argv[i + 1][0] != '-' || argv[i + 1][0] != '/'))) {
+                    param = argv[++i];
+                    argv[i] = NULL;
+                }
+                if (param[0] == 0)
+                    break;
+                strBase = param;
+            }
+            break;
+
+            case 'i':
+            {
+                const char *param = arg + 2;
+                if (*param == ':' || *param == '=') ++param;
+                argv[i] = NULL;
+                if (param[0] == 0 && (i + 1<argc && (argv[i + 1][0] != '-' || argv[i + 1][0] != '/'))) {
+                    param = argv[++i];
+                    argv[i] = NULL;
+                }
+                if (param[0] == 0)
+                    break;
+                strSource = param;
+            }
+            break;
+
+            case 'o':
+            {
+                const char *param = arg + 2;
+                if (*param == ':' || *param == '=') ++param;
+                argv[i] = NULL;
+                if (param[0] == 0 && (i + 1<argc && (argv[i + 1][0] != '-' || argv[i + 1][0] != '/'))) {
+                    param = argv[++i];
+                    argv[i] = NULL;
+                }
+                if (param[0] == 0)
+                    break;
+                strDest = param;
+            }
+            break;
+
+            case 'n':
+            {
+                const char *param = arg + 2;
+                if (*param == ':' || *param == '=') ++param;
+                argv[i] = NULL;
+                if (param[0] == 0 && (i + 1<argc && (argv[i + 1][0] != '-' || argv[i + 1][0] != '/'))) {
+                    param = argv[++i];
+                    argv[i] = NULL;
+                }
+                if (param[0] == 0)
+                    break;
+                skelName = param;
+            }
+            break;
+
+
+            default:
+                Log::Error("Unknown argument specified '%s'", arg);
+                return false;
+            }
+        }
+        else if (strBase.empty()) {
+            strBase = arg;
+        }
+        else if (strSource.empty()) {
+            strSource = arg;
+        }
+        else if (strDest.empty()) {
+            strDest = arg;
+        }
+        else {
+            Log::Error("Unknown argument specified '%s'", arg);
+            return false;
+        }
+    }
+#pragma endregion
+*/
+
+    if (strBase.empty()) {
+        Log::Info(GetHelp().c_str());
+        return false;
+    }
+    if (strSource.empty()) {
+        Log::Error("Source animation file not specified.");
+        return false;
+    }
+    if (strDest.empty()) {
+        Log::Error("Destination animation file not specified.");
+        return false;
+    }
+    if (pkFormat == HKPF_XML) // set text format to indicate xml
+    {
+        flags = (hkSerializeUtil::SaveOptionBits)(flags | hkSerializeUtil::SAVE_TEXT_FORMAT);
+    }
+
+    hkMallocAllocator baseMalloc;
+    hkMemoryRouter* memoryRouter = hkMemoryInitUtil::initDefault(&baseMalloc, hkMemorySystem::FrameInfo(1024 * 1024));
+    hkBaseSystem::init(memoryRouter, ErrorReport);
+
+    char base[MAX_PATH], source[MAX_PATH], dest[MAX_PATH];
+    GetFullPathName(strBase.c_str(), MAX_PATH, base, NULL);
+    GetFullPathName(strSource.c_str(), MAX_PATH, source, NULL);
+    GetFullPathName(strDest.c_str(), MAX_PATH, dest, NULL);
+
+    //stringlist skelNames = TokenizeString(skelNames, ",.", true);
+    ExportFile(base, source, dest, GetWriteOptionsFromFormat(pkFormat), flags);
+
+    hkBaseSystem::quit();
+    hkMemoryInitUtil::quit();
+
+
+    return true;
+}
 
 //////////////////////////////////////////////////////////////////////////
 // Helper functions
@@ -735,183 +1008,5 @@ static void HK_CALL errorReport(const char* msg, void* userContext)
 
 static bool ExecuteCmd(hkxcmdLine &cmdLine)
 {
-	bool recursion = true;
-	string skelName, strBase, strSource, strDest;
-	int argc = cmdLine.argc;
-	char **argv = cmdLine.argv;
-	hkPackFormat pkFormat = HKPF_DEFAULT;
-	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
-
-#pragma region Handle Input Args
-	for (int i = 0; i < argc; i++)
-	{
-		char *arg = argv[i];
-		if (arg == NULL)
-			continue;
-		if (arg[0] == '-' || arg[0] == '/')
-		{
-			switch (tolower(arg[1]))
-			{
-			case 'f':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-						break;
-					flags = (hkSerializeUtil::SaveOptionBits)StringToFlags(param, SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
-				} break;
-
-			case 'v':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-						break;
-					pkFormat = (hkPackFormat)StringToEnum(param, PackFlags, HKPF_DEFAULT);
-				} break;
-
-			case 'd':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-					{
-						Log::SetLogLevel(LOG_DEBUG);
-						break;
-					}
-					else
-					{
-						Log::SetLogLevel((LogLevel)StringToEnum(param, LogFlags, LOG_INFO));
-					}
-				} break;
-
-			case 'b':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-						break;
-					strBase = param;
-				}
-				break;
-
-			case 'i':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-						break;
-					strSource = param;
-				}
-				break;
-
-			case 'o':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-						break;
-					strDest = param;
-				}
-				break;
-
-			case 'n':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-						break;
-					skelName = param;
-				}
-				break;
-
-
-			default:
-				Log::Error("Unknown argument specified '%s'", arg);
-				return false;
-			}
-		} else if (strBase.empty()) {
-			strBase = arg;
-		} else if (strSource.empty()) {
-			strSource = arg;
-		} else if (strDest.empty()) {
-			strDest = arg;
-		} else {
-			Log::Error("Unknown argument specified '%s'", arg);
-			return false;
-		}
-	}
-#pragma endregion
-
-	if (strBase.empty()){
-		HelpString(hkxcmd::htLong);
-		return false;
-	}
-	if (strSource.empty()){
-		Log::Error("Source animation file not specified.");
-		return false;
-	}
-	if (strDest.empty()){
-		Log::Error("Destination animation file not specified.");
-		return false;
-	}
-	if (pkFormat == HKPF_XML) // set text format to indicate xml
-	{
-		flags = (hkSerializeUtil::SaveOptionBits)(flags | hkSerializeUtil::SAVE_TEXT_FORMAT);
-	}
-
-	hkMallocAllocator baseMalloc;
-	hkMemoryRouter* memoryRouter = hkMemoryInitUtil::initDefault( &baseMalloc, hkMemorySystem::FrameInfo(1024 * 1024) );
-	hkBaseSystem::init( memoryRouter, errorReport );
-
-	char base[MAX_PATH], source[MAX_PATH], dest[MAX_PATH];
-	GetFullPathName(strBase.c_str(), MAX_PATH, base, NULL);
-	GetFullPathName(strSource.c_str(), MAX_PATH, source, NULL);
-	GetFullPathName(strDest.c_str(), MAX_PATH, dest, NULL);
-
-	//stringlist skelNames = TokenizeString(skelNames, ",.", true);
-	ExportFile(base, source, dest, GetWriteOptionsFromFormat(pkFormat), flags);
-
-	hkBaseSystem::quit();
-	hkMemoryInitUtil::quit();
-
-
-	return true;
+	
 }
-
-REGISTER_COMMAND(Retarget, HelpString, ExecuteCmd);

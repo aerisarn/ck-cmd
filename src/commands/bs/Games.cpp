@@ -1,5 +1,7 @@
 #include "stdafx.h"
 
+#include <commands/Games.h>
+
 #include <core/hkxcmd.h>
 #include <core/log.h>
 
@@ -7,26 +9,42 @@
 #include <core/bsa.h>
 
 using namespace std;
-
-static void HelpString(hkxcmd::HelpType type) {
-	switch (type)
-	{
-	case hkxcmd::htShort: Log::Info("Games - Checks for installed bethesda games and their install path."); break;
-	case hkxcmd::htLong:
-	{
-		char fullName[MAX_PATH], exeName[MAX_PATH];
-		GetModuleFileName(NULL, fullName, MAX_PATH);
-		_splitpath(fullName, NULL, NULL, exeName, NULL);
-		Log::Info("Usage: %s games", exeName);
-		Log::Info("  Prints the list of Bethesda games with their installation path.");
-	}
-	break;
-	}
-}
-
 using namespace ckcmd::info;
 
-static bool ExecuteCmd(hkxcmdLine &cmdLine)
+REGISTER_COMMAND_CPP(GamesCmd)
+
+GamesCmd::GamesCmd()
+{
+}
+
+GamesCmd::~GamesCmd()
+{
+}
+
+string GamesCmd::GetName() const
+{
+    return "Games";
+}
+
+string GamesCmd::GetHelp() const
+{
+    string name = GetName();
+    transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    // Usage: ck-cmd games
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + "\r\n";
+
+    const char help[] = "Prints the list of Bethesda games with their installation path";
+
+    return usage + help;
+}
+
+string GamesCmd::GetHelpShort() const
+{
+    return "Checks for installed bethesda games and their install path";
+}
+
+bool GamesCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	Games& games = Games::Instance();
 	const Games::GamesPathMapT& pathMap = games.getGames();
@@ -50,5 +68,3 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 
 	return true;
 }
-
-REGISTER_COMMAND(Games, HelpString, ExecuteCmd);

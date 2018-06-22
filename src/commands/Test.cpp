@@ -1,5 +1,7 @@
 #include "stdafx.h"
 
+#include <commands/Test.h>
+
 #include <core/hkxcmd.h>
 #include <core/hkxutils.h>
 #include <core/log.h>
@@ -50,36 +52,56 @@
 
 using namespace std;
 
-static void HelpString(hkxcmd::HelpType type){
-	switch (type)
-	{
-	case hkxcmd::htShort: Log::Info("Test"); break;
-	case hkxcmd::htLong:  
-		{
-			char fullName[MAX_PATH], exeName[MAX_PATH];
-			GetModuleFileName(NULL, fullName, MAX_PATH);
-			_splitpath(fullName, NULL, NULL, exeName, NULL);
-			Log::Info("Usage: %s test [-opts[modifiers]] [infile] [outfile]", exeName);
-				Log::Info("  Simply read and write the file back out with specified format.");
-				Log::Info("");
-				Log::Info("<Switches>");
-				Log::Info(" -i <path>          Input File or directory");
-				Log::Info(" -o <path>          Output File - Defaults to input file with '-out' appended");
-				Log::Info("");
-				Log::Info(" -f <flags>         Havok saving flags (Defaults:  SAVE_TEXT_FORMAT|SAVE_TEXT_NUMBERS)");
-				Log::Info("     SAVE_DEFAULT           = All flags default to OFF, enable whichever are needed");
-				Log::Info("     SAVE_TEXT_FORMAT       = Use text (usually XML) format, default is binary format if available.");
-				Log::Info("     SAVE_SERIALIZE_IGNORED_MEMBERS = Write members which are usually ignored.");
-				Log::Info("     SAVE_WRITE_ATTRIBUTES  = Include extended attributes in metadata, default is to write minimum metadata.");
-				Log::Info("     SAVE_CONCISE           = Doesn't provide any extra information which would make the file easier to interpret. ");
-				Log::Info("                              E.g. additionally write hex floats as text comments.");
-				Log::Info("     SAVE_TEXT_NUMBERS      = Floating point numbers output as text, not as binary.  ");
-				Log::Info("                              Makes them easily readable/editable, but values may not be exact.");
-				Log::Info("");
-				;
-		}
-		break;
-	}
+REGISTER_COMMAND_CPP(Test)
+
+Test::Test()
+{
+}
+
+Test::~Test()
+{
+}
+
+string Test::GetName() const
+{
+    return "Test";
+}
+
+string Test::GetHelp() const
+{
+    string name = GetName();
+    transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    // Usage: ck-cmd test <infile> [-o <outfile>] [-d <level>] [-f <flags> ...]
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <infile> [-o <outfile>] [-d <level>] [-f <flags> ...]\r\n";
+
+    const char help[] = 
+R"(Test
+
+Arguments:
+    <infile>    Input File or directory
+
+Options:
+    -o <outfile>    Output File - Defaults to input file with '-out' appended
+    -d <level>      Debug Level: ERROR, WARN, INFO, DEBUG, VERBOSE 
+                    [default: INFO]
+    -f <flags>      Havok saving flags: SAVE_DEFAULT, SAVE_TEXT_FORMAT, SAVE_SERIALIZE_IGNORED_MEMBERS, SAVE_WRITE_ATTRIBUTES, SAVE_CONCISE, SAVE_TEXT_NUMBERS 
+                    [default: SAVE_TEXT_FORMAT SAVE_TEXT_NUMBERS]
+
+Havok saving flags:
+    SAVE_DEFAULT                    All flags default to OFF, enable whichever are needed
+    SAVE_TEXT_FORMAT                Use text (usually XML) format, default is binary format if available
+    SAVE_SERIALIZE_IGNORED_MEMBERS  Write members which are usually ignored
+    SAVE_WRITE_ATTRIBUTES           Include extended attributes in metadata, default is to write minimum metadata
+    SAVE_CONCISE                    Doesn't provide any extra information which would make the file easier to interpret. E.g. additionally write hex floats as text comments
+    SAVE_TEXT_NUMBERS               Floating point numbers output as text, not as binary. Makes them easily readable/editable, but values may not be exact)";
+
+    return usage + help;
+}
+
+string Test::GetHelpShort() const
+{
+    return "Test";
 }
 
 namespace
@@ -167,16 +189,19 @@ static hkResource* hkSerializeUtilLoad( hkStreamReader* stream
 		return NULL;
 	}
 }
-static bool ExecuteCmd(hkxcmdLine &cmdLine)
+bool Test::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
-	string inpath;
-	string outpath;
-	int argc = cmdLine.argc;
-	char **argv = cmdLine.argv;
-	hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT|hkSerializeUtil::SAVE_TEXT_NUMBERS);
+    // TODO: SafeExecuteCmd
+
+    string inpath = parsedArgs["<infile>"].asString();
+    string outpath = parsedArgs["-o"].asString();
+
+    hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)StringToFlags(parsedArgs["-f"].asStringList(), SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
+    Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
 
 	list<hkxcmd *> plugins;
 
+    /*
 #pragma region Handle Input Args
 	for (int i = 0; i < argc; i++)
 	{
@@ -279,6 +304,7 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 		}
 	}
 #pragma endregion
+   */
 
    hkMallocAllocator baseMalloc;
    // Need to have memory allocated for the solver. Allocate 1mb for it.
@@ -359,13 +385,11 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 	return true;
 }
 
-static bool SafeExecuteCmd(hkxcmdLine &cmdLine)
-{
-   __try{
-      return ExecuteCmd(cmdLine);
-   } __except (EXCEPTION_EXECUTE_HANDLER){
-      return false;
-   }
-}
-
-REGISTER_COMMAND(Test, HelpString, SafeExecuteCmd);
+//static bool SafeExecuteCmd(hkxcmdLine &cmdLine)
+//{
+//   __try{
+//      return ExecuteCmd(cmdLine);
+//   } __except (EXCEPTION_EXECUTE_HANDLER){
+//      return false;
+//   }
+//}

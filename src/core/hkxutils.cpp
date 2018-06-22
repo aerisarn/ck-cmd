@@ -184,6 +184,15 @@ string FlagsToString(int value, const EnumLookupType *table) {
 	return sstr;
 }
 
+int StringToFlags(const vector<string>& value, const EnumLookupType *table, int defaultValue) {
+    int retval = defaultValue;
+    for each (const string& subval in value)
+    {
+        retval |= StringToEnum(subval, table);
+    }
+    return retval;
+}
+
 int StringToFlags(string value, const EnumLookupType *table, int defaultValue) {
 	int retval = defaultValue;
 	LPCTSTR start = value.data();

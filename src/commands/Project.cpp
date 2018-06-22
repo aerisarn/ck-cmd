@@ -1,145 +1,300 @@
-//#include "stdafx.h"
+#include "stdafx.h"
+
+#include <commands/Project.h>
+
+#include <core/hkxcmd.h>
+#include <core/hkxutils.h>
+#include <core/hkfutils.h>
+#include <core/log.h>
+
+#include <cstdio>
+#include <sys/stat.h>
+
+#include <Common/Base/hkBase.h>
+#include <Common/Base/Memory/System/Util/hkMemoryInitUtil.h>
+#include <Common/Base/Memory/Allocator/Malloc/hkMallocAllocator.h>
+#include <Common/Base/System/Io/IStream/hkIStream.h>
+#include <Common/Base/Reflection/Registry/hkDynamicClassNameRegistry.h>
+
+// Scene
+#include <Common/SceneData/Scene/hkxScene.h>
+#include <Common/Serialize/Util/hkRootLevelContainer.h>
+#include <Common/Serialize/Util/hkLoader.h>
+
+// Physics
+#include <Physics/Dynamics/Entity/hkpRigidBody.h>
+#include <Physics/Collide/Shape/Convex/Box/hkpBoxShape.h>
+#include <Physics/Utilities/Dynamics/Inertia/hkpInertiaTensorComputer.h>
+
+#include <Physics/Collide/Shape/Convex/Sphere/hkpSphereShape.h>
+#include <Physics/Collide/Shape/Convex/Capsule/hkpCapsuleShape.h>
+
+#include <Physics\Dynamics\Constraint\Bilateral\Ragdoll\hkpRagdollConstraintData.h>
+#include <Physics\Dynamics\Constraint\Bilateral\BallAndSocket\hkpBallAndSocketConstraintData.h>
+#include <Physics\Dynamics\Constraint\Bilateral\Hinge\hkpHingeConstraintData.h>
+#include <Physics\Dynamics\Constraint\Bilateral\LimitedHinge\hkpLimitedHingeConstraintData.h>
+#include <Physics\Dynamics\Constraint\Bilateral\Prismatic\hkpPrismaticConstraintData.h>
+#include <Physics\Dynamics\Constraint\Malleable\hkpMalleableConstraintData.h>
+
+#include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
+#include <Physics\Dynamics\World\hkpPhysicsSystem.h>
+#include <Physics\Utilities\Serialize\hkpPhysicsData.h>
+
+// Animation
+#include <Animation/Animation/Rig/hkaSkeleton.h>
+#include <Animation/Animation/hkaAnimationContainer.h>
+#include <Animation/Animation/Mapper/hkaSkeletonMapper.h>
+#include <Animation/Animation/Playback/Control/Default/hkaDefaultAnimationControl.h>
+#include <Animation/Animation/Playback/hkaAnimatedSkeleton.h>
+#include <Animation/Animation/Rig/hkaPose.h>
+#include <Animation/Ragdoll/Controller/PoweredConstraint/hkaRagdollPoweredConstraintController.h>
+#include <Animation/Ragdoll/Controller/RigidBody/hkaRagdollRigidBodyController.h>
+#include <Animation/Ragdoll/Utils/hkaRagdollUtils.h>
+
+// Serialize
+#include <Common/Serialize/Util/hkSerializeUtil.h>
+
+// Niflib
+#include <niflib.h>
+#include <obj/NiObject.h>
+#include <obj/NiNode.h>
+#include <obj/bhkBlendCollisionObject.h>
+#include <obj/NiControllerSequence.h>
+#include <obj/NiStringPalette.h>
+#include <obj/NiTriStrips.h>
+#include <obj/NiStringExtraData.h>
+
+#include <obj/bhkShape.h>
+#include <obj/bhkSphereShape.h>
+#include <obj/bhkCapsuleShape.h>
+#include <obj/bhkRigidBody.h>
+#include <obj/bhkConstraint.h>
+#include <obj/bhkBallAndSocketConstraint.h>
+#include <obj/bhkBallSocketConstraintChain.h>
+#include <obj/bhkBreakableConstraint.h>
+#include <obj/bhkMalleableConstraint.h>
+#include <obj/bhkPhantom.h>
+#include <obj/bhkRagdollConstraint.h>
+#include <obj/bhkRagdollSystem.h>
+#include <obj/bhkPrismaticConstraint.h>
+#include <obj/bhkHingeConstraint.h>
+#include <obj/bhkLimitedHingeConstraint.h>
+
+#include <bs\AnimDataFile.h>
+#include <bs\AnimSetDataFile.h>
+
+#include <experimental/filesystem>
+
+#include <hkbProjectData_2.h>
+#include <hkbCharacterData_7.h>
+#include <hkbClipGenerator_2.h>
+#include <hkbBehaviorReferenceGenerator_0.h>
+#include <Common/Base/Container/String/hkStringBuf.h>
+
+// GAME
+#include <core/games.h>
+
+// BSA
+#include <core/bsa.h>
+
 //
-//#include <core/hkxcmd.h>
-//#include <core/hkxutils.h>
-//#include <core/hkfutils.h>
-//#include <core/log.h>
+//// FBX
+#include <fbxsdk.h>
+#include <core/FBXCommon.h> // samples common path, todo better way
 //
-//#include <cstdio>
-//#include <sys/stat.h>
+#include <core/MathHelper.h>
+#include <core/EulerAngles.h>
 //
-//#include <Common/Base/hkBase.h>
-//#include <Common/Base/Memory/System/Util/hkMemoryInitUtil.h>
-//#include <Common/Base/Memory/Allocator/Malloc/hkMallocAllocator.h>
-//#include <Common/Base/System/Io/IStream/hkIStream.h>
-//#include <Common/Base/Reflection/Registry/hkDynamicClassNameRegistry.h>
+//// FBX Function prototypes.
+bool CreateScene(FbxManager* pSdkManager, FbxScene* pScene, AnimData::ClipMovementData& block); // create FBX scene
+FbxNode* CreateSkeleton(FbxScene* pScene, const char* pName); // create the actual skeleton
+void AnimateSkeleton(FbxScene* pScene, FbxNode* pSkeletonRoot, AnimData::ClipMovementData& block); // add animation to it
 //
-//// Scene
-//#include <Common/SceneData/Scene/hkxScene.h>
-//#include <Common/Serialize/Util/hkRootLevelContainer.h>
-//#include <Common/Serialize/Util/hkLoader.h>
-//
-//// Physics
-//#include <Physics/Dynamics/Entity/hkpRigidBody.h>
-//#include <Physics/Collide/Shape/Convex/Box/hkpBoxShape.h>
-//#include <Physics/Utilities/Dynamics/Inertia/hkpInertiaTensorComputer.h>
-//
-//#include <Physics/Collide/Shape/Convex/Sphere/hkpSphereShape.h>
-//#include <Physics/Collide/Shape/Convex/Capsule/hkpCapsuleShape.h>
-//
-//#include <Physics\Dynamics\Constraint\Bilateral\Ragdoll\hkpRagdollConstraintData.h>
-//#include <Physics\Dynamics\Constraint\Bilateral\BallAndSocket\hkpBallAndSocketConstraintData.h>
-//#include <Physics\Dynamics\Constraint\Bilateral\Hinge\hkpHingeConstraintData.h>
-//#include <Physics\Dynamics\Constraint\Bilateral\LimitedHinge\hkpLimitedHingeConstraintData.h>
-//#include <Physics\Dynamics\Constraint\Bilateral\Prismatic\hkpPrismaticConstraintData.h>
-//#include <Physics\Dynamics\Constraint\Malleable\hkpMalleableConstraintData.h>
-//
-//#include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
-//#include <Physics\Dynamics\World\hkpPhysicsSystem.h>
-//#include <Physics\Utilities\Serialize\hkpPhysicsData.h>
-//
-//// Animation
-//#include <Animation/Animation/Rig/hkaSkeleton.h>
-//#include <Animation/Animation/hkaAnimationContainer.h>
-//#include <Animation/Animation/Mapper/hkaSkeletonMapper.h>
-//#include <Animation/Animation/Playback/Control/Default/hkaDefaultAnimationControl.h>
-//#include <Animation/Animation/Playback/hkaAnimatedSkeleton.h>
-//#include <Animation/Animation/Rig/hkaPose.h>
-//#include <Animation/Ragdoll/Controller/PoweredConstraint/hkaRagdollPoweredConstraintController.h>
-//#include <Animation/Ragdoll/Controller/RigidBody/hkaRagdollRigidBodyController.h>
-//#include <Animation/Ragdoll/Utils/hkaRagdollUtils.h>
-//
-//// Serialize
-//#include <Common/Serialize/Util/hkSerializeUtil.h>
-//
-//// Niflib
-//#include <niflib.h>
-//#include <obj/NiObject.h>
-//#include <obj/NiNode.h>
-//#include <obj/bhkBlendCollisionObject.h>
-//#include <obj/NiControllerSequence.h>
-//#include <obj/NiStringPalette.h>
-//#include <obj/NiTriStrips.h>
-//#include <obj/NiStringExtraData.h>
-//
-//#include <obj/bhkShape.h>
-//#include <obj/bhkSphereShape.h>
-//#include <obj/bhkCapsuleShape.h>
-//#include <obj/bhkRigidBody.h>
-//#include <obj/bhkConstraint.h>
-//#include <obj/bhkBallAndSocketConstraint.h>
-//#include <obj/bhkBallSocketConstraintChain.h>
-//#include <obj/bhkBreakableConstraint.h>
-//#include <obj/bhkMalleableConstraint.h>
-//#include <obj/bhkPhantom.h>
-//#include <obj/bhkRagdollConstraint.h>
-//#include <obj/bhkRagdollSystem.h>
-//#include <obj/bhkPrismaticConstraint.h>
-//#include <obj/bhkHingeConstraint.h>
-//#include <obj/bhkLimitedHingeConstraint.h>
-//
-//#include <bs\AnimDataFile.h>
-//#include <bs\AnimSetDataFile.h>
-//
-//#include <experimental/filesystem>
-//
-//#include <hkbProjectData_2.h>
-//#include <hkbCharacterData_7.h>
-//#include <hkbClipGenerator_2.h>
-//#include <hkbBehaviorReferenceGenerator_0.h>
-//#include <Common/Base/Container/String/hkStringBuf.h>
-//
-//// GAME
-//#include <core/games.h>
-//
-//// BSA
-//#include <core/bsa.h>
-//
-////
-////// FBX
-//#include <fbxsdk.h>
-//#include <core/FBXCommon.h> // samples common path, todo better way
-////
-//#include <core/MathHelper.h>
-//#include <core/EulerAngles.h>
-////
-////// FBX Function prototypes.
-//bool CreateScene(FbxManager* pSdkManager, FbxScene* pScene, AnimData::ClipMovementData& block); // create FBX scene
-//FbxNode* CreateSkeleton(FbxScene* pScene, const char* pName); // create the actual skeleton
-//void AnimateSkeleton(FbxScene* pScene, FbxNode* pSkeletonRoot, AnimData::ClipMovementData& block); // add animation to it
-////
-//// global so we can access this later
-//class hkLoader* m_loader;
-//class hkaSkeleton* m_skeleton;
-//class hkaAnimation* m_animation;
-//class hkaAnimationBinding* m_binding;
-//
-//bool bAnimationGiven = false;
-//
-//using namespace std;
-//
-//static void HelpString(hkxcmd::HelpType type){
-//	switch (type)
-//	{
-//	case hkxcmd::htShort: Log::Info("Skeleton - Dump the transform or float list for a given skeleton"); break;
-//	case hkxcmd::htLong:  
-//		{
-//			char fullName[MAX_PATH], exeName[MAX_PATH];
-//			GetModuleFileName(NULL, fullName, MAX_PATH);
-//			_splitpath(fullName, NULL, NULL, exeName, NULL);
-//			Log::Info("Usage: %s DumpList [-opts[modifiers]] [infile] [outfile]", exeName);
-//			Log::Info("  Dump the transform or float list for a given skeleton.");
-//			Log::Info("    This is useful when exporting animation to get bone list synchronized with source.");
-//			Log::Info("");
-//			Log::Info("<Switches>");
-//			Log::Info(" -i <path>          Input File or directory");
-//			Log::Info(" -o <path>          Output File - Defaults to input file with '-out' appended");
-//			Log::Info("");
-//		}
-//		break;
-//	}
-//}
-//
+// global so we can access this later
+class hkLoader* m_loader;
+class hkaSkeleton* m_skeleton;
+class hkaAnimation* m_animation;
+class hkaAnimationBinding* m_binding;
+
+bool bAnimationGiven = false;
+
+static bool RunProjectCmd();
+
+using namespace std;
+
+// This command was disabled during the refactoring process
+//REGISTER_COMMAND_CPP(Project)
+
+Project::Project()
+{
+}
+
+Project::~Project()
+{
+}
+
+string Project::GetName() const
+{
+    return "Project";
+}
+
+string Project::GetHelp() const
+{
+    string name = GetName();
+    transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    // Usage: ck-cmd project <infile> [-o <outfile>] [-d <level>] [-f <flags> ...]
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <infile> [-o <outfile>] [-d <level>] [-f <flags> ...]\r\n";
+
+    const char help[] = 
+R"(TODO: Short description for Project
+
+Arguments:
+    <infile>    Input File or directory
+
+Options:
+    -o <outfile>    Output File - Defaults to input file with '-out' appended
+    -d <level>      Debug Level: ERROR, WARN, INFO, DEBUG, VERBOSE 
+                    [default: INFO]
+    -f <flags>      Havok saving flags: SAVE_DEFAULT, SAVE_TEXT_FORMAT, SAVE_SERIALIZE_IGNORED_MEMBERS, SAVE_WRITE_ATTRIBUTES, SAVE_CONCISE, SAVE_TEXT_NUMBERS 
+                    [default: SAVE_TEXT_FORMAT SAVE_TEXT_NUMBERS]
+
+Havok saving flags:
+    SAVE_DEFAULT                    All flags default to OFF, enable whichever are needed
+    SAVE_TEXT_FORMAT                Use text (usually XML) format, default is binary format if available
+    SAVE_SERIALIZE_IGNORED_MEMBERS  Write members which are usually ignored
+    SAVE_WRITE_ATTRIBUTES           Include extended attributes in metadata, default is to write minimum metadata
+    SAVE_CONCISE                    Doesn't provide any extra information which would make the file easier to interpret. E.g. additionally write hex floats as text comments
+    SAVE_TEXT_NUMBERS               Floating point numbers output as text, not as binary. Makes them easily readable/editable, but values may not be exact)";
+
+    return usage + help;
+}
+
+string Project::GetHelpShort() const
+{
+    return "TODO: Short help message for Project";
+}
+
+bool Project::InternalRunCommand(map<string, docopt::value> parsedArgs)
+{
+    // TODO: SafeExecuteCmd
+
+	string inpath = parsedArgs["<infile>"].asString();
+	string outpath = parsedArgs["-o"].asString();
+
+	hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)StringToFlags(parsedArgs["-f"].asStringList(), SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
+    Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
+
+    /*
+#pragma region Handle Input Args
+	for (int i = 0; i < argc; i++)
+	{
+		char *arg = argv[i];
+		if (arg == NULL)
+			continue;
+		if (arg[0] == '-' || arg[0] == '/')
+		{
+
+			switch (tolower(arg[1]))
+			{
+			case 'f':
+				{
+					const char *param = arg+2;
+					if (*param == ':' || *param=='=') ++param;
+					argv[i] = NULL;
+					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
+						param = argv[++i];
+						argv[i] = NULL;
+					}
+					if ( param[0] == 0 )
+						break;
+					flags = (hkSerializeUtil::SaveOptionBits)StringToFlags(param, SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
+				} break;
+
+			case 'd':
+				{
+					const char *param = arg+2;
+					if (*param == ':' || *param=='=') ++param;
+					argv[i] = NULL;
+					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
+						param = argv[++i];
+						argv[i] = NULL;
+					}
+					if ( param[0] == 0 )
+					{
+						Log::SetLogLevel(LOG_DEBUG);
+						break;
+					}
+					else
+					{
+						Log::SetLogLevel((LogLevel)StringToEnum(param, LogFlags, LOG_INFO));
+					}
+				} break;
+
+			case 'o':
+				{
+					const char *param = arg+2;
+					if (*param == ':' || *param=='=') ++param;
+					argv[i] = NULL;
+					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
+						param = argv[++i];
+						argv[i] = NULL;
+					}
+					if ( param[0] == 0 )
+						break;
+					if (outpath.empty())
+					{
+						outpath = param;
+					}
+					else
+					{
+						Log::Error("Output file already specified as '%s'", outpath.c_str());
+					}
+				} break;
+
+			case 'i':
+				{
+					const char *param = arg+2;
+					if (*param == ':' || *param=='=') ++param;
+					argv[i] = NULL;
+					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
+						param = argv[++i];
+						argv[i] = NULL;
+					}
+					if ( param[0] == 0 )
+						break;
+					if (inpath.empty())
+					{
+						inpath = param;
+					}
+					else
+					{
+						Log::Error("Input file already specified as '%s'", inpath.c_str());
+					}
+				} break;
+
+			default:
+				Log::Error("Unknown argument specified '%s'", arg);
+				break;
+			}
+		}
+		else if (inpath.empty())
+		{
+			inpath = arg;
+		}
+		else if (outpath.empty())
+		{
+			outpath = arg;
+		}
+	}
+#pragma endregion
+
+*/
+
+    return true;
+	//return RunProjectCmd();
+}
+
 //namespace fs = std::experimental::filesystem;
 //
 //static std::vector<fs::path> findFile(const std::experimental::filesystem::path& dir, const std::string& filename) {
@@ -698,118 +853,9 @@
 //	}
 //}
 //
-//static bool ExecuteCmd(hkxcmdLine &cmdLine)
+//static bool RunProjectCmd()
 //{
-//	string inpath;
-//	string outpath;
-//	int argc = cmdLine.argc;
-//	char **argv = cmdLine.argv;
-//	hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT|hkSerializeUtil::SAVE_TEXT_NUMBERS);
-//
-//#pragma region Handle Input Args
-//	for (int i = 0; i < argc; i++)
-//	{
-//		char *arg = argv[i];
-//		if (arg == NULL)
-//			continue;
-//		if (arg[0] == '-' || arg[0] == '/')
-//		{
-//
-//			switch (tolower(arg[1]))
-//			{
-//			case 'f':
-//				{
-//					const char *param = arg+2;
-//					if (*param == ':' || *param=='=') ++param;
-//					argv[i] = NULL;
-//					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-//						param = argv[++i];
-//						argv[i] = NULL;
-//					}
-//					if ( param[0] == 0 )
-//						break;
-//					flags = (hkSerializeUtil::SaveOptionBits)StringToFlags(param, SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
-//				} break;
-//
-//			case 'd':
-//				{
-//					const char *param = arg+2;
-//					if (*param == ':' || *param=='=') ++param;
-//					argv[i] = NULL;
-//					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-//						param = argv[++i];
-//						argv[i] = NULL;
-//					}
-//					if ( param[0] == 0 )
-//					{
-//						Log::SetLogLevel(LOG_DEBUG);
-//						break;
-//					}
-//					else
-//					{
-//						Log::SetLogLevel((LogLevel)StringToEnum(param, LogFlags, LOG_INFO));
-//					}
-//				} break;
-//
-//			case 'o':
-//				{
-//					const char *param = arg+2;
-//					if (*param == ':' || *param=='=') ++param;
-//					argv[i] = NULL;
-//					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-//						param = argv[++i];
-//						argv[i] = NULL;
-//					}
-//					if ( param[0] == 0 )
-//						break;
-//					if (outpath.empty())
-//					{
-//						outpath = param;
-//					}
-//					else
-//					{
-//						Log::Error("Output file already specified as '%s'", outpath.c_str());
-//					}
-//				} break;
-//
-//			case 'i':
-//				{
-//					const char *param = arg+2;
-//					if (*param == ':' || *param=='=') ++param;
-//					argv[i] = NULL;
-//					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-//						param = argv[++i];
-//						argv[i] = NULL;
-//					}
-//					if ( param[0] == 0 )
-//						break;
-//					if (inpath.empty())
-//					{
-//						inpath = param;
-//					}
-//					else
-//					{
-//						Log::Error("Input file already specified as '%s'", inpath.c_str());
-//					}
-//				} break;
-//
-//			default:
-//				Log::Error("Unknown argument specified '%s'", arg);
-//				break;
-//			}
-//		}
-//		else if (inpath.empty())
-//		{
-//			inpath = arg;
-//		}
-//		else if (outpath.empty())
-//		{
-//			outpath = arg;
-//		}
-//	}
-//#pragma endregion
-//
-//	//read off bsa
+//    //read off bsa
 //
 //	hkMallocAllocator baseMalloc;
 //	hkMemoryRouter* memoryRouter = hkMemoryInitUtil::initDefault(&baseMalloc, hkMemorySystem::FrameInfo(1024 * 1024));
@@ -991,18 +1037,13 @@
 //
 //	hkBaseSystem::quit();
 //	hkMemoryInitUtil::quit();
-//
-//
-//	return true;
-//}
-//static bool SafeExecuteCmd(hkxcmdLine &cmdLine)
-//{
-//   __try{
-//      return ExecuteCmd(cmdLine);
-//   } __except (EXCEPTION_EXECUTE_HANDLER){
-//      return false;
-//   }
 //}
 //
-//REGISTER_COMMAND(Project, HelpString, SafeExecuteCmd);
-//
+////static bool SafeExecuteCmd(hkxcmdLine &cmdLine)
+////{
+////   __try{
+////      return ExecuteCmd(cmdLine);
+////   } __except (EXCEPTION_EXECUTE_HANDLER){
+////      return false;
+////   }
+////}

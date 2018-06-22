@@ -1,6 +1,8 @@
 #pragma once
 #include <filesystem>
 
+#include <commands/CommandBase.h>
+
 #include <niflib.h>
 #include <obj\NiObject.h>
 #include <obj\BSFadeNode.h>
@@ -72,3 +74,22 @@ static const fs::path nif_out = "D:\\git\\ck-cmd\\resources\\out";
 
 //void findFiles(fs::path startingDir, string extension, vector<fs::path>& results);
 //bool BeginConversion();
+
+
+class ConvertNif : public CommandBase
+{
+    REGISTER_COMMAND_HEADER(ConvertNif)
+
+private:
+
+    ConvertNif();
+    virtual ~ConvertNif();
+
+public:
+    virtual string GetName() const;
+    virtual string GetHelp() const;
+    virtual string GetHelpShort() const;
+
+protected:
+    virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
+};
