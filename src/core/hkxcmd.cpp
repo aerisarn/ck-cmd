@@ -3,6 +3,8 @@
 
 #include "stdafx.h"
 
+#include <commands/CommandBase.h>
+
 #include <core/hkxcmd.h>
 #include <core/hkxutils.h>
 #include <core/log.h>
@@ -118,6 +120,24 @@ void hkxcmd::ParseLine (
    ++*numargs;
 }
 
+    catch (exception* e)
+    {
+        Log::Error("Exception occurred:");
+        Log::Error("  %s", e->what());
+    }
+    catch (exception& e)
+    {
+        Log::Error("Exception occurred:");
+        Log::Error("  %s", e.what());
+    }
+    catch (...)
+    {
+        Log::Error("Unknown exception occurred");
+    }
+
+    return true;
+}
+
 bool hkxcmd::ParseArgs(LPCTSTR line)
 {
    int nargs = 0, nchars = 0;
@@ -129,30 +149,30 @@ bool hkxcmd::ParseArgs(LPCTSTR line)
    return rv;
 }
 
-void hkxcmd::PrintHelp()
-{
-   char fullName[MAX_PATH], exeName[MAX_PATH];
-   GetModuleFileName(NULL, fullName, MAX_PATH);
-   _splitpath(fullName, NULL, NULL, exeName, NULL);
-
-   string version = GetFileVersion(fullName);
-
-
-   Log::Info("%s - Version %s", exeName, version.c_str());
-   Log::Info("Usage: %s <command> [-opts[modifiers]]", exeName);
-   Log::Info("");
-   Log::Info("<Commands>");
-
-   for (hkxcmdListType::iterator itr = hkxcmdList.begin(), end = hkxcmdList.end(); itr != end; ++itr){
-      hkxcmd* p = (*itr);
-	  fputs("  ", stderr);
-      p->HelpCmd(htShort);
-   }
-   Log::Info("");
-   Log::Info("<Global Switches>");
-   Log::Info("  %-13s %s", "help", "List of additional help options");
-   Log::Info("");
-}
+//void hkxcmd::PrintHelp()
+//{
+//   char fullName[MAX_PATH], exeName[MAX_PATH];
+//   GetModuleFileName(NULL, fullName, MAX_PATH);
+//   _splitpath(fullName, NULL, NULL, exeName, NULL);
+//
+//   string version = GetFileVersion(fullName);
+//
+//
+//   Log::Info("%s - Version %s", exeName, version.c_str());
+//   Log::Info("Usage: %s <command> [-opts[modifiers]]", exeName);
+//   Log::Info("");
+//   Log::Info("<Commands>");
+//
+//   for (hkxcmdListType::iterator itr = hkxcmdList.begin(), end = hkxcmdList.end(); itr != end; ++itr){
+//      hkxcmd* p = (*itr);
+//	  fputs("  ", stderr);
+//      p->HelpCmd(htShort);
+//   }
+//   Log::Info("");
+//   Log::Info("<Global Switches>");
+//   Log::Info("  %-13s %s", "help", "List of additional help options");
+//   Log::Info("");
+//}
 
 hkxcmd* hkxcmd::GetCommand(std::string name)
 {
@@ -174,56 +194,56 @@ list<hkxcmd*> hkxcmd::GetCommand()
    return list;
 }
 
-bool hkxcmd::ParseArgs(int argc, char **argv)
-{
-   bool rv = false;
-   try
-   {
-      if (argc == 0)
-      {
-         PrintHelp();
-         return false;
-      }
-      else if (argv[0] && ( 0 == _tcsicmp(argv[0], "help")) )
-      {
-         if (argc > 1 && argv[1] && argv[1][0])
-         {
-            if (hkxcmd* p = GetCommand(argv[1])) {
-               p->HelpCmd(htLong);
-               return false;
-            }
-         }
-         PrintHelp();
-      }
-      else
-      {
-         if (hkxcmd* p = GetCommand(argv[0])) {
-            hkxcmdLine cmdLine(argc-1, &argv[1]);
-            rv |= p->ExecuteCmd(cmdLine);
-         }
-         else
-         {
-            Log::Error("Unknown command '%s'", argv[0]);
-            PrintHelp();
-         }
-      }
-   }
-   catch (exception* e)
-   {
-      Log::Error("Exception occurred:");
-      Log::Error("  %s", e->what());
-   }
-   catch (exception& e)
-   {
-	   Log::Error("Exception occurred:");
-	   Log::Error("  %s", e.what());
-   }
-   catch (...)
-   {
-	   Log::Error("Unknown exception occurred");
-   }
-   return rv;
-}
+//bool hkxcmd::ParseArgs(int argc, char **argv)
+//{
+//   bool rv = false;
+//   try
+//   {
+//      if (argc == 0)
+//      {
+//         PrintHelp();
+//         return false;
+//      }
+//      else if (argv[0] && ( 0 == _tcsicmp(argv[0], "help")) )
+//      {
+//         if (argc > 1 && argv[1] && argv[1][0])
+//         {
+//            if (hkxcmd* p = GetCommand(argv[1])) {
+//               p->HelpCmd(htLong);
+//               return false;
+//            }
+//         }
+//         PrintHelp();
+//      }
+//      else
+//      {
+//         if (hkxcmd* p = GetCommand(argv[0])) {
+//            hkxcmdLine cmdLine(argc-1, &argv[1]);
+//            rv |= p->ExecuteCmd(cmdLine);
+//         }
+//         else
+//         {
+//            Log::Error("Unknown command '%s'", argv[0]);
+//            PrintHelp();
+//         }
+//      }
+//   }
+//   catch (exception* e)
+//   {
+//      Log::Error("Exception occurred:");
+//      Log::Error("  %s", e->what());
+//   }
+//   catch (exception& e)
+//   {
+//	   Log::Error("Exception occurred:");
+//	   Log::Error("  %s", e.what());
+//   }
+//   catch (...)
+//   {
+//	   Log::Error("Unknown exception occurred");
+//   }
+//   return rv;
+//}
 
 hkxcmdLine::hkxcmdLine(int argc, char **argv)
 {

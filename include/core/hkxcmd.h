@@ -53,14 +53,14 @@ public:
 
    static hkxcmd* GetCommand(std::string name);
    static list<hkxcmd*> GetCommand();
-   static void PrintHelp();
+   static string HelpString();
    static bool ParseArgs(LPCTSTR line);
    static bool ParseArgs(int argc, char **argv);
    static void ParseLine(const char *start,char **argv,char *args,int *numargs,int *numchars);
 
 };
 
-
+// TODO: This was made obsolete by the command line rework, any commands that still use it need to be refactored
 #define REGISTER_COMMAND(name,help,cmd) \
    hkxcmd plugin_ ## name (#name, help, cmd);
 
