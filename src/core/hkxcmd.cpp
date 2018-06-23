@@ -126,10 +126,10 @@ string hkxcmd::HelpString()
     string usage = "Usage: " + ExeCommandList::GetExeName() + " <command> [<args> ...]\r\n";
 
     string help =
-R"(
-See "ck-cmd help <command>" for more information on a specific command.
+R"(See "ck-cmd help <command>" for more information on a specific command.
 
-Commands:\r\n)";
+Commands:
+)";
 
     vector<CommandBase*> cmdList = ExeCommandList::GetCommandList();
     for each (CommandBase* cmd in cmdList)

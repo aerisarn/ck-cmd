@@ -4,6 +4,53 @@
 #include <core\log.h>
 #include <iostream>
 
+#include <core\games.h>
+using namespace ckcmd::info;
+
+
+REGISTER_COMMAND_CPP(CreateEsp)
+
+CreateEsp::CreateEsp()
+{
+}
+
+CreateEsp::~CreateEsp()
+{
+}
+
+string CreateEsp::GetName() const
+{
+    return "CreateEsp";
+}
+
+string CreateEsp::GetHelp() const
+{
+    string name = GetName();
+    transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    // Usage: ck-cmd createesp
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + "\r\n";
+
+    const char help[] = "Create a TEST plugin file";
+    return usage + help;
+}
+
+string CreateEsp::GetHelpShort() const
+{
+    return "Create a TEST plugin file";
+}
+
+bool CreateEsp::InternalRunCommand(map<string, docopt::value> parsedArgs)
+{
+    Esp esp("CmdTest", false);
+    esp.SetAuthor("ck-cmd");
+    esp.SetDescription("Test plugin file.");
+    esp.Save();
+    Log::Info("File saved.");
+    return true;
+}
+
+
 Esp::Esp(std::string fName, fs::path fPath, bool fIsMaster)
 	: name(fName), path(fPath), isMaster(fIsMaster)
 {
@@ -18,9 +65,6 @@ Esp::Esp(std::string fName, fs::path fPath, bool fIsMaster)
 		CreateMaster();
 	}
 }
-
-#include <core\games.h>
-using namespace ckcmd::info;
 
 Esp::Esp(std::string fName, bool fIsMaster)
 	: name(fName), isMaster(fIsMaster)
@@ -104,31 +148,3 @@ void Esp::CreateMaster()
 	EspUInt32 intv = 0;
 	esp = new EspFile(fileHeader, hedr, intv);
 }
-
-static void HelpString(hkxcmd::HelpType type) {
-	switch (type)
-	{
-		case hkxcmd::htShort: 
-			Log::Info("CreateEsp - Create a TEST plugin file."); 
-			break;
-		case hkxcmd::htLong: {
-			char fullName[MAX_PATH], exeName[MAX_PATH];
-			GetModuleFileName(NULL, fullName, MAX_PATH);
-			_splitpath(fullName, NULL, NULL, exeName, NULL);
-			Log::Info("Usage: %s about", exeName);
-			Log::Info("  CreateEsp");
-		}
-		break;
-	}
-}
-
-static bool ExecuteCmd(hkxcmdLine &cmdLine) {
-	Esp esp("CmdTest", false);
-	esp.SetAuthor("ck-cmd");
-	esp.SetDescription("Test plugin file.");
-	esp.Save();
-	Log::Info("File saved.");
-	return true;
-}
-
-REGISTER_COMMAND(CreateEsp, HelpString, ExecuteCmd);
