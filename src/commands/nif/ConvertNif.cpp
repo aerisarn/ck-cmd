@@ -3,6 +3,7 @@
 #include <core/hkfutils.h>
 #include <core/log.h>
 
+#include <core/HKXWrangler.h>
 #include <commands/ConvertNif.h>
 #include <commands/Geometry.h>
 #include <core/games.h>
@@ -24,55 +25,11 @@
 #include <array>
 #include <unordered_map>
 
-static bool BeginConversion();
-static void InitializeHavok();
-static void CloseHavok();
-
-REGISTER_COMMAND_CPP(ConvertNif)
-
-ConvertNif::ConvertNif()
-{
-}
-
-ConvertNif::~ConvertNif()
-{
-}
-
-string ConvertNif::GetName() const
-{
-    return "ConvertNif";
-}
-
-string ConvertNif::GetHelp() const
-{
-    string name = GetName();
-    transform(name.begin(), name.end(), name.begin(), ::tolower);
-
-    // Usage: ck-cmd convertnif
-    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + "\r\n";
-
-    const char help[] = "TODO: Short description for ConvertNif";
-
-    return usage + help;
-}
-
-string ConvertNif::GetHelpShort() const
-{
-    return "TODO: Short help message for ConvertNif";
-}
-
-bool ConvertNif::InternalRunCommand(map<string, docopt::value> parsedArgs)
-{
-    InitializeHavok();
-    BeginConversion();
-    CloseHavok();
-    return true;
-}
-
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 using namespace ckcmd::Geometry;
 using namespace ckcmd::NIF;
+using namespace ckcmd::HKX;
 using namespace ckcmd::nifscan;
 
 static inline Niflib::Vector3 TOVECTOR3(const hkVector4& v) {
@@ -1407,8 +1364,6 @@ public:
 	}
 };
 
-NiObjectRef rootNode;
-
 BSFadeNode* convert_root(NiObject* root)
 {
 	int numref = root->GetNumRefs();
@@ -1503,6 +1458,8 @@ NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
 	return shapeRef;
 }
 
+
+
 class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
 	const NifInfo& this_info;
 	set<void*> already_upgraded;
@@ -1513,6 +1470,8 @@ class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
 	vector<NiTriShapeRef> particle_geometry;
 
 public:
+
+	set<string> nisequences;
 
 	//template<typename T>
 	//struct replace<Ref<T>>
@@ -1559,6 +1518,8 @@ public:
 	//	}
 
 	//};
+
+
 
 	map<NiMaterialColorControllerRef, BSLightingShaderPropertyColorControllerRef> material_controllers_map;
 	map<NiAlphaControllerRef, BSLightingShaderPropertyFloatControllerRef> material_alpha_controllers_map;
@@ -1692,7 +1653,7 @@ public:
 					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
 				material_transform_controllers_map[oldController] = controller;
 				in = controller;
-			}			
+			}
 		}
 	}
 
@@ -1955,7 +1916,8 @@ public:
 						if (controller != NULL) {
 							controller->SetTarget(lightingProperty);
 						}
-
+						else
+							break;
 					}
 				}
 			}
@@ -2194,6 +2156,8 @@ public:
 	template<>
 	inline void visit_object(NiControllerSequence& obj)
 	{
+
+		nisequences.insert(obj.GetName());
 		vector<ControlledBlock> blocks = obj.GetControlledBlocks();
 		vector<ControlledBlock> nblocks;
 
@@ -2634,7 +2598,7 @@ void findFiles(fs::path startingDir, string extension, vector<fs::path>& results
 }
 
 
-static bool BeginConversion() {
+bool BeginConversion() {
 	char fullName[MAX_PATH], exeName[MAX_PATH];
 	GetModuleFileName(NULL, fullName, MAX_PATH);
 	_splitpath(fullName, NULL, NULL, exeName, NULL);
@@ -2644,8 +2608,12 @@ static bool BeginConversion() {
 
 	findFiles(nif_in, ".nif", nifs);
 
+	set<set<string>> sequences_groups;
+	HKXWrapperCollection wrappers;
 	if (nifs.empty()) {
 		Log::Info("No NIFs found.. trying BSAs");
+
+
 
 		Games& games = Games::Instance();
 		const Games::GamesPathMapT& installations = games.getGames();
@@ -2684,12 +2652,29 @@ static bool BeginConversion() {
 				NiNode* rootn = DynamicCast<NiNode>(root);
 
 				ConverterVisitor fimpl(info, root, blocks);
+				set<string> sequences = fimpl.nisequences;
 				//root->accept(fimpl, info);
 				if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
 					root = convert_root(root);
 					BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
 					//fixed?
 					bsroot->SetFlags(524302);
+					string out_havok_path = "";
+					if (!sequences.empty()) {
+						fs::path in_file = nif;
+						string out_name = in_file.filename().replace_extension("").string();
+						fs::path out_path = fs::path("animations") / in_file.parent_path() / out_name;
+						fs::path out_path_abs = nif_out / out_path;
+						string out_path_a = out_path_abs.string();
+						out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
+						vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
+						BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
+						havokp->SetName(string("BGED"));
+						havokp->SetBehaviourGraphFile(out_havok_path);
+						havokp->SetControlsBaseSkeleton(false);
+						list.insert(list.begin(), StaticCast<NiExtraData>(havokp));
+						bsroot->SetExtraDataList(list);
+					}
 
 					//to calculate the right flags, we need to rebuild the blocks
 					vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
@@ -2763,12 +2748,28 @@ static bool BeginConversion() {
 			info.userVersion = 12;
 			info.userVersion2 = 83;
 			info.version = Niflib::VER_20_2_0_7;
-
+			set<string> sequences = fimpl.nisequences;
 			if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
 				root = convert_root(root);
 				BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
 				//fixed?
 				bsroot->SetFlags(524302);
+				string out_havok_path = "";
+				if (!sequences.empty()) {
+					fs::path in_file = nifs[i].filename();
+					string out_name = in_file.filename().replace_extension("").string();
+					fs::path out_path = fs::path("animations") / in_file.parent_path() / out_name;
+					fs::path out_path_abs = nif_out / out_path;
+					string out_path_a = out_path_abs.string();
+					out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
+					vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
+					BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
+					havokp->SetName(string("BGED"));
+					havokp->SetBehaviourGraphFile(out_havok_path);
+					havokp->SetControlsBaseSkeleton(false);
+					list.insert(list.begin(),StaticCast<NiExtraData>(havokp));
+					bsroot->SetExtraDataList(list);
+				}
 
 				//to calculate the right flags, we need to rebuild the blocks
 				vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
@@ -2826,6 +2827,21 @@ static bool BeginConversion() {
 	return true;
 }
 
+static void HelpString(hkxcmd::HelpType type) {
+	switch (type)
+	{
+	case hkxcmd::htShort: Log::Info("About - Help about this program."); break;
+	case hkxcmd::htLong: {
+		char fullName[MAX_PATH], exeName[MAX_PATH];
+		GetModuleFileName(NULL, fullName, MAX_PATH);
+		_splitpath(fullName, NULL, NULL, exeName, NULL);
+		Log::Info("Usage: %s about", exeName);
+		Log::Info("  Prints additional information about this program.");
+	}
+						 break;
+	}
+}
+
 //Havok initialization
 
 static void HK_CALL errorReport(const char* msg, void*)
@@ -2854,3 +2870,12 @@ static void CloseHavok()
 	hkBaseSystem::quit();
 	hkMemoryInitUtil::quit();
 }
+
+static bool ExecuteCmd(hkxcmdLine &cmdLine) {
+	InitializeHavok();
+	BeginConversion();
+	CloseHavok();
+	return true;
+}
+
+REGISTER_COMMAND(ConvertNif, HelpString, ExecuteCmd);

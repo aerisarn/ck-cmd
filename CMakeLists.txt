@@ -319,6 +319,7 @@ set (PROJECT_SRC "${CMAKE_SOURCE_DIR}/src/core/FBXCommon.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/nifcore.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/games.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/FBXWrangler.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/core/HKXWrangler.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/NifFile.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/geometry.cpp")
 
@@ -339,6 +340,7 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/core/MathHelper.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/games.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/bsa.h"
+					 "${CMAKE_SOURCE_DIR}/include/core/HKXWrangler.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/FBXWrangler.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/NifFile.h"
 #COMMANDS
