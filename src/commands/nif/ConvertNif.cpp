@@ -25,6 +25,51 @@
 #include <array>
 #include <unordered_map>
 
+static bool BeginConversion();
+static void InitializeHavok();
+static void CloseHavok();
+
+REGISTER_COMMAND_CPP(ConvertNif)
+
+ConvertNif::ConvertNif()
+{
+}
+
+ConvertNif::~ConvertNif()
+{
+}
+
+string ConvertNif::GetName() const
+{
+	return "ConvertNif";
+}
+
+string ConvertNif::GetHelp() const
+{
+	string name = GetName();
+	transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+	// Usage: ck-cmd convertnif
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + "\r\n";
+
+	const char help[] = "TODO: Short description for ConvertNif";
+
+	return usage + help;
+}
+
+string ConvertNif::GetHelpShort() const
+{
+	return "TODO: Short help message for ConvertNif";
+}
+
+bool ConvertNif::InternalRunCommand(map<string, docopt::value> parsedArgs)
+{
+	InitializeHavok();
+	BeginConversion();
+	CloseHavok();
+	return true;
+}
+
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 using namespace ckcmd::Geometry;
@@ -2871,11 +2916,11 @@ static void CloseHavok()
 	hkMemoryInitUtil::quit();
 }
 
-static bool ExecuteCmd(hkxcmdLine &cmdLine) {
-	InitializeHavok();
-	BeginConversion();
-	CloseHavok();
-	return true;
-}
-
-REGISTER_COMMAND(ConvertNif, HelpString, ExecuteCmd);
+//static bool ExecuteCmd(hkxcmdLine &cmdLine) {
+//	InitializeHavok();
+//	BeginConversion();
+//	CloseHavok();
+//	return true;
+//}
+//
+//REGISTER_COMMAND(ConvertNif, HelpString, ExecuteCmd);
