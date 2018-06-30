@@ -1422,6 +1422,7 @@ BSFadeNode* convert_root(NiObject* root)
 	//root->AddRef();
 	free(fadeNodeMem);
 
+
 	return (BSFadeNode*)root;
 }
 
@@ -1633,7 +1634,6 @@ public:
 	}
 
 	BSLightingShaderPropertyFloatControllerRef convert(NiTextureTransformControllerRef in) {
-		Log::Info("NiTimeControllerRef");
 		if (!in == NULL && in->IsDerivedType(NiTextureTransformController::TYPE)) {
 			NiTextureTransformControllerRef oldController = DynamicCast<NiTextureTransformController>(in);
 			map<NiTextureTransformControllerRef, BSLightingShaderPropertyFloatControllerRef>::iterator converted = material_transform_controllers_map.find(oldController);
@@ -1669,7 +1669,6 @@ public:
 
 	template<>
 	void visit_field(NiTimeControllerRef& in) {
-		Log::Info("NiTimeControllerRef");
 		if (!in == NULL && in->IsDerivedType(NiTextureTransformController::TYPE)) {
 			NiTextureTransformControllerRef oldController = DynamicCast<NiTextureTransformController>(in);
 			map<NiTextureTransformControllerRef, BSLightingShaderPropertyFloatControllerRef>::iterator converted = material_transform_controllers_map.find(oldController);
@@ -2669,6 +2668,10 @@ bool BeginConversion() {
 			for (const auto& nif : bsa_file.assets(".*\.nif")) {
 				Log::Info("Current File: %s", nif.c_str());
 
+				fs::path out_path = nif_out / nif;
+				//if (fs::exists(out_path.string()))
+				//	continue;
+
 				if (nif.find("meshes\\landscape\\lod") != string::npos) {
 					Log::Warn("Ignored LOD file: %s", nif.c_str());
 					continue;
@@ -2685,7 +2688,14 @@ bool BeginConversion() {
 					Log::Warn("Ignored obsolete sky nifs: %s", nif.c_str());
 					continue;
 				}
-
+				if (nif.find("\\menus\\") != string::npos) {
+					Log::Warn("Ignored obsolete menu nifs: %s", nif.c_str());
+					continue;
+				}
+				if (nif.find("\\creatures\\") != string::npos) {
+					Log::Warn("temporarily ignoring: %s", nif.c_str());
+					continue;
+				}
 				size_t size = -1;
 				const uint8_t* data = bsa_file.extract(nif, size);
 
@@ -2720,6 +2730,24 @@ bool BeginConversion() {
 						list.insert(list.begin(), StaticCast<NiExtraData>(havokp));
 						bsroot->SetExtraDataList(list);
 					}
+
+					NiNode* proxyRoot = new NiNode();
+					proxyRoot->SetChildren(bsroot->GetChildren());
+					proxyRoot->SetRotation(bsroot->GetRotation());
+					proxyRoot->SetTranslation(bsroot->GetTranslation());
+					proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+
+					if(proxyRoot->GetCollisionObject() != NULL)
+						DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+
+					//remove BSFadeNode ones
+					bsroot->SetRotation(Matrix33());
+					bsroot->SetTranslation(Vector3());
+					bsroot->SetCollisionObject(NULL);
+
+					std::vector<NiAVObjectRef> children;
+					children.push_back(proxyRoot);
+					bsroot->SetChildren(children);
 
 					//to calculate the right flags, we need to rebuild the blocks
 					vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
@@ -2766,7 +2794,7 @@ bool BeginConversion() {
 				info.userVersion2 = 83;
 				info.version = Niflib::VER_20_2_0_7;
 
-				fs::path out_path = nif_out / nif;
+				out_path = nif_out / nif;
 				fs::create_directories(out_path.parent_path());
 				WriteNifTree(out_path.string(), root, info);
 				// Ensure valid
