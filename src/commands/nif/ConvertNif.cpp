@@ -1419,6 +1419,7 @@ BSFadeNode* convert_root(NiObject* root)
 	memcpy(root, fadeNode, sizeof(NiObject));
 	for (int i = 0; i < numref; i++)
 		root->AddRef();
+	
 	//root->AddRef();
 	free(fadeNodeMem);
 
@@ -1800,6 +1801,7 @@ public:
 	template<>
 	inline void visit_object(NiBillboardNode& obj) {
 		vector<Ref<NiAVObject>> children = obj.GetChildren();
+		vector<Ref<NiProperty>> properties = obj.GetProperties();
 		int index = 0;
 		for (NiAVObjectRef& block : children)
 		{
@@ -1811,15 +1813,19 @@ public:
 				NiTriStripsRef stripsRef = DynamicCast<NiTriStrips>(block);
 				if (stripsRef->IsSameType(NiTriStrips::TYPE)) {
 					NiTriShapeRef shape = convert_strip(stripsRef);
+					if (obj.GetProperties().size() != 0) {
+						vector<Ref<NiProperty>> sproperties = shape->GetProperties();
+						sproperties.push_back(properties[0]);
+						shape->SetProperties(sproperties);
+					}
 					children[index] = shape;
 				}
 			}
 
 			index++;
 		}
-		//TODO
-		//properties are deprecated
 		obj.SetProperties(vector<NiPropertyRef>{});
+		obj.SetExtraDataList(vector<NiExtraDataRef>{});
 		obj.SetChildren(children);
 	}
 
@@ -1848,6 +1854,7 @@ public:
 	template<>
 	inline void visit_object(NiTriShape& obj) {
 		bool hasSpecular = false;
+		bool hasZbuffer = false;
 		BSLightingShaderPropertyRef lightingProperty = new BSLightingShaderProperty();
 		BSShaderTextureSetRef textureSet = new BSShaderTextureSet();
 		NiMaterialPropertyRef material = new NiMaterialProperty();
@@ -1919,7 +1926,14 @@ public:
 					//setup textureSet (TODO)
 					std::vector<std::string> textures(9);
 					textures[0] = textureName;
-					textures[1] = textureNormal;
+
+					Games& games = Games::Instance();
+					const Games::GamesPathMapT& installations = games.getGames();
+
+					if (fs::exists(games.data(Games::TES5) / textureNormal))
+						textures[1] = textureNormal;
+					else
+						textures[1] = "textures\\default_n.dds";
 
 					//finally set them.
 					textureSet->SetTextures(textures);
@@ -1977,6 +1991,10 @@ public:
 			if (property->IsSameType(NiSpecularProperty::TYPE)) {
 				hasSpecular = true;
 			}
+			if (property->IsSameType(NiZBufferProperty::TYPE)) {
+				hasZbuffer = true;
+				NiZBufferPropertyRef buffer = DynamicCast<NiZBufferProperty>(property);
+			}
 		}
 		NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(obj.GetData());
 		if (data != NULL) {
@@ -1993,6 +2011,13 @@ public:
 		if (!hasSpecular)
 			lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_SPECULAR));
 
+		if (hasZbuffer) {
+			lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_ZBUFFER_WRITE));
+			//lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_ZBUFFER_TEST));
+		}
+		if(obj.GetSkinInstance() != NULL)
+			lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() | SkyrimShaderPropertyFlags1::SLSF1_SKINNED));
+
 		if (textureSet->GetTextures().size() == 0)
 			obj.SetFlags(obj.GetFlags() + 1);
 
@@ -2000,13 +2025,31 @@ public:
 		obj.SetShaderProperty(DynamicCast<BSShaderProperty>(lightingProperty));
 		obj.SetExtraDataList(vector<Ref<NiExtraData>> {});
 		obj.SetProperties(vector<Ref<NiProperty>> {});
+
+		if (obj.GetSkinInstance() != NULL) {
+			NiSkinInstanceRef skinInstance = DynamicCast<NiSkinInstance>(obj.GetSkinInstance());
+			NiSkinPartitionRef skinPartition = DynamicCast<NiSkinPartition>(skinInstance->GetSkinPartition());
+			vector<SkinPartition> partitionBlocks = skinPartition->GetSkinPartitionBlocks();
+			
+			for (int i = 0; i != partitionBlocks.size(); i++) {
+				SkinPartition* block = &partitionBlocks[i];
+				block->triangles = triangulate(block->strips);
+				block->numStrips = 0;			
+				block->strips = vector<vector<unsigned short>>(0);
+				block->stripLengths = vector<unsigned short>(0);
+			}
+
+			skinPartition->SetSkinPartitionBlocks(partitionBlocks);
+			skinInstance->SetSkinPartition(skinPartition);
+			obj.SetSkinInstance(skinInstance);			
+		}
 	}
 
 	//inline void visit_particle(NiParticleSystem& obj, NiAVObject& parent) {
 	template<>
 	inline void visit_object(NiParticleSystem& obj) {
 		bool hasSpecular = false;
-
+		bool hasZBuffer = false;
 		BSEffectShaderPropertyRef lightingProperty = new BSEffectShaderProperty();
 		//BSShaderTextureSetRef textureSet = new BSShaderTextureSet();
 		NiMaterialPropertyRef material = new NiMaterialProperty();
@@ -2135,6 +2178,9 @@ public:
 			if (property->IsSameType(NiSpecularProperty::TYPE)) {
 				hasSpecular = true;
 			}
+			if (property->IsSameType(NiZBufferProperty::TYPE)) {
+				hasZBuffer = true;
+			}
 		}
 		//extract geometry
 		NiPSysDataRef data = DynamicCast<NiPSysData>(obj.NiGeometry::GetData());
@@ -2188,7 +2234,9 @@ public:
 		if (!hasSpecular)
 			lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_SPECULAR));
 
-		lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(SkyrimShaderPropertyFlags2::SLSF2_ZBUFFER_WRITE));
+		if (hasZBuffer) {
+			lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_ZBUFFER_WRITE));
+		}
 		lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(SkyrimShaderPropertyFlags1::SLSF1_ZBUFFER_TEST | SkyrimShaderPropertyFlags1::SLSF1_OWN_EMIT));
 
 		//lightingProperty->SetTextureSet(textureSet);
@@ -2612,6 +2660,43 @@ public:
 		obj.SetObjs(av_objects);
 	}
 
+	template<>
+	inline void visit_object(NiControllerSequence& obj) {
+		vector<ControlledBlock> blocks = obj.GetControlledBlocks();
+
+		for (int i = 0; i != blocks.size(); i++) {
+			NiTimeControllerRef controller = blocks[i].controller;
+
+			//specific fix for oblivion fountains. 
+			if (controller->IsSameType(BSLightingShaderPropertyColorController::TYPE) && controller->GetTarget()->IsSameType(BSEffectShaderProperty::TYPE)) {
+
+				BSLightingShaderPropertyColorControllerRef lightingController = DynamicCast<BSLightingShaderPropertyColorController>(controller);
+				BSEffectShaderPropertyColorController* newController = new BSEffectShaderPropertyColorController();
+
+				if (lightingController->GetNextController() != NULL)
+					Log::Warn("Has nested controller");
+
+				newController->SetFlags(lightingController->GetFlags());
+				newController->SetFrequency(lightingController->GetFrequency());
+				newController->SetPhase(lightingController->GetPhase());
+				newController->SetStartTime(lightingController->GetStartTime());
+				newController->SetStopTime(lightingController->GetStopTime());
+				newController->SetPhase(lightingController->GetPhase());
+				newController->SetTarget(lightingController->GetTarget());
+				newController->SetTypeOfControlledColor(EffectShaderControlledColor::ECSC_EMISSIVE_COLOR);
+
+				blocks[i].controller = newController;
+				blocks[i].propertyType = "BSEffectShaderProperty";
+				blocks[i].controllerType = "BSEffectShaderPropertyColorController";
+
+				BSEffectShaderPropertyRef shader = DynamicCast<BSEffectShaderProperty>(newController->GetTarget());
+				shader->SetController(blocks[i].controller);
+			}
+		}
+
+		obj.SetControlledBlocks(blocks);
+	}
+
 	template<class T>
 	inline void visit_compound(T& obj) {
 	}
@@ -2669,8 +2754,6 @@ bool BeginConversion() {
 				Log::Info("Current File: %s", nif.c_str());
 
 				fs::path out_path = nif_out / nif;
-				//if (fs::exists(out_path.string()))
-				//	continue;
 
 				if (nif.find("meshes\\landscape\\lod") != string::npos) {
 					Log::Warn("Ignored LOD file: %s", nif.c_str());
@@ -2702,11 +2785,21 @@ bool BeginConversion() {
 				std::string sdata((char*)data, size);
 				std::istringstream iss(sdata);
 
+				//this is all hacky but ehhhh.
+				bool isBillboardRoot = false;
+				BillboardMode mode = BillboardMode::ALWAYS_FACE_CAMERA;
+
 				vector<NiObjectRef> blocks = ReadNifList(iss, &info);
 				NiObjectRef root = GetFirstRoot(blocks);
 				NiNode* rootn = DynamicCast<NiNode>(root);
 
 				ConverterVisitor fimpl(info, root, blocks);
+
+				if (root->IsSameType(NiBillboardNode::TYPE)) {
+					isBillboardRoot = true;
+					mode = DynamicCast<NiBillboardNode>(root)->GetBillboardMode();
+				}
+
 				set<string> sequences = fimpl.nisequences;
 				//root->accept(fimpl, info);
 				if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
@@ -2731,22 +2824,45 @@ bool BeginConversion() {
 						bsroot->SetExtraDataList(list);
 					}
 
-					NiNode* proxyRoot = new NiNode();
-					proxyRoot->SetChildren(bsroot->GetChildren());
-					proxyRoot->SetRotation(bsroot->GetRotation());
-					proxyRoot->SetTranslation(bsroot->GetTranslation());
-					proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+					std::vector<NiAVObjectRef> children;
 
-					if(proxyRoot->GetCollisionObject() != NULL)
-						DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+					if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
+					{
+						NiBillboardNode* proxyRoot = new NiBillboardNode();
+						proxyRoot->SetBillboardMode(mode);
+						proxyRoot->SetFlags(bsroot->GetFlags());
+						proxyRoot->SetChildren(bsroot->GetChildren());
+						proxyRoot->SetRotation(bsroot->GetRotation());
+						proxyRoot->SetTranslation(bsroot->GetTranslation());
+						proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+						proxyRoot->SetName(IndexString("ProxyNode"));
 
-					//remove BSFadeNode ones
+						if (proxyRoot->GetCollisionObject() != NULL)
+							DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+
+						children.push_back(proxyRoot);
+
+					}
+					else
+					{
+						NiNode* proxyRoot = new NiNode();
+
+						proxyRoot->SetFlags(bsroot->GetFlags());
+						proxyRoot->SetChildren(bsroot->GetChildren());
+						proxyRoot->SetRotation(bsroot->GetRotation());
+						proxyRoot->SetTranslation(bsroot->GetTranslation());
+						proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+						proxyRoot->SetName(IndexString("ProxyNode"));
+
+						if (proxyRoot->GetCollisionObject() != NULL)
+							DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+
+						children.push_back(proxyRoot);
+					}
+
 					bsroot->SetRotation(Matrix33());
 					bsroot->SetTranslation(Vector3());
 					bsroot->SetCollisionObject(NULL);
-
-					std::vector<NiAVObjectRef> children;
-					children.push_back(proxyRoot);
 					bsroot->SetChildren(children);
 
 					//to calculate the right flags, we need to rebuild the blocks
@@ -2811,12 +2927,20 @@ bool BeginConversion() {
 		for (size_t i = 0; i < nifs.size(); i++) {
 			Log::Info("Current File: %s", nifs[i].string().c_str());
 
+			//this is all hacky but ehhhh.
+			bool isBillboardRoot = false;
+			BillboardMode mode = BillboardMode::ALWAYS_FACE_CAMERA; 
+
 			vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
 			NiObjectRef root = GetFirstRoot(blocks);
 			NiNode* rootn = DynamicCast<NiNode>(root);
 
 			ConverterVisitor fimpl(info, root, blocks);
-			//root->accept(fimpl, info);
+			
+			if (root->IsSameType(NiBillboardNode::TYPE)) {
+				isBillboardRoot = true; 
+				mode = DynamicCast<NiBillboardNode>(root)->GetBillboardMode();
+			}
 
 			info.userVersion = 12;
 			info.userVersion2 = 83;
@@ -2843,6 +2967,46 @@ bool BeginConversion() {
 					list.insert(list.begin(),StaticCast<NiExtraData>(havokp));
 					bsroot->SetExtraDataList(list);
 				}
+
+
+				std::vector<NiAVObjectRef> children;
+
+				if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
+				{
+					NiBillboardNode* proxyRoot = new NiBillboardNode();
+					proxyRoot->SetBillboardMode(mode);
+					proxyRoot->SetFlags(bsroot->GetFlags());
+					proxyRoot->SetChildren(bsroot->GetChildren());
+					proxyRoot->SetRotation(bsroot->GetRotation());
+					proxyRoot->SetTranslation(bsroot->GetTranslation());
+					proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+
+					if (proxyRoot->GetCollisionObject() != NULL)
+						DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+
+					children.push_back(proxyRoot);
+					
+				}
+				else
+				{
+					NiNode* proxyRoot = new NiNode();
+
+					proxyRoot->SetFlags(bsroot->GetFlags());
+					proxyRoot->SetChildren(bsroot->GetChildren());
+					proxyRoot->SetRotation(bsroot->GetRotation());
+					proxyRoot->SetTranslation(bsroot->GetTranslation());
+					proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+
+					if (proxyRoot->GetCollisionObject() != NULL)
+						DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+
+					children.push_back(proxyRoot);
+				}
+
+				bsroot->SetRotation(Matrix33());
+				bsroot->SetTranslation(Vector3());
+				bsroot->SetCollisionObject(NULL);
+				bsroot->SetChildren(children);
 
 				//to calculate the right flags, we need to rebuild the blocks
 				vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
