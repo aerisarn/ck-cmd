@@ -2811,7 +2811,10 @@ bool BeginConversion() {
 					if (!sequences.empty()) {
 						fs::path in_file = nif;
 						string out_name = in_file.filename().replace_extension("").string();
-						fs::path out_path = fs::path("animations") / in_file.parent_path() / out_name;
+						string newPath = in_file.parent_path().string();
+						if (newPath.substr(0, 7) == "meshes\\")
+							newPath.erase(newPath.begin(), newPath.begin()+7);
+						fs::path out_path = fs::path("animations") / newPath / out_name;
 						fs::path out_path_abs = nif_out / out_path;
 						string out_path_a = out_path_abs.string();
 						out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
