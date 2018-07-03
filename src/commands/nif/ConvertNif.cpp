@@ -1708,6 +1708,76 @@ public:
 		vector<Ref<NiAVObject>> children = obj.GetChildren();
 		vector<Ref<NiExtraData>> extras = obj.GetExtraDataList();
 		int index = 0;
+
+		if (obj.GetName() == "Bip01 Head")
+			obj.SetName(IndexString("NPC Head [Head]"));
+		else if (obj.GetName() == "Bip01 L Clavicle")
+			obj.SetName(IndexString("NPC L Clavicle [LClv]"));
+		else if (obj.GetName() == "Bip01 R Clavicle")
+			obj.SetName(IndexString("NPC R Clavicle [RClv]"));
+		else if (obj.GetName() == "Bip01 L UpperArmTwist")
+			obj.SetName(IndexString("NPC L UpperarmTwist1 [LUt1]"));
+		else if (obj.GetName() == "Bip01 R UpperArmTwist")
+			obj.SetName(IndexString("NPC R UpperarmTwist1 [RUt1]"));
+		else if (obj.GetName() == "Bip01 R ForearmTwist")
+			obj.SetName(IndexString("NPC R ForearmTwist1 [RLt1]"));
+		else if (obj.GetName() == "Bip01 L ForearmTwist")
+			obj.SetName(IndexString("NPC L ForearmTwist1 [LLt1]"));
+		else if (obj.GetName() == "Bip01 L UpperArm")
+			obj.SetName(IndexString("NPC L UpperArm [LUar]"));
+		else if (obj.GetName() == "Bip01 R UpperArm")
+			obj.SetName(IndexString("NPC R UpperArm [RUar]"));
+		else if (obj.GetName() == "Bip01 L Forearm")
+			obj.SetName(IndexString("NPC L Forearm [LLar]"));
+		else if (obj.GetName() == "Bip01 R Forearm")
+			obj.SetName(IndexString("NPC R Forearm [RLar]"));
+		else if (obj.GetName() == "Bip01 L Thigh") {
+			obj.SetName(IndexString("NPC L Thigh [LThg]"));
+			obj.SetTranslation(Vector3(-6.615073f, 0.000394f, 68.911301f));
+			obj.SetRotation(Matrix33(
+				-0.9943f, -0.0379f, 0.0999f,
+				-0.0414f, 0.9986f, -0.0329f,
+				-0.0985f, -0.0369f, -0.9944f));
+		}
+		else if (obj.GetName() == "Bip01 R Thigh") {
+			obj.SetName(IndexString("NPC R Thigh [RThg]"));
+			obj.SetTranslation(Vector3(6.615073f, 0.000394f, 68.911301f));
+			obj.SetRotation(Matrix33(
+				-0.9943f, 0.379f, -0.999f,
+				0.0414f, 0.9986f, -0.0329f,
+				0.0985f, -0.0368f, -0.9945f));
+		}
+		else if (obj.GetName() == "Bip01 L Hand")
+			obj.SetName(IndexString("NPC L Hand [LHnd]"));
+		else if (obj.GetName() == "Bip01 R Hand")
+			obj.SetName(IndexString("NPC R Hand [RHnd]"));
+		else if (obj.GetName() == "Bip01 Spine") {
+			obj.SetName(IndexString("NPC Spine [Spn0]"));
+			obj.SetTranslation(Vector3(0.000007f, -5.239862f, 72.702919f));
+			obj.SetRotation(Matrix33(
+				1.0f, -0.00f, 0.0f,
+				0.0f, 0.9980f, -0.0436f,
+				-0.00f, 0.0436f, 0.9990f));
+		}
+		else if (obj.GetName() == "Bip01 Spine1") {
+			obj.SetName(IndexString("NPC Spine1 [Spn1]"));
+			obj.SetTranslation(Vector3(0.000006f, -4.858528f, 81.443321f));
+			obj.SetRotation(Matrix33(
+				1.0f, -0.001f, 0.0f,
+				0.0f, 0.9942f, 0.1071f,
+				-0.001f, -0.1071f, 0.9942f));
+		}
+		else if (obj.GetName() == "Bip01 Spine2")
+			obj.SetName(IndexString("NPC Spine2 [Spn2]"));
+		else if (obj.GetName() == "Bip01 Pelvis") {
+			obj.SetName(IndexString("NPC Pelvis [Pelv]"));
+			obj.SetTranslation(Vector3(-0.000003f, -0.000010f, 68.911301f));
+			obj.SetRotation(Matrix33());
+		}
+		else if (obj.GetName() == "Bip01 Neck1")
+			obj.SetName(IndexString("NPC Neck [Neck]"));
+
+
 		for (NiAVObjectRef& block : children)
 		{
 			if (block == NULL) {
@@ -2028,8 +2098,10 @@ public:
 
 		if (obj.GetSkinInstance() != NULL) {
 			NiSkinInstanceRef skinInstance = DynamicCast<NiSkinInstance>(obj.GetSkinInstance());
+			NiSkinDataRef skinData = DynamicCast<NiSkinData>(skinInstance->GetData());
 			NiSkinPartitionRef skinPartition = DynamicCast<NiSkinPartition>(skinInstance->GetSkinPartition());
 			vector<SkinPartition> partitionBlocks = skinPartition->GetSkinPartitionBlocks();
+			
 			
 			for (int i = 0; i != partitionBlocks.size(); i++) {
 				SkinPartition* block = &partitionBlocks[i];
@@ -2697,6 +2769,133 @@ public:
 		obj.SetControlledBlocks(blocks);
 	}
 
+	template<>
+	inline void visit_object(NiTriShape& obj) {
+		if (obj.GetSkinInstance() != NULL) {
+
+			NiSkinInstanceRef skinInstance = DynamicCast<NiSkinInstance>(obj.GetSkinInstance());
+			NiSkinDataRef skinData = DynamicCast<NiSkinData>(skinInstance->GetData());
+			NiSkinPartitionRef skinPartition = DynamicCast<NiSkinPartition>(skinInstance->GetSkinPartition());
+			NiTriShapeDataRef shapeData = DynamicCast<NiTriShapeData>(obj.GetData());
+
+			vector<BoneData> boneList = skinData->GetBoneList();
+			SkinPartition skinBlock = skinPartition->GetSkinPartitionBlocks()[0];
+
+			for (int i = 0; i != skinInstance->GetBones().size(); i++) {
+				NiNodeRef bone = skinInstance->GetBones()[i];
+
+				if (bone->GetName() == "NPC Pelvis [Pelv]") {
+					vector<BoneVertData> vertData = boneList[i].vertexWeights;
+					vector<Vector3> vertices = vector<Vector3>(vertData.size());
+					for (int i = 0; i != vertData.size(); i++) {
+						vertices[i] = shapeData->GetVertices()[skinBlock.vertexMap[vertData[i].index]];
+					}
+					Vector3 newPos = centeroid(vertices);
+					Vector3 bonePos = Vector3(-0.000003f, -0.000010f, 68.911301f);
+					bonePos.x = -bonePos.x;
+					bonePos.y = -bonePos.y;
+					bonePos.z = -bonePos.z;
+					boneList[i].skinTransform.translation = bonePos + newPos;
+					boneList[i].skinTransform.rotation = Matrix33();
+				}
+				if (bone->GetName() == "NPC L Thigh [LThg]") {
+					vector<BoneVertData> vertData = boneList[i].vertexWeights;
+					vector<Vector3> vertices = vector<Vector3>(vertData.size());
+					for (int i = 0; i != vertData.size(); i++) {
+						vertices[i] = shapeData->GetVertices()[skinBlock.vertexMap[vertData[i].index]];
+					}
+					//correct? dunno :D
+					Matrix44 matrix = Matrix44();
+					matrix.rows[0][0] = bone->GetRotation().rows[0][0];
+					matrix.rows[0][1] = bone->GetRotation().rows[0][1];
+					matrix.rows[0][2] = bone->GetRotation().rows[0][2];
+					matrix.rows[0][3] = bone->GetTranslation().x;
+					matrix.rows[1][0] = bone->GetRotation().rows[1][0];
+					matrix.rows[1][1] = bone->GetRotation().rows[1][1];
+					matrix.rows[1][2] = bone->GetRotation().rows[1][2];
+					matrix.rows[1][3] = bone->GetTranslation().y;
+					matrix.rows[2][0] = bone->GetRotation().rows[2][0];
+					matrix.rows[2][1] = bone->GetRotation().rows[2][1];
+					matrix.rows[2][2] = bone->GetRotation().rows[2][2];
+					matrix.rows[2][3] = bone->GetTranslation().z;
+
+
+
+
+
+
+					//Vector3 newPos = centeroid(vertices);
+					//Vector3 bonePos = Vector3(-6.615073f, 0.000394f, 68.911301f);
+					//boneList[i].skinTransform.translation = bonePos + newPos;
+					//boneList[i].skinTransform.translation = Vector3(-13.517195f, 1.999292f, 67.866142f);
+					//boneList[i].skinTransform.rotation = Matrix33(
+					//	-0.9942f, -0.0410f, -0.0933f,
+					//	-0.0375f, 0.9986f, -0.0369f,
+					//	0.1007f, -0.0330f, -0.9944);
+				}
+				//if (bone->GetName() == "NPC R Thigh [RThg]") {
+				//	vector<BoneVertData> vertData = boneList[i].vertexWeights;
+				//	vector<Vector3> vertices = vector<Vector3>(vertData.size());
+				//	for (int i = 0; i != vertData.size(); i++) {
+				//		vertices[i] = shapeData->GetVertices()[skinBlock.vertexMap[vertData[i].index]];
+				//	}
+				//	Vector3 newPos = centeroid(vertices);
+				//	Vector3 bonePos = Vector3(6.615068f, 0.000394f, 68.911301f);
+				//	boneList[i].skinTransform.translation = bonePos + newPos;
+				//	//boneList[i].skinTransform.translation = Vector3(13.461305f, 1.992750f, 67.877457f);
+				//	boneList[i].skinTransform.rotation = Matrix33(
+				//		-0.9943f, 0.0413f, 0.0985f,
+				//		0.0378f, 0.9986f, -0.0369f,
+				//		-0.0998f, -0.0330f, -0.9945f);
+				//}
+				if (bone->GetName() == "NPC Spine [Spn0]") {
+					boneList[i].skinTransform.translation = Vector3(-0.000022f, 8.403816f, -72.405434f);
+					boneList[i].skinTransform.rotation = Matrix33(
+						1.0f, 0.0000f, -0.0000f,
+						-0.000f, 0.9990f, 0.0436f,
+						0.000f, -0.0436f, 0.9990f);
+				}
+				//if (bone->GetName() == "NPC Spine1 [Spn1]") {
+				//	boneList[i].skinTransform.translation = Vector3(-0.000018f, -3.890695f, -81.495285f);
+				//	boneList[i].skinTransform.rotation = Matrix33(
+				//		1.0f, 0.0000f, -0.0000f,
+				//		-0.000f, 0.9942f, -0.1071f,
+				//		0.000f, 0.1071f, 0.9942f);
+				//}
+				//if (bone->GetName() == "NPC Spine2 [Spn2]") {
+				//	boneList[i].skinTransform.translation = Vector3(-0.000093f, 18.403816f, -89.638092f);
+				//	boneList[i].skinTransform.rotation = Matrix33(
+				//		1.0f, 0.0000f, -0.0000f,
+				//		-0.000f, 0.9910f, 0.1336f,
+				//		0.000f, -0.1336f, 0.9910f);
+				//}
+				//if (bone->GetName() == "NPC Head [Head]") {
+				//	boneList[i].skinTransform.translation = Vector3(-0.000256f, -1.547517f, 0);
+				//	boneList[i].skinTransform.rotation = Matrix33();
+				//}
+				//if (bone->GetName() == "NPC R Clavicle [RClv]") {
+				//	boneList[i].skinTransform.translation = Vector3(93.688957f, 51.393600f, 25.169991f);
+				//	boneList[i].skinTransform.rotation = Matrix33(
+				//		-0.4490f, 0.3924f, 0.8028f,
+				//		-0.3051f, 0.7771f, -0.5505f,
+				//		-0.8398f, -0.4921f, -0.2292f);
+				//}
+				//if (bone->GetName() == "NPC L Clavicle [LClv]") {
+				//	boneList[i].skinTransform.translation = Vector3(-93.689011f, 51.393459f, 25.170134f);
+				//	boneList[i].skinTransform.rotation = Matrix33(
+				//		-0.4490f, -0.3924f, -0.8028f,
+				//		0.3051f, 0.7771f, -0.5505f,
+				//		0.8398f, -0.4921f, -0.2292f);
+				//}
+			}
+
+
+			skinData->SetBoneList(boneList);
+			skinInstance->SetData(skinData);
+			obj.SetSkinInstance(skinInstance);
+		}
+	}
+
 	template<class T>
 	inline void visit_compound(T& obj) {
 	}
@@ -2908,6 +3107,9 @@ bool BeginConversion() {
 						}
 					}
 				}
+				else {
+					FixTargetsVisitor(root, info, blocks);
+				}
 
 				info.userVersion = 12;
 				info.userVersion2 = 83;
@@ -3051,8 +3253,9 @@ bool BeginConversion() {
 					}
 				}
 			}
-
-
+			else {
+				FixTargetsVisitor(root, info, blocks);
+			}
 
 			fs::path out_path = nif_out / nifs[i].filename();
 			fs::create_directories(out_path.parent_path());
