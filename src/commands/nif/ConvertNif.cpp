@@ -1396,8 +1396,11 @@ public:
 		}
 
 		//Seems like the old havok settings must be deactivated
-		obj.motionSystem = MO_SYS_BOX_STABILIZED;
-		obj.qualityType = MO_QUAL_INVALID;
+		//obj.motionSystem = MO_SYS_BOX_STABILIZED;
+		if (obj.motionSystem == MO_SYS_KEYFRAMED)
+			obj.motionSystem = MO_SYS_BOX_INERTIA;
+		if (obj.qualityType == MO_QUAL_KEYFRAMED || obj.qualityType == MO_QUAL_KEYFRAMED_REPORT)
+			obj.qualityType = MO_QUAL_FIXED;
 
 		//obsolete collisions
 		if (obj.shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
@@ -2456,16 +2459,28 @@ public:
 		shape.SetRadius(shape.GetRadius() * COLLISION_RATIO);
 	}
 
+	//phantoms
+	template<>
+	inline void visit_object(bhkSimpleShapePhantom& obj) {
+		if (already_upgraded.insert(&obj).second) {
+			HavokFilter layer = obj.GetHavokFilter();
+			layer.layer_sk = convert_havok_layer(layer.layer_ob);
+			obj.SetHavokFilter(layer);
+		}
+	}
+
 	//Containers
 	template<>
 	inline void visit_object(bhkConvexTransformShape& obj) {
 		if (already_upgraded.insert(&obj).second) {
 			convertMaterialAndRadius(obj);
-			Vector3 trans = obj.GetTransform().GetTranslation();
+			Matrix44 transform = obj.GetTransform();
+			Vector3 trans = transform.GetTrans();
 			trans.x *= COLLISION_RATIO;
 			trans.y *= COLLISION_RATIO;
 			trans.z *= COLLISION_RATIO;
-			obj.SetTransform(Matrix44(trans, obj.GetTransform().GetRotation(), obj.GetTransform().GetScale()));
+			transform.SetTrans(trans);
+			obj.SetTransform(transform);
 			obj.SetShape(upgrade_shape(obj.GetShape(), this_info, NULL));
 		}
 	}
@@ -2475,9 +2490,11 @@ public:
 		if (already_upgraded.insert(&obj).second) {
 			convertMaterialAndRadius(obj);
 			Matrix44 transform = obj.GetTransform();
-			transform[3][0] = transform[3][0] * COLLISION_RATIO;
-			transform[3][1] = transform[3][1] * COLLISION_RATIO;
-			transform[3][2] = transform[3][2] * COLLISION_RATIO;
+			Vector3 trans = transform.GetTrans();
+			trans.x *= COLLISION_RATIO;
+			trans.y *= COLLISION_RATIO;
+			trans.z *= COLLISION_RATIO;
+			transform.SetTrans(trans);
 			obj.SetTransform(transform);
 			obj.SetShape(upgrade_shape(obj.GetShape(), this_info, NULL));
 		}
@@ -3047,25 +3064,31 @@ bool BeginConversion() {
 					}
 					else
 					{
-						NiNode* proxyRoot = new NiNode();
+						if (bsroot->GetTranslation().Magnitude() != 0 ||
+							!bsroot->GetRotation().isIdentity()) 
+						{
+							NiNode* proxyRoot = new NiNode();
 
-						proxyRoot->SetFlags(bsroot->GetFlags());
-						proxyRoot->SetChildren(bsroot->GetChildren());
-						proxyRoot->SetRotation(bsroot->GetRotation());
-						proxyRoot->SetTranslation(bsroot->GetTranslation());
-						proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
-						proxyRoot->SetName(IndexString("ProxyNode"));
+							proxyRoot->SetFlags(bsroot->GetFlags());
+							proxyRoot->SetChildren(bsroot->GetChildren());
+							proxyRoot->SetRotation(bsroot->GetRotation());
+							proxyRoot->SetTranslation(bsroot->GetTranslation());
+							proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+							proxyRoot->SetName(IndexString("ProxyNode"));
 
-						if (proxyRoot->GetCollisionObject() != NULL)
-							DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+							if (proxyRoot->GetCollisionObject() != NULL)
+								DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
 
-						children.push_back(proxyRoot);
+							children.push_back(proxyRoot);
+
+							bsroot->SetRotation(Matrix33());
+							bsroot->SetTranslation(Vector3());
+							bsroot->SetCollisionObject(NULL);
+							bsroot->SetChildren(children);
+						}
 					}
 
-					bsroot->SetRotation(Matrix33());
-					bsroot->SetTranslation(Vector3());
-					bsroot->SetCollisionObject(NULL);
-					bsroot->SetChildren(children);
+
 
 					//to calculate the right flags, we need to rebuild the blocks
 					vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
@@ -3108,7 +3131,7 @@ bool BeginConversion() {
 					}
 				}
 				else {
-					FixTargetsVisitor(root, info, blocks);
+//					FixTargetsVisitor(root, info, blocks);
 				}
 
 				info.userVersion = 12;
