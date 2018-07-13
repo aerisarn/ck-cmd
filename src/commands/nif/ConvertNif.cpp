@@ -25,7 +25,7 @@
 #include <array>
 #include <unordered_map>
 
-static bool BeginConversion();
+static bool BeginConversion(string importPath, string exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
@@ -49,23 +49,39 @@ string ConvertNif::GetHelp() const
 	string name = GetName();
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
-	// Usage: ck-cmd convertnif
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + "\r\n";
+	// Usage: ck-cmd convertnif [-i <path_to_import>] [-e <path_to_export>]
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " [-i <path_to_import>] [-e <path_to_export>]\r\n";
 
-	const char help[] = "TODO: Short description for ConvertNif";
+	//will need to check this help in console/
+	const char help[] =
+		R"(Convert Oblivion version models to Skyrim's format.
+		
+		Arguments:
+			<path_to_import> path to models which you want to convert"
+			<path_to_export> path to exported models;
+
+		If none of these are present, then the program will look through your Oblivion BSAs. (if present))";
 
 	return usage + help;
 }
 
 string ConvertNif::GetHelpShort() const
 {
+	//I'm unsure about returning a string.. It doesn't show up on the console..
+	//Log::Info("Convert Oblivion version models to Skyrim's format.");
 	return "TODO: Short help message for ConvertNif";
 }
 
 bool ConvertNif::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
+	//We can improve this later, but for now this i'd say this is a good setup.
+	string importPath, exportPath;
+
+	importPath = parsedArgs["<path_to_import>"].asString();
+	exportPath = parsedArgs["<path_to_export>"].asString();
+
 	InitializeHavok();
-	BeginConversion();
+	BeginConversion(importPath, exportPath);
 	CloseHavok();
 	return true;
 }
@@ -1670,7 +1686,6 @@ public:
 		}
 	}
 
-
 	template<>
 	void visit_field(NiTimeControllerRef& in) {
 		if (!in == NULL && in->IsDerivedType(NiTextureTransformController::TYPE)) {
@@ -2943,7 +2958,7 @@ void findFiles(fs::path startingDir, string extension, vector<fs::path>& results
 }
 
 
-bool BeginConversion() {
+bool BeginConversion(string importPath, string exportPath) {
 	char fullName[MAX_PATH], exeName[MAX_PATH];
 	GetModuleFileName(NULL, fullName, MAX_PATH);
 	_splitpath(fullName, NULL, NULL, exeName, NULL);
@@ -2951,7 +2966,7 @@ bool BeginConversion() {
 	NifInfo info;
 	vector<fs::path> nifs;
 
-	findFiles(nif_in, ".nif", nifs);
+	findFiles(importPath, ".nif", nifs);
 
 	set<set<string>> sequences_groups;
 	HKXWrapperCollection wrappers;
@@ -3184,7 +3199,7 @@ bool BeginConversion() {
 					fs::path in_file = nifs[i].filename();
 					string out_name = in_file.filename().replace_extension("").string();
 					fs::path out_path = fs::path("animations") / in_file.parent_path() / out_name;
-					fs::path out_path_abs = nif_out / out_path;
+					fs::path out_path_abs = exportPath / out_path;
 					string out_path_a = out_path_abs.string();
 					out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
 					vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
@@ -3280,7 +3295,7 @@ bool BeginConversion() {
 				FixTargetsVisitor(root, info, blocks);
 			}
 
-			fs::path out_path = nif_out / nifs[i].filename();
+			fs::path out_path = exportPath / nifs[i].filename();
 			fs::create_directories(out_path.parent_path());
 			WriteNifTree(out_path.string(), root, info);
 			NifFile check(out_path.string());

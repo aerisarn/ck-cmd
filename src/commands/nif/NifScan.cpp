@@ -11,7 +11,7 @@ using namespace ckcmd::nifscan;
 using namespace Niflib;
 using namespace std;
 
-static bool BeginScan();
+static bool BeginScan(string scanPath);
 
 REGISTER_COMMAND_CPP(NifScan)
 
@@ -33,10 +33,14 @@ string NifScan::GetHelp() const
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
 
-    // Usage: ck-cmd games
-    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + "\r\n";
+	// Usage: ck-cmd nifscan [-i <path_to_scan>]
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " [-i <path_to_scan>]\r\n";
 
-    const char help[] = "TODO: Short description for NifScan";
+	const char help[] =
+		R"(Scan Skyrim meshes for any errors.
+		
+		Arguments:
+			<path_to_scan> path to models you want to check for errors)";
 
     return usage + help;
 }
@@ -48,7 +52,11 @@ string NifScan::GetHelpShort() const
 
 bool NifScan::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
-    bool result = BeginScan();
+	string scanPath;
+
+	scanPath = parsedArgs["<path_to_scan>"].asString();
+
+    bool result = BeginScan(scanPath);
     Log::Info("NifScan Ended");
     return result;
 }
@@ -542,7 +550,7 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 	}
 }
 
-static bool BeginScan() {
+static bool BeginScan(string scanPath) {
 	Log::Info("Begin Scan");
 
 	Games& games = Games::Instance();
@@ -554,7 +562,7 @@ static bool BeginScan() {
 
 	//findFilesn(games.data(Games::TES5) / "meshes", ".nif", nifs);
 	fs::path nif_in = "D:\\git\\ck-cmd\\resources\\in";
-	findFilesn(nif_in, ".nif", nifs);
+	findFilesn(scanPath, ".nif", nifs);
 
 	if (nifs.empty())
 	{
