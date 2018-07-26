@@ -344,14 +344,16 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/FBXWrangler.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/NifFile.h"
 #COMMANDS
+					 "${CMAKE_SOURCE_DIR}/include/commands/RetargetSkin.h"
+					 "${CMAKE_SOURCE_DIR}/include/commands/AddNodesToSkeleton.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ConvertNif.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/Geometry.h"
-                                         "${CMAKE_SOURCE_DIR}/include/commands/esp/Esp.h"
-                                         "${CMAKE_SOURCE_DIR}/include/commands/esp/io/EspWriter.h"
-                                         "${CMAKE_SOURCE_DIR}/include/commands/esp/io/EspTypes.h"
-                                         "${CMAKE_SOURCE_DIR}/include/commands/esp/data/EspForm.h" 
-                                         "${CMAKE_SOURCE_DIR}/include/commands/esp/data/EspTES4Form.h"
-                                         "${CMAKE_SOURCE_DIR}/include/commands/esp/data/EspFile.h"
+                     "${CMAKE_SOURCE_DIR}/include/commands/esp/Esp.h"
+                     "${CMAKE_SOURCE_DIR}/include/commands/esp/io/EspWriter.h"
+                     "${CMAKE_SOURCE_DIR}/include/commands/esp/io/EspTypes.h"
+                     "${CMAKE_SOURCE_DIR}/include/commands/esp/data/EspForm.h" 
+                     "${CMAKE_SOURCE_DIR}/include/commands/esp/data/EspTES4Form.h"
+                     "${CMAKE_SOURCE_DIR}/include/commands/esp/data/EspFile.h"
 #resource
 				)
 # Commands
