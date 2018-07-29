@@ -9,6 +9,7 @@ See the included LICENSE file
 #include <core/MathHelper.h>
 
 #include <commands/Geometry.h>
+#include <core/log.h>
 
 using namespace ckcmd::FBX;
 using namespace  ckcmd::Geometry;
@@ -206,7 +207,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		return NULL;
 	}
 
-	FbxNode* getBuiltNode(const string& name) {
+	FbxNode* getBuiltNode(const string& palette, int offset) {
+		string name = getPalettedString(palette, offset);
 		for (pair<void*, FbxNode*> nodes : built_nodes)
 		{
 			NiObject* node = (NiObject*)nodes.first;
@@ -275,6 +277,15 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	string getPalettedString(NiStringPaletteRef nipalette, unsigned int offset) {
 		int find = nipalette->GetPalette().palette.find((char)0, offset);
 		string ret = nipalette->GetPalette().palette.substr(
+			offset,
+			find - offset
+		);
+		return ret;
+	}
+
+	string getPalettedString(string palette_string, unsigned int offset) {
+		int find = palette_string.find((char)0, offset);
+		string ret = palette_string.substr(
 			offset,
 			find - offset
 		);
@@ -472,7 +483,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	}
 
 	void exportKFSequence(NiControllerSequenceRef ref) {
-		FbxAnimLayer* layer = FbxAnimLayer::Create(&scene, ref->GetName().c_str());
+		lAnimStack = FbxAnimStack::Create(&scene, ref->GetName().c_str());
+		FbxAnimLayer* layer = FbxAnimLayer::Create(&scene, "Default");
 		for (ControlledBlock block : ref->GetControlledBlocks()) {
 			//find the node
 			string controlledBlockID;
@@ -483,7 +495,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				//default palette
 				controlledBlockID = block.nodeName;
 			}
-			FbxNode* animatedNode = getBuiltNode(controlledBlockID);
+			FbxNode* animatedNode = getBuiltNode(controlledBlockID, block.priority);
 
 			if (animatedNode == NULL)
 				throw runtime_error("exportKFSequence: Referenced node not found by name:" + controlledBlockID);
@@ -503,8 +515,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	void buildManagers() {
 		//Usually the root node for animations sequences
 		//if animation layer doesn't exist in the file, create it
-		if (!lAnimStack)
-			lAnimStack = FbxAnimStack::Create(&scene, "KF");
+		//if (!lAnimStack)
+		//	lAnimStack = FbxAnimStack::Create(&scene, "KF");
 
 		for (NiControllerManager* obj : managers) {
 			//Next Controller can be ignored because it should be referred by individual sequences
@@ -887,142 +899,596 @@ bool FBXWrangler::ExportScene(const std::string& fileName) {
 
 	return status;
 }
-//
-//bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOptions& options) {
-//	FbxIOSettings* ios = sdkManager->GetIOSettings();
-//	ios->SetBoolProp(IMP_FBX_MATERIAL, true);
-//	ios->SetBoolProp(IMP_FBX_TEXTURE, true);
-//	ios->SetBoolProp(IMP_FBX_LINK, false);
-//	ios->SetBoolProp(IMP_FBX_SHAPE, true);
-//	ios->SetBoolProp(IMP_FBX_GOBO, true);
-//	ios->SetBoolProp(IMP_FBX_ANIMATION, true);
-//	ios->SetBoolProp(IMP_FBX_GLOBAL_SETTINGS, true);
-//
-//	FbxImporter* iImporter = FbxImporter::Create(sdkManager, "");
-//	if (!iImporter->Initialize(fileName.c_str(), -1, ios)) {
-//		iImporter->Destroy();
-//		return false;
-//	}
-//
-//	NewScene();
-//
-//	bool status = iImporter->Import(scene);
-//	iImporter->Destroy();
-//
-//	if (!status)
-//		return false;
-//
-//	return LoadMeshes(options);
-//}
-//
-//bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
-//	if (!scene)
-//		return false;
-//
-//	std::function<void(FbxNode*)> loadNodeChildren = [&](FbxNode* root) {
-//		for (int i = 0; i < root->GetChildCount(); i++) {
-//			FbxNode* child = root->GetChild(i);
-//
-//			if (child->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh) {
-//				FBXShape shape;
-//				FbxMesh* m = (FbxMesh*)child->GetNodeAttribute();
-//
-//				if (!m->IsTriangleMesh()) {
-//					FbxGeometryConverter converter(sdkManager);
-//					m = (FbxMesh*)converter.Triangulate((FbxNodeAttribute*)m, true);
-//				}
-//
-//				FbxGeometryElementUV* uv = m->GetElementUV(0);
-//				FbxGeometryElementNormal* normal = m->GetElementNormal(0);
-//
-//				shape.name = child->GetName();
-//				int numVerts = m->GetControlPointsCount();
-//				int numTris = m->GetPolygonCount();
-//
-//				for (int v = 0; v < numVerts; v++) {
-//					FbxVector4 vert = m->GetControlPointAt(v);
-//					shape.verts.emplace_back((float)vert.mData[0], (float)vert.mData[1], (float)vert.mData[2]);
-//					if (uv && uv->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
-//						int uIndex = v;
-//						if (uv->GetReferenceMode() == FbxLayerElement::eIndexToDirect)
-//							uIndex = uv->GetIndexArray().GetAt(v);
-//
-//						shape.uvs.emplace_back((float)uv->GetDirectArray().GetAt(uIndex).mData[0],
-//							(float)uv->GetDirectArray().GetAt(uIndex).mData[1]);
-//					}
-//
-//					if (normal && normal->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
-//						shape.normals.emplace_back((float)normal->GetDirectArray().GetAt(v).mData[0],
-//							(float)normal->GetDirectArray().GetAt(v).mData[1],
-//							(float)normal->GetDirectArray().GetAt(v).mData[2]);
-//					}
-//				}
-//
-//				const char* uvName = nullptr;
-//				if (uv) {
-//					uvName = uv->GetName();
-//					shape.uvs.resize(numVerts);
-//				}
-//
-//				for (int t = 0; t < numTris; t++) {
-//					if (m->GetPolygonSize(t) != 3)
-//						continue;
-//
-//					int p1 = m->GetPolygonVertex(t, 0);
-//					int p2 = m->GetPolygonVertex(t, 1);
-//					int p3 = m->GetPolygonVertex(t, 2);
-//					shape.tris.emplace_back(p1, p2, p3);
-//
-//					if (uv && uv->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
-//						FbxVector2 v_uv;
-//						bool isUnmapped;
-//
-//						if (m->GetPolygonVertexUV(t, 0, uvName, v_uv, isUnmapped))
-//							shape.uvs[p1] = Vector2(v_uv.mData[0], v_uv.mData[1]);
-//
-//						if (m->GetPolygonVertexUV(t, 1, uvName, v_uv, isUnmapped))
-//							shape.uvs[p2] = Vector2(v_uv.mData[0], v_uv.mData[1]);
-//
-//						if (m->GetPolygonVertexUV(t, 2, uvName, v_uv, isUnmapped))
-//							shape.uvs[p3] = Vector2(v_uv.mData[0], v_uv.mData[1]);
-//					}
-//				}
-//
-//				for (int iSkin = 0; iSkin < m->GetDeformerCount(FbxDeformer::eSkin); iSkin++) {
-//					FbxSkin* skin = (FbxSkin*)m->GetDeformer(iSkin, FbxDeformer::eSkin);
-//
-//					for (int iCluster = 0; iCluster < skin->GetClusterCount(); iCluster++) {
-//						FbxCluster* cluster = skin->GetCluster(iCluster);
-//						if (!cluster->GetLink())
-//							continue;
-//
-//						std::string bone = cluster->GetLink()->GetName();
-//						shape.boneNames.insert(bone);
-//						for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++) {
-//							int v = cluster->GetControlPointIndices()[iPoint];
-//							float w = cluster->GetControlPointWeights()[iPoint];
-//							shape.boneSkin[bone].SetWeight(v, w);
-//						}
-//					}
-//				}
-//
-//				if (options.InvertU)
-//					for (auto &u : shape.uvs)
-//						u.u = 1.0f - u.u;
-//
-//				if (options.InvertV)
-//					for (auto &v : shape.uvs)
-//						v.v = 1.0f - v.v;
-//
-//				shapes[shape.name] = shape;
-//			}
-//
-//			loadNodeChildren(child);
-//		}
-//	};
-//
-//	FbxNode* root = scene->GetRootNode();
-//	loadNodeChildren(root);
-//
-//	return true;
-//}
+
+bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOptions& options) {
+	FbxIOSettings* ios = sdkManager->GetIOSettings();
+	ios->SetBoolProp(IMP_FBX_MATERIAL, true);
+	ios->SetBoolProp(IMP_FBX_TEXTURE, true);
+	ios->SetBoolProp(IMP_FBX_LINK, false);
+	ios->SetBoolProp(IMP_FBX_SHAPE, true);
+	ios->SetBoolProp(IMP_FBX_GOBO, true);
+	ios->SetBoolProp(IMP_FBX_ANIMATION, true);
+	ios->SetBoolProp(IMP_FBX_GLOBAL_SETTINGS, true);
+
+	FbxImporter* iImporter = FbxImporter::Create(sdkManager, "");
+	if (!iImporter->Initialize(fileName.c_str(), -1, ios)) {
+		iImporter->Destroy();
+		return false;
+	}
+
+	//scene = FbxScene::Create(sdkManager, "ckcmd");
+
+	NewScene();
+
+	bool status = iImporter->Import(scene);
+
+	if (!status) {
+		FbxStatus ist = iImporter->GetStatus();
+		iImporter->Destroy();
+		return false;
+	}
+	iImporter->Destroy();
+
+	//FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
+	//scene->GetGlobalSettings().SetAxisSystem(maxSystem);
+	//scene->GetRootNode()->LclScaling.Set(FbxDouble3(1.0, 1.0, 1.0));
+
+
+	return LoadMeshes(options);
+}
+
+bool hasNoTransform(FbxNode* node) {
+	FbxDouble3 trans = node->LclTranslation.Get();
+	FbxDouble3 euler_angles = node->LclRotation.Get();
+	FbxDouble3 scaling = node->LclScaling.Get();
+	
+	return abs(trans[0]) < 1e-5 &&
+		abs(trans[1]) < 1e-5 &&
+		abs(trans[2]) < 1e-5 &&
+		abs(euler_angles[0]) < 1e-5 &&
+		abs(euler_angles[1]) < 1e-5 &&
+		abs(euler_angles[2]) < 1e-5 &&
+		abs(scaling[0]) > 1 - 1e-5 && abs(scaling[0]) < 1 + 1e-5 &&
+		abs(scaling[1]) > 1 - 1e-5 && abs(scaling[1]) < 1 + 1e-5 &&
+		abs(scaling[2]) > 1 - 1e-5 && abs(scaling[2]) < 1 + 1e-5;
+}
+
+void setAvTransform(FbxNode* node, NiAVObject* av) {
+	FbxDouble3 trans = node->LclTranslation.Get();
+	av->SetTranslation(Vector3(trans[0], trans[1], trans[2]));
+	FbxDouble3 euler_angles = node->LclRotation.Get();
+	EulerAngles ea = Eul_(deg2rad(euler_angles[0]), deg2rad(euler_angles[1]), deg2rad(euler_angles[2]), EulOrdXYZs);
+	HMatrix out;
+	Eul_ToHMatrix(ea, out);
+	av->SetRotation(
+		Matrix33(
+			out[0][0], out[0][1], out[0][2],
+			out[1][0], out[1][1], out[1][2],
+			out[2][0], out[2][1], out[2][2]
+		)
+	);
+	FbxDouble3 scaling = node->LclScaling.Get();
+	//TODO: handle scaling
+	av->SetScale(scaling[0]);
+}
+
+NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& options) {
+	NiTriShapeRef out = new NiTriShape();
+	NiTriShapeDataRef data = new NiTriShapeData();
+	FbxMesh* m = (FbxMesh*)child->GetNodeAttribute();
+
+	if (!m->IsTriangleMesh()) {
+		FbxGeometryConverter converter(sdkManager);
+		m = (FbxMesh*)converter.Triangulate((FbxNodeAttribute*)m, true);
+	}
+
+	FbxGeometryElementUV* uv = m->GetElementUV(0);
+	FbxGeometryElementNormal* normal = m->GetElementNormal(0);
+	FbxGeometryElementVertexColor* vc = m->GetElementVertexColor(0);
+
+	out->SetName(string(child->GetName()));
+	int numVerts = m->GetControlPointsCount();
+	int numTris = m->GetPolygonCount();
+
+	vector<Vector3> verts;
+	vector<Vector3> normals;
+	vector<Color4 > vcs;
+
+	if (normal == NULL) {
+		Log::Info("Warning: cannot find normals, I'll recalculate them for %s", child->GetName());
+	}
+	vector<TexCoord> uvs;
+	for (int v = 0; v < numVerts; v++) {
+		FbxVector4 vert = m->GetControlPointAt(v);
+
+		if (uv->GetMappingMode() != FbxGeometryElement::eByControlPoint &&
+			uv->GetMappingMode() != FbxGeometryElement::eByPolygonVertex) {
+			FbxGeometryElement::EMappingMode m = uv->GetMappingMode();
+			cout << "lol" << endl;
+		}
+		
+		verts.emplace_back((float)vert.mData[0], (float)vert.mData[1], (float)vert.mData[2]);
+		if (uv && uv->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
+			int uIndex = v;
+			if (uv->GetReferenceMode() == FbxLayerElement::eIndexToDirect)
+				uIndex = uv->GetIndexArray().GetAt(v);
+
+			uvs.emplace_back((float)uv->GetDirectArray().GetAt(uIndex).mData[0],
+				(float)uv->GetDirectArray().GetAt(uIndex).mData[1]);
+		}
+
+		if (normal && normal->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
+			normals.emplace_back((float)normal->GetDirectArray().GetAt(v).mData[0],
+				(float)normal->GetDirectArray().GetAt(v).mData[1],
+				(float)normal->GetDirectArray().GetAt(v).mData[2]);
+		}
+
+		if (vc && vc->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
+			vcs.emplace_back(
+				Color4
+				(
+					(float)vc->GetDirectArray().GetAt(v).mRed,
+					(float)vc->GetDirectArray().GetAt(v).mGreen,
+					(float)vc->GetDirectArray().GetAt(v).mBlue,
+					(float)vc->GetDirectArray().GetAt(v).mAlpha
+				)
+			);
+		}
+	}
+	if (verts.size() > 0) {
+		data->SetHasVertices(true);
+		data->SetVertices(verts);
+	}
+	if (vcs.size()) 
+	{
+		data->SetHasVertexColors(true);
+		data->SetVertexColors(vcs);
+	}
+
+	const char* uvName = nullptr;
+	if (uv) {
+		uvName = uv->GetName();
+		uvs.resize(numVerts);
+	}
+
+	vector<Triangle> tris;
+
+	for (int t = 0; t < numTris; t++) {
+		if (m->GetPolygonSize(t) != 3)
+			continue;
+
+		int p1 = m->GetPolygonVertex(t, 0);
+		int p2 = m->GetPolygonVertex(t, 1);
+		int p3 = m->GetPolygonVertex(t, 2);
+		tris.emplace_back(p1, p2, p3);
+
+		if (uv && uv->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
+			FbxVector2 v_uv;
+			bool isUnmapped;
+
+			if (m->GetPolygonVertexUV(t, 0, uvName, v_uv, isUnmapped))
+				uvs[p1] = TexCoord(v_uv.mData[0], v_uv.mData[1]);
+
+			if (m->GetPolygonVertexUV(t, 1, uvName, v_uv, isUnmapped))
+				uvs[p2] = TexCoord(v_uv.mData[0], v_uv.mData[1]);
+
+			if (m->GetPolygonVertexUV(t, 2, uvName, v_uv, isUnmapped))
+				uvs[p3] = TexCoord(v_uv.mData[0], v_uv.mData[1]);
+		}
+	}
+	if (tris.size()) {
+		data->SetHasTriangles(true);
+		data->SetNumTriangles(tris.size());
+		data->SetNumTrianglePoints(tris.size()*3);
+		data->SetTriangles(tris);
+
+		if (normals.empty() && verts.size())
+		{
+			Vector3 COM;
+			CalculateNormals(verts, tris, normals, COM);
+		}
+	}
+
+	if (normals.size() > 0) {
+		data->SetHasNormals(true);
+		data->SetNormals(normals);
+	}
+
+	for (int iSkin = 0; iSkin < m->GetDeformerCount(FbxDeformer::eSkin); iSkin++) {
+		FbxSkin* skin = (FbxSkin*)m->GetDeformer(iSkin, FbxDeformer::eSkin);
+
+		for (int iCluster = 0; iCluster < skin->GetClusterCount(); iCluster++) {
+			FbxCluster* cluster = skin->GetCluster(iCluster);
+			if (!cluster->GetLink())
+				continue;
+
+			std::string bone = cluster->GetLink()->GetName();
+			//shape.boneNames.insert(bone);
+			for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++) {
+				int v = cluster->GetControlPointIndices()[iPoint];
+				float w = cluster->GetControlPointWeights()[iPoint];
+				//shape.boneSkin[bone].SetWeight(v, w);
+			}
+		}
+	}
+
+	if (options.InvertU)
+		for (auto &u : uvs)
+			u.u = 1.0f - u.u;
+
+	if (options.InvertV)
+		for (auto &v : uvs)
+			v.v = 1.0f - v.v;
+
+	if (uvs.size() > 0) {
+		data->SetHasUv(true);
+		data->SetBsVectorFlags((BSVectorFlags)(data->GetBsVectorFlags() | BSVF_HAS_UV));
+		data->SetUvSets({ uvs });
+	}
+
+	if (verts.size() != 0 && tris.size() != 0 && uvs.size() != 0) {
+		Vector3 COM;
+		TriGeometryContext g(verts, COM, tris, uvs, normals);
+		data->SetHasNormals(1);
+		//recalculate
+		data->SetNormals(g.normals);
+		data->SetTangents(g.tangents);
+		data->SetBitangents(g.bitangents);
+		if (verts.size() != g.normals.size() || verts.size() != g.tangents.size() || verts.size() != g.bitangents.size())
+			throw runtime_error("Geometry mismatch!");
+		data->SetBsVectorFlags(static_cast<BSVectorFlags>(data->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
+	}
+
+	BSLightingShaderProperty* shader = new BSLightingShaderProperty();
+	if (data->GetHasVertexColors() == false)
+		shader->SetShaderFlags2_sk(SkyrimShaderPropertyFlags2(shader->GetShaderFlags2() & ~SLSF2_VERTEX_COLORS));
+
+	out->SetShaderProperty(shader);
+	out->SetData(StaticCast<NiGeometryData>(data));
+	
+
+	return out;
+}
+
+void DisplayChannels(FbxNode* pNode, FbxAnimLayer* pAnimLayer)
+{
+	FbxAnimCurve* lAnimCurve = NULL;
+	// Display general curves.
+
+		lAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
+		if (lAnimCurve)
+		{
+			FBXSDK_printf("        TX\n");
+		}
+		lAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
+		if (lAnimCurve)
+		{
+			FBXSDK_printf("        TY\n");
+		}
+		lAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+		if (lAnimCurve)
+		{
+			FBXSDK_printf("        TZ\n");
+		}
+		lAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
+		if (lAnimCurve)
+		{
+			FBXSDK_printf("        RX\n");
+		}
+		lAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
+		if (lAnimCurve)
+		{
+			FBXSDK_printf("        RY\n");
+		}
+		lAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+		if (lAnimCurve)
+		{
+			FBXSDK_printf("        RZ\n");
+		}
+		lAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
+		if (lAnimCurve)
+		{
+			FBXSDK_printf("        SX\n");
+		}
+		lAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
+		if (lAnimCurve)
+		{
+			FBXSDK_printf("        SY\n");
+		}
+		lAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+		if (lAnimCurve)
+		{
+			FBXSDK_printf("        SZ\n");
+		}
+	
+	// Display curves specific to a light or marker.
+	FbxNodeAttribute* lNodeAttribute = pNode->GetNodeAttribute();
+	if (lNodeAttribute)
+	{
+		lAnimCurve = lNodeAttribute->Color.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COLOR_RED);
+		if (lAnimCurve)
+		{
+			FBXSDK_printf("        Red\n");
+		}
+		lAnimCurve = lNodeAttribute->Color.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COLOR_GREEN);
+		if (lAnimCurve)
+		{
+			FBXSDK_printf("        Green\n");
+		}
+		lAnimCurve = lNodeAttribute->Color.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COLOR_BLUE);
+		if (lAnimCurve)
+		{
+			FBXSDK_printf("        Blue\n");
+		}
+		// Display curves specific to a light.
+		FbxLight* light = pNode->GetLight();
+		if (light)
+		{
+			lAnimCurve = light->Intensity.GetCurve(pAnimLayer);
+			if (lAnimCurve)
+			{
+				FBXSDK_printf("        Intensity\n");
+			}
+			lAnimCurve = light->OuterAngle.GetCurve(pAnimLayer);
+			if (lAnimCurve)
+			{
+				FBXSDK_printf("        Outer Angle\n");
+			}
+			lAnimCurve = light->Fog.GetCurve(pAnimLayer);
+			if (lAnimCurve)
+			{
+				FBXSDK_printf("        Fog\n");
+			}
+		}
+		// Display curves specific to a camera.
+		FbxCamera* camera = pNode->GetCamera();
+		if (camera)
+		{
+			lAnimCurve = camera->FieldOfView.GetCurve(pAnimLayer);
+			if (lAnimCurve)
+			{
+				FBXSDK_printf("        Field of View\n");
+			}
+			lAnimCurve = camera->FieldOfViewX.GetCurve(pAnimLayer);
+			if (lAnimCurve)
+			{
+				FBXSDK_printf("        Field of View X\n");
+			}
+			lAnimCurve = camera->FieldOfViewY.GetCurve(pAnimLayer);
+			if (lAnimCurve)
+			{
+				FBXSDK_printf("        Field of View Y\n");
+			}
+			lAnimCurve = camera->OpticalCenterX.GetCurve(pAnimLayer);
+			if (lAnimCurve)
+			{
+				FBXSDK_printf("        Optical Center X\n");
+			}
+			lAnimCurve = camera->OpticalCenterY.GetCurve(pAnimLayer);
+			if (lAnimCurve)
+			{
+				FBXSDK_printf("        Optical Center Y\n");
+			}
+			lAnimCurve = camera->Roll.GetCurve(pAnimLayer);
+			if (lAnimCurve)
+			{
+				FBXSDK_printf("        Roll\n");
+			}
+		}
+		// Display curves specific to a geometry.
+		if (lNodeAttribute->GetAttributeType() == FbxNodeAttribute::eMesh ||
+			lNodeAttribute->GetAttributeType() == FbxNodeAttribute::eNurbs ||
+			lNodeAttribute->GetAttributeType() == FbxNodeAttribute::ePatch)
+		{
+			FbxGeometry* lGeometry = (FbxGeometry*)lNodeAttribute;
+			int lBlendShapeDeformerCount = lGeometry->GetDeformerCount(FbxDeformer::eBlendShape);
+			for (int lBlendShapeIndex = 0; lBlendShapeIndex<lBlendShapeDeformerCount; ++lBlendShapeIndex)
+			{
+				FbxBlendShape* lBlendShape = (FbxBlendShape*)lGeometry->GetDeformer(lBlendShapeIndex, FbxDeformer::eBlendShape);
+				int lBlendShapeChannelCount = lBlendShape->GetBlendShapeChannelCount();
+				for (int lChannelIndex = 0; lChannelIndex<lBlendShapeChannelCount; ++lChannelIndex)
+				{
+					FbxBlendShapeChannel* lChannel = lBlendShape->GetBlendShapeChannel(lChannelIndex);
+					const char* lChannelName = lChannel->GetName();
+					lAnimCurve = lGeometry->GetShapeChannel(lBlendShapeIndex, lChannelIndex, pAnimLayer, true);
+					if (lAnimCurve)
+					{
+						FBXSDK_printf("        Shape %s\n", lChannelName);
+					}
+				}
+			}
+		}
+	}
+	// Display curves specific to properties
+	FbxProperty lProperty = pNode->GetFirstProperty();
+	while (lProperty.IsValid())
+	{
+		if (lProperty.GetFlag(FbxPropertyFlags::eUserDefined))
+		{
+			FbxString lFbxFCurveNodeName = lProperty.GetName();
+			FbxAnimCurveNode* lCurveNode = lProperty.GetCurveNode(pAnimLayer);
+			if (!lCurveNode) {
+				lProperty = pNode->GetNextProperty(lProperty);
+				continue;
+			}
+			FbxDataType lDataType = lProperty.GetPropertyDataType();
+			if (lDataType.GetType() == eFbxBool || lDataType.GetType() == eFbxDouble || lDataType.GetType() == eFbxFloat || lDataType.GetType() == eFbxInt)
+			{
+				FbxString lMessage;
+				lMessage = "        Property ";
+				lMessage += lProperty.GetName();
+				if (lProperty.GetLabel().GetLen() > 0)
+				{
+					lMessage += " (Label: ";
+					lMessage += lProperty.GetLabel();
+					lMessage += ")";
+				};
+				FBXSDK_printf(lMessage.Buffer());
+				for (int c = 0; c < lCurveNode->GetCurveCount(0U); c++)
+				{
+					lAnimCurve = lCurveNode->GetCurve(0U, c);
+					//if (lAnimCurve)
+					//	DisplayCurve(lAnimCurve);
+				}
+			}
+			else if (lDataType.GetType() == eFbxDouble3 || lDataType.GetType() == eFbxDouble4 || lDataType.Is(FbxColor3DT) || lDataType.Is(FbxColor4DT))
+			{
+				char* lComponentName1 = (lDataType.Is(FbxColor3DT) || lDataType.Is(FbxColor4DT)) ? (char*)FBXSDK_CURVENODE_COLOR_RED : (char*)"X";
+				char* lComponentName2 = (lDataType.Is(FbxColor3DT) || lDataType.Is(FbxColor4DT)) ? (char*)FBXSDK_CURVENODE_COLOR_GREEN : (char*)"Y";
+				char* lComponentName3 = (lDataType.Is(FbxColor3DT) || lDataType.Is(FbxColor4DT)) ? (char*)FBXSDK_CURVENODE_COLOR_BLUE : (char*)"Z";
+				FbxString      lMessage;
+
+				lMessage = "        Property ";
+				lMessage += lProperty.GetName();
+				if (lProperty.GetLabel().GetLen() > 0)
+				{
+					lMessage += " (Label: ";
+					lMessage += lProperty.GetLabel();
+					lMessage += ")";
+				}
+				FBXSDK_printf(lMessage.Buffer());
+				for (int c = 0; c < lCurveNode->GetCurveCount(0U); c++)
+				{
+					lAnimCurve = lCurveNode->GetCurve(0U, c);
+					if (lAnimCurve)
+					{
+						FBXSDK_printf("        Component ", lComponentName1);
+					}
+				}
+				for (int c = 0; c < lCurveNode->GetCurveCount(1U); c++)
+				{
+					lAnimCurve = lCurveNode->GetCurve(1U, c);
+					if (lAnimCurve)
+					{
+						FBXSDK_printf("        Component ", lComponentName2);
+					}
+				}
+				for (int c = 0; c < lCurveNode->GetCurveCount(2U); c++)
+				{
+					lAnimCurve = lCurveNode->GetCurve(2U, c);
+					if (lAnimCurve)
+					{
+						FBXSDK_printf("        Component ", lComponentName3);
+					}
+				}
+			}
+			else if (lDataType.GetType() == eFbxEnum)
+			{
+				FbxString lMessage;
+				lMessage = "        Property ";
+				lMessage += lProperty.GetName();
+				if (lProperty.GetLabel().GetLen() > 0)
+				{
+					lMessage += " (Label: ";
+					lMessage += lProperty.GetLabel();
+					lMessage += ")";
+				};
+				FBXSDK_printf(lMessage.Buffer());
+				for (int c = 0; c < lCurveNode->GetCurveCount(0U); c++)
+				{
+					lAnimCurve = lCurveNode->GetCurve(0U, c);
+					//if (lAnimCurve)
+					//	DisplayListCurve(lAnimCurve, &lProperty);
+				}
+			}
+		}
+		lProperty = pNode->GetNextProperty(lProperty);
+	} // while
+}
+
+bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
+	if (!scene)
+		return false;
+	
+	//nodes
+	std::function<void(FbxNode*)> loadNodeChildren = [&](FbxNode* root) {
+		for (int i = 0; i < root->GetChildCount(); i++) {
+			FbxNode* child = root->GetChild(i);
+			NiAVObjectRef nif_child = NULL;
+			if (child->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh) {
+				nif_child = StaticCast<NiAVObject>(importShape(child, options));
+				setAvTransform(child, nif_child);
+			}
+			else {
+				FbxNodeAttribute::EType type = child->GetNodeAttribute()->GetAttributeType();
+				cout << "lol" << endl;
+			}
+			if (nif_child == NULL) {
+				nif_child = new NiNode();
+				nif_child->SetName(string(child->GetName()));
+				setAvTransform(child, nif_child);
+			}
+			conversion_Map[child] = nif_child;
+
+			NiNodeRef parent = DynamicCast<NiNode>(conversion_Map[root]);
+			if (parent != NULL) {
+				vector<Ref<NiAVObject > > children = parent->GetChildren();
+				children.push_back(nif_child);
+				parent->SetChildren(children);
+			}
+
+			loadNodeChildren(child);
+		}
+	};
+
+	FbxNode* root = scene->GetRootNode();
+	conversion_root = new BSFadeNode();
+
+	if (!hasNoTransform(root)) {
+		NiNodeRef proxyNiNode = new NiNode();
+		setAvTransform(root, proxyNiNode);
+		proxyNiNode->SetName(string("rootTransformProxy"));
+		conversion_root->SetChildren({ StaticCast<NiAVObject>(proxyNiNode) });
+		conversion_Map[root] = proxyNiNode;
+	}
+	else {
+		conversion_Map[root] = conversion_root;
+	}
+	loadNodeChildren(root);
+
+	//animations
+	for (int i = 0; i < scene->GetSrcObjectCount<FbxAnimStack>(); i++)
+	{
+		FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(i);
+
+		FbxString lOutputString = "Animation Stack Name: ";
+		lOutputString += lAnimStack->GetName();
+		lOutputString += "\n\n";
+		FBXSDK_printf(lOutputString);
+
+		int nbAnimLayers = lAnimStack->GetMemberCount<FbxAnimLayer>();
+		for (int l = 0; l < nbAnimLayers; l++)
+		{
+			FbxAnimLayer* lAnimLayer = lAnimStack->GetMember<FbxAnimLayer>(l);
+			lOutputString = "AnimLayer ";
+			lOutputString += l;
+			lOutputString += "\n";
+			FBXSDK_printf(lOutputString);
+			//DisplayAnimation(lAnimLayer, pNode, isSwitcher);
+			for (const auto & pair : conversion_Map) {
+				FBXSDK_printf(pair.first->GetName()); FBXSDK_printf("\n");
+				DisplayChannels(pair.first, lAnimLayer);
+			}
+		}
+
+	}
+
+	return true;
+}
+
+bool FBXWrangler::SaveNif(const string& fileName) {
+	vector<NiObjectRef> objects;
+	for (const auto& obj : conversion_Map) {
+		objects.push_back(StaticCast<NiObject>(obj.second));
+	}
+	if (find(objects.begin(), objects.end(), conversion_root) == objects.end())
+		objects.push_back(StaticCast<NiObject>(conversion_root));
+
+	NifInfo info;
+	info.userVersion = 12;
+	info.userVersion2 = 83;
+	info.version = Niflib::VER_20_2_0_7;
+
+	NifFile out(info, objects);
+	return out.Save(fileName);
+}

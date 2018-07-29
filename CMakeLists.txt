@@ -233,13 +233,13 @@ add_library(
 set_target_properties(
 	fbxsdk 
 	PROPERTIES IMPORTED_LOCATION             
-	"${CMAKE_SOURCE_DIR}/lib/fbx/lib/vs2008/x86/release/libfbxsdk.lib"
+	"${CMAKE_SOURCE_DIR}/lib/fbx/lib/vs2017/x86/release/libfbxsdk.lib"
 )
 
 set_target_properties(
 	fbxsdk
 	PROPERTIES IMPORTED_LOCATION_DEBUG             
-	"${CMAKE_SOURCE_DIR}/lib/fbx/lib/vs2008/x86/debug/libfbxsdk.lib"
+	"${CMAKE_SOURCE_DIR}/lib/fbx/lib/vs2017/x86/debug/libfbxsdk.lib"
 )
 
 add_definitions(-DFBXSDK_SHARED)
@@ -344,6 +344,7 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/FBXWrangler.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/NifFile.h"
 #COMMANDS
+					 "${CMAKE_SOURCE_DIR}/include/commands/ImportFbx.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/RetargetSkin.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/AddNodesToSkeleton.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ConvertNif.h"
@@ -441,7 +442,7 @@ target_include_directories	(ck-cmd PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_D
 
 add_custom_command(TARGET ck-cmd POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different  
-        "${PROJECT_SOURCE_DIR}/lib/fbx/lib/vs2008/x86/$<CONFIGURATION>/libfbxsdk.dll"
+        "${PROJECT_SOURCE_DIR}/lib/fbx/lib/vs2017/x86/$<CONFIGURATION>/libfbxsdk.dll"
         $<TARGET_FILE_DIR:ck-cmd>)
 
 # Build tester.

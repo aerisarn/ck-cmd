@@ -62,6 +62,8 @@ namespace FBX {
 
 		unordered_map<std::string, FBXSkin> boneSkin;
 		set<string> boneNames;
+
+
 	};
 
 	class FBXWrangler {
@@ -71,6 +73,10 @@ namespace FBX {
 
 		string comName;
 		map<string, FBXShape> shapes;
+		NiTriShapeRef importShape(FbxNode* child, const FBXImportOptions& options);
+
+		map<FbxNode*, NiObjectRef> conversion_Map;
+		NiNodeRef conversion_root;
 
 	public:
 		FBXWrangler();
@@ -106,7 +112,8 @@ namespace FBX {
 		bool ExportScene(const std::string& fileName);
 		bool ImportScene(const std::string& fileName, const FBXImportOptions& options = FBXImportOptions());
 
-		//bool LoadMeshes(const FBXImportOptions& options);
+		bool LoadMeshes(const FBXImportOptions& options);
+		bool SaveNif(const string& fileName);
 	};	
 	
 } 

@@ -49,6 +49,11 @@ using namespace Niflib;
 
 			NifFile() {}
 
+			NifFile(NifInfo& header, vector<NiObjectRef>& blocks) {
+				this->blocks = blocks;
+				this->hdr = header;
+			}
+
 			NifFile(const std::string& fileName) {
 				Load(fileName);
 			}
