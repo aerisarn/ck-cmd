@@ -78,6 +78,8 @@ namespace FBX {
 		map<FbxNode*, NiObjectRef> conversion_Map;
 		NiNodeRef conversion_root;
 
+		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start);
+
 	public:
 		FBXWrangler();
 		~FBXWrangler();
