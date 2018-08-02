@@ -63,7 +63,6 @@ namespace FBX {
 		unordered_map<std::string, FBXSkin> boneSkin;
 		set<string> boneNames;
 
-
 	};
 
 	class FBXWrangler {
@@ -75,11 +74,14 @@ namespace FBX {
 		map<string, FBXShape> shapes;
 		NiTriShapeRef importShape(FbxNode* child, const FBXImportOptions& options);
 
+		map<NiAVObjectRef, NiAVObjectRef> conversion_parent_Map;
 		map<FbxNode*, NiObjectRef> conversion_Map;
+		map<FbxMesh*, NiTriShapeRef> skins_Map;
 		NiNodeRef conversion_root;
+		set<string> sequences_names;
 
 		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start);
-
+		void convertSkins(FbxMesh* m, NiTriShapeRef shape);
 	public:
 		FBXWrangler();
 		~FBXWrangler();
