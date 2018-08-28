@@ -73,6 +73,7 @@ namespace FBX {
 		string comName;
 		map<string, FBXShape> shapes;
 		NiTriShapeRef importShape(FbxNode* child, const FBXImportOptions& options);
+		vector<NiTriShapeRef> importMultipleShape(FbxNode* child, const FBXImportOptions& options);
 
 		map<NiAVObjectRef, NiAVObjectRef> conversion_parent_Map;
 		map<FbxNode*, NiObjectRef> conversion_Map;

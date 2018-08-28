@@ -1011,14 +1011,7 @@ FbxAMatrix getNodeTransform(FbxNode* pNode) {
 	}
 	FbxAMatrix localMatrix = pNode->EvaluateLocalTransform();
 
-	//FbxNode* pParentNode = pNode->GetParent();
-	//FbxAMatrix parentMatrix = pParentNode->EvaluateLocalTransform();
-	//while ((pParentNode = pParentNode->GetParent()) != NULL)
-	//{
-	//	parentMatrix = pParentNode->EvaluateLocalTransform() * parentMatrix;
-	//}
-
-	return /*parentMatrix **/ localMatrix * matrixGeo;
+	return localMatrix * matrixGeo;
 }
 
 FbxAMatrix getWorldTransform(FbxNode* pNode) {
@@ -1047,13 +1040,8 @@ FbxAMatrix getWorldTransform(FbxNode* pNode) {
 
 void setAvTransform(FbxNode* node, NiAVObject* av, bool rotation_only = false) {
 	FbxAMatrix tr = getNodeTransform(node);
-	FbxDouble3 trans = tr.GetT(); // = node->LclTranslation.Get();
-	//if (!rotation_only)
+	FbxDouble3 trans = tr.GetT();
 	av->SetTranslation(Vector3(trans[0], trans[1], trans[2]));
-	//FbxDouble3 euler_angles = tr.GetR(); // node->LclRotation.Get();
-	//EulerAngles ea = Eul_(deg2rad(euler_angles[0]), deg2rad(euler_angles[1]), deg2rad(euler_angles[2]), EulOrdXYZs);
-	//HMatrix out;
-	//Eul_ToHMatrix(ea, out);
 	av->SetRotation(
 		Matrix33(
 			tr.Get(0,0), tr.Get(0,1), tr.Get(0,2),
@@ -1064,19 +1052,12 @@ void setAvTransform(FbxNode* node, NiAVObject* av, bool rotation_only = false) {
 	FbxDouble3 scaling = tr.GetS(); // node->LclScaling.Get();
 	if (scaling[0] == scaling[1] && scaling[1] == scaling[2])
 		av->SetScale(scaling[0]);
-	//TODO: handle scaling
-	//av->SetScale(scaling[0]);
 }
 
 NiTransform GetAvTransform(FbxAMatrix tr) {
 	NiTransform out;
-	FbxDouble3 trans = tr.GetT(); // = node->LclTranslation.Get();
-								  //if (!rotation_only)
+	FbxDouble3 trans = tr.GetT();
 	out.translation = Vector3(trans[0], trans[1], trans[2]);
-	//FbxDouble3 euler_angles = tr.GetR(); // node->LclRotation.Get();
-	//EulerAngles ea = Eul_(deg2rad(euler_angles[0]), deg2rad(euler_angles[1]), deg2rad(euler_angles[2]), EulOrdXYZs);
-	//HMatrix out;
-	//Eul_ToHMatrix(ea, out);
 	out.rotation =
 		Matrix33(
 			tr.Get(0, 0), tr.Get(0, 1), tr.Get(0, 2),
@@ -1087,8 +1068,6 @@ NiTransform GetAvTransform(FbxAMatrix tr) {
 	FbxDouble3 scaling = tr.GetS(); // node->LclScaling.Get();
 	if (scaling[0] == scaling[1] && scaling[1] == scaling[2])
 		out.scale = scaling[0];
-	//TODO: handle scaling
-	//av->SetScale(scaling[0]);
 	return out;
 }
 
@@ -1099,96 +1078,6 @@ struct bone_weight {
 
 	bone_weight(NiNode* bone, float weight) : bone(bone), weight(weight) {}
 };
-
-static inline Niflib::Vector3 TOVECTOR3(const hkVector4& v) {
-	return Niflib::Vector3(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2));
-}
-
-static inline Niflib::Matrix33 TOMATRIX33(const hkMatrix3& v) {
-	return Niflib::Matrix33(
-		v(0, 0), v(1, 0), v(2, 0),
-		v(0, 1), v(1, 1), v(2, 1),
-		v(0, 2), v(1, 2), v(2, 2)
-	);
-}
-
-static inline hkVector4 TOVECTOR3(const Niflib::Vector3& v) {
-	return hkVector4(v.x, v.y, v.z);
-}
-
-static inline hkVector4 TOVECTOR4(const Niflib::Vector4& v) {
-	return hkVector4(v.x, v.y, v.z, v.w);
-}
-
-static inline hkRotation TOMATRIX3(const Niflib::Matrix33& q) {
-	hkRotation m3;
-	m3(0, 0) = q[0][0]; m3(0, 1) = q[1][0]; m3(0, 2) = q[2][0];
-	m3(1, 0) = q[0][1]; m3(1, 1) = q[1][1]; m3(1, 2) = q[2][1];
-	m3(2, 0) = q[0][2]; m3(2, 1) = q[1][2]; m3(2, 2) = q[2][2];
-	return m3;
-}
-
-static inline hkQsTransform TOHKTRANSFORM(const NiAVObjectRef node) {
-	Vector3 node_trans = node->GetTranslation();
-	hkVector4 hk_node_trans = TOVECTOR3(node_trans);
-	Matrix33 node_rot = node->GetRotation();
-	hkRotation hk_node_rot = TOMATRIX3(node_rot);
-	return	hkQsTransform(hk_node_trans, ::hkQuaternion(hk_node_rot), hkVector4(node->GetScale(), node->GetScale(), node->GetScale()));
-}
-
-static inline hkTransform TOHKTRANSFORM(const NiTransform& trans) {
-	Vector3 node_trans = trans.translation;
-	hkVector4 hk_node_trans = TOVECTOR3(node_trans);
-	Matrix33 node_rot = trans.rotation;
-	hkRotation hk_node_rot = TOMATRIX3(node_rot);
-	return	hkTransform(hk_node_rot, hk_node_trans);
-}
-
-static inline Niflib::Quaternion TOQUAT(const ::hkQuaternion& q, bool inverse = false) {
-	Niflib::Quaternion qt(q.m_vec.getSimdAt(3), q.m_vec.getSimdAt(0), q.m_vec.getSimdAt(1), q.m_vec.getSimdAt(2));
-	return inverse ? qt.Inverse() : qt;
-}
-
-static inline ::hkQuaternion TOQUAT(const Niflib::Quaternion& q, bool inverse = false) {
-	hkVector4 v(q.x, q.y, q.z, q.w);
-	v.normalize4();
-	::hkQuaternion qt(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
-	if (inverse) qt.setInverse(qt);
-	return qt;
-}
-
-static inline ::hkQuaternion TOQUAT(const Niflib::hkQuaternion& q, bool inverse = false) {
-	hkVector4 v(q.x, q.y, q.z, q.w);
-	v.normalize4();
-	::hkQuaternion qt(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
-	if (inverse) qt.setInverse(qt);
-	return qt;
-}
-
-vector<NiAVObjectRef> getSkinParentChain(const map<NiAVObjectRef, NiAVObjectRef>& parentMap, NiAVObjectRef node) {
-	vector<NiAVObjectRef> vresult;
-	NiAVObjectRef result = node;
-	vresult.insert(vresult.begin(), DynamicCast<NiAVObject>(result));
-	map<NiAVObjectRef, NiAVObjectRef>::const_iterator parent_it = parentMap.find(node);
-	while (parent_it != parentMap.end() && DynamicCast<NiAVObject>(parent_it->second) != NULL) {
-		vresult.insert(vresult.begin(), DynamicCast<NiAVObject>(parent_it->second));
-		parent_it = parentMap.find(DynamicCast<NiAVObject>(parent_it->second));
-	}
-	return vresult;
-}
-
-hkQsTransform accumulateSkinTransformChain(const vector<NiAVObjectRef>& chain/*, const NiAVObjectRef& stopNode*/) {
-	hkQsTransform result = hkQsTransform::getIdentity();
-	//size_t start_index = 0;
-	//while (start_index < chain.size() && chain[start_index] != stopNode) start_index++;
-	/*for (start_index; start_index < chain.size(); start_index++) {*/
-	for (const auto& item : chain) {
-		result.setMulEq(TOHKTRANSFORM(item));
-	}
-	//result.setInverse(result);
-	return result;
-}
-
 
 void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape) {
 	if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
@@ -1242,34 +1131,16 @@ void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape) {
 
 				BoneData& this_bone_data = bones_data[bone];
 
-				//vector<NiAVObjectRef> chain = getSkinParentChain(conversion_parent_Map, bone);
-				//hkQsTransform node_transform = accumulateSkinTransformChain(chain);
-				//hkQsTransform temp; temp.setInverse(node_transform);
-				//this_bone_data.skinTransform.translation = TOVECTOR3(temp.getTranslation());
-				//::hkQuaternion quatrot = temp.getRotation();
-				//hkMatrix3 rot = hkRotation::getIdentity(); rot.setMul(quatrot, rot);
-				//this_bone_data.skinTransform.rotation = TOMATRIX33(rot);
-				//this_bone_data.skinTransform.scale = temp.getScale()(0);
-
 				FbxTime lTime;
-
-				// Set the time at two seconds.
 				lTime.SetSecondDouble(0);
 				this_bone_data.skinTransform = GetAvTransform(cluster->GetLink()->EvaluateGlobalTransform(lTime).Inverse());
 				this_bone_data.numVertices += cluster->GetControlPointIndicesCount();
 
 				vector<BoneVertData>& vertsData = this_bone_data.vertexWeights;
-
-/*				partition.numVertices += cluster->GetControlPointIndicesCount();
-				
-				int offset = vertexMap.size();
-				vertexMap.resize(vertexMap.size()+cluster->GetControlPointIndicesCount());	*/	
-
 				if (bone != NULL) {
 					for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++) {
 						int v = cluster->GetControlPointIndices()[iPoint];
 						float w = cluster->GetControlPointWeights()[iPoint];
-						//shape.boneSkin[bone].SetWeight(v, w);
 
 						vector<unsigned short >::iterator v_local_it = find(vertexMap.begin(), vertexMap.end(), v);
 
@@ -1295,23 +1166,12 @@ void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape) {
 						vertsData.push_back(vertData);
 					}
 
-					//partition.numTriangles = cluster_triangles.size();
-
-					
 					int b_local_index = 0;
-					//bones.insert(bone);
 					if (bones.insert(bone).second) {
-						//partition.bones.push_back(vbones.size());
 						vbones.push_back(bone);
 					}
 
 				}
-				//std::string bone = cluster->GetLink()->GetName();
-				//shape.boneNames.insert(bone);
-				//bones_data.push_back(data);
-
-
-
 			}
 
 			vector< vector<byte > >& pindexes = partition.boneIndices;
@@ -1356,11 +1216,32 @@ void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape) {
 				vector<byte >& pindex = pindexes[i_f]; 
 				if (pindex.size() > 4)
 					Log::Error("Too many indices for bone");
-				pindex.resize(4);
+
 				vector<float >& vweight = vweights[i_f]; 
 				if (vweight.size() > 4)
 					Log::Error("Too many weights for bone");
-				
+
+				//find less influencing bone
+				if (pindex.size() != vweight.size()) {
+					Log::Error("Fatal Error: weights != indexes");
+					throw std::runtime_error("Fatal Error: weights != indexes");
+				}
+				bool removed = false;
+				while (vweight.size() > 4) {
+					removed = true;
+					int to_remove_bone = distance(vweight.begin(), min_element(begin(vweight), end(vweight)));
+					pindex.erase(pindex.begin() + to_remove_bone);
+					vweight.erase(vweight.begin() + to_remove_bone);
+				}
+				if (removed) {
+					float sum = std::accumulate(vweight.begin(), vweight.end(), 0.0f);
+					vweight[0] /= sum;
+					vweight[1] /= sum;
+					vweight[2] /= sum;
+					vweight[3] /= sum;
+				}
+
+				pindex.resize(4);
 				vweight.resize(4);
 			}
 
@@ -1414,6 +1295,35 @@ void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape) {
 
 }
 
+template <class Type, typename T> 
+T getIndexedElement(FbxLayerElementTemplate<Type>* layer, size_t index)
+{
+	switch (layer->GetReferenceMode()) {
+		case FbxLayerElement::EReferenceMode::eDirect:
+			return layer->GetDirectArray().GetAt(index);
+		case FbxLayerElement::eIndex:
+		case FbxLayerElement::eIndexToDirect:
+			return layer->GetDirectArray().GetAt(layer->GetIndexArray()->GetAt(index));
+	}
+}
+
+//void getElement(FbxLayerElement* layer) {
+//	switch (layer->GetMappingMode())
+//	{
+//	case FbxLayerElement::EMappingMode::eNone:
+//	case FbxLayerElement::EMappingMode::eByControlPoint:
+//	case FbxLayerElement::EMappingMode::eByPolygonVertex:
+//	case FbxLayerElement::EMappingMode::eByPolygon:
+//	case FbxLayerElement::EMappingMode::eByEdge:
+//	case FbxLayerElement::EMappingMode::eAllSame:
+//	}
+//}
+
+vector<NiTriShapeRef> FBXWrangler::importMultipleShape(FbxNode* child, const FBXImportOptions& options) {
+	//todo
+	return vector<NiTriShapeRef>();
+}
+
 NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& options) {
 	NiTriShapeRef out = new NiTriShape();
 	NiTriShapeDataRef data = new NiTriShapeData();
@@ -1422,14 +1332,59 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 
 	FbxMesh* m = (FbxMesh*)child->GetNodeAttribute();
 
+	const char* lMappingTypes[] = { "None", "By Control Point", "By Polygon Vertex", "By Polygon", "By Edge", "All Same" };
+	const char* lReferenceMode[] = { "Direct", "Index", "Index to Direct" };
+
 	if (!m->IsTriangleMesh()) {
 		FbxGeometryConverter converter(sdkManager);
 		m = (FbxMesh*)converter.Triangulate((FbxNodeAttribute*)m, true);
 	}
 
+	int lMtrlCount = 0;
+	FbxNode* lNode = NULL;
+	if (m) {
+		lNode = m->GetNode();
+		if (lNode)
+			lMtrlCount = lNode->GetMaterialCount();
+	}
+
+	map<int, int> material_map;
+
+	for (int l = 0; l < m->GetElementMaterialCount(); l++)
+	{
+		FbxGeometryElementMaterial* leMat = m->GetElementMaterial(l);
+		if (leMat)
+		{
+
+			int lMaterialCount = 0;
+
+			if (leMat->GetReferenceMode() == FbxGeometryElement::eDirect ||
+				leMat->GetReferenceMode() == FbxGeometryElement::eIndexToDirect)
+			{
+				lMaterialCount = lMtrlCount;
+			}
+
+			if (leMat->GetReferenceMode() == FbxGeometryElement::eIndex ||
+				leMat->GetReferenceMode() == FbxGeometryElement::eIndexToDirect)
+			{
+				int i;
+
+				int lIndexArrayCount = leMat->GetIndexArray().GetCount();
+				for (i = 0; i < lIndexArrayCount; i++)
+				{					
+					material_map[i] = leMat->GetIndexArray().GetAt(i);
+				}
+			}
+		}
+	}
+
 	FbxGeometryElementUV* uv = m->GetElementUV(0);
 	FbxGeometryElementNormal* normal = m->GetElementNormal(0);
 	FbxGeometryElementVertexColor* vc = m->GetElementVertexColor(0);
+	FbxLayerElementArrayTemplate<int>* m_indices = new FbxLayerElementArrayTemplate<int>(eFbxInt);
+	m->GetMaterialIndices(&m_indices);
+
+	size_t m_ind_size = m_indices->GetCount();
 
 	out->SetName(string(child->GetName()));
 	int numVerts = m->GetControlPointsCount();
@@ -1452,10 +1407,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 		if (uv && uv->GetMappingMode() != FbxGeometryElement::eByControlPoint &&
 			uv->GetMappingMode() != FbxGeometryElement::eByPolygonVertex) {
 			FbxGeometryElement::EMappingMode m = uv->GetMappingMode();
-			cout << "lol" << endl;
 		}
-
-//		vert = multT(child, vert);
 
 		verts.emplace_back((float)vert.mData[0], (float)vert.mData[1], (float)vert.mData[2]);
 		if (uv && uv->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
