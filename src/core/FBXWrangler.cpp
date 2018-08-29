@@ -1453,6 +1453,9 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 		vcs.resize(numVerts);
 	}
 
+	if (normal && normals.empty())
+		normals.resize(numVerts);
+
 	vector<Triangle> tris;
 
 	for (int t = 0; t < numTris; t++) {
@@ -1463,6 +1466,20 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 		int p2 = m->GetPolygonVertex(t, 1);
 		int p3 = m->GetPolygonVertex(t, 2);
 		tris.emplace_back(p1, p2, p3);
+
+		if (normal && normal->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
+			FbxVector4 v_n;
+			bool isUnmapped;
+
+			if (m->GetPolygonVertexNormal(t, 0, v_n))
+				normals[p1] = Vector3(v_n.mData[0], v_n.mData[1], v_n.mData[2]);
+
+			if (m->GetPolygonVertexNormal(t, 1, v_n))
+				normals[p2] = Vector3(v_n.mData[0], v_n.mData[1], v_n.mData[2]);
+
+			if (m->GetPolygonVertexNormal(t, 2, v_n))
+				normals[p3] = Vector3(v_n.mData[0], v_n.mData[1], v_n.mData[2]);
+		}
 
 		if (uv && uv->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
 			FbxVector2 v_uv;
