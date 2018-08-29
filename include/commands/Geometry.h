@@ -40,10 +40,10 @@ namespace Geometry {
 		vector<Vector3> bitangents;
 		TriGeometryContext(const vector<Vector3>& in_vertices, Vector3 COM, const vector<Triangle>& in_faces,
 			const vector<TexCoord>& in_uvs, vector<Vector3> in_normals) : vertices(in_vertices), faces(in_faces), uvs(in_uvs), normals(in_normals) {
-			//if (normals.size() == 0 && !CheckNormals(normals)) {
-			normals.resize(vertices.size());
-			CalculateNormals(vertices, faces, normals, COM, false);
-			//}
+			if (normals.empty() || normals.size() != vertices.size()) {
+				normals.resize(vertices.size());
+				CalculateNormals(vertices, faces, normals, COM, false);
+			}
 			tangents.resize(vertices.size());
 			bitangents.resize(vertices.size());
 			calculate(this);
