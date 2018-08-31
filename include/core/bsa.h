@@ -39,7 +39,7 @@ namespace BSA {
 			return result;
 		}
 
-		const const uint8_t * extract(const std::string& asset_path, size_t& size) {
+		const uint8_t * extract(const std::string& asset_path, size_t& size) {
 			const uint8_t* data;
 			bsa_extract_asset_to_memory(bh, asset_path.c_str(), &data, &size);
 			return data;
