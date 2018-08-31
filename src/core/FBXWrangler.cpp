@@ -669,6 +669,8 @@ public:
 		return setTransform(&obj, AddGeometry(obj));
 	}
 
+
+
 };
 
 void FBXWrangler::AddNif(NifFile& nif) {
@@ -1307,17 +1309,18 @@ T getIndexedElement(FbxLayerElementTemplate<Type>* layer, size_t index)
 	}
 }
 
-//void getElement(FbxLayerElement* layer) {
-//	switch (layer->GetMappingMode())
-//	{
-//	case FbxLayerElement::EMappingMode::eNone:
-//	case FbxLayerElement::EMappingMode::eByControlPoint:
-//	case FbxLayerElement::EMappingMode::eByPolygonVertex:
-//	case FbxLayerElement::EMappingMode::eByPolygon:
-//	case FbxLayerElement::EMappingMode::eByEdge:
-//	case FbxLayerElement::EMappingMode::eAllSame:
-//	}
-//}
+template <class Type, typename T>
+void getElement(FbxLayerElementTemplate<Type>* layer, size_t index, T& element) {
+	switch (layer->GetMappingMode())
+	{
+	case FbxLayerElement::EMappingMode::eByControlPoint:
+		T = getIndexedElement(layer, index)
+	case FbxLayerElement::EMappingMode::eByPolygonVertex:
+	case FbxLayerElement::EMappingMode::eByPolygon:
+	case FbxLayerElement::EMappingMode::eByEdge:
+	case FbxLayerElement::EMappingMode::eAllSame:
+	}
+}
 
 vector<NiTriShapeRef> FBXWrangler::importMultipleShape(FbxNode* child, const FBXImportOptions& options) {
 	//todo
@@ -1381,10 +1384,10 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 	FbxGeometryElementUV* uv = m->GetElementUV(0);
 	FbxGeometryElementNormal* normal = m->GetElementNormal(0);
 	FbxGeometryElementVertexColor* vc = m->GetElementVertexColor(0);
-	FbxLayerElementArrayTemplate<int>* m_indices = new FbxLayerElementArrayTemplate<int>(eFbxInt);
-	m->GetMaterialIndices(&m_indices);
+	//FbxLayerElementArrayTemplate<int>* m_indices = new FbxLayerElementArrayTemplate<int>(eFbxInt);
+	//m->GetMaterialIndices(&m_indices);
 
-	size_t m_ind_size = m_indices->GetCount();
+	//size_t m_ind_size = m_indices->GetCount();
 
 	out->SetName(string(child->GetName()));
 	int numVerts = m->GetControlPointsCount();
