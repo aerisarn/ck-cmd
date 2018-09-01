@@ -1,7 +1,12 @@
 #include "stdafx.h"
 
 #include <io.h>
+#include <fstream> 
+
 #include <core/hkxutils.h>
+#include <core/bsa.h>
+
+using namespace ckcmd::BSA;
 
 FILE _iob[] = { *stdin, *stdout, *stderr };
 
@@ -453,4 +458,35 @@ string GetFileVersion(const char *fileName)
       }
    }
    return retval;
+}
+
+void loadFileIntoString(const fs::path& path, string& content) {
+	ifstream fss(path.c_str());
+	content.clear();
+	//allocate
+	fss.seekg(0, ios::end);
+	content.reserve(fss.tellg());
+	//reset and assign
+	fss.seekg(0, std::ios::beg);
+	content.assign(istreambuf_iterator<char>(fss),
+		std::istreambuf_iterator<char>());
+}
+
+void loadOverrideOrBSA(const string& path, string& content, const Games::Game& game, const vector<string>& preferredBsas) {
+	//search in override
+	Games& games = Games::Instance();
+	fs::path override_path = games.data(game) / path;
+	if (fs::exists(override_path) && fs::is_regular_file(override_path))
+		loadFileIntoString(override_path, content);
+	else {
+		for (string bsa_name : preferredBsas) {
+			BSAFile bsa_file(games.data(game) / bsa_name);
+			if (bsa_file.find(path)) {
+				size_t size = -1;
+				const uint8_t* data = bsa_file.extract(path, size);
+				content.assign((char*)data, size);
+				break;
+			}
+		}
+	}
 }

@@ -18,7 +18,15 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+#include <core/games.h>
+#include <core/bsa.h>
+#include <filesystem>
+
+namespace fs = std::experimental::filesystem;
 using namespace std;
+
+using namespace ckcmd::info;
+
 // Macro to create a dynamically allocated strdup on the stack
 #define STRDUPA(p) (_tcscpy((TCHAR*)alloca((_tcslen(p)+1)*sizeof(*p)),p))
 
@@ -159,3 +167,6 @@ EXTERN_C
    void Print(FILE* hFile, LPCSTR lpszFormat, ...);
 }
 string GetFileVersion(const char *fileName);
+
+void loadFileIntoString(const fs::path& path, string& content);
+void loadOverrideOrBSA(const string& path, string& content, const Games::Game& game, const vector<string>& preferredBsas);

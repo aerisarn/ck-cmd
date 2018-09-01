@@ -3,12 +3,8 @@
 #include "stdafx.h"
 
 #include <core/hkxcmd.h>
+#include <core/hkxutils.h>
 #include <core/AnimationCache.h>
-
-#include <core/games.h>
-#include <core/bsa.h>
-
-
 
 using namespace std;
 using namespace ckcmd::info;
@@ -46,40 +42,6 @@ string ListCreaturesCmd::GetHelpShort() const
 {
 	return "Checks for installed bethesda games and their install path";
 }
-
-
-
-void loadFileIntoString(const fs::path& path, string& content) {
-	std::ifstream fss(path.c_str());
-	content.clear();
-	//allocate
-	fss.seekg(0, std::ios::end);
-	content.reserve(fss.tellg());
-	//reset and assign
-	fss.seekg(0, std::ios::beg);
-	content.assign((std::istreambuf_iterator<char>(fss)),
-		std::istreambuf_iterator<char>());
-}
-
-void loadOverrideOrBSA(const string& path, string& content, const Games::Game& game, const vector<string>& preferredBsas) {
-	//search in override
-	Games& games = Games::Instance();
-	fs::path override_path = games.data(game) / path;
-	if (fs::exists(override_path) && fs::is_regular_file(override_path))
-		loadFileIntoString(override_path, content);
-	else {
-		for (string bsa_name : preferredBsas) {
-			BSAFile bsa_file(games.data(game) / bsa_name);
-			if (bsa_file.find(path)) {
-				size_t size = -1;
-				const uint8_t* data = bsa_file.extract(path, size);
-				content.assign((char*)data, size);
-				break;
-			}
-		}
-	}
-}
-
 
 bool ListCreaturesCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {

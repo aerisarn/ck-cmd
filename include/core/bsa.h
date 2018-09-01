@@ -1,3 +1,5 @@
+#pragma once
+
 #include <libbsa/libbsa.h>
 #include <filesystem>
 
