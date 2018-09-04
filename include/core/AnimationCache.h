@@ -22,8 +22,6 @@ struct AnimationCache {
 		int index = 0;
 		for (string creature : animationSetData.getProjectsList().getStrings()) {
 			string creature_project_name = fs::path(creature).filename().replace_extension("").string();
-			//if (creature_project_name.find("Project") != string::npos)
-			//	creature_project_name = creature_project_name.substr(0, creature_project_name.find("Project"));
 			set_data_map[creature_project_name] = index++;
 		}
 		index = 0;
@@ -44,4 +42,9 @@ struct AnimationCache {
 			Log::Info("\tID:%d\tName: %s", pair.second, pair.first.c_str());
 		}
 	}
+
+	bool hasCreatureProject (const string& project_name) {
+		return set_data_map.find(project_name) != set_data_map.end();
+	}
+
 };

@@ -110,6 +110,85 @@ namespace ckcmd {
 				}
 			}
 
+			hkRootLevelContainer* read(const fs::path& path, hkArray<hkVariant>& objects) {
+				// Read back a serialized file
+				hkIstream stream(path.string().c_str());
+				hkStreamReader *reader = stream.getStreamReader();
+				hkResource* resource = hkSerializeLoadResource(reader, objects);
+				if (resource)
+				{
+					return resource->getContents<hkRootLevelContainer>();
+				}
+				return NULL;
+			}
+
+			hkRootLevelContainer* read(const fs::path& path) {
+				// Read back a serialized file
+				hkIstream stream(path.string().c_str());
+				hkStreamReader *reader = stream.getStreamReader();
+				hkResource* resource = hkSerializeLoadResource(reader);
+				if (resource)
+				{
+					return resource->getContents<hkRootLevelContainer>();
+				}
+				return NULL;
+			}
+
+			hkRootLevelContainer* read(const uint8_t* data, const size_t& size, hkArray<hkVariant>& objects) {
+				// Read back a serialized file
+				hkIstream stream(data, size);
+				hkStreamReader *reader = stream.getStreamReader();
+				hkResource* resource = hkSerializeLoadResource(reader, objects);
+				if (resource)
+				{
+					return resource->getContents<hkRootLevelContainer>();
+				}
+				return NULL;
+			}
+
+			hkRootLevelContainer* read(const uint8_t* data, const size_t& size) {
+				// Read back a serialized file
+				hkIstream stream(data, size);
+				hkStreamReader *reader = stream.getStreamReader();
+				hkResource* resource = hkSerializeLoadResource(reader);
+				if (resource)
+				{
+					return resource->getContents<hkRootLevelContainer>();
+				}
+				return NULL;
+			}
+
+			template<typename hkRootType> 
+			hkRefPtr<hkRootType> load(const fs::path& path, hkRootLevelContainer* root) {
+				root = read(path);
+				hkRefPtr<hkRootType> project;
+				project = (hkRootType*)root->findObjectByType(project->getClassType()->getName());
+				return project;
+			}
+
+			template<typename hkRootType>
+			hkRefPtr<hkRootType> load(const uint8_t* data, const size_t& size, hkRootLevelContainer* root) {
+				root = read(data, size);
+				hkRefPtr<hkRootType> project;
+				project = (hkRootType*)root->findObjectByType(project->getClassType()->getName());
+				return project;
+			}
+
+			hkRefPtr<hkbProjectData> load_project(const fs::path& path) {
+				hkRootLevelContainer* root;
+				hkRefPtr<hkbProjectData> project = load<hkbProjectData>(path, root);
+			}
+
+			hkRefPtr<hkbProjectData> load_project(const uint8_t* data, const size_t& size) {
+				hkRootLevelContainer* root;
+				hkRefPtr<hkbProjectData> project = load<hkbProjectData>(data, size, root);
+			}
+
+			void retarget_project(hkRootLevelContainer* root, hkRefPtr<hkbProjectData>, const string& output_project_name, const fs::path& output_dir) 
+			{
+
+			}
+
 			void create_project() {
 				hkbProjectStringData string_data;
 				string_data.m_characterFilenames.pushBack(CHARACTERS_SUBFOLDER"\\character.hkx");
