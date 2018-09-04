@@ -7,7 +7,6 @@ See the included LICENSE file
 #include <core/FBXWrangler.h>
 #include <core/EulerAngles.h>
 #include <core/MathHelper.h>
-
 #include <core/HKXWrangler.h>
 #include <commands/Geometry.h>
 #include <commands/NifScan.h>
@@ -640,7 +639,6 @@ public:
 					skel->SetSkeletonType(FbxSkeleton::eEffector);
 				else
 					skel->SetSkeletonType(FbxSkeleton::eLimbNode);
-
 				node->SetNodeAttribute(skel);
 			}*/
 			//parent->AddChild(node);
@@ -1644,6 +1642,63 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 		alpharef->SetFlags(237);
 		alpharef->SetThreshold(128);
 		out->SetAlphaProperty(alpharef);
+	}
+
+	if (child->GetMaterialCount() != 0)
+	{
+		std::vector<std::string> vTextures(9);
+		FbxSurfaceMaterial * material = child->GetMaterial(0);
+		FbxProperty prop = NULL;
+		FbxPropertyT<FbxDouble3> colour;
+		FbxPropertyT<FbxDouble> factor;
+		FbxFileTexture *texture;
+
+		//specular
+		colour = material->FindProperty(material->sSpecular, true);
+		factor = material->FindProperty(material->sSpecularFactor, true);
+		if (colour.IsValid() && factor.IsValid())
+		{
+			FbxDouble3 colourvec = colour.Get();
+			shader->SetSpecularStrength(factor.Get());
+			shader->SetSpecularColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
+		}
+
+		//emissive
+		colour = material->FindProperty(material->sEmissive, true);
+		factor = material->FindProperty(material->sEmissiveFactor, true);
+		if (colour.IsValid() && factor.IsValid())
+		{
+			FbxDouble3 colourvec = colour.Get();
+			shader->SetEmissiveMultiple(factor.Get());
+			shader->SetEmissiveColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
+		}
+
+		//shiny/gloss
+		factor = material->FindProperty(material->sShininess, true);
+		if (factor.IsValid())
+		{
+			shader->SetGlossiness(factor.Get());
+		}
+
+		//Diffuse.
+		prop = material->FindProperty(FbxSurfaceMaterial::sDiffuse, true);
+		factor = material->FindProperty(FbxSurfaceMaterial::sDiffuseFactor, true);
+		if (prop.IsValid() && factor.IsValid())
+		{
+			texture = prop.GetSrcObject<FbxFileTexture>(0);
+			vTextures[0] = texture->GetFileName();
+		}
+
+		//Normal/Bump.
+		prop = material->FindProperty(FbxSurfaceMaterial::sBump, true);
+		factor = material->FindProperty(FbxSurfaceMaterial::sBumpFactor, true);
+		if (prop.IsValid() && factor.IsValid())
+		{
+			texture = prop.GetSrcObject<FbxFileTexture>(0);
+			vTextures[1] = texture->GetFileName();
+		}
+
+		textures->SetTextures(vTextures);
 	}
 
 	shader->SetTextureSet(textures);
