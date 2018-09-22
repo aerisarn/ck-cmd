@@ -39,7 +39,7 @@ ExternalProject_Add(docopt
                     GIT_REPOSITORY "https://github.com/docopt/docopt.cpp.git"
                     GIT_TAG master
                     INSTALL_COMMAND ""
-					CMAKE_ARGS -DCMAKE_CXX_FLAGS_RELEASE=/MTd -DCMAKE_CXX_FLAGS_RELEASE=/MT)
+					CMAKE_ARGS -DCMAKE_CXX_FLAGS_DEBUG=/MTd -DCMAKE_CXX_FLAGS_RELEASE=/MT -DCMAKE_CXX_FLAGS_RELWITHDEBINFO=/MT)
 ExternalProject_Get_Property(docopt SOURCE_DIR BINARY_DIR)
 set (DOCOPT_INCLUDE_DIRS ${SOURCE_DIR} ${BINARY_DIR})
 message("DOCOPT_INCLUDE_DIRS:" ${DOCOPT_INCLUDE_DIRS})
@@ -361,6 +361,7 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/Geometry.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ListCreatures.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/RetargetCreature.h"
+					 "${CMAKE_SOURCE_DIR}/include/commands/desaturateVC.h"
                      "${CMAKE_SOURCE_DIR}/include/commands/esp/Esp.h"
                      "${CMAKE_SOURCE_DIR}/include/commands/esp/io/EspWriter.h"
                      "${CMAKE_SOURCE_DIR}/include/commands/esp/io/EspTypes.h"
@@ -422,7 +423,7 @@ source_group("Geometry\\QuickHull" FILES ${QUICKHULL_SRCS})
 
 # Settings when compiling with MSVC.
 IF (MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
     # Update compiler flags.
     IF (PROJECT_STATIC_RUNTIME)
@@ -454,7 +455,7 @@ target_include_directories	(ck-cmd PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_D
 
 add_custom_command(TARGET ck-cmd POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different  
-        "${PROJECT_SOURCE_DIR}/lib/fbx/lib/vs2015/x86/$<CONFIGURATION>/libfbxsdk.dll"
+        "${PROJECT_SOURCE_DIR}/lib/fbx/lib/vs2015/x86/$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:Release>/libfbxsdk.dll"
         $<TARGET_FILE_DIR:ck-cmd>)
 
 # Build tester.

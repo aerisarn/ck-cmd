@@ -1686,7 +1686,8 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 		if (prop.IsValid() && factor.IsValid())
 		{
 			texture = prop.GetSrcObject<FbxFileTexture>(0);
-			vTextures[0] = texture->GetFileName();
+			if (texture != NULL)
+				vTextures[0] = texture->GetFileName();
 		}
 
 		//Normal/Bump.
@@ -1695,7 +1696,8 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 		if (prop.IsValid() && factor.IsValid())
 		{
 			texture = prop.GetSrcObject<FbxFileTexture>(0);
-			vTextures[1] = texture->GetFileName();
+			if (texture != NULL)
+				vTextures[1] = texture->GetFileName();
 		}
 
 		textures->SetTextures(vTextures);
@@ -2295,12 +2297,9 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		for (int i = 0; i < root->GetChildCount(); i++) {
 			FbxNode* child = root->GetChild(i);
 			NiAVObjectRef nif_child = NULL;
-			if (child->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh) {
+			if (child->GetNodeAttribute() != NULL && child->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh) {
 				nif_child = StaticCast<NiAVObject>(importShape(child, options));
 				setAvTransform(child, nif_child);
-			}
-			else {
-				FbxNodeAttribute::EType type = child->GetNodeAttribute()->GetAttributeType();
 			}
 			if (nif_child == NULL) {
 				nif_child = new NiNode();
