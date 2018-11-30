@@ -1,3 +1,5 @@
+#pragma once
+
 #include "stdafx.h"
 
 #include <commands/Project.h>
@@ -50,6 +52,10 @@
 #include <Animation/Ragdoll/Controller/PoweredConstraint/hkaRagdollPoweredConstraintController.h>
 #include <Animation/Ragdoll/Controller/RigidBody/hkaRagdollRigidBodyController.h>
 #include <Animation/Ragdoll/Utils/hkaRagdollUtils.h>
+#include <Animation/Animation/Animation/Deprecated/DeltaCompressed/hkaDeltaCompressedAnimation.h>
+#include <Animation/Animation/Animation/SplineCompressed/hkaSplineCompressedAnimation.h>
+#include <Animation/Animation/Animation/Quantized/hkaQuantizedAnimation.h>
+#include <Animation/Animation/Animation/Util/hkaAdditiveAnimationUtility.h>
 
 #include <obj\NiNode.h>
 #include <obj\NiSequence.h>
@@ -70,6 +76,8 @@
 #include <hkbStateMachine_4.h>
 #include <hkbBlendingTransitionEffect_1.h>
 #include <BGSGamebryoSequenceGenerator_2.h>
+
+#include <fbxsdk.h>
 
 #include <filesystem>
 namespace fs = std::experimental::filesystem;
@@ -93,6 +101,8 @@ namespace ckcmd {
 			string out_path;
 			string out_path_abs;
 			string prefix;
+
+			map<fs::path, hkRootLevelContainer> out_data;
 
 			void write(hkRootLevelContainer& rootCont, string subfolder = "", string name = "") {
 				hkPackFormat pkFormat = HKPF_DEFAULT;
@@ -264,6 +274,35 @@ namespace ckcmd {
 				write(container, ASSETS_SUBFOLDER, "skeleton");
 			}
 
+			hkQsTransform setBoneTransform(FbxNode* pNode) {
+				FbxAMatrix matrixGeo;
+				matrixGeo.SetIdentity();
+				if (pNode->GetNodeAttribute())
+				{
+					const FbxVector4 lT = pNode->GetGeometricTranslation(FbxNode::eSourcePivot);
+					const FbxVector4 lR = pNode->GetGeometricRotation(FbxNode::eSourcePivot);
+					const FbxVector4 lS = pNode->GetGeometricScaling(FbxNode::eSourcePivot);
+					matrixGeo.SetT(lT);
+					matrixGeo.SetR(lR);
+					matrixGeo.SetS(lS);
+				}
+				FbxAMatrix localMatrix = pNode->EvaluateLocalTransform();
+
+				matrixGeo = localMatrix * matrixGeo;
+				hkQsTransform hk_trans;
+
+				const FbxVector4 lT = matrixGeo.GetT();
+				const FbxQuaternion lR = matrixGeo.GetQ();
+				const FbxVector4 lS = matrixGeo.GetS();
+
+				hk_trans.setTranslation(hkVector4(lT[0], lT[1], lT[2]));
+				hk_trans.setRotation(::hkQuaternion(lR[0], lR[1], lR[2], lR[3]));
+				hk_trans.setScale(hkVector4(lS[0], lS[1], lS[2], 0.000000));
+
+				return hk_trans;
+			}
+
+
 			void create_behavior(const set<string>& sequences_names) {
 				hkbBehaviorGraph graph;
 				hkbStateMachine root_fsm;
@@ -398,6 +437,12 @@ namespace ckcmd {
 		public:
 			HKXWrapper() {}
 
+			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix)
+				: out_name(out_name), out_path(out_path), out_path_abs(out_path_abs), prefix(prefix)
+			{
+
+			}
+
 			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix, const set<string>& sequences_names)
 				: out_name(out_name), out_path(out_path), out_path_abs(out_path_abs), prefix(prefix)
 			{
@@ -408,6 +453,235 @@ namespace ckcmd {
 			}
 
 			string GetPath() { return out_path + "\\" + out_name + "\\" + out_name + ".hkx"; }
+
+			//gives back the ordered bone array as written in the skeleton file
+			vector<FbxNode*> create_skeleton(const string& name, const set<FbxNode*>& bones) {
+				hkRefPtr<hkaAnimationContainer> anim_container = new hkaAnimationContainer();
+				hkRefPtr<hkMemoryResourceContainer> mem_container = new hkMemoryResourceContainer();
+				hkRefPtr<hkaSkeleton> skeleton = new hkaSkeleton();
+
+				skeleton->m_name = name.c_str();
+				//build ordered set;
+				vector<FbxNode*> ordered_bones;
+				copy(bones.begin(), bones.end(), back_inserter(ordered_bones));
+				skeleton->m_parentIndices.setSize(bones.size());
+				skeleton->m_bones.setSize(bones.size());
+				skeleton->m_referencePose.setSize(bones.size());
+				//build parent_map;
+				for (int i=0; i< ordered_bones.size(); i++)
+				{
+					FbxNode* bone = ordered_bones[i];
+					vector<FbxNode*>::iterator parent_it = find(ordered_bones.begin(), ordered_bones.end(), bone->GetParent());
+					if (parent_it == ordered_bones.end())
+					{
+						skeleton->m_parentIndices[i] = -1;
+						skeleton->m_bones[i].m_lockTranslation = false;
+					}
+					else
+					{
+						skeleton->m_parentIndices[i] = distance(ordered_bones.begin(), parent_it);
+						skeleton->m_bones[i].m_lockTranslation = true;
+					}
+					skeleton->m_bones[i].m_name = bone->GetName();
+					skeleton->m_referencePose[i] = setBoneTransform(bone);
+				}
+
+				anim_container->m_skeletons.pushBack(skeleton);
+
+				hkRootLevelContainer container;
+				container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Merged Animation Container", anim_container, &anim_container->staticClass()));
+				container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Resource Data", mem_container, &mem_container->staticClass()));
+
+				//write(container, ASSETS_SUBFOLDER, "skeleton");
+				//not that moving <100 ptrs matters that much, but hey, it's fancy
+				out_data[fs::path(ASSETS_SUBFOLDER) / "skeleton"] = container;
+
+				return move(ordered_bones);
+			}
+
+			template<typename FbxMatrixType>
+			static void convertFbxXMatrixToMatrix4(const FbxMatrixType& fbxMatrix, hkMatrix4& matrix)
+			{
+				FbxVector4 v0 = fbxMatrix.GetRow(0);
+				FbxVector4 v1 = fbxMatrix.GetRow(1);
+				FbxVector4 v2 = fbxMatrix.GetRow(2);
+				FbxVector4 v3 = fbxMatrix.GetRow(3);
+
+				hkVector4 c0; c0.set((float)v0[0], (float)v0[1], (float)v0[2], (float)v0[3]);
+				hkVector4 c1; c1.set((float)v1[0], (float)v1[1], (float)v1[2], (float)v1[3]);
+				hkVector4 c2; c2.set((float)v2[0], (float)v2[1], (float)v2[2], (float)v2[3]);
+				hkVector4 c3; c3.set((float)v3[0], (float)v3[1], (float)v3[2], (float)v3[3]);
+
+				matrix.setCols(c0, c1, c2, c3);
+			}
+
+			
+
+			void create_animations(vector<FbxNode*>& skeleton, set<FbxAnimStack*>& animations, FbxTime::EMode timeMode)
+			{
+			//	for (FbxAnimStack* stack : animations)
+			//	{
+			//		hkRefPtr<hkaAnimationContainer> anim_container = new hkaAnimationContainer();
+			//		hkRefPtr<hkMemoryResourceContainer> mem_container = new hkMemoryResourceContainer();
+			//		hkRefPtr<hkaAnimationBinding> mem_container = new hkaAnimationBinding();
+			//		hkRefPtr<hkaInterleavedUncompressedAnimation> tempAnim = new hkaInterleavedUncompressedAnimation();
+
+
+			//		FbxTimeSpan animTimeSpan = stack->GetLocalTimeSpan();
+
+			//		// Find the time offset (in the "time space" of the FBX file) of the first animation frame
+			//		FbxTime timePerFrame; timePerFrame.SetTime(0, 0, 0, 1, 0, timeMode);
+
+			//		const FbxTime startTime = animTimeSpan.GetStart();
+			//		const FbxTime endTime = animTimeSpan.GetStop();
+
+			//		const hkReal startTimeSeconds = static_cast<hkReal>(startTime.GetSecondDouble());
+			//		const hkReal endTimeSeconds = static_cast<hkReal>(endTime.GetSecondDouble());
+
+			//		hkArray<hkString> annotationStrings;
+			//		hkArray<hkReal> annotationTimes;
+
+			//		int numFrames = 0;
+			//		bool staticNode = true;
+
+
+
+			//		// Sample each animation frame
+			//		for (FbxTime time = startTime, priorSampleTime = endTime;
+			//			time < endTime;
+			//			priorSampleTime = time, time += timePerFrame, ++numFrames)
+			//		{
+			//			for (FbxNode* bone : skeleton)
+			//			{
+			//				FbxAMatrix frameMatrix = bone->EvaluateLocalTransform(time);
+			//				//staticNode = staticNode && (frameMatrix == bindPoseMatrix);
+
+			//				hkMatrix4 mat;
+
+			//				// Extract this frame's transform
+			//				convertFbxXMatrixToMatrix4(frameMatrix, mat);
+			//				newChildNode->m_keyFrames.pushBack(mat);
+			//			}
+
+
+			//			
+
+			//		}
+
+			//		
+			//		tempAnim->m_duration = duration;
+			//		tempAnim->m_numberOfTransformTracks = numTracks;
+			//		tempAnim->m_numberOfFloatTracks = 0;//anim->m_numberOfFloatTracks;
+			//		tempAnim->m_transforms.setSize(numTracks*nframes, hkQsTransform::getIdentity());
+			//		tempAnim->m_floats.setSize(tempAnim->m_numberOfFloatTracks);
+			//		tempAnim->m_annotationTracks.setSize(numTracks);
+			//	}
+
+			//	for (FbxNode* pNode : unskinned_bones)
+			//	{
+			//		//FbxNode* pNode = pair.first;
+			//		FbxAnimCurve* lXAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
+			//		FbxAnimCurve* lYAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
+			//		FbxAnimCurve* lZAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+			//		FbxAnimCurve* lIAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
+			//		FbxAnimCurve* lJAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
+			//		FbxAnimCurve* lKAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+
+			//		if (lXAnimCurve != NULL || lYAnimCurve != NULL || lZAnimCurve != NULL ||
+			//			lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL)
+			//		{
+
+			//			NiObjectRef target = conversion_Map[pNode];
+			//			targets.insert(target);
+
+			//			NiTransformInterpolatorRef interpolator = new NiTransformInterpolator();
+			//			NiQuatTransform trans;
+			//			trans.translation = Vector3(0, 0, 0);
+			//			trans.rotation = Quaternion(1, 0, 0, 0);
+			//			trans.scale = 1;
+			//			interpolator->SetTransform(trans);
+
+			//			if (lXAnimCurve != NULL || lYAnimCurve != NULL || lZAnimCurve != NULL) {
+			//				addTranslationKeys(interpolator, pNode, lXAnimCurve, lYAnimCurve, lZAnimCurve, last_start);
+			//			}
+
+			//			if (lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL) {
+			//				addRotationKeys(interpolator, pNode, lIAnimCurve, lJAnimCurve, lKAnimCurve, last_start);
+			//			}
+
+			//			NiTransformDataRef data = interpolator->GetData();
+			//			if (data != NULL) {
+			//				KeyGroup<float> scales;
+			//				scales.numKeys = 0;
+			//				scales.keys = {};
+			//				data->SetScales(scales);
+			//			}
+
+			//			//interpolator->SetData(new NiTransformData());
+
+			//			ControlledBlock block;
+			//			block.interpolator = interpolator;
+			//			block.nodeName = DynamicCast<NiAVObject>(conversion_Map[pNode])->GetName();
+			//			block.controllerType = "NiTransformController";
+			//			block.controller = multiController;
+
+			//			blocks.push_back(block);
+
+			//			vector<FbxTimeSpan> spans(6);
+
+			//			if (lXAnimCurve != NULL)
+			//				lXAnimCurve->GetTimeInterval(spans[0]);
+			//			if (lYAnimCurve != NULL)
+			//				lYAnimCurve->GetTimeInterval(spans[1]);
+			//			if (lZAnimCurve != NULL)
+			//				lZAnimCurve->GetTimeInterval(spans[2]);
+			//			if (lIAnimCurve != NULL)
+			//				lIAnimCurve->GetTimeInterval(spans[3]);
+			//			if (lJAnimCurve != NULL)
+			//				lJAnimCurve->GetTimeInterval(spans[4]);
+			//			if (lKAnimCurve != NULL)
+			//				lKAnimCurve->GetTimeInterval(spans[5]);
+
+			//			double start = 1e10;
+			//			double end = -1e10;
+
+			//			for (const auto& span : spans) {
+			//				double span_start = span.GetStart().GetSecondDouble();
+			//				double span_stop = span.GetStop().GetSecondDouble();
+			//				if (span_start < start)
+			//					start = span_start;
+			//				if (span_stop > end)
+			//					end = span_stop;
+			//			}
+
+			//			sequence->SetControlledBlocks(blocks);
+
+			//			sequence->SetStartTime(0.0);
+			//			sequence->SetStopTime(end - start);
+			//			sequence->SetManager(manager);
+			//			sequence->SetAccumRootName(accum_root_name);
+
+			//			NiTextKeyExtraDataRef extra_data = new NiTextKeyExtraData();
+			//			extra_data->SetName(string(""));
+			//			Key<IndexString> start_key;
+			//			start_key.time = 0;
+			//			start_key.data = "start";
+
+			//			Key<IndexString> end_key;
+			//			end_key.time = end - last_start;
+			//			end_key.data = "end";
+
+			//			extra_data->SetTextKeys({ start_key,end_key });
+			//			extra_data->SetNextExtraData(NULL);
+
+			//			sequence->SetTextKeys(extra_data);
+
+			//			sequence->SetFrequency(1.0);
+			//			sequence->SetCycleType(CYCLE_CLAMP);
+
+			//		}
+			//	}
+			}
 
 		};
 

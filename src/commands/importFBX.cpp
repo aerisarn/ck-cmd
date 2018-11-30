@@ -13,6 +13,7 @@
 #include <bs/AnimDataFile.h>
 #include <bs/AnimSetDataFile.h>
 
+
 using namespace ckcmd::FBX;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;

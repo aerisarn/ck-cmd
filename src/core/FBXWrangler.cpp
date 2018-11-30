@@ -254,11 +254,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					Quaternion rotation = data->GetSkinTransform().rotation.AsQuaternion();
 					float scale = data->GetSkinTransform().scale;
 
-					//FbxAMatrix matrix;
-					//matrix.SetT(FbxDouble3(translation.x, translation.y, translation.z));
-					//matrix.SetQ(FbxQuaternion(rotation.x, rotation.y, rotation.z, rotation.w));
-					//matrix.SetS(FbxVector4(scale, scale, scale));
-
 					aCluster->SetTransformLinkMatrix(jointNode->EvaluateGlobalTransform());
 
 					for (BoneVertData& boneVertData : boneData.vertexWeights) {
@@ -927,7 +922,7 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 	if (scene)
 		CloseScene();
 
-	scene = FbxScene::Create(sdkManager, "ckcmd");
+	scene = FbxScene::Create(sdkManager, fileName.c_str());
 
 	bool status = iImporter->Import(scene);
 
@@ -1124,6 +1119,7 @@ void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape) {
 				if (!cluster->GetLink())
 					continue;
 
+				skinned_bones.insert(cluster->GetLink());
 				NiNode* bone = DynamicCast<NiNode>(conversion_Map[cluster->GetLink()]);
 
 				if (bones_data.find(bone) == bones_data.end())
@@ -1937,9 +1933,9 @@ double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef se
 {
 	// Display general curves.
 	vector<ControlledBlock > blocks = sequence->GetControlledBlocks();
-	for (const auto& pair : conversion_Map)
+	for (FbxNode* pNode : unskinned_bones)
 	{
-		FbxNode* pNode = pair.first;
+		//FbxNode* pNode = pair.first;
 		FbxAnimCurve* lXAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
 		FbxAnimCurve* lYAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
 		FbxAnimCurve* lZAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
@@ -2288,6 +2284,107 @@ double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef se
 	return 0.0;
 }
 
+//build embedded KF animations, for anything unskinned
+void FBXWrangler::buildKF() {
+	//create a controller manager
+	NiControllerManagerRef controller = new NiControllerManager();
+	vector<Ref<NiControllerSequence > > sequences = controller->GetControllerSequences();
+	NiMultiTargetTransformControllerRef transformController = new NiMultiTargetTransformController();
+	set<NiObjectRef> extra_targets;
+	for (int i = 0; i < unskinned_animations.size(); i++)
+	{
+		FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(i);
+		//could contain more than a layer, but by convention we wean just the first
+		FbxAnimLayer* lAnimLayer = lAnimStack->GetMember<FbxAnimLayer>(0);
+		FbxTimeSpan reference = lAnimStack->GetReferenceTimeSpan();
+		FbxTimeSpan local = lAnimStack->GetLocalTimeSpan();
+		NiControllerSequenceRef sequence = new NiControllerSequence();
+		//Translate
+		convert(lAnimLayer, sequence, extra_targets, controller, transformController, string(conversion_root->GetName()), reference.GetStart().GetSecondDouble());
+		sequence->SetName(string(lAnimStack->GetName()));
+		sequences_names.insert(string(lAnimStack->GetName()));
+		sequences.push_back(sequence);
+	}
+
+	vector<NiAVObject * > etargets = transformController->GetExtraTargets();
+	NiDefaultAVObjectPaletteRef palette = new NiDefaultAVObjectPalette();
+	vector<AVObject > avobjs = palette->GetObjs();
+	for (const auto& target : extra_targets) {
+		etargets.push_back(DynamicCast<NiAVObject>(target));
+		AVObject avobj;
+		avobj.avObject = DynamicCast<NiAVObject>(target);
+		avobj.name = DynamicCast<NiAVObject>(target)->GetName();
+		avobjs.push_back(avobj);
+	}
+	AVObject avobj;
+	avobj.avObject = StaticCast<NiAVObject>(conversion_root);
+	avobj.name = StaticCast<NiAVObject>(conversion_root)->GetName();
+	avobjs.push_back(avobj);
+
+	transformController->SetFlags(44);
+	transformController->SetFrequency(1.0f);
+	transformController->SetPhase(0.0f);
+	transformController->SetExtraTargets(etargets);
+	transformController->SetTarget(conversion_root);
+	//transformController->SetStartTime(0x7f7fffff);
+	//transformController->SetStopTime(0xff7fffff);
+
+
+	palette->SetScene(StaticCast<NiAVObject>(conversion_root));
+	palette->SetObjs(avobjs);
+
+	controller->SetObjectPalette(palette);
+	controller->SetControllerSequences(sequences);
+	controller->SetNextController(StaticCast<NiTimeController>(transformController));
+
+	controller->SetFlags(12);
+	controller->SetFrequency(1.0f);
+	controller->SetPhase(0.0f);
+	//controller->SetStartTime(0x7f7fffff);
+	//controller->SetStopTime(0xff7fffff);
+
+	controller->SetTarget(conversion_root);
+	conversion_root->SetController(StaticCast<NiTimeController>(controller));
+}
+
+void FBXWrangler::checkAnimatedNodes()
+{
+	size_t stacks = scene->GetSrcObjectCount<FbxAnimStack>();
+	for (int i = 0; i < stacks; i++)
+	{
+		FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(i);
+		//could contain more than a layer, but by convention we use just the first
+		FbxAnimLayer* pAnimLayer = lAnimStack->GetMember<FbxAnimLayer>(0);
+		//for safety, we only check analyzed nodes
+		for (const auto& pair : conversion_Map)
+		{
+			FbxNode* pNode = pair.first;
+			//check if it's animated into this layer
+			FbxAnimCurve* lXAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
+			FbxAnimCurve* lYAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
+			FbxAnimCurve* lZAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+			FbxAnimCurve* lIAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
+			FbxAnimCurve* lJAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
+			FbxAnimCurve* lKAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+
+			if (lXAnimCurve != NULL || lYAnimCurve != NULL || lZAnimCurve != NULL ||
+				lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL)
+			{
+				//check the pNode Type 
+				if (skinned_bones.find(pNode) == skinned_bones.end())
+				{
+					unskinned_bones.insert(pNode);
+					unskinned_animations.insert(lAnimStack);
+				}
+				else {
+					skinned_animations.insert(lAnimStack);
+				}
+			}
+		}
+	}
+}
+
+
 bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	if (!scene)
 		return false;
@@ -2347,67 +2444,26 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	size_t stacks = scene->GetSrcObjectCount<FbxAnimStack>();
 	if (stacks > 0)
 	{
-		//create a controller manager
-		NiControllerManagerRef controller = new NiControllerManager();
-		vector<Ref<NiControllerSequence > > sequences = controller->GetControllerSequences();
-		NiMultiTargetTransformControllerRef transformController = new NiMultiTargetTransformController();
-		set<NiObjectRef> extra_targets;
-		for (int i = 0; i < scene->GetSrcObjectCount<FbxAnimStack>(); i++)
-		{
-			FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(i);
-			//could contain more than a layer, but by convention we wean just the first
-			FbxAnimLayer* lAnimLayer = lAnimStack->GetMember<FbxAnimLayer>(0);
-			FbxTimeSpan reference = lAnimStack->GetReferenceTimeSpan();
-			FbxTimeSpan local = lAnimStack->GetLocalTimeSpan();
-			NiControllerSequenceRef sequence = new NiControllerSequence();
-			//Translate
-			convert(lAnimLayer, sequence, extra_targets, controller, transformController, string(conversion_root->GetName()),reference.GetStart().GetSecondDouble());
-			sequence->SetName(string(lAnimStack->GetName()));
-			sequences_names.insert(string(lAnimStack->GetName()));
-			sequences.push_back(sequence);
+		checkAnimatedNodes();
+		//now we have the list of both skinned and unskinned bones and skinned and unskinned stacks of the FBX
+		if (unskinned_animations.size() > 0)
+			buildKF();
+		if (skinned_animations.size() > 0) {
+			//build a skeleton			
+			//vector<FbxNode*> skeleton = hkxWrapper.create_skeleton("skeleton", skinned_bones);
+
 		}
-		
-		vector<NiAVObject * > etargets = transformController->GetExtraTargets();
-		NiDefaultAVObjectPaletteRef palette = new NiDefaultAVObjectPalette();
-		vector<AVObject > avobjs = palette->GetObjs();
-		for (const auto& target : extra_targets) {
-			etargets.push_back(DynamicCast<NiAVObject>(target));
-			AVObject avobj;
-			avobj.avObject = DynamicCast<NiAVObject>(target);
-			avobj.name = DynamicCast<NiAVObject>(target)->GetName();
-			avobjs.push_back(avobj);
-		}
-		AVObject avobj;
-		avobj.avObject = StaticCast<NiAVObject>(conversion_root);
-		avobj.name = StaticCast<NiAVObject>(conversion_root)->GetName();
-		avobjs.push_back(avobj);
-
-		transformController->SetFlags(44);
-		transformController->SetFrequency(1.0f);
-		transformController->SetPhase(0.0f);
-		transformController->SetExtraTargets(etargets);
-		transformController->SetTarget(conversion_root);
-		//transformController->SetStartTime(0x7f7fffff);
-		//transformController->SetStopTime(0xff7fffff);
 
 
-		palette->SetScene(StaticCast<NiAVObject>(conversion_root));
-		palette->SetObjs(avobjs);
+		//check for each layer if we target a skinned object
+		//for (int i = 0; i < stacks; i++)
+		//{
+		//	FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(i);
+		//	//could contain more than a layer, but by convention we use just the first
+		//	FbxAnimLayer* lAnimLayer = lAnimStack->GetMember<FbxAnimLayer>(0);
 
-		controller->SetObjectPalette(palette);
-		controller->SetControllerSequences(sequences);
-		controller->SetNextController(StaticCast<NiTimeController>(transformController));
-
-		controller->SetFlags(12);
-		controller->SetFrequency(1.0f);
-		controller->SetPhase(0.0f);
-		//controller->SetStartTime(0x7f7fffff);
-		//controller->SetStopTime(0xff7fffff);
-
-		controller->SetTarget(conversion_root);
-		conversion_root->SetController(StaticCast<NiTimeController>(controller));
-
-
+		//}
+		//buildKF();
 	}
 
 	return true;

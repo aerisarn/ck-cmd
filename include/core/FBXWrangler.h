@@ -69,6 +69,7 @@ namespace FBX {
 	private:
 		FbxManager * sdkManager = nullptr;
 		FbxScene* scene = nullptr;
+		//HKXWrapper* hkxWrapper;
 
 		string comName;
 		map<string, FBXShape> shapes;
@@ -78,9 +79,17 @@ namespace FBX {
 		map<NiAVObjectRef, NiAVObjectRef> conversion_parent_Map;
 		map<FbxNode*, NiObjectRef> conversion_Map;
 		map<FbxMesh*, NiTriShapeRef> skins_Map;
+		set<FbxNode*> skinned_bones;
+		set<FbxNode*> unskinned_bones;
+
+		set<FbxAnimStack*> skinned_animations;
+		set<FbxAnimStack*> unskinned_animations;
+
 		NiNodeRef conversion_root;
 		set<string> sequences_names;
 
+		void checkAnimatedNodes();
+		void buildKF();
 		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start);
 		void convertSkins(FbxMesh* m, NiTriShapeRef shape);
 	public:
