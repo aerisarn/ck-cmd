@@ -396,7 +396,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 					curves[i]->KeyModifyBegin();
 					int lKeyIndex = curves[i]->KeyAdd(lTime);
-					curves[i]->KeySetValue(lKeyIndex, float(rad2deg(key.data)));
+					curves[i]->KeySetValue(lKeyIndex, FBXSDK_RAD_TO_DEG * key.data);
 					curves[i]->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
 					curves[i]->KeySetLeftDerivative(lKeyIndex, key.backward_tangent);
 					curves[i]->KeySetRightDerivative(lKeyIndex, key.forward_tangent);
@@ -493,7 +493,10 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				//default palette
 				controlledBlockID = block.nodeName;
 			}
-			FbxNode* animatedNode = getBuiltNode(controlledBlockID, block.priority);
+			int offset = 0;
+			if (block.priority < controlledBlockID.size())
+				offset = block.priority;
+			FbxNode* animatedNode = getBuiltNode(controlledBlockID, offset);
 
 			if (animatedNode == NULL)
 				throw runtime_error("exportKFSequence: Referenced node not found by name:" + controlledBlockID);
@@ -926,7 +929,7 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 
 	bool status = iImporter->Import(scene);
 
-	//FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
+	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
 	//FbxAxisSystem::Max.ConvertScene(scene);
 	//FbxSystemUnit::m.ConvertScene(scene);
 
@@ -936,6 +939,20 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 		return false;
 	}
 	iImporter->Destroy();
+
+	maxSystem.ConvertScene(scene);
+
+	// FBX's internal unscaled unit is centimetres, and if you choose not to work in that unit,
+	// you will find scaling transfgrms on all the children of the root node. Those transforms are
+	// superfluous and cause a lot of people a lot of trouble. Luckily we can get rid of them by
+	// converting to CM here (which just gets rid of the scaling), and then we pre-multiply the
+	// scale factor into every vertex position (and related attributes) instead.
+	FbxSystemUnit sceneSystemUnit = scene->GetGlobalSettings().GetSystemUnit();
+	if (sceneSystemUnit != FbxSystemUnit::cm) {
+		FbxSystemUnit::cm.ConvertScene(scene);
+	}
+	// this is always 0.01, but let's opt for clarity.
+	//scaleFactor = FbxSystemUnit::m.GetConversionFactorFrom(FbxSystemUnit::cm);
 
 	//FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
 	//scene->GetGlobalSettings().SetAxisSystem(maxSystem);
@@ -2396,7 +2413,12 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			NiAVObjectRef nif_child = NULL;
 			if (child->GetNodeAttribute() != NULL && child->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh) {
 				nif_child = StaticCast<NiAVObject>(importShape(child, options));
-				setAvTransform(child, nif_child);
+				NiNodeRef proxyNiNode = new NiNode();
+				proxyNiNode->SetName(nif_child->GetName());
+				nif_child->SetName(nif_child->GetName() + "shape");
+				proxyNiNode->SetChildren({nif_child});
+				setAvTransform(child, proxyNiNode);
+				nif_child = proxyNiNode;
 			}
 			if (nif_child == NULL) {
 				nif_child = new NiNode();

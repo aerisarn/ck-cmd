@@ -11,21 +11,18 @@ namespace BSA {
 	//TODO: exceptions
 	class BSAFile {
 		bsa_handle bh;
-		fs::path path;
 	public:
 
-		BSAFile(const fs::path p) {
+		BSAFile(const fs::path& p) {
 			open(p);
 		}
 
-		void open(const fs::path p) {
+		void open(const fs::path& p) {
 			unsigned int ret = bsa_open(&bh, p.string().c_str());
-			path = p;
 		}
 
 		void close() {
 			bsa_close(bh);
-			path.clear();
 		}
 
 		const std::vector<std::string> assets(const std::string& regex = ".*") {
