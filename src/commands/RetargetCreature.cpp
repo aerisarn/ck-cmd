@@ -158,114 +158,114 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	//TODO: take load order into account!
 
 	//find the project and load it
-	if (cache.hasCreatureProject(source_havok_project)) {
-		Log::Info("Retargeting %s into %s", source_havok_project.c_str(), output_havok_project_name.c_str());
-		//search into override
-		string to_find = fs::path(source_havok_project).replace_extension(".hkx").string();
-		transform(to_find.begin(), to_find.end(), to_find.begin(), ::tolower);
-		for (auto& p : fs::recursive_directory_iterator(games.data(tes5))) {
-			string filename = p.path().filename().string();
-			transform(filename.begin(), filename.end(), filename.begin(), ::tolower);
-			if (filename == to_find) {
-				project_path = p.path();
-				project = wrapper.load<hkbProjectData>(p.path());
-				in_override = true;
-				break;
-			}
-		}
-		if (!in_override) {
-			for (const auto& bsa_path : games.bsas(tes5)) {
-				BSAFile bsa_file(bsa_path);
-				std::vector<std::string> results = bsa_file.assets(".*" + to_find);
-				if (results.size() > 0)
-				{
-					//get the shortest path
-					std::sort(results.begin(), results.end(), compare());
-					project_path = results[0];
-					Log::Info("%s", results[0].c_str());
-					size_t size = -1;
-					const uint8_t* data = bsa_file.extract(results[0], size);
-					project = wrapper.load<hkbProjectData>(data, size);
-					delete data;
-					break;
-				}					
-			}
-		}
+	//if (cache.hasCreatureProject(source_havok_project)) {
+	//	Log::Info("Retargeting %s into %s", source_havok_project.c_str(), output_havok_project_name.c_str());
+	//	//search into override
+	//	string to_find = fs::path(source_havok_project).replace_extension(".hkx").string();
+	//	transform(to_find.begin(), to_find.end(), to_find.begin(), ::tolower);
+	//	for (auto& p : fs::recursive_directory_iterator(games.data(tes5))) {
+	//		string filename = p.path().filename().string();
+	//		transform(filename.begin(), filename.end(), filename.begin(), ::tolower);
+	//		if (filename == to_find) {
+	//			project_path = p.path();
+	//			project = wrapper.load<hkbProjectData>(p.path());
+	//			in_override = true;
+	//			break;
+	//		}
+	//	}
+	//	if (!in_override) {
+	//		for (const auto& bsa_path : games.bsas(tes5)) {
+	//			BSAFile bsa_file(bsa_path);
+	//			std::vector<std::string> results = bsa_file.assets(".*" + to_find);
+	//			if (results.size() > 0)
+	//			{
+	//				//get the shortest path
+	//				std::sort(results.begin(), results.end(), compare());
+	//				project_path = results[0];
+	//				Log::Info("%s", results[0].c_str());
+	//				size_t size = -1;
+	//				const uint8_t* data = bsa_file.extract(results[0], size);
+	//				project = wrapper.load<hkbProjectData>(data, size);
+	//				delete data;
+	//				break;
+	//			}					
+	//		}
+	//	}
 
-	}
+	//}
 
-	fs::path out = games.data(tes5) / project_path.parent_path() / output_havok_project_name;
-	
-	//skyrim files just usually have the character file here
-	vector<fs::path> character_paths;
-	hkArray<hkStringPtr>& characters_files = project->m_stringData->m_characterFilenames;
-	for (const auto& char_path_string : characters_files) {
-		character_paths.push_back(project_path.parent_path() / fs::path(char_path_string.cString()));
-	}
+	//fs::path out = games.data(tes5) / project_path.parent_path() / output_havok_project_name;
+	//
+	////skyrim files just usually have the character file here
+	//vector<fs::path> character_paths;
+	//hkArray<hkStringPtr>& characters_files = project->m_stringData->m_characterFilenames;
+	//for (const auto& char_path_string : characters_files) {
+	//	character_paths.push_back(project_path.parent_path() / fs::path(char_path_string.cString()));
+	//}
 
-	vector<hkRefPtr<hkbCharacterData>> characters;
-	//If not in override, we must extract all resources from bsa
-	for (const auto& rel_path : character_paths) {
-		characters.push_back(load_havok_file<hkbCharacterData>(rel_path, wrapper));
-	}
+	//vector<hkRefPtr<hkbCharacterData>> characters;
+	////If not in override, we must extract all resources from bsa
+	//for (const auto& rel_path : character_paths) {
+	//	characters.push_back(load_havok_file<hkbCharacterData>(rel_path, wrapper));
+	//}
 
-	vector<fs::path> rigs_paths;
-	vector<hkRefPtr<hkaAnimationContainer>> rigs;
-	vector<fs::path> behaviors_paths;
-	vector<hkRefPtr<hkbBehaviorGraph>> behaviors;
-	map<hkRefPtr<hkbBehaviorGraph>, hkArray<hkVariant>> behaviors_objects;
-	
-	for (const auto& char_ptr : characters) {
-		hkRefPtr<hkbCharacterStringData> data = char_ptr->m_stringData;
-		rigs_paths.push_back(project_path.parent_path() / fs::path(data->m_rigName.cString()));
-		rigs.push_back(load_havok_file<hkaAnimationContainer>(project_path.parent_path() / fs::path(data->m_rigName.cString()), wrapper));
-		behaviors_paths.push_back(project_path.parent_path() / fs::path(data->m_behaviorFilename.cString()));
-		hkArray<hkVariant> behavior_objs;
-		hkRefPtr<hkbBehaviorGraph> behavior_root = load_havok_file<hkbBehaviorGraph>(project_path.parent_path() / fs::path(data->m_behaviorFilename.cString()), behavior_objs, wrapper);
-		behaviors_objects[behavior_root] = behavior_objs;
-		behaviors.push_back(behavior_root);
-	}
-	size_t size = behaviors.size();
-	for (size_t i = 0; i < size; ++i)
-	{
-		//look into behaviors for referenced files
-		hkArray<hkVariant>& objects = behaviors_objects[behaviors[i]];
-		for (const auto& obj : objects) {
-			if (strcmp(obj.m_class->getName(), "hkbBehaviorReferenceGenerator") == 0) {
-				hkRefPtr<hkbBehaviorReferenceGenerator> brg = (hkbBehaviorReferenceGenerator*)obj.m_object;
-				fs::path sub_behavior_path = project_path.parent_path() / brg->m_behaviorName.cString();
-				if (find(behaviors_paths.begin(), behaviors_paths.end(), sub_behavior_path) == behaviors_paths.end()) {
-					hkArray<hkVariant> behavior_objs;
-					behaviors_paths.push_back(sub_behavior_path);
-					hkRefPtr<hkbBehaviorGraph> behavior_root = load_havok_file<hkbBehaviorGraph>(sub_behavior_path, behavior_objs, wrapper);
-					behaviors_objects[behavior_root] = behavior_objs;
-					behaviors.push_back(behavior_root);
-					size++;
-				}
-			}
-		}
+	//vector<fs::path> rigs_paths;
+	//vector<hkRefPtr<hkaAnimationContainer>> rigs;
+	//vector<fs::path> behaviors_paths;
+	//vector<hkRefPtr<hkbBehaviorGraph>> behaviors;
+	//map<hkRefPtr<hkbBehaviorGraph>, hkArray<hkVariant>> behaviors_objects;
+	//
+	//for (const auto& char_ptr : characters) {
+	//	hkRefPtr<hkbCharacterStringData> data = char_ptr->m_stringData;
+	//	rigs_paths.push_back(project_path.parent_path() / fs::path(data->m_rigName.cString()));
+	//	rigs.push_back(load_havok_file<hkaAnimationContainer>(project_path.parent_path() / fs::path(data->m_rigName.cString()), wrapper));
+	//	behaviors_paths.push_back(project_path.parent_path() / fs::path(data->m_behaviorFilename.cString()));
+	//	hkArray<hkVariant> behavior_objs;
+	//	hkRefPtr<hkbBehaviorGraph> behavior_root = load_havok_file<hkbBehaviorGraph>(project_path.parent_path() / fs::path(data->m_behaviorFilename.cString()), behavior_objs, wrapper);
+	//	behaviors_objects[behavior_root] = behavior_objs;
+	//	behaviors.push_back(behavior_root);
+	//}
+	//size_t size = behaviors.size();
+	//for (size_t i = 0; i < size; ++i)
+	//{
+	//	//look into behaviors for referenced files
+	//	hkArray<hkVariant>& objects = behaviors_objects[behaviors[i]];
+	//	for (const auto& obj : objects) {
+	//		if (strcmp(obj.m_class->getName(), "hkbBehaviorReferenceGenerator") == 0) {
+	//			hkRefPtr<hkbBehaviorReferenceGenerator> brg = (hkbBehaviorReferenceGenerator*)obj.m_object;
+	//			fs::path sub_behavior_path = project_path.parent_path() / brg->m_behaviorName.cString();
+	//			if (find(behaviors_paths.begin(), behaviors_paths.end(), sub_behavior_path) == behaviors_paths.end()) {
+	//				hkArray<hkVariant> behavior_objs;
+	//				behaviors_paths.push_back(sub_behavior_path);
+	//				hkRefPtr<hkbBehaviorGraph> behavior_root = load_havok_file<hkbBehaviorGraph>(sub_behavior_path, behavior_objs, wrapper);
+	//				behaviors_objects[behavior_root] = behavior_objs;
+	//				behaviors.push_back(behavior_root);
+	//				size++;
+	//			}
+	//		}
+	//	}
 
-	}
+	//}
 
-	vector<fs::path> animations_paths;
-	vector<hkRefPtr<hkaAnimationContainer>> animations;
+	//vector<fs::path> animations_paths;
+	//vector<hkRefPtr<hkaAnimationContainer>> animations;
 
-	for (const auto& behavior_ptr : behaviors) {
-		hkArray<hkVariant>& objects = behaviors_objects[behavior_ptr];
-		for (const auto& obj : objects) {
-			if (strcmp(obj.m_class->getName(), "hkbClipGenerator") == 0) 
-			{
-				hkRefPtr<hkbClipGenerator> clip = (hkbClipGenerator*)obj.m_object;
-				fs::path clip_path = project_path.parent_path() / clip->m_animationName.cString();
-				if (find(animations_paths.begin(), animations_paths.end(), clip_path) == animations_paths.end())
-				{
-					wrapper.save(load_havok_file<hkaAnimationContainer>(clip_path, wrapper),
-						out / clip->m_animationName.cString());
+	//for (const auto& behavior_ptr : behaviors) {
+	//	hkArray<hkVariant>& objects = behaviors_objects[behavior_ptr];
+	//	for (const auto& obj : objects) {
+	//		if (strcmp(obj.m_class->getName(), "hkbClipGenerator") == 0) 
+	//		{
+	//			hkRefPtr<hkbClipGenerator> clip = (hkbClipGenerator*)obj.m_object;
+	//			fs::path clip_path = project_path.parent_path() / clip->m_animationName.cString();
+	//			if (find(animations_paths.begin(), animations_paths.end(), clip_path) == animations_paths.end())
+	//			{
+	//				wrapper.save(load_havok_file<hkaAnimationContainer>(clip_path, wrapper),
+	//					out / clip->m_animationName.cString());
 
-				}
-			}
-		}
-	}
+	//			}
+	//		}
+	//	}
+	//}
 
 	CloseHavok();
 	return true;
