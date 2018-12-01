@@ -1,3 +1,5 @@
+#pragma once
+
 #include "stdafx.h"
 
 #include <commands/Project.h>
@@ -74,6 +76,7 @@
 #include <hkbStateMachine_4.h>
 #include <hkbBlendingTransitionEffect_1.h>
 #include <BGSGamebryoSequenceGenerator_2.h>
+#include <hkbClipGenerator_2.h>
 
 #include <fbxsdk.h>
 
@@ -90,6 +93,7 @@ namespace ckcmd {
 #define BEHAVIORS_SUBFOLDER "behaviors"
 #define CHARACTERS_SUBFOLDER "characters"
 #define ASSETS_SUBFOLDER "assets"
+#define ANIMATIONS_SUBFOLDER "animations"
 
 		using namespace std;
 		using namespace Niflib;
@@ -197,10 +201,13 @@ namespace ckcmd {
 
 			}
 
-			void create_project() {
+			void create_project(const set<string>& havok_sequences_names = {}) {
 				hkbProjectStringData string_data;
 				string_data.m_characterFilenames.pushBack(CHARACTERS_SUBFOLDER"\\character.hkx");
-
+				for (const auto& animation : havok_sequences_names)
+				{
+					string_data.m_animationFilenames.pushBack((fs::path(ANIMATIONS_SUBFOLDER) / string(animation + ".hkx")).string().c_str());
+				}
 				hkbProjectData data;
 				data.m_worldUpWS = hkVector4(0.000000, 0.000000, 1.000000, 0.000000);
 				data.m_stringData = &string_data;
@@ -211,7 +218,7 @@ namespace ckcmd {
 				write(container, "", out_name);
 			}
 
-			void create_character() {
+			void create_character(const set<string>& havok_sequences_names) {
 				hkbCharacterData data;
 				hkbVariableValueSet values;
 				hkbCharacterStringData string_data;
@@ -223,6 +230,11 @@ namespace ckcmd {
 				string_data.m_name = "character";
 				string_data.m_rigName = ASSETS_SUBFOLDER"\\skeleton.hkx";
 				string_data.m_behaviorFilename = BEHAVIORS_SUBFOLDER"\\behavior.hkx";
+
+				for (const auto& animation : havok_sequences_names)
+				{
+					string_data.m_animationNames.pushBack((fs::path(ANIMATIONS_SUBFOLDER) / string(animation + ".hkx")).string().c_str());
+				}
 
 				//data
 				hkbCharacterDataCharacterControllerInfo char_info;
@@ -272,7 +284,7 @@ namespace ckcmd {
 				write(container, ASSETS_SUBFOLDER, "skeleton");
 			}
 
-			hkQsTransform setBoneTransform(FbxNode* pNode) {
+			hkQsTransform getBoneTransform(FbxNode* pNode, FbxTime time) {
 				FbxAMatrix matrixGeo;
 				matrixGeo.SetIdentity();
 				if (pNode->GetNodeAttribute())
@@ -284,7 +296,7 @@ namespace ckcmd {
 					matrixGeo.SetR(lR);
 					matrixGeo.SetS(lS);
 				}
-				FbxAMatrix localMatrix = pNode->EvaluateLocalTransform();
+				FbxAMatrix localMatrix = pNode->EvaluateLocalTransform(time);
 
 				matrixGeo = localMatrix * matrixGeo;
 				hkQsTransform hk_trans;
@@ -301,7 +313,7 @@ namespace ckcmd {
 			}
 
 
-			void create_behavior(const set<string>& sequences_names) {
+			void create_behavior(const set<string>& kf_sequences_names, const set<string>& havok_sequences_names) {
 				hkbBehaviorGraph graph;
 				hkbStateMachine root_fsm;
 				hkbBehaviorGraphData root_data;
@@ -361,6 +373,9 @@ namespace ckcmd {
 				root_fsm.m_startStateMode = hkbStateMachine::START_STATE_MODE_DEFAULT;
 				root_fsm.m_selfTransitionMode = hkbStateMachine::SELF_TRANSITION_MODE_NO_TRANSITION;
 
+				vector<string> sequences_names(kf_sequences_names.begin(), kf_sequences_names.end());
+				sequences_names.insert(sequences_names.end(), havok_sequences_names.begin(), havok_sequences_names.end());
+
 				int state_index = 0;
 				for (const string& sequence : sequences_names) {
 					hkRefPtr<hkbStateMachineStateInfo> state = new hkbStateMachineStateInfo(); state_index++;
@@ -403,13 +418,32 @@ namespace ckcmd {
 					}
 
 					//generator
-					hkRefPtr<BGSGamebryoSequenceGenerator> generator = new BGSGamebryoSequenceGenerator();
-					generator->m_name = sequence.c_str();
-					generator->m_userData = 0;
-					generator->m_pSequence = (char*)sequence.c_str();
-					generator->m_eBlendModeFunction = BGSGamebryoSequenceGenerator::BMF_NONE;
-					generator->m_fPercent = 1.0;
-					state->m_generator = generator;
+					if (state_index <= kf_sequences_names.size())
+					{
+						hkRefPtr<BGSGamebryoSequenceGenerator> generator = new BGSGamebryoSequenceGenerator();
+						generator->m_name = sequence.c_str();
+						generator->m_userData = 0;
+						generator->m_pSequence = (char*)sequence.c_str();
+						generator->m_eBlendModeFunction = BGSGamebryoSequenceGenerator::BMF_NONE;
+						generator->m_fPercent = 1.0;
+						state->m_generator = generator;
+					}
+					else {
+						hkRefPtr<hkbClipGenerator> generator = new hkbClipGenerator();
+						generator->m_name = sequence.c_str();
+						generator->m_userData = 0;
+						generator->m_animationName = (fs::path(ANIMATIONS_SUBFOLDER) / string(sequence + ".hkx")).string().c_str();
+						generator->m_cropStartAmountLocalTime = 0.0;
+						generator->m_cropEndAmountLocalTime = 0.0;
+						generator->m_startTime = 0.0;
+						generator->m_playbackSpeed = 1.0;
+						generator->m_enforcedDuration = 0.0;
+						generator->m_userControlledTimeFraction = 0.0;
+						generator->m_animationBindingIndex = -1;
+						generator->m_mode = hkbClipGenerator::PlaybackMode::MODE_LOOPING;
+						generator->m_flags = 0;
+						state->m_generator = generator;
+					}
 
 					//finish packing the state;
 					state->m_name = sequence.c_str();
@@ -445,9 +479,9 @@ namespace ckcmd {
 				: out_name(out_name), out_path(out_path), out_path_abs(out_path_abs), prefix(prefix)
 			{
 				create_project();
-				create_character();
+				create_character({});
 				create_skeleton();
-				create_behavior(sequences_names);
+				create_behavior(sequences_names, {});
 			}
 
 			string GetPath() { return out_path + "\\" + out_name + "\\" + out_name + ".hkx"; }
@@ -481,7 +515,7 @@ namespace ckcmd {
 						skeleton->m_bones[i].m_lockTranslation = true;
 					}
 					skeleton->m_bones[i].m_name = bone->GetName();
-					skeleton->m_referencePose[i] = setBoneTransform(bone);
+					skeleton->m_referencePose[i] = getBoneTransform(bone,0);
 				}
 
 				anim_container->m_skeletons.pushBack(skeleton);
@@ -497,190 +531,107 @@ namespace ckcmd {
 				return move(ordered_bones);
 			}
 
-			template<typename FbxMatrixType>
-			static void convertFbxXMatrixToMatrix4(const FbxMatrixType& fbxMatrix, hkMatrix4& matrix)
+			set<string> create_animations(const string& skeleton_name, vector<FbxNode*>& skeleton, set<FbxAnimStack*>& animations, FbxTime::EMode timeMode)
 			{
-				FbxVector4 v0 = fbxMatrix.GetRow(0);
-				FbxVector4 v1 = fbxMatrix.GetRow(1);
-				FbxVector4 v2 = fbxMatrix.GetRow(2);
-				FbxVector4 v3 = fbxMatrix.GetRow(3);
+				set<string> sequences_names;
+				for (FbxAnimStack* stack : animations)
+				{
+					hkRefPtr<hkaAnimationContainer> anim_container = new hkaAnimationContainer();
+					hkRefPtr<hkMemoryResourceContainer> mem_container = new hkMemoryResourceContainer();
+					hkRefPtr<hkaAnimationBinding> binding = new hkaAnimationBinding();
+					hkRefPtr<hkaInterleavedUncompressedAnimation> tempAnim = new hkaInterleavedUncompressedAnimation();
 
-				hkVector4 c0; c0.set((float)v0[0], (float)v0[1], (float)v0[2], (float)v0[3]);
-				hkVector4 c1; c1.set((float)v1[0], (float)v1[1], (float)v1[2], (float)v1[3]);
-				hkVector4 c2; c2.set((float)v2[0], (float)v2[1], (float)v2[2], (float)v2[3]);
-				hkVector4 c3; c3.set((float)v3[0], (float)v3[1], (float)v3[2], (float)v3[3]);
 
-				matrix.setCols(c0, c1, c2, c3);
+					FbxTimeSpan animTimeSpan = stack->GetLocalTimeSpan();
+
+					// Find the time offset (in the "time space" of the FBX file) of the first animation frame
+					FbxTime timePerFrame; timePerFrame.SetTime(0, 0, 0, 1, 0, timeMode);
+
+					const FbxTime startTime = animTimeSpan.GetStart();
+					const FbxTime endTime = animTimeSpan.GetStop();
+
+					const hkReal startTimeSeconds = static_cast<hkReal>(startTime.GetSecondDouble());
+					const hkReal endTimeSeconds = static_cast<hkReal>(endTime.GetSecondDouble());
+
+					hkArray<hkString> annotationStrings;
+					hkArray<hkReal> annotationTimes;
+
+					size_t numTracks = skeleton.size();
+					hkReal duration = endTimeSeconds - startTimeSeconds;
+					size_t numFrames = 0;
+					bool staticNode = true;
+
+					tempAnim->m_duration = endTimeSeconds - startTimeSeconds;
+					tempAnim->m_numberOfTransformTracks = skeleton.size();
+					tempAnim->m_numberOfFloatTracks = 0;//anim->m_numberOfFloatTracks;
+					tempAnim->m_floats.setSize(tempAnim->m_numberOfFloatTracks);
+					//tempAnim.m_annotationTracks.setSize(numTracks);
+
+					for (FbxNode* bone : skeleton)
+					{
+						hkaAnnotationTrack ann;
+						ann.m_trackName = "";
+						tempAnim->m_annotationTracks.pushBack(ann);
+					}
+
+					// Sample each animation frame
+					for (FbxTime time = startTime, priorSampleTime = endTime;
+						time <= endTime;
+						priorSampleTime = time, time += timePerFrame, ++numFrames)
+					{
+						for (FbxNode* bone : skeleton)
+						{
+							tempAnim->m_transforms.pushBack(getBoneTransform(bone, time));
+						}
+					}
+
+					hkaSkeletonUtils::normalizeRotations(tempAnim->m_transforms.begin(), tempAnim->m_transforms.getSize());
+
+					// create the animation with default settings
+					{
+						hkaSplineCompressedAnimation::TrackCompressionParams tparams;
+						hkaSplineCompressedAnimation::AnimationCompressionParams aparams;
+
+						tparams.m_rotationTolerance = 0.001f;
+						tparams.m_rotationQuantizationType = hkaSplineCompressedAnimation::TrackCompressionParams::THREECOMP40;
+
+						hkRefPtr<hkaSplineCompressedAnimation> outAnim = new hkaSplineCompressedAnimation(*tempAnim.val(), tparams, aparams);
+						binding->m_animation = outAnim;
+						binding->m_originalSkeletonName = skeleton_name.c_str();
+						anim_container->m_bindings.pushBack(binding);
+						anim_container->m_animations.pushBack(binding->m_animation);
+					}
+
+					hkRootLevelContainer container;
+					
+					
+					container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Merged Animation Container", anim_container, &anim_container->staticClass()));
+					container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Resource Data", mem_container, &mem_container->staticClass()));
+
+					sequences_names.insert(stack->GetName());
+					out_data[fs::path(ANIMATIONS_SUBFOLDER) / stack->GetName()] = container;
+				
+				}
+				return move(sequences_names);
 			}
 
-			
-
-			void create_animations(vector<FbxNode*>& skeleton, set<FbxAnimStack*>& animations, FbxTime::EMode timeMode)
+			string write_project(const string& out_name, const string& out_path, const string& out_path_abs,
+				const string& prefix, const set<string>& kf_sequences_names, const set<string>& havok_sequences_names)
 			{
-			//	for (FbxAnimStack* stack : animations)
-			//	{
-			//		hkRefPtr<hkaAnimationContainer> anim_container = new hkaAnimationContainer();
-			//		hkRefPtr<hkMemoryResourceContainer> mem_container = new hkMemoryResourceContainer();
-			//		hkRefPtr<hkaAnimationBinding> mem_container = new hkaAnimationBinding();
-			//		hkRefPtr<hkaInterleavedUncompressedAnimation> tempAnim = new hkaInterleavedUncompressedAnimation();
+				this->out_name = out_name;
+				this->out_path = out_path; 
+				this->out_path_abs = out_path_abs;
+				this->prefix = prefix;
 
-
-			//		FbxTimeSpan animTimeSpan = stack->GetLocalTimeSpan();
-
-			//		// Find the time offset (in the "time space" of the FBX file) of the first animation frame
-			//		FbxTime timePerFrame; timePerFrame.SetTime(0, 0, 0, 1, 0, timeMode);
-
-			//		const FbxTime startTime = animTimeSpan.GetStart();
-			//		const FbxTime endTime = animTimeSpan.GetStop();
-
-			//		const hkReal startTimeSeconds = static_cast<hkReal>(startTime.GetSecondDouble());
-			//		const hkReal endTimeSeconds = static_cast<hkReal>(endTime.GetSecondDouble());
-
-			//		hkArray<hkString> annotationStrings;
-			//		hkArray<hkReal> annotationTimes;
-
-			//		int numFrames = 0;
-			//		bool staticNode = true;
-
-
-
-			//		// Sample each animation frame
-			//		for (FbxTime time = startTime, priorSampleTime = endTime;
-			//			time < endTime;
-			//			priorSampleTime = time, time += timePerFrame, ++numFrames)
-			//		{
-			//			for (FbxNode* bone : skeleton)
-			//			{
-			//				FbxAMatrix frameMatrix = bone->EvaluateLocalTransform(time);
-			//				//staticNode = staticNode && (frameMatrix == bindPoseMatrix);
-
-			//				hkMatrix4 mat;
-
-			//				// Extract this frame's transform
-			//				convertFbxXMatrixToMatrix4(frameMatrix, mat);
-			//				newChildNode->m_keyFrames.pushBack(mat);
-			//			}
-
-
-			//			
-
-			//		}
-
-			//		
-			//		tempAnim->m_duration = duration;
-			//		tempAnim->m_numberOfTransformTracks = numTracks;
-			//		tempAnim->m_numberOfFloatTracks = 0;//anim->m_numberOfFloatTracks;
-			//		tempAnim->m_transforms.setSize(numTracks*nframes, hkQsTransform::getIdentity());
-			//		tempAnim->m_floats.setSize(tempAnim->m_numberOfFloatTracks);
-			//		tempAnim->m_annotationTracks.setSize(numTracks);
-			//	}
-
-			//	for (FbxNode* pNode : unskinned_bones)
-			//	{
-			//		//FbxNode* pNode = pair.first;
-			//		FbxAnimCurve* lXAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-			//		FbxAnimCurve* lYAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-			//		FbxAnimCurve* lZAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-			//		FbxAnimCurve* lIAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-			//		FbxAnimCurve* lJAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-			//		FbxAnimCurve* lKAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-
-			//		if (lXAnimCurve != NULL || lYAnimCurve != NULL || lZAnimCurve != NULL ||
-			//			lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL)
-			//		{
-
-			//			NiObjectRef target = conversion_Map[pNode];
-			//			targets.insert(target);
-
-			//			NiTransformInterpolatorRef interpolator = new NiTransformInterpolator();
-			//			NiQuatTransform trans;
-			//			trans.translation = Vector3(0, 0, 0);
-			//			trans.rotation = Quaternion(1, 0, 0, 0);
-			//			trans.scale = 1;
-			//			interpolator->SetTransform(trans);
-
-			//			if (lXAnimCurve != NULL || lYAnimCurve != NULL || lZAnimCurve != NULL) {
-			//				addTranslationKeys(interpolator, pNode, lXAnimCurve, lYAnimCurve, lZAnimCurve, last_start);
-			//			}
-
-			//			if (lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL) {
-			//				addRotationKeys(interpolator, pNode, lIAnimCurve, lJAnimCurve, lKAnimCurve, last_start);
-			//			}
-
-			//			NiTransformDataRef data = interpolator->GetData();
-			//			if (data != NULL) {
-			//				KeyGroup<float> scales;
-			//				scales.numKeys = 0;
-			//				scales.keys = {};
-			//				data->SetScales(scales);
-			//			}
-
-			//			//interpolator->SetData(new NiTransformData());
-
-			//			ControlledBlock block;
-			//			block.interpolator = interpolator;
-			//			block.nodeName = DynamicCast<NiAVObject>(conversion_Map[pNode])->GetName();
-			//			block.controllerType = "NiTransformController";
-			//			block.controller = multiController;
-
-			//			blocks.push_back(block);
-
-			//			vector<FbxTimeSpan> spans(6);
-
-			//			if (lXAnimCurve != NULL)
-			//				lXAnimCurve->GetTimeInterval(spans[0]);
-			//			if (lYAnimCurve != NULL)
-			//				lYAnimCurve->GetTimeInterval(spans[1]);
-			//			if (lZAnimCurve != NULL)
-			//				lZAnimCurve->GetTimeInterval(spans[2]);
-			//			if (lIAnimCurve != NULL)
-			//				lIAnimCurve->GetTimeInterval(spans[3]);
-			//			if (lJAnimCurve != NULL)
-			//				lJAnimCurve->GetTimeInterval(spans[4]);
-			//			if (lKAnimCurve != NULL)
-			//				lKAnimCurve->GetTimeInterval(spans[5]);
-
-			//			double start = 1e10;
-			//			double end = -1e10;
-
-			//			for (const auto& span : spans) {
-			//				double span_start = span.GetStart().GetSecondDouble();
-			//				double span_stop = span.GetStop().GetSecondDouble();
-			//				if (span_start < start)
-			//					start = span_start;
-			//				if (span_stop > end)
-			//					end = span_stop;
-			//			}
-
-			//			sequence->SetControlledBlocks(blocks);
-
-			//			sequence->SetStartTime(0.0);
-			//			sequence->SetStopTime(end - start);
-			//			sequence->SetManager(manager);
-			//			sequence->SetAccumRootName(accum_root_name);
-
-			//			NiTextKeyExtraDataRef extra_data = new NiTextKeyExtraData();
-			//			extra_data->SetName(string(""));
-			//			Key<IndexString> start_key;
-			//			start_key.time = 0;
-			//			start_key.data = "start";
-
-			//			Key<IndexString> end_key;
-			//			end_key.time = end - last_start;
-			//			end_key.data = "end";
-
-			//			extra_data->SetTextKeys({ start_key,end_key });
-			//			extra_data->SetNextExtraData(NULL);
-
-			//			sequence->SetTextKeys(extra_data);
-
-			//			sequence->SetFrequency(1.0);
-			//			sequence->SetCycleType(CYCLE_CLAMP);
-
-			//		}
-			//	}
+				create_project(havok_sequences_names);
+				create_character(havok_sequences_names);
+				for (auto& asset : out_data)
+				{
+					write(asset.second, "", asset.first.string());
+				}
+				create_behavior(kf_sequences_names, havok_sequences_names);
+				return GetPath();
 			}
-
 		};
 
 		typedef map<set<string>, HKXWrapper> wrap_map;

@@ -9,6 +9,7 @@ See the included LICENSE file
 #include <stdafx.h>
 
 #include <core\NifFile.h>
+#include <core/HKXWrangler.h>
 
 #include <fbxsdk.h>
 #include <unordered_map>
@@ -29,6 +30,7 @@ namespace FBX {
 	using namespace std;
 	using namespace Niflib;
 	using namespace ckcmd::NIF;
+	using namespace ckcmd::HKX;
 
 	class FBXShape {
 	public:
@@ -69,7 +71,7 @@ namespace FBX {
 	private:
 		FbxManager * sdkManager = nullptr;
 		FbxScene* scene = nullptr;
-		//HKXWrapper* hkxWrapper;
+		HKXWrapper hkxWrapper;
 
 		string comName;
 		map<string, FBXShape> shapes;
@@ -87,6 +89,7 @@ namespace FBX {
 
 		NiNodeRef conversion_root;
 		set<string> sequences_names;
+		set<string> havok_sequences;
 
 		void checkAnimatedNodes();
 		void buildKF();

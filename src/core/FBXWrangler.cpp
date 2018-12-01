@@ -7,7 +7,6 @@ See the included LICENSE file
 #include <core/FBXWrangler.h>
 #include <core/EulerAngles.h>
 #include <core/MathHelper.h>
-#include <core/HKXWrangler.h>
 #include <commands/Geometry.h>
 #include <commands/NifScan.h>
 #include <core/log.h>
@@ -396,7 +395,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 					curves[i]->KeyModifyBegin();
 					int lKeyIndex = curves[i]->KeyAdd(lTime);
-					curves[i]->KeySetValue(lKeyIndex, FBXSDK_RAD_TO_DEG * key.data);
+					curves[i]->KeySetValue(lKeyIndex, float(rad2deg(key.data)));
 					curves[i]->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
 					curves[i]->KeySetLeftDerivative(lKeyIndex, key.backward_tangent);
 					curves[i]->KeySetRightDerivative(lKeyIndex, key.forward_tangent);
@@ -493,10 +492,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				//default palette
 				controlledBlockID = block.nodeName;
 			}
-			int offset = 0;
-			if (block.priority < controlledBlockID.size())
-				offset = block.priority;
-			FbxNode* animatedNode = getBuiltNode(controlledBlockID, offset);
+			FbxNode* animatedNode = getBuiltNode(controlledBlockID, block.priority);
 
 			if (animatedNode == NULL)
 				throw runtime_error("exportKFSequence: Referenced node not found by name:" + controlledBlockID);
@@ -929,7 +925,7 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 
 	bool status = iImporter->Import(scene);
 
-	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
+	//FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
 	//FbxAxisSystem::Max.ConvertScene(scene);
 	//FbxSystemUnit::m.ConvertScene(scene);
 
@@ -939,20 +935,6 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 		return false;
 	}
 	iImporter->Destroy();
-
-	maxSystem.ConvertScene(scene);
-
-	// FBX's internal unscaled unit is centimetres, and if you choose not to work in that unit,
-	// you will find scaling transfgrms on all the children of the root node. Those transforms are
-	// superfluous and cause a lot of people a lot of trouble. Luckily we can get rid of them by
-	// converting to CM here (which just gets rid of the scaling), and then we pre-multiply the
-	// scale factor into every vertex position (and related attributes) instead.
-	FbxSystemUnit sceneSystemUnit = scene->GetGlobalSettings().GetSystemUnit();
-	if (sceneSystemUnit != FbxSystemUnit::cm) {
-		FbxSystemUnit::cm.ConvertScene(scene);
-	}
-	// this is always 0.01, but let's opt for clarity.
-	//scaleFactor = FbxSystemUnit::m.GetConversionFactorFrom(FbxSystemUnit::cm);
 
 	//FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
 	//scene->GetGlobalSettings().SetAxisSystem(maxSystem);
@@ -1636,6 +1618,11 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 	BSLightingShaderProperty* shader = new BSLightingShaderProperty();
 	if (data->GetHasVertexColors() == false)
 		shader->SetShaderFlags2_sk(SkyrimShaderPropertyFlags2(shader->GetShaderFlags2() & ~SLSF2_VERTEX_COLORS));
+
+	if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
+		shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() | SLSF1_SKINNED));
+	}
+
 
 	BSShaderTextureSetRef textures = new BSShaderTextureSet();
 	textures->SetTextures({
@@ -2413,12 +2400,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			NiAVObjectRef nif_child = NULL;
 			if (child->GetNodeAttribute() != NULL && child->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh) {
 				nif_child = StaticCast<NiAVObject>(importShape(child, options));
-				NiNodeRef proxyNiNode = new NiNode();
-				proxyNiNode->SetName(nif_child->GetName());
-				nif_child->SetName(nif_child->GetName() + "shape");
-				proxyNiNode->SetChildren({nif_child});
-				setAvTransform(child, proxyNiNode);
-				nif_child = proxyNiNode;
+				setAvTransform(child, nif_child);
 			}
 			if (nif_child == NULL) {
 				nif_child = new NiNode();
@@ -2471,10 +2453,23 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		if (unskinned_animations.size() > 0)
 			buildKF();
 		if (skinned_animations.size() > 0) {
-			//build a skeleton			
-			//vector<FbxNode*> skeleton = hkxWrapper.create_skeleton("skeleton", skinned_bones);
-
+			//build a skeleton, it must be complete.
+			set<FbxNode*> skeleton;
+			for (FbxNode* bone : skinned_bones)
+			{
+				FbxNode* current_node = bone;
+				do {
+					skeleton.insert(current_node);
+					current_node = current_node->GetParent();
+				} while (current_node != NULL && current_node != root);
+			}
+			//get back the ordered skeleton
+			vector<FbxNode*> hkskeleton = hkxWrapper.create_skeleton("skeleton", skeleton);
+			//create the animations
+			havok_sequences = hkxWrapper.create_animations("skeleton", hkskeleton, skinned_animations, scene->GetGlobalSettings().GetTimeMode());
 		}
+
+
 
 
 		//check for each layer if we target a skinned object
@@ -2501,21 +2496,29 @@ bool FBXWrangler::SaveNif(const string& fileName) {
 	vector<NiObjectRef> objects = RebuildVisitor(conversion_root, info).blocks;
 	bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(objects, info);
 
+	//adjust for havok
+	if (!skinned_animations.empty())
+		calculated_flags[0] = true;
+
 	BSXFlagsRef bref = new BSXFlags();
 	bref->SetName(string("BSX"));
 	bref->SetIntegerData(calculated_flags.to_ulong());
+
+
 
 	conversion_root->SetExtraDataList({ StaticCast<NiExtraData>(bref) });
 
 	HKXWrapperCollection wrappers;
 
-	if (!sequences_names.empty()) {
+	if (!unskinned_animations.empty() || !skinned_animations.empty()) {
 		fs::path in_file = fs::path(fileName).filename();
 		string out_name = in_file.filename().replace_extension("").string();
 		fs::path out_path = fs::path("animations") / in_file.parent_path() / out_name;
 		fs::path out_path_abs = fs::path(fileName).parent_path() / out_path;
 		string out_path_a = out_path_abs.string();
-		string out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "FBX", sequences_names);
+		string out_havok_path = skinned_animations.empty()?
+			wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "FBX", sequences_names):
+			hkxWrapper.write_project(out_name, out_path.parent_path().string(), out_path_a, "FBX", sequences_names, havok_sequences);
 		vector<Ref<NiExtraData > > list = conversion_root->GetExtraDataList();
 		BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
 		havokp->SetName(string("BGED"));
