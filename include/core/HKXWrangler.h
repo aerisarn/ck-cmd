@@ -170,7 +170,7 @@ namespace ckcmd {
 				return NULL;
 			}
 
-			template<typename hkRootType> 
+			template<typename hkRootType>
 			hkRefPtr<hkRootType> load(const fs::path& path, hkRootLevelContainer* root) {
 				root = read(path);
 				hkRefPtr<hkRootType> project;
@@ -196,7 +196,7 @@ namespace ckcmd {
 				hkRefPtr<hkbProjectData> project = load<hkbProjectData>(data, size, root);
 			}
 
-			void retarget_project(hkRootLevelContainer* root, hkRefPtr<hkbProjectData>, const string& output_project_name, const fs::path& output_dir) 
+			void retarget_project(hkRootLevelContainer* root, hkRefPtr<hkbProjectData>, const string& output_project_name, const fs::path& output_dir)
 			{
 
 			}
@@ -211,8 +211,8 @@ namespace ckcmd {
 				hkbProjectData data;
 				data.m_worldUpWS = hkVector4(0.000000, 0.000000, 1.000000, 0.000000);
 				data.m_stringData = &string_data;
-				
-				hkRootLevelContainer container;				
+
+				hkRootLevelContainer container;
 				container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("hkbProjectData", &data, &data.staticClass()));
 
 				write(container, "", out_name);
@@ -335,7 +335,7 @@ namespace ckcmd {
 				//String Data
 				root_string_data.m_eventNames.setSize(event_count);
 				int count = 0;
-				for (string event: events)
+				for (string event : events)
 					root_string_data.m_eventNames[count++] = event.c_str();
 
 				//Data
@@ -486,6 +486,28 @@ namespace ckcmd {
 
 			string GetPath() { return out_path + "\\" + out_name + "\\" + out_name + ".hkx"; }
 
+			vector<string> read_track_list(const fs::path& path, string& skeleton_name = string("")) {
+				vector<string> ordered_tracks;
+				hkArray<hkVariant> objects;
+				read(path, objects);
+				for (const auto& variant : objects) {
+					//WARNING: MUST be the FIRST. There's no good way to separate the animation skeleton from the ragdoll
+					if (strcmp(variant.m_class->getName(), "hkaSkeleton") == 0) 
+					{
+						hkRefPtr<hkaSkeleton> skeleton((hkaSkeleton*)variant.m_object);
+						if (string(skeleton->m_name.cString()).find("Ragdoll") == string::npos)
+						{
+							for (int i = 0; i < skeleton->m_bones.getSize(); i++)
+								ordered_tracks.push_back(skeleton->m_bones[i].m_name.cString());
+							skeleton_name = skeleton->m_name.cString();
+							return move(ordered_tracks);
+						}
+					}
+				}
+
+				return move(ordered_tracks);
+			}
+
 			//gives back the ordered bone array as written in the skeleton file
 			vector<FbxNode*> create_skeleton(const string& name, const set<FbxNode*>& bones) {
 				hkRefPtr<hkaAnimationContainer> anim_container = new hkaAnimationContainer();
@@ -500,7 +522,7 @@ namespace ckcmd {
 				skeleton->m_bones.setSize(bones.size());
 				skeleton->m_referencePose.setSize(bones.size());
 				//build parent_map;
-				for (int i=0; i< ordered_bones.size(); i++)
+				for (int i = 0; i < ordered_bones.size(); i++)
 				{
 					FbxNode* bone = ordered_bones[i];
 					vector<FbxNode*>::iterator parent_it = find(ordered_bones.begin(), ordered_bones.end(), bone->GetParent());
@@ -515,7 +537,7 @@ namespace ckcmd {
 						skeleton->m_bones[i].m_lockTranslation = true;
 					}
 					skeleton->m_bones[i].m_name = bone->GetName();
-					skeleton->m_referencePose[i] = getBoneTransform(bone,0);
+					skeleton->m_referencePose[i] = getBoneTransform(bone, 0);
 				}
 
 				anim_container->m_skeletons.pushBack(skeleton);
@@ -531,7 +553,7 @@ namespace ckcmd {
 				return move(ordered_bones);
 			}
 
-			set<string> create_animations(const string& skeleton_name, vector<FbxNode*>& skeleton, set<FbxAnimStack*>& animations, FbxTime::EMode timeMode)
+			set<string> create_animations(const string& skeleton_name, vector<FbxNode*>& skeleton, set<FbxAnimStack*>& animations, FbxTime::EMode timeMode, const vector<uint32_t>& transform_track_to_bone_indices = {})
 			{
 				set<string> sequences_names;
 				for (FbxAnimStack* stack : animations)
@@ -598,22 +620,52 @@ namespace ckcmd {
 						hkRefPtr<hkaSplineCompressedAnimation> outAnim = new hkaSplineCompressedAnimation(*tempAnim.val(), tparams, aparams);
 						binding->m_animation = outAnim;
 						binding->m_originalSkeletonName = skeleton_name.c_str();
+
+						if (!transform_track_to_bone_indices.empty()) {
+							for (const auto& index : transform_track_to_bone_indices)
+								binding->m_transformTrackToBoneIndices.pushBack(index);
+						}
+
 						anim_container->m_bindings.pushBack(binding);
 						anim_container->m_animations.pushBack(binding->m_animation);
 					}
 
 					hkRootLevelContainer container;
-					
-					
+
+
 					container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Merged Animation Container", anim_container, &anim_container->staticClass()));
 					container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Resource Data", mem_container, &mem_container->staticClass()));
 
 					sequences_names.insert(stack->GetName());
 					out_data[fs::path(ANIMATIONS_SUBFOLDER) / stack->GetName()] = container;
-				
+
 				}
 				return move(sequences_names);
 			}
+
+			void write_animations(const string& out_path, const set<string>& havok_sequences_names)
+			{
+				if (havok_sequences_names.size() == 1)
+				{
+					this->out_name = fs::path(out_path).filename().replace_extension("").string();
+					this->out_path = fs::path(out_path).parent_path().string();
+					this->out_path_abs = this->out_path;
+					this->prefix = "";
+
+					write(out_data.begin()->second, "", out_name);
+				}
+				else {
+					for (auto& asset : out_data)
+					{
+						this->out_path = fs::path(out_path).parent_path().string();
+						this->out_path_abs = this->out_path;
+						this->prefix = "";
+
+						write(out_data.begin()->second, "", asset.first.string());
+					}
+				}
+			}
+		
 
 			string write_project(const string& out_name, const string& out_path, const string& out_path_abs,
 				const string& prefix, const set<string>& kf_sequences_names, const set<string>& havok_sequences_names)

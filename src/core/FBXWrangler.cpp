@@ -16,7 +16,14 @@ using namespace  ckcmd::Geometry;
 using namespace ckcmd::nifscan;
 using namespace ckcmd::HKX;
 
-////extern ConfigurationManager Config;
+void replaceAll(std::string& str, const std::string& from, const std::string& to) {
+	size_t start_pos = 0;
+	while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
+		str.replace(start_pos, from.length(), to);
+		start_pos += to.length(); // ...
+	}
+}
+
 
 FBXWrangler::FBXWrangler() {
 	sdkManager = FbxManager::Create();
@@ -2388,6 +2395,9 @@ void FBXWrangler::checkAnimatedNodes()
 	}
 }
 
+void FBXWrangler::setExternalSkeletonPath(const string& external_skeleton_path) {
+	this->external_skeleton_path = external_skeleton_path;
+}
 
 bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	if (!scene)
@@ -2452,37 +2462,71 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		//now we have the list of both skinned and unskinned bones and skinned and unskinned stacks of the FBX
 		if (unskinned_animations.size() > 0)
 			buildKF();
-		if (skinned_animations.size() > 0) {
-			//build a skeleton, it must be complete.
-			set<FbxNode*> skeleton;
-			for (FbxNode* bone : skinned_bones)
+		if (skinned_animations.size() > 0) {		
+			if (external_skeleton_path.empty())
 			{
-				FbxNode* current_node = bone;
-				do {
-					skeleton.insert(current_node);
-					current_node = current_node->GetParent();
-				} while (current_node != NULL && current_node != root);
+				//build a skeleton, it must be complete.
+				set<FbxNode*> skeleton;
+				for (FbxNode* bone : skinned_bones)
+				{
+					FbxNode* current_node = bone;
+					do {
+						skeleton.insert(current_node);
+						current_node = current_node->GetParent();
+					} while (current_node != NULL && current_node != root);
+				}
+				//get back the ordered skeleton
+				vector<FbxNode*> hkskeleton = hkxWrapper.create_skeleton("skeleton", skeleton);
+				//create the sequences
+				havok_sequences = hkxWrapper.create_animations("skeleton", hkskeleton, skinned_animations, scene->GetGlobalSettings().GetTimeMode());
 			}
-			//get back the ordered skeleton
-			vector<FbxNode*> hkskeleton = hkxWrapper.create_skeleton("skeleton", skeleton);
-			//create the animations
-			havok_sequences = hkxWrapper.create_animations("skeleton", hkskeleton, skinned_animations, scene->GetGlobalSettings().GetTimeMode());
+			else {
+				string external_name;
+				vector<string> external_bones = hkxWrapper.read_track_list(external_skeleton_path, external_name);
+				//maya is picky about names, and stuff may be very well sanitized! especially skeeltons, which use an illegal syntax in Skyrim
+				vector<string> sanitized_bones;
+				for (const auto& name : external_bones)
+				{
+					string sanitized = name;
+					replaceAll(sanitized, " ", "_s_");
+					replaceAll(sanitized, "[", "_ob_");
+					replaceAll(sanitized, "]", "_cb_");
+					sanitized_bones.push_back(sanitized);
+				}
+
+
+				vector<FbxNode*> tracks;
+				vector<uint32_t> transformTrackToBoneIndices;
+
+				
+				//check that our tracks actually belong to this skeleton, at least on names;
+				for (FbxNode* bone : skinned_bones)
+				{
+					string sanitized = bone->GetName();
+					replaceAll(sanitized, " ", "_s_");
+					replaceAll(sanitized, "[", "_ob_");
+					replaceAll(sanitized, "]", "_cb_");
+					vector<string>::iterator bone_position = find(sanitized_bones.begin(), sanitized_bones.end(), sanitized);
+					if (bone_position == sanitized_bones.end())
+					{
+						Log::Warn("%s", string("Wrong skeleton: " + string(bone->GetName()) + " bone NOT FOUND into skeleton " + external_skeleton_path + " ! aborting.").c_str());
+					}
+					else {
+						transformTrackToBoneIndices.push_back(distance(sanitized_bones.begin(), bone_position));
+						tracks.push_back(bone);
+					}
+				}
+
+				havok_sequences = hkxWrapper.create_animations(external_name, tracks, skinned_animations, scene->GetGlobalSettings().GetTimeMode(), transformTrackToBoneIndices);
+			}
 		}
-
-
-
-
-		//check for each layer if we target a skinned object
-		//for (int i = 0; i < stacks; i++)
-		//{
-		//	FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(i);
-		//	//could contain more than a layer, but by convention we use just the first
-		//	FbxAnimLayer* lAnimLayer = lAnimStack->GetMember<FbxAnimLayer>(0);
-
-		//}
-		//buildKF();
 	}
 
+	return true;
+}
+
+bool FBXWrangler::SaveAnimation(const string& fileName) {
+	hkxWrapper.write_animations(fileName, havok_sequences);
 	return true;
 }
 

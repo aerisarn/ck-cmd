@@ -355,6 +355,7 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/AnimationCache.h"
 #COMMANDS
 					 "${CMAKE_SOURCE_DIR}/include/commands/ImportFbx.h"
+					 "${CMAKE_SOURCE_DIR}/include/commands/ImportAnimation.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/RetargetSkin.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/AddNodesToSkeleton.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ConvertNif.h"

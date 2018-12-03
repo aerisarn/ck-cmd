@@ -1,5 +1,5 @@
-#ifndef EXPFBX_H
-#define EXPFBX_H
+#ifndef IMPFBX_H
+#define IMPFBX_H
 #include "stdafx.h"
 
 // Command Base
@@ -22,4 +22,4 @@ protected:
     virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
 };
 
-#endif //EXPFBX_H
+#endif //IMPFBX_H

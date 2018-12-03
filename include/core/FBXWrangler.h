@@ -91,6 +91,8 @@ namespace FBX {
 		set<string> sequences_names;
 		set<string> havok_sequences;
 
+		string external_skeleton_path = "";
+			
 		void checkAnimatedNodes();
 		void buildKF();
 		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start);
@@ -98,6 +100,9 @@ namespace FBX {
 	public:
 		FBXWrangler();
 		~FBXWrangler();
+
+		void setExternalSkeletonPath(const string& external_skeleton_path);
+		bool SaveAnimation(const string& fileName);
 
 		void NewScene();
 		void CloseScene();
