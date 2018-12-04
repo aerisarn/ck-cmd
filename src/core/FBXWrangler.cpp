@@ -2364,24 +2364,46 @@ void FBXWrangler::checkAnimatedNodes()
 	for (int i = 0; i < stacks; i++)
 	{
 		FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(i);
-		//could contain more than a layer, but by convention we use just the first
+		//could contain more than a layer, but by convention we use just the first, assuming the animation has been baked
 		FbxAnimLayer* pAnimLayer = lAnimStack->GetMember<FbxAnimLayer>(0);
 		//for safety, we only check analyzed nodes
 		for (const auto& pair : conversion_Map)
 		{
 			FbxNode* pNode = pair.first;
 			//check if it's animated into this layer
-			FbxAnimCurve* lXAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-			FbxAnimCurve* lYAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-			FbxAnimCurve* lZAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-			FbxAnimCurve* lIAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-			FbxAnimCurve* lJAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-			FbxAnimCurve* lKAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+			FbxProperty p = pNode->GetFirstProperty();
 
-			if (lXAnimCurve != NULL || lYAnimCurve != NULL || lZAnimCurve != NULL ||
-				lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL)
+			bool isFloatTrack = true;
+			bool isAnimated = false;
+
+			while (p.IsValid())
 			{
-				//check the pNode Type 
+				if (p.IsAnimated(pAnimLayer))
+				{
+					FbxAnimCurveNode* curveNode = p.GetCurveNode();
+					for (int j = 0; j < curveNode->GetChannelsCount(); j++)
+					{
+						if (strcmp(FBXSDK_CURVENODE_COMPONENT_X, curveNode->GetChannelName(j).Buffer())==0 ||
+							strcmp(FBXSDK_CURVENODE_COMPONENT_Y, curveNode->GetChannelName(j).Buffer())==0 ||
+							strcmp(FBXSDK_CURVENODE_COMPONENT_Z, curveNode->GetChannelName(j).Buffer()) == 0)
+						{						//check the pNode Type 
+							isFloatTrack = false;
+							break;
+						}
+					}
+					isAnimated = true;
+				}
+				if (!isFloatTrack)
+					break;
+
+				if (string(p.GetNameAsCStr()).find("hk") != string::npos)
+					annotated.insert(pNode);
+
+				p = pNode->GetNextProperty(p);
+			}
+
+			if (!isFloatTrack)
+			{
 				if (skinned_bones.find(pNode) == skinned_bones.end())
 				{
 					unskinned_bones.insert(pNode);
@@ -2391,6 +2413,30 @@ void FBXWrangler::checkAnimatedNodes()
 					skinned_animations.insert(lAnimStack);
 				}
 			}
+			else {
+				float_tracks.insert(pNode);
+			}
+
+			//FbxAnimCurve* lXAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
+			//FbxAnimCurve* lYAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
+			//FbxAnimCurve* lZAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+			//FbxAnimCurve* lIAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
+			//FbxAnimCurve* lJAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
+			//FbxAnimCurve* lKAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+
+			//if (lXAnimCurve != NULL || lYAnimCurve != NULL || lZAnimCurve != NULL ||
+			//	lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL)
+			//{
+			//	//check the pNode Type 
+			//	if (skinned_bones.find(pNode) == skinned_bones.end())
+			//	{
+			//		unskinned_bones.insert(pNode);
+			//		unskinned_animations.insert(lAnimStack);
+			//	}
+			//	else {
+			//		skinned_animations.insert(lAnimStack);
+			//	}
+			//}
 		}
 	}
 }
@@ -2442,6 +2488,13 @@ size_t getNearestCommonAncestor(const vector<int>& parentMap, const set<size_t>&
 		result = bone;
 	}
 	return result;
+}
+
+void sanitizeString(string& to_sanitize)
+{
+	replaceAll(to_sanitize, " ", "_s_");
+	replaceAll(to_sanitize, "[", "_ob_");
+	replaceAll(to_sanitize, "]", "_cb_");
 }
 
 bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
@@ -2519,9 +2572,9 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				} while (current_node != NULL && current_node != root);
 			}
 			//add keyed annotations into tracks
-			set<FbxNode*> annotated;
+			
 			//add floats, single float tracks
-			set<FbxNode*> floats;
+			
 			//build fbx parent map
 			vector<FbxNode*> fbx_nodes;
 			for (const auto& node : skeleton) {
@@ -2562,17 +2615,12 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				for (const auto& name : external_bones)
 				{
 					string sanitized = name;
-					replaceAll(sanitized, " ", "_s_");
-					replaceAll(sanitized, "[", "_ob_");
-					replaceAll(sanitized, "]", "_cb_");
+					sanitizeString(sanitized);
 					sanitized_bones.push_back(sanitized);
 				}
 
 				string sanitized_external_root = external_root;
-				replaceAll(sanitized_external_root, " ", "_s_");
-				replaceAll(sanitized_external_root, "[", "_ob_");
-				replaceAll(sanitized_external_root, "]", "_cb_");
-
+				sanitizeString(sanitized_external_root);
 				vector<FbxNode*> tracks;
 				vector<uint32_t> transformTrackToBoneIndices;
 
@@ -2581,9 +2629,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				for (FbxNode* bone : fbx_nodes)
 				{
 					string sanitized = bone->GetName();
-					replaceAll(sanitized, " ", "_s_");
-					replaceAll(sanitized, "[", "_ob_");
-					replaceAll(sanitized, "]", "_cb_");
+					sanitizeString(sanitized);
 					vector<string>::iterator bone_position = find(sanitized_bones.begin(), sanitized_bones.end(), sanitized);
 					if (bone_position == sanitized_bones.end())
 					{

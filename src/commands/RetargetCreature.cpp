@@ -9,6 +9,7 @@
 
 #include <hkbBehaviorReferenceGenerator_0.h>
 #include <hkbClipGenerator_2.h>
+#include <hkbProjectData_2.h>
 
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;

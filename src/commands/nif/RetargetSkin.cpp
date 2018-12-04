@@ -11,6 +11,7 @@
 #include <core/NifFile.h>
 #include <commands/NifScan.h>
 
+#include <Animation/Animation/Rig/hkaSkeleton.h>
 #include <Physics\Dynamics\Constraint\Bilateral\Ragdoll\hkpRagdollConstraintData.h>
 #include <Physics\Dynamics\Constraint\Bilateral\BallAndSocket\hkpBallAndSocketConstraintData.h>
 #include <Physics\Dynamics\Constraint\Bilateral\Hinge\hkpHingeConstraintData.h>
@@ -21,6 +22,7 @@
 
 #include <Physics\Collide\Util\hkpTriangleUtil.h>
 #include <Animation\Animation\Mapper\hkaSkeletonMapperUtils.h>
+#include <Animation/Animation/hkaAnimationContainer.h>
 
 #include <limits>
 #include <array>

@@ -81,8 +81,11 @@ namespace FBX {
 		map<NiAVObjectRef, NiAVObjectRef> conversion_parent_Map;
 		map<FbxNode*, NiObjectRef> conversion_Map;
 		map<FbxMesh*, NiTriShapeRef> skins_Map;
+
 		set<FbxNode*> skinned_bones;
 		set<FbxNode*> unskinned_bones;
+		set<FbxNode*> float_tracks;
+		set<FbxNode*> annotated;
 
 		set<FbxAnimStack*> skinned_animations;
 		set<FbxAnimStack*> unskinned_animations;
