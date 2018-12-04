@@ -486,7 +486,7 @@ namespace ckcmd {
 
 			string GetPath() { return out_path + "\\" + out_name + "\\" + out_name + ".hkx"; }
 
-			vector<string> read_track_list(const fs::path& path, string& skeleton_name = string("")) {
+			vector<string> read_track_list(const fs::path& path, string& skeleton_name = string(""), string& root_name = string("")) {
 				vector<string> ordered_tracks;
 				hkArray<hkVariant> objects;
 				read(path, objects);
@@ -499,6 +499,14 @@ namespace ckcmd {
 						{
 							for (int i = 0; i < skeleton->m_bones.getSize(); i++)
 								ordered_tracks.push_back(skeleton->m_bones[i].m_name.cString());
+
+							//find root
+							for (int i = 0; i < skeleton->m_parentIndices.getSize(); i++) {
+								if (skeleton->m_parentIndices[i] == -1 && 
+									string(skeleton->m_bones[i].m_name.cString()).find("Camera") == string::npos)
+									root_name = skeleton->m_bones[i].m_name.cString();
+							}
+
 							skeleton_name = skeleton->m_name.cString();
 							return move(ordered_tracks);
 						}
@@ -509,7 +517,7 @@ namespace ckcmd {
 			}
 
 			//gives back the ordered bone array as written in the skeleton file
-			vector<FbxNode*> create_skeleton(const string& name, const set<FbxNode*>& bones) {
+			vector<FbxNode*> create_skeleton(const string& name, const set<FbxNode*>& bones, FbxNode* root = NULL) {
 				hkRefPtr<hkaAnimationContainer> anim_container = new hkaAnimationContainer();
 				hkRefPtr<hkMemoryResourceContainer> mem_container = new hkMemoryResourceContainer();
 				hkRefPtr<hkaSkeleton> skeleton = new hkaSkeleton();
@@ -530,6 +538,7 @@ namespace ckcmd {
 					{
 						skeleton->m_parentIndices[i] = -1;
 						skeleton->m_bones[i].m_lockTranslation = false;
+						root = bone;
 					}
 					else
 					{
@@ -591,9 +600,23 @@ namespace ckcmd {
 
 					for (FbxNode* bone : skeleton)
 					{
-						hkaAnnotationTrack ann;
-						ann.m_trackName = "";
-						tempAnim->m_annotationTracks.pushBack(ann);
+						//if (external_root == string(bone->GetName()))
+						//{
+						//	//Find annotations on root bone
+						//	FbxProperty prop = bone->GetFirstProperty();
+						//	while (prop.IsValid())
+						//	{
+						//		string name = prop.GetNameAsCStr();
+						//		Log::Info("%s", name.c_str());
+						//		bone->GetNextProperty(prop);
+						//	}
+						//}
+						//else
+						//{
+						//	hkaAnnotationTrack ann;
+						//	ann.m_trackName = "";
+						//	tempAnim->m_annotationTracks.pushBack(ann);
+						//}
 					}
 
 					// Sample each animation frame

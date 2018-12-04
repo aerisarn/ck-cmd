@@ -2399,6 +2399,51 @@ void FBXWrangler::setExternalSkeletonPath(const string& external_skeleton_path) 
 	this->external_skeleton_path = external_skeleton_path;
 }
 
+vector<size_t> getParentChain(const vector<int>& parentMap, const size_t node) {
+	vector<size_t> vresult;
+	int current_node = node;
+	if (current_node > 0 && current_node < parentMap.size())
+	{
+		//his better not be a graph
+		while (current_node != -1) {
+			vresult.insert(vresult.begin(),current_node);
+			current_node = parentMap[current_node];
+		}
+	}
+
+	return move(vresult);
+}
+
+size_t getNearestCommonAncestor(const vector<int>& parentMap, const set<size_t>& nodes) {
+	size_t result = NULL;
+	size_t max_size_index = 0;
+	size_t max_size = 0;
+	int actual_index = 0;
+	vector<vector<size_t>> chains;
+	for (const auto& node_index : nodes)
+	{
+		chains.push_back(getParentChain(parentMap, node_index));
+	}
+
+	for (const auto& chain : chains) {
+		if (chain.size() > max_size) {
+			max_size = chain.size();
+			max_size_index = actual_index;
+		}
+		actual_index++;
+	}
+	const vector<size_t>& max_chain = chains[max_size_index];
+	for (const auto& bone : max_chain) {
+		for (const auto& chain : chains) {
+			if (find(chain.begin(), chain.end(), bone) == chain.end()) {
+				return result;
+			}
+		}
+		result = bone;
+	}
+	return result;
+}
+
 bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	if (!scene)
 		return false;
@@ -2462,19 +2507,47 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		//now we have the list of both skinned and unskinned bones and skinned and unskinned stacks of the FBX
 		if (unskinned_animations.size() > 0)
 			buildKF();
-		if (skinned_animations.size() > 0) {		
+		if (skinned_animations.size() > 0) {
+			//build a skeleton, it must be complete.
+			set<FbxNode*> skeleton;
+			for (FbxNode* bone : skinned_bones)
+			{
+				FbxNode* current_node = bone;
+				do {
+					skeleton.insert(current_node);
+					current_node = current_node->GetParent();
+				} while (current_node != NULL && current_node != root);
+			}
+			//add keyed annotations into tracks
+			set<FbxNode*> annotated;
+			//add floats, single float tracks
+			set<FbxNode*> floats;
+			//build fbx parent map
+			vector<FbxNode*> fbx_nodes;
+			for (const auto& node : skeleton) {
+				fbx_nodes.push_back(node);
+			}
+			vector<int> fbx_parent_map(fbx_nodes.size());
+			for (vector<FbxNode*>::iterator node_it = fbx_nodes.begin(); node_it != fbx_nodes.end(); node_it++) 
+			{
+				vector<FbxNode*>::iterator parent_it = find(fbx_nodes.begin(), fbx_nodes.end(), (*node_it)->GetParent());
+				if (parent_it == fbx_nodes.end())
+					fbx_parent_map[distance(fbx_nodes.begin(), node_it)] = -1;
+				else
+					fbx_parent_map[distance(fbx_nodes.begin(), node_it)] = distance(fbx_nodes.begin(), parent_it);
+			}
+			//build nodes index vector;
+			set<size_t> skinned_bones_indexes;
+			for (const auto& index : skinned_bones) {
+				skinned_bones_indexes.insert(distance(fbx_nodes.begin(), find(fbx_nodes.begin(), fbx_nodes.end(), index)));
+			}
+
+			size_t parent_index = getNearestCommonAncestor(fbx_parent_map, skinned_bones_indexes);
+			FbxNode* fbx_skeletal_root = fbx_nodes[parent_index];
+
 			if (external_skeleton_path.empty())
 			{
-				//build a skeleton, it must be complete.
-				set<FbxNode*> skeleton;
-				for (FbxNode* bone : skinned_bones)
-				{
-					FbxNode* current_node = bone;
-					do {
-						skeleton.insert(current_node);
-						current_node = current_node->GetParent();
-					} while (current_node != NULL && current_node != root);
-				}
+				
 				//get back the ordered skeleton
 				vector<FbxNode*> hkskeleton = hkxWrapper.create_skeleton("skeleton", skeleton);
 				//create the sequences
@@ -2482,7 +2555,8 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			}
 			else {
 				string external_name;
-				vector<string> external_bones = hkxWrapper.read_track_list(external_skeleton_path, external_name);
+				string external_root;
+				vector<string> external_bones = hkxWrapper.read_track_list(external_skeleton_path, external_name, external_root);
 				//maya is picky about names, and stuff may be very well sanitized! especially skeeltons, which use an illegal syntax in Skyrim
 				vector<string> sanitized_bones;
 				for (const auto& name : external_bones)
@@ -2494,13 +2568,17 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 					sanitized_bones.push_back(sanitized);
 				}
 
+				string sanitized_external_root = external_root;
+				replaceAll(sanitized_external_root, " ", "_s_");
+				replaceAll(sanitized_external_root, "[", "_ob_");
+				replaceAll(sanitized_external_root, "]", "_cb_");
 
 				vector<FbxNode*> tracks;
 				vector<uint32_t> transformTrackToBoneIndices;
 
 				
 				//check that our tracks actually belong to this skeleton, at least on names;
-				for (FbxNode* bone : skinned_bones)
+				for (FbxNode* bone : fbx_nodes)
 				{
 					string sanitized = bone->GetName();
 					replaceAll(sanitized, " ", "_s_");
@@ -2512,6 +2590,8 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 						Log::Warn("%s", string("Wrong skeleton: " + string(bone->GetName()) + " bone NOT FOUND into skeleton " + external_skeleton_path + " ! aborting.").c_str());
 					}
 					else {
+						if (sanitized == sanitized_external_root)
+							external_root = sanitized_external_root;
 						transformTrackToBoneIndices.push_back(distance(sanitized_bones.begin(), bone_position));
 						tracks.push_back(bone);
 					}
