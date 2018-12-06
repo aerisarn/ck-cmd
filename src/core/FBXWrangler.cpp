@@ -11,6 +11,8 @@ See the included LICENSE file
 #include <commands/NifScan.h>
 #include <core/log.h>
 
+#include <algorithm>
+
 using namespace ckcmd::FBX;
 using namespace  ckcmd::Geometry;
 using namespace ckcmd::nifscan;
@@ -2370,41 +2372,72 @@ void FBXWrangler::checkAnimatedNodes()
 		for (const auto& pair : conversion_Map)
 		{
 			FbxNode* pNode = pair.first;
-			//check if it's animated into this layer
-			FbxProperty p = pNode->GetFirstProperty();
 
 			bool isAnimated = false;
 			bool hasFloatTracks = false;
 			bool hasSkinnedTracks = false;
 			bool isAnnotated = false;
 
-			while (p.IsValid())
+			vector<FbxAnimCurve*> movements_curves;
+
+			movements_curves.push_back(pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X));
+			movements_curves.push_back(pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y));
+			movements_curves.push_back(pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z));
+			movements_curves.push_back(pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X));
+			movements_curves.push_back(pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y));
+			movements_curves.push_back(pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z));
+			movements_curves.push_back(pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X));
+			movements_curves.push_back(pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y));
+			movements_curves.push_back(pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z));
+
+			for (FbxAnimCurve* curve : movements_curves)
 			{
-				if (p.IsAnimated(pAnimLayer))
+				if (curve != NULL)
 				{
-					isAnimated = true;
-					string property_name = p.GetNameAsCStr();
-					FbxAnimCurveNode* curveNode = p.GetCurveNode();
-					if (curveNode->GetChannelsCount() >= 3 &&
-						property_name.find("Lcl") != string::npos)
+					//check if the curve itself is just 0
+					size_t keys = curve->KeyGetCount();
+					if (keys > 0)
 					{
-						//has movements tracks
-						if (skinned_bones.find(pNode) != skinned_bones.end())
+						////has movements tracks
+						isAnimated = true;
+						animated_nodes.insert(pNode);
+						if (skinned_bones.find(pNode) != skinned_bones.end() ||
+							//it might not have the mesh not a proper eskeleton, but if we set an external one
+							//check all the possible nodes for bone tracks
+							!external_skeleton_path.empty())
 						{
 							hasSkinnedTracks = true;
 						}
-
 					}
-					if (property_name.find("hk") != string::npos)
-					{
-						//has annotations
-						if (p.GetPropertyDataType().Is(FbxEnumDT))
-						{
-							annotated.insert(p);
-						}
-					}					
+					break;
 				}
+			}
+
+			FbxProperty p = pNode->GetFirstProperty();
+			
+			while (p.IsValid())
+			{
+				string property_name = p.GetNameAsCStr();
+				FbxAnimCurveNode* curveNode = p.GetCurveNode();
+				if (property_name.find("hk") != string::npos)
+				{
+					//has annotations
+					if (p.GetPropertyDataType().Is(FbxEnumDT))
+					{
+						annotated.insert(p);
+					}
+				}					
 				p = pNode->GetNextProperty(p);
+			}
+
+			if (pNode->GetNodeAttribute())
+			{
+				FbxNodeAttribute::EType node_type = pNode->GetNodeAttribute()->GetAttributeType();
+
+				if (node_type == FbxNodeAttribute::eSkeleton)
+				{
+					hasSkinnedTracks = true;
+				}
 			}
 
 			if (isAnimated) {
@@ -2537,44 +2570,6 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		if (unskinned_animations.size() > 0)
 			buildKF();
 		if (skinned_animations.size() > 0) {
-			//build a skeleton, it must be complete.
-			//set<FbxNode*> skeleton;
-			//for (FbxNode* bone : skinned_bones)
-			//{
-			//	FbxNode* current_node = bone;
-			//	do {
-			//		skeleton.insert(current_node);
-			//		current_node = current_node->GetParent();
-			//	} while (current_node != NULL && current_node != root);
-			//}
-			////build fbx parent map
-			//vector<FbxNode*> fbx_nodes;
-			//for (const auto& node : skeleton) {
-			//	fbx_nodes.push_back(node);
-			//}
-			//vector<int> fbx_parent_map(fbx_nodes.size());
-			//for (vector<FbxNode*>::iterator node_it = fbx_nodes.begin(); node_it != fbx_nodes.end(); node_it++) 
-			//{
-			//	vector<FbxNode*>::iterator parent_it = find(fbx_nodes.begin(), fbx_nodes.end(), (*node_it)->GetParent());
-			//	if (parent_it == fbx_nodes.end())
-			//		fbx_parent_map[distance(fbx_nodes.begin(), node_it)] = -1;
-			//	else
-			//		fbx_parent_map[distance(fbx_nodes.begin(), node_it)] = distance(fbx_nodes.begin(), parent_it);
-			//}
-			//build nodes index vector;
-			//set<size_t> skinned_bones_indexes;
-			//for (const auto& index : skinned_bones) {
-			//	skinned_bones_indexes.insert(distance(fbx_nodes.begin(), find(fbx_nodes.begin(), fbx_nodes.end(), index)));
-			//}
-			//for (const auto& index : annotated) {
-			//	skinned_bones_indexes.insert(distance(fbx_nodes.begin(), find(fbx_nodes.begin(), fbx_nodes.end(), index)));
-			//}
-			//for (const auto& index : float_tracks) {
-			//	skinned_bones_indexes.insert(distance(fbx_nodes.begin(), find(fbx_nodes.begin(), fbx_nodes.end(), index)));
-			//}
-
-			//size_t parent_index = getNearestCommonAncestor(fbx_parent_map, skinned_bones_indexes);
-			//FbxNode* fbx_skeletal_root = fbx_nodes[parent_index];
 
 			if (external_skeleton_path.empty())
 			{
@@ -2600,23 +2595,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				vector<string> external_floats;
 				vector<string> external_bones = hkxWrapper.read_track_list(external_skeleton_path, external_name, external_root, external_floats);
 				//maya is picky about names, and stuff may be very well sanitized! especially skeeltons, which use an illegal syntax in Skyrim
-				//vector<string> sanitized_bones;
-				//for (const auto& name : external_bones)
-				//{
-				//	string sanitized = name;
-				//	sanitizeString(sanitized);
-				//	sanitized_bones.push_back(sanitized);
-				//}
-				//vector<string> sanitized_floats;
-				//for (const auto& name : external_floats)
-				//{
-				//	string sanitized = name;
-				//	sanitizeString(sanitized);
-				//	sanitized_floats.push_back(sanitized);
-				//}
 
-				//string sanitized_external_root = external_root;
-				//sanitizeString(sanitized_external_root);
 				vector<FbxNode*> tracks;
 				vector<uint32_t> transformTrackToBoneIndices;
 				vector<FbxProperty> floats;
@@ -2629,6 +2608,13 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 					FbxNode* track = scene->FindNodeByName(external_bones[i].c_str());
 					if (track == NULL)
 					{
+						//try uppercase, due to nif exporter changing that
+						string uppercase;
+						transform(external_bones[i].begin(), external_bones[i].end(), back_inserter(uppercase), toupper);
+						track = scene->FindNodeByName(uppercase.c_str());
+					}
+					if (track == NULL)
+					{
 						string sanitized = external_bones[i];
 						sanitizeString(sanitized);
 						track = scene->FindNodeByName(sanitized.c_str());
@@ -2638,14 +2624,27 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 						Log::Info("Track not present: %s", external_bones[i].c_str());
 						continue;
 					}
+					//OPTIMIZATION: if track curve exists but doesn't have key, do not add
+					if (animated_nodes.find(track) == animated_nodes.end())
+						continue;
 					transformTrackToBoneIndices.push_back(i);
 					tracks.push_back(track);
 
 				}
+				if (external_bones.size() == tracks.size())
+					//found all the bones, needs no mapping
+					transformTrackToBoneIndices.clear();
 
 				for (int i = 0; i < external_floats.size(); i++)
 				{
 					FbxProperty float_p = scene->GetAnimationEvaluator()->FindProperty(external_floats[i].c_str());
+					if (!float_p.IsValid())
+					{
+						//try uppercase, due to nif exporter changing that
+						string uppercase;
+						transform(external_floats[i].begin(), external_floats[i].end(), back_inserter(uppercase), toupper);
+						float_p = scene->GetAnimationEvaluator()->FindProperty(uppercase.c_str());
+					}
 					if (!float_p.IsValid())
 					{
 						string sanitized = external_floats[i];
@@ -2660,6 +2659,9 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 					transformTrackToFloatIndices.push_back(i);
 					floats.push_back(float_p);
 				}
+				if (external_floats.size() == floats.size())
+					//found all the bones, needs no mapping
+					transformTrackToFloatIndices.clear();
 
 				havok_sequences = hkxWrapper.create_animations
 				(
@@ -2672,43 +2674,6 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 					floats,
 					transformTrackToFloatIndices
 				);
-
-				////check that our tracks actually belong to this skeleton, at least on names;
-				//for (FbxNode* bone : fbx_nodes)
-				//{
-				//	vector<FbxNode*> fbx_nodes;
-				//	for (const auto& node : skeleton) {
-				//		fbx_nodes.push_back(node);
-				//	}
-				//	string sanitized = bone->GetName();
-				//	sanitizeString(sanitized);
-				//	vector<string>::iterator bone_position = find(sanitized_bones.begin(), sanitized_bones.end(), sanitized);
-				//	vector<string>::iterator float_position = find(sanitized_floats.begin(), sanitized_floats.end(), sanitized);
-				//	if (bone_position == sanitized_bones.end() && float_position == sanitized_floats.end())
-				//	{
-				//		Log::Warn("%s", string("Wrong skeleton: " + string(bone->GetName()) + " bone or float NOT FOUND into skeleton " + external_skeleton_path + " !").c_str());
-				//	}
-				//	else {
-				//		if (bone_position != sanitized_bones.end())
-				//		{
-				//			if (sanitized == sanitized_external_root)
-				//				external_root = sanitized_external_root;
-				//			size_t index = distance(sanitized_bones.begin(), bone_position);
-				//			if (index == 0)
-				//				root = bone;
-				//			transformTrackToBoneIndices.push_back(index);
-				//			tracks.push_back(bone);
-				//		}
-				//		if (float_position != sanitized_floats.end())
-				//		{
-				//			size_t index = distance(sanitized_floats.begin(), float_position);
-				//			transformTrackToFloatIndices.push_back(index);
-				//			floats.push_back(bone);
-				//		}
-				//	}
-				//}
-
-
 			}
 		}
 	}
