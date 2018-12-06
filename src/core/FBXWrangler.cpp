@@ -2373,70 +2373,46 @@ void FBXWrangler::checkAnimatedNodes()
 			//check if it's animated into this layer
 			FbxProperty p = pNode->GetFirstProperty();
 
-			bool isFloatTrack = true;
 			bool isAnimated = false;
+			bool hasFloatTracks = false;
+			bool hasSkinnedTracks = false;
+			bool isAnnotated = false;
 
 			while (p.IsValid())
 			{
 				if (p.IsAnimated(pAnimLayer))
 				{
-					FbxAnimCurveNode* curveNode = p.GetCurveNode();
-					for (int j = 0; j < curveNode->GetChannelsCount(); j++)
-					{
-						if (strcmp(FBXSDK_CURVENODE_COMPONENT_X, curveNode->GetChannelName(j).Buffer())==0 ||
-							strcmp(FBXSDK_CURVENODE_COMPONENT_Y, curveNode->GetChannelName(j).Buffer())==0 ||
-							strcmp(FBXSDK_CURVENODE_COMPONENT_Z, curveNode->GetChannelName(j).Buffer()) == 0)
-						{						//check the pNode Type 
-							isFloatTrack = false;
-							break;
-						}
-					}
 					isAnimated = true;
+					string property_name = p.GetNameAsCStr();
+					FbxAnimCurveNode* curveNode = p.GetCurveNode();
+					if (curveNode->GetChannelsCount() >= 3 &&
+						property_name.find("Lcl") != string::npos)
+					{
+						//has movements tracks
+						if (skinned_bones.find(pNode) != skinned_bones.end())
+						{
+							hasSkinnedTracks = true;
+						}
+
+					}
+					if (property_name.find("hk") != string::npos)
+					{
+						//has annotations
+						if (p.GetPropertyDataType().Is(FbxEnumDT))
+						{
+							annotated.insert(p);
+						}
+					}					
 				}
-				if (!isFloatTrack)
-					break;
-
-				if (string(p.GetNameAsCStr()).find("hk") != string::npos)
-					annotated.insert(pNode);
-
 				p = pNode->GetNextProperty(p);
 			}
 
-			if (!isFloatTrack)
-			{
-				if (skinned_bones.find(pNode) == skinned_bones.end())
-				{
-					unskinned_bones.insert(pNode);
-					unskinned_animations.insert(lAnimStack);
-				}
-				else {
+			if (isAnimated) {
+				if (hasSkinnedTracks)
 					skinned_animations.insert(lAnimStack);
-				}
+				else
+					unskinned_animations.insert(lAnimStack);
 			}
-			else {
-				float_tracks.insert(pNode);
-			}
-
-			//FbxAnimCurve* lXAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-			//FbxAnimCurve* lYAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-			//FbxAnimCurve* lZAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-			//FbxAnimCurve* lIAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-			//FbxAnimCurve* lJAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-			//FbxAnimCurve* lKAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-
-			//if (lXAnimCurve != NULL || lYAnimCurve != NULL || lZAnimCurve != NULL ||
-			//	lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL)
-			//{
-			//	//check the pNode Type 
-			//	if (skinned_bones.find(pNode) == skinned_bones.end())
-			//	{
-			//		unskinned_bones.insert(pNode);
-			//		unskinned_animations.insert(lAnimStack);
-			//	}
-			//	else {
-			//		skinned_animations.insert(lAnimStack);
-			//	}
-			//}
 		}
 	}
 }
@@ -2562,88 +2538,177 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			buildKF();
 		if (skinned_animations.size() > 0) {
 			//build a skeleton, it must be complete.
-			set<FbxNode*> skeleton;
-			for (FbxNode* bone : skinned_bones)
-			{
-				FbxNode* current_node = bone;
-				do {
-					skeleton.insert(current_node);
-					current_node = current_node->GetParent();
-				} while (current_node != NULL && current_node != root);
-			}
-			//add keyed annotations into tracks
-			
-			//add floats, single float tracks
-			
-			//build fbx parent map
-			vector<FbxNode*> fbx_nodes;
-			for (const auto& node : skeleton) {
-				fbx_nodes.push_back(node);
-			}
-			vector<int> fbx_parent_map(fbx_nodes.size());
-			for (vector<FbxNode*>::iterator node_it = fbx_nodes.begin(); node_it != fbx_nodes.end(); node_it++) 
-			{
-				vector<FbxNode*>::iterator parent_it = find(fbx_nodes.begin(), fbx_nodes.end(), (*node_it)->GetParent());
-				if (parent_it == fbx_nodes.end())
-					fbx_parent_map[distance(fbx_nodes.begin(), node_it)] = -1;
-				else
-					fbx_parent_map[distance(fbx_nodes.begin(), node_it)] = distance(fbx_nodes.begin(), parent_it);
-			}
+			//set<FbxNode*> skeleton;
+			//for (FbxNode* bone : skinned_bones)
+			//{
+			//	FbxNode* current_node = bone;
+			//	do {
+			//		skeleton.insert(current_node);
+			//		current_node = current_node->GetParent();
+			//	} while (current_node != NULL && current_node != root);
+			//}
+			////build fbx parent map
+			//vector<FbxNode*> fbx_nodes;
+			//for (const auto& node : skeleton) {
+			//	fbx_nodes.push_back(node);
+			//}
+			//vector<int> fbx_parent_map(fbx_nodes.size());
+			//for (vector<FbxNode*>::iterator node_it = fbx_nodes.begin(); node_it != fbx_nodes.end(); node_it++) 
+			//{
+			//	vector<FbxNode*>::iterator parent_it = find(fbx_nodes.begin(), fbx_nodes.end(), (*node_it)->GetParent());
+			//	if (parent_it == fbx_nodes.end())
+			//		fbx_parent_map[distance(fbx_nodes.begin(), node_it)] = -1;
+			//	else
+			//		fbx_parent_map[distance(fbx_nodes.begin(), node_it)] = distance(fbx_nodes.begin(), parent_it);
+			//}
 			//build nodes index vector;
-			set<size_t> skinned_bones_indexes;
-			for (const auto& index : skinned_bones) {
-				skinned_bones_indexes.insert(distance(fbx_nodes.begin(), find(fbx_nodes.begin(), fbx_nodes.end(), index)));
-			}
+			//set<size_t> skinned_bones_indexes;
+			//for (const auto& index : skinned_bones) {
+			//	skinned_bones_indexes.insert(distance(fbx_nodes.begin(), find(fbx_nodes.begin(), fbx_nodes.end(), index)));
+			//}
+			//for (const auto& index : annotated) {
+			//	skinned_bones_indexes.insert(distance(fbx_nodes.begin(), find(fbx_nodes.begin(), fbx_nodes.end(), index)));
+			//}
+			//for (const auto& index : float_tracks) {
+			//	skinned_bones_indexes.insert(distance(fbx_nodes.begin(), find(fbx_nodes.begin(), fbx_nodes.end(), index)));
+			//}
 
-			size_t parent_index = getNearestCommonAncestor(fbx_parent_map, skinned_bones_indexes);
-			FbxNode* fbx_skeletal_root = fbx_nodes[parent_index];
+			//size_t parent_index = getNearestCommonAncestor(fbx_parent_map, skinned_bones_indexes);
+			//FbxNode* fbx_skeletal_root = fbx_nodes[parent_index];
 
 			if (external_skeleton_path.empty())
 			{
-				
+				//build a skeleton, it must be complete.
+				set<FbxNode*> skeleton;
+				for (FbxNode* bone : skinned_bones)
+				{
+					FbxNode* current_node = bone;
+					do {
+						skeleton.insert(current_node);
+						current_node = current_node->GetParent();
+					} while (current_node != NULL && current_node != root);
+				}
 				//get back the ordered skeleton
 				vector<FbxNode*> hkskeleton = hkxWrapper.create_skeleton("skeleton", skeleton);
 				//create the sequences
 				havok_sequences = hkxWrapper.create_animations("skeleton", hkskeleton, skinned_animations, scene->GetGlobalSettings().GetTimeMode());
 			}
 			else {
+
 				string external_name;
 				string external_root;
-				vector<string> external_bones = hkxWrapper.read_track_list(external_skeleton_path, external_name, external_root);
+				vector<string> external_floats;
+				vector<string> external_bones = hkxWrapper.read_track_list(external_skeleton_path, external_name, external_root, external_floats);
 				//maya is picky about names, and stuff may be very well sanitized! especially skeeltons, which use an illegal syntax in Skyrim
-				vector<string> sanitized_bones;
-				for (const auto& name : external_bones)
-				{
-					string sanitized = name;
-					sanitizeString(sanitized);
-					sanitized_bones.push_back(sanitized);
-				}
+				//vector<string> sanitized_bones;
+				//for (const auto& name : external_bones)
+				//{
+				//	string sanitized = name;
+				//	sanitizeString(sanitized);
+				//	sanitized_bones.push_back(sanitized);
+				//}
+				//vector<string> sanitized_floats;
+				//for (const auto& name : external_floats)
+				//{
+				//	string sanitized = name;
+				//	sanitizeString(sanitized);
+				//	sanitized_floats.push_back(sanitized);
+				//}
 
-				string sanitized_external_root = external_root;
-				sanitizeString(sanitized_external_root);
+				//string sanitized_external_root = external_root;
+				//sanitizeString(sanitized_external_root);
 				vector<FbxNode*> tracks;
 				vector<uint32_t> transformTrackToBoneIndices;
+				vector<FbxProperty> floats;
+				vector<uint32_t> transformTrackToFloatIndices;
 
-				
-				//check that our tracks actually belong to this skeleton, at least on names;
-				for (FbxNode* bone : fbx_nodes)
+				//TODO: nif importer from max actually screwed up a lot of things,
+				//we must also check for uppercase, lowercases and so on
+				for (int i = 0; i < external_bones.size(); i++)
 				{
-					string sanitized = bone->GetName();
-					sanitizeString(sanitized);
-					vector<string>::iterator bone_position = find(sanitized_bones.begin(), sanitized_bones.end(), sanitized);
-					if (bone_position == sanitized_bones.end())
+					FbxNode* track = scene->FindNodeByName(external_bones[i].c_str());
+					if (track == NULL)
 					{
-						Log::Warn("%s", string("Wrong skeleton: " + string(bone->GetName()) + " bone NOT FOUND into skeleton " + external_skeleton_path + " ! aborting.").c_str());
+						string sanitized = external_bones[i];
+						sanitizeString(sanitized);
+						track = scene->FindNodeByName(sanitized.c_str());
 					}
-					else {
-						if (sanitized == sanitized_external_root)
-							external_root = sanitized_external_root;
-						transformTrackToBoneIndices.push_back(distance(sanitized_bones.begin(), bone_position));
-						tracks.push_back(bone);
+					if (track == NULL)
+					{
+						Log::Info("Track not present: %s", external_bones[i].c_str());
+						continue;
 					}
+					transformTrackToBoneIndices.push_back(i);
+					tracks.push_back(track);
+
 				}
 
-				havok_sequences = hkxWrapper.create_animations(external_name, tracks, skinned_animations, scene->GetGlobalSettings().GetTimeMode(), transformTrackToBoneIndices);
+				for (int i = 0; i < external_floats.size(); i++)
+				{
+					FbxProperty float_p = scene->GetAnimationEvaluator()->FindProperty(external_floats[i].c_str());
+					if (!float_p.IsValid())
+					{
+						string sanitized = external_floats[i];
+						sanitizeString(sanitized);
+						float_p = scene->GetAnimationEvaluator()->FindProperty(sanitized.c_str());
+					}
+					if (!float_p.IsValid())
+					{
+						Log::Info("Float track not present: %s", external_floats[i].c_str());
+						continue;
+					}
+					transformTrackToFloatIndices.push_back(i);
+					floats.push_back(float_p);
+				}
+
+				havok_sequences = hkxWrapper.create_animations
+				(
+					external_name, 
+					tracks, 
+					skinned_animations, 
+					scene->GetGlobalSettings().GetTimeMode(),
+					transformTrackToBoneIndices,
+					annotated,
+					floats,
+					transformTrackToFloatIndices
+				);
+
+				////check that our tracks actually belong to this skeleton, at least on names;
+				//for (FbxNode* bone : fbx_nodes)
+				//{
+				//	vector<FbxNode*> fbx_nodes;
+				//	for (const auto& node : skeleton) {
+				//		fbx_nodes.push_back(node);
+				//	}
+				//	string sanitized = bone->GetName();
+				//	sanitizeString(sanitized);
+				//	vector<string>::iterator bone_position = find(sanitized_bones.begin(), sanitized_bones.end(), sanitized);
+				//	vector<string>::iterator float_position = find(sanitized_floats.begin(), sanitized_floats.end(), sanitized);
+				//	if (bone_position == sanitized_bones.end() && float_position == sanitized_floats.end())
+				//	{
+				//		Log::Warn("%s", string("Wrong skeleton: " + string(bone->GetName()) + " bone or float NOT FOUND into skeleton " + external_skeleton_path + " !").c_str());
+				//	}
+				//	else {
+				//		if (bone_position != sanitized_bones.end())
+				//		{
+				//			if (sanitized == sanitized_external_root)
+				//				external_root = sanitized_external_root;
+				//			size_t index = distance(sanitized_bones.begin(), bone_position);
+				//			if (index == 0)
+				//				root = bone;
+				//			transformTrackToBoneIndices.push_back(index);
+				//			tracks.push_back(bone);
+				//		}
+				//		if (float_position != sanitized_floats.end())
+				//		{
+				//			size_t index = distance(sanitized_floats.begin(), float_position);
+				//			transformTrackToFloatIndices.push_back(index);
+				//			floats.push_back(bone);
+				//		}
+				//	}
+				//}
+
+
 			}
 		}
 	}

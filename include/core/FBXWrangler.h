@@ -84,8 +84,7 @@ namespace FBX {
 
 		set<FbxNode*> skinned_bones;
 		set<FbxNode*> unskinned_bones;
-		set<FbxNode*> float_tracks;
-		set<FbxNode*> annotated;
+		set<FbxProperty> annotated;
 
 		set<FbxAnimStack*> skinned_animations;
 		set<FbxAnimStack*> unskinned_animations;

@@ -86,8 +86,6 @@ namespace ckcmd {
 
 			//}
 
-			hkQsTransform getBoneTransform(FbxNode* pNode, FbxTime time);
-
 			void create_project(const set<string>& havok_sequences_names = {});
 
 			void create_character(const set<string>& havok_sequences_names);
@@ -104,16 +102,21 @@ namespace ckcmd {
 
 			inline string GetPath() { return out_path + "\\" + out_name + "\\" + out_name + ".hkx"; }
 
-			vector<string> read_track_list(const fs::path& path, string& skeleton_name = string(""), string& root_name = string(""));
+			vector<string> read_track_list(const fs::path& path, string& skeleton_name = string(""), string& root_name = string(""), vector<string>& floats = vector<string>());
 
 			//gives back the ordered bone array as written in the skeleton file
 			vector<FbxNode*> create_skeleton(const string& name, const set<FbxNode*>& bones, FbxNode* root = NULL);
 
-			set<string> create_animations(const string& skeleton_name, 
-				vector<FbxNode*>& skeleton, 
-				set<FbxAnimStack*>& animations, 
-				FbxTime::EMode timeMode, 
-				const vector<uint32_t>& transform_track_to_bone_indices = {});
+			set<string> create_animations(
+				const string& skeleton_name,
+				vector<FbxNode*>& skeleton,
+				set<FbxAnimStack*>& animations,
+				FbxTime::EMode timeMode,
+				const vector<uint32_t>& transform_track_to_bone_indices = {},
+				set<FbxProperty>& annotations = set<FbxProperty>(),
+				vector<FbxProperty>& floats = vector<FbxProperty>(),
+				const vector<uint32_t>& transform_track_to_float_indices = {}
+			);
 
 			void write_animations(const string& out_path, const set<string>& havok_sequences_names);
 		

@@ -213,7 +213,7 @@ void HKXWrapper::create_skeleton() {
 	write(container, ASSETS_SUBFOLDER, "skeleton");
 }
 
-hkQsTransform HKXWrapper::getBoneTransform(FbxNode* pNode, FbxTime time) {
+hkQsTransform getBoneTransform(FbxNode* pNode, FbxTime time) {
 	FbxAMatrix matrixGeo;
 	matrixGeo.SetIdentity();
 	if (pNode->GetNodeAttribute())
@@ -239,6 +239,15 @@ hkQsTransform HKXWrapper::getBoneTransform(FbxNode* pNode, FbxTime time) {
 	hk_trans.setScale(hkVector4(lS[0], lS[1], lS[2], 0.000000));
 
 	return hk_trans;
+}
+
+hkReal getFloatTrackValue(FbxProperty& property, FbxTime time) {
+	hkReal result = 0.0;
+	if (property.IsValid())
+	{
+		property.EvaluateValue(time).Get(&result, EFbxType::eFbxFloat);
+	}
+	return result;
 }
 
 void HKXWrapper::create_behavior(const set<string>& kf_sequences_names, const set<string>& havok_sequences_names) {
@@ -409,7 +418,7 @@ HKXWrapper::HKXWrapper(const string& out_name, const string& out_path, const str
 	create_behavior(sequences_names, {});
 }
 
-vector<string> HKXWrapper::read_track_list(const fs::path& path, string& skeleton_name, string& root_name) {
+vector<string> HKXWrapper::read_track_list(const fs::path& path, string& skeleton_name, string& root_name, vector<string>& floats) {
 	vector<string> ordered_tracks;
 	hkArray<hkVariant> objects;
 	read(path, objects);
@@ -422,6 +431,9 @@ vector<string> HKXWrapper::read_track_list(const fs::path& path, string& skeleto
 			{
 				for (int i = 0; i < skeleton->m_bones.getSize(); i++)
 					ordered_tracks.push_back(skeleton->m_bones[i].m_name.cString());
+
+				for (int i = 0; i < skeleton->m_floatSlots.getSize(); i++)
+					floats.push_back(skeleton->m_floatSlots[i].cString());
 
 				//find root
 				for (int i = 0; i < skeleton->m_parentIndices.getSize(); i++) {
@@ -484,8 +496,18 @@ vector<FbxNode*> HKXWrapper::create_skeleton(const string& name, const set<FbxNo
 	return move(ordered_bones);
 }
 
-set<string> HKXWrapper::create_animations(const string& skeleton_name, vector<FbxNode*>& skeleton, set<FbxAnimStack*>& animations, FbxTime::EMode timeMode, const vector<uint32_t>& transform_track_to_bone_indices)
+set<string> HKXWrapper::create_animations(
+	const string& skeleton_name,
+	vector<FbxNode*>& skeleton,
+	set<FbxAnimStack*>& animations,
+	FbxTime::EMode timeMode,
+	const vector<uint32_t>& transform_track_to_bone_indices,
+	set<FbxProperty>& annotations,
+	vector<FbxProperty>& floats,
+	const vector<uint32_t>& transform_track_to_float_indices
+	)
 {
+
 	set<string> sequences_names;
 	for (FbxAnimStack* stack : animations)
 	{
@@ -516,29 +538,36 @@ set<string> HKXWrapper::create_animations(const string& skeleton_name, vector<Fb
 
 		tempAnim->m_duration = endTimeSeconds - startTimeSeconds;
 		tempAnim->m_numberOfTransformTracks = skeleton.size();
-		tempAnim->m_numberOfFloatTracks = 0;//anim->m_numberOfFloatTracks;
+		tempAnim->m_annotationTracks.setSize(skeleton.size());
+		tempAnim->m_numberOfFloatTracks = floats.size();
 		tempAnim->m_floats.setSize(tempAnim->m_numberOfFloatTracks);
-		//tempAnim.m_annotationTracks.setSize(numTracks);
 
-		for (FbxNode* bone : skeleton)
+		//Annotations
+		for (FbxProperty annotation : annotations)
 		{
-			//if (external_root == string(bone->GetName()))
-			//{
-			//	//Find annotations on root bone
-			//	FbxProperty prop = bone->GetFirstProperty();
-			//	while (prop.IsValid())
-			//	{
-			//		string name = prop.GetNameAsCStr();
-			//		Log::Info("%s", name.c_str());
-			//		bone->GetNextProperty(prop);
-			//	}
-			//}
-			//else
-			//{
-			//	hkaAnnotationTrack ann;
-			//	ann.m_trackName = "";
-			//	tempAnim->m_annotationTracks.pushBack(ann);
-			//}
+			FbxAnimCurveNode* curve_node = annotation.GetCurveNode();
+			if (curve_node)
+			{
+				//conventionally we want annotation on a single enum channel
+				FbxAnimCurve* first_curve = curve_node->GetCurve(0);
+				if (first_curve) {
+					size_t keys = first_curve->KeyGetCount();
+					hkaAnnotationTrack& a_track = tempAnim->m_annotationTracks[0];
+					if (keys > 0)
+					{						
+						for (int i = 0; i < keys; i++)
+						{
+							hkaAnnotationTrack::Annotation new_ann;
+							new_ann.m_time = first_curve->KeyGet(i).GetTime().GetSecondDouble();
+							string text = annotation.GetNameAsCStr();
+							text = text.substr(2, text.size()); //remove "hk"
+							text += annotation.GetEnumValue(first_curve->KeyGet(i).GetValue());
+							new_ann.m_text = text.c_str();
+							a_track.m_annotations.pushBack(new_ann);
+						}
+					}
+				}
+			}
 		}
 
 		// Sample each animation frame
@@ -550,6 +579,20 @@ set<string> HKXWrapper::create_animations(const string& skeleton_name, vector<Fb
 			{
 				tempAnim->m_transforms.pushBack(getBoneTransform(bone, time));
 			}
+			for (FbxProperty& float_track : floats)
+			{
+				tempAnim->m_floats.pushBack(getFloatTrackValue(float_track, time));
+			}
+		}
+
+		if (!transform_track_to_bone_indices.empty()) {
+			for (const auto& index : transform_track_to_bone_indices)
+				binding->m_transformTrackToBoneIndices.pushBack(index);
+		}
+
+		if (!transform_track_to_float_indices.empty()) {
+			for (const auto& index : transform_track_to_float_indices)
+				binding->m_floatTrackToFloatSlotIndices.pushBack(index);
 		}
 
 		hkaSkeletonUtils::normalizeRotations(tempAnim->m_transforms.begin(), tempAnim->m_transforms.getSize());
@@ -565,11 +608,6 @@ set<string> HKXWrapper::create_animations(const string& skeleton_name, vector<Fb
 			hkRefPtr<hkaSplineCompressedAnimation> outAnim = new hkaSplineCompressedAnimation(*tempAnim.val(), tparams, aparams);
 			binding->m_animation = outAnim;
 			binding->m_originalSkeletonName = skeleton_name.c_str();
-
-			if (!transform_track_to_bone_indices.empty()) {
-				for (const auto& index : transform_track_to_bone_indices)
-					binding->m_transformTrackToBoneIndices.pushBack(index);
-			}
 
 			anim_container->m_bindings.pushBack(binding);
 			anim_container->m_animations.pushBack(binding->m_animation);
