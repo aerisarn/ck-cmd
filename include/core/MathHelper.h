@@ -6,12 +6,11 @@
 
 using namespace std;
 
-double rad2deg(double rad)
-{
-  return rad*180.0/M_PI;
-}
+double rad2deg(double rad);
 
-double deg2rad(double deg)
-{
-	return deg * M_PI / 180.0;
-}
+double deg2rad(double deg);
+
+
+void replaceAll(std::string& str, const std::string& from, const std::string& to);
+
+void sanitizeString(string& to_sanitize);

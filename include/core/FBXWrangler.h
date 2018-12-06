@@ -105,6 +105,7 @@ namespace FBX {
 		~FBXWrangler();
 
 		void setExternalSkeletonPath(const string& external_skeleton_path);
+		void importExternalSkeleton(const string& external_skeleton_path);
 		bool SaveAnimation(const string& fileName);
 
 		void NewScene();

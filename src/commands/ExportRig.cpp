@@ -1,4 +1,4 @@
-#include <commands/ImportAnimation.h>
+#include <commands/ExportRig.h>
 
 #include "stdafx.h"
 #include <core/hkxcmd.h>
@@ -18,74 +18,66 @@ using namespace ckcmd::FBX;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 
-static bool BeginConversion(const string& importSkeleton, const string& importFBX, const string& exportPath);
+static bool BeginConversion(const string& importSkeleton, const string& exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
 
-REGISTER_COMMAND_CPP(ImportAnimation)
+REGISTER_COMMAND_CPP(ExportRig)
 
-ImportAnimation::ImportAnimation()
+ExportRig::ExportRig()
 {
 }
 
-ImportAnimation::~ImportAnimation()
+ExportRig::~ExportRig()
 {
 }
 
-string ImportAnimation::GetName() const
+string ExportRig::GetName() const
 {
-	return "importanimation";
+	return "exportrig";
 }
 
-string ImportAnimation::GetHelp() const
+string ExportRig::GetHelp() const
 {
 	string name = GetName();
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd importanimation
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> <path_to_fbx_animation> [-e <path_to_export>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> [-e <path_to_export>]\r\n";
 
 	const char help[] =
-		R"(Converts a FBX animation to NIF. Requires a preexisting HKX skeleton
+		R"(Converts an HKX skeleton to FBX.
 		
 		Arguments:
 			<path_to_skeleton_hkx> the animation skeleton in hkx format
-			<path_to_fbx_animation> the FBX animation to convert
-			<path_to_export> path to the output directory
 
 		)";
 	return usage + help;
 }
 
-string ImportAnimation::GetHelpShort() const
+string ExportRig::GetHelpShort() const
 {
 	return "TODO: Short help message for ImportFBX";
 }
 
-bool ImportAnimation::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool ExportRig::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
-	string importFBX, importSkeleton, exportPath;
+	string importSkeleton, exportPath;
 
 	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
-	importFBX = parsedArgs["<path_to_fbx_animation>"].asString();
 	exportPath = parsedArgs["<path_to_export>"].asString();
 
 	InitializeHavok();
-	BeginConversion(importSkeleton, importFBX, exportPath);
+	BeginConversion(importSkeleton, exportPath);
 	CloseHavok();
 	return true;
 }
 
-bool BeginConversion(const string& importSkeleton, const string& importFBX, const string& exportPath) {
-	fs::path fbxModelpath = fs::path(importFBX);
+bool BeginConversion(const string& importSkeleton, const string& exportPath) {
 	if (!fs::exists(importSkeleton) || !fs::is_regular_file(importSkeleton)) {
 		Log::Error("Invalid file: %s", importSkeleton.c_str());
-		return false;
-	}
-	if (!fs::exists(fbxModelpath) || !fs::is_regular_file(fbxModelpath)) {
-		Log::Error("Invalid file: %s", fbxModelpath.c_str());
 		return false;
 	}
 	fs::path outputDir = fs::path(exportPath);
@@ -95,12 +87,12 @@ bool BeginConversion(const string& importSkeleton, const string& importFBX, cons
 	}
 
 	FBXWrangler wrangler;
-	wrangler.setExternalSkeletonPath(importSkeleton);
-	wrangler.ImportScene(fbxModelpath.string().c_str());
-
-	fs::path out_path = outputDir / fbxModelpath.filename().replace_extension(".hkx");
+	wrangler.NewScene();
+	wrangler.importExternalSkeleton(importSkeleton);
+	fs::path out_path = outputDir / fs::path(importSkeleton).filename().replace_extension(".fbx");
 	fs::create_directories(outputDir);
-	wrangler.SaveAnimation(out_path.string());
+	wrangler.ExportScene(out_path.string().c_str());
+
 	return true;
 }
 

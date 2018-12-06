@@ -324,7 +324,9 @@ set (PROJECT_SRC "${CMAKE_SOURCE_DIR}/src/core/FBXCommon.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/Image_Utils.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/RawModel.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/Fbx2Raw.cpp"
-				 "${CMAKE_SOURCE_DIR}/src/core/geometry.cpp")
+				 "${CMAKE_SOURCE_DIR}/src/core/geometry.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/core/MathHelper.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/core/EulerAngles.cpp")
 
 set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/stdafx.h"
@@ -356,6 +358,7 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
 #COMMANDS
 					 "${CMAKE_SOURCE_DIR}/include/commands/ImportFbx.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ImportAnimation.h"
+					 "${CMAKE_SOURCE_DIR}/include/commands/ExportRig.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/RetargetSkin.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/AddNodesToSkeleton.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ConvertNif.h"

@@ -34,6 +34,9 @@ namespace fs = std::experimental::filesystem;
 
 // Serialize
 #include <Common/Serialize/Util/hkSerializeUtil.h>
+
+#include <Animation/Animation/Rig/hkaSkeleton.h>
+
 namespace ckcmd {
 	namespace HKX {
 
@@ -94,6 +97,8 @@ namespace ckcmd {
 
 			void create_behavior(const set<string>& kf_sequences_names, const set<string>& havok_sequences_names);
 
+			void add(hkaSkeleton* skeleton, FbxNode* root);
+
 		public:
 
 			HKXWrapper() {}
@@ -117,6 +122,8 @@ namespace ckcmd {
 				vector<FbxProperty>& floats = vector<FbxProperty>(),
 				const vector<uint32_t>& transform_track_to_float_indices = {}
 			);
+
+			void load_skeleton(const fs::path& path, FbxNode* root);
 
 			void write_animations(const string& out_path, const set<string>& havok_sequences_names);
 		

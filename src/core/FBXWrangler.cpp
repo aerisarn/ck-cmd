@@ -18,14 +18,6 @@ using namespace  ckcmd::Geometry;
 using namespace ckcmd::nifscan;
 using namespace ckcmd::HKX;
 
-void replaceAll(std::string& str, const std::string& from, const std::string& to) {
-	size_t start_pos = 0;
-	while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
-		str.replace(start_pos, from.length(), to);
-		start_pos += to.length(); // ...
-	}
-}
-
 
 FBXWrangler::FBXWrangler() {
 	sdkManager = FbxManager::Create();
@@ -2499,13 +2491,6 @@ size_t getNearestCommonAncestor(const vector<int>& parentMap, const set<size_t>&
 	return result;
 }
 
-void sanitizeString(string& to_sanitize)
-{
-	replaceAll(to_sanitize, " ", "_s_");
-	replaceAll(to_sanitize, "[", "_ob_");
-	replaceAll(to_sanitize, "]", "_cb_");
-}
-
 bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	if (!scene)
 		return false;
@@ -2660,7 +2645,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 					floats.push_back(float_p);
 				}
 				if (external_floats.size() == floats.size())
-					//found all the bones, needs no mapping
+					//found all the tracks, needs no mapping
 					transformTrackToFloatIndices.clear();
 
 				havok_sequences = hkxWrapper.create_animations
@@ -2730,4 +2715,10 @@ bool FBXWrangler::SaveNif(const string& fileName) {
 
 	NifFile out(info, objects);
 	return out.Save(fileName);
+}
+
+void FBXWrangler::importExternalSkeleton(const string& external_skeleton_path)
+{
+	this->external_skeleton_path = external_skeleton_path;
+	hkxWrapper.load_skeleton(external_skeleton_path, scene->GetRootNode());
 }

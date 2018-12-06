@@ -1,5 +1,7 @@
 #include <core\HKXWrangler.h>
 
+#include <Common\Base\Types\Geometry\hkGeometry.h>
+
 // Physics
 #include <Physics/Dynamics/Entity/hkpRigidBody.h>
 #include <Physics/Collide/Shape/Convex/Box/hkpBoxShape.h>
@@ -20,7 +22,6 @@
 #include <Physics\Utilities\Serialize\hkpPhysicsData.h>
 
 // Animation
-#include <Animation/Animation/Rig/hkaSkeleton.h>
 #include <Animation/Animation/hkaAnimationContainer.h>
 #include <Animation/Animation/Mapper/hkaSkeletonMapper.h>
 #include <Animation/Animation/Playback/Control/Default/hkaDefaultAnimationControl.h>
@@ -53,6 +54,11 @@
 #include <hkbClipGenerator_2.h>
 #include <hkbBehaviorReferenceGenerator_0.h>
 #include <Common/Base/Container/String/hkStringBuf.h>
+
+#include <Physics\Utilities\Collide\ShapeUtils\ShapeConverter\hkpShapeConverter.h>
+
+#include <core/EulerAngles.h>
+#include <core/MathHelper.h>
 
 using namespace ckcmd::HKX;
 
@@ -665,6 +671,120 @@ string HKXWrapper::write_project(const string& out_name, const string& out_path,
 	}
 	create_behavior(kf_sequences_names, havok_sequences_names);
 	return GetPath();
+}
+
+void HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* root)
+{
+	
+	// get number of bones and apply reference pose
+	const int numBones = skeleton->m_bones.getSize();
+
+	map<int, FbxNode*> conversion_map;
+
+	// create base limb objects first
+	for (hkInt16 b = 0; b < numBones; b++)
+	{
+		const hkaBone& bone = skeleton->m_bones[b];
+
+		string b_name = bone.m_name;
+		sanitizeString(b_name);
+
+		hkQsTransform localTransform = skeleton->m_referencePose[b];
+		const hkVector4& pos = localTransform.getTranslation();
+		const hkQuaternion& rot = localTransform.getRotation();
+
+		FbxSkeleton* lSkeletonLimbNodeAttribute1 = FbxSkeleton::Create(root->GetScene(), b_name.c_str());
+
+		if ((b == 0))
+			lSkeletonLimbNodeAttribute1->SetSkeletonType(FbxSkeleton::eRoot);
+		else
+			lSkeletonLimbNodeAttribute1->SetSkeletonType(FbxSkeleton::eLimbNode);
+
+		lSkeletonLimbNodeAttribute1->Size.Set(1.0);
+		FbxNode* BaseJoint = FbxNode::Create(root->GetScene(), b_name.c_str());
+		BaseJoint->SetNodeAttribute(lSkeletonLimbNodeAttribute1);
+
+		// Set Translation
+		BaseJoint->LclTranslation.Set(FbxVector4(pos.getSimdAt(0), pos.getSimdAt(1), pos.getSimdAt(2)));
+
+		// convert quat to euler
+		Quat QuatTest = { rot.m_vec.getSimdAt(0), rot.m_vec.getSimdAt(1), rot.m_vec.getSimdAt(2), rot.m_vec.getSimdAt(3) };
+		EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+		BaseJoint->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+
+		root->GetScene()->GetRootNode()->AddChild(BaseJoint);
+		conversion_map[b] = BaseJoint;
+	}
+
+	// process parenting and transform now
+	for (int c = 0; c < numBones; c++)
+	{
+		const hkInt32& parent = skeleton->m_parentIndices[c];
+
+		if (parent != -1)
+		{
+			FbxNode* ParentJointNode = conversion_map[parent];
+			FbxNode* CurrentJointNode = conversion_map[c];
+			ParentJointNode->AddChild(CurrentJointNode);
+		}
+	}
+
+}
+
+void HKXWrapper::load_skeleton(const fs::path& path, FbxNode* root)
+{
+	vector<string> ordered_tracks;
+	hkArray<hkVariant> objects;
+	read(path, objects);
+	hkaAnimationContainer* anim_container;
+	hkpPhysicsData* physics_data;
+	hkaRagdollInstance* ragdoll_instance;
+	vector<hkaSkeleton*> skeletons;
+	vector<hkaSkeletonMapper*> mappers;
+
+	hkaSkeleton* animation_skeleton;
+	hkaSkeleton* ragdoll_skeleton;
+
+	for (const auto& variant : objects) {
+		//read skeletons
+		if (strcmp(variant.m_class->getName(), "hkaSkeleton") == 0)
+		{
+			skeletons.push_back((hkaSkeleton*)variant.m_object);
+		}
+		if (strcmp(variant.m_class->getName(), "hkpPhysicsData") == 0)
+		{
+			physics_data = (hkpPhysicsData*)variant.m_object;
+		}
+		if (strcmp(variant.m_class->getName(), "hkaRagdollInstance") == 0)
+		{
+			ragdoll_instance = (hkaRagdollInstance*)variant.m_object;
+		}
+		if (strcmp(variant.m_class->getName(), "hkaSkeletonMapper") == 0)
+		{
+			mappers.push_back((hkaSkeletonMapper*)variant.m_object);
+		}
+	}
+	if (skeletons.empty())
+		return;
+	if (skeletons.size() > 1)
+	{
+		if (ragdoll_instance == NULL)
+		{
+			Log::Warn("Multiple skeleton detected. Only files with one skeleton and one ragdoll (optional) are supported!");
+			animation_skeleton = skeletons[0];
+		}
+		else
+		{
+			ragdoll_instance->m_skeleton == skeletons[0] ?
+				animation_skeleton = skeletons[1], ragdoll_skeleton = skeletons[0] :
+				animation_skeleton = skeletons[0], ragdoll_skeleton = skeletons[1];
+		}
+	}
+
+	Log::Info("Animation Skeleton: %s", animation_skeleton->m_name.cString());
+	if (ragdoll_instance != NULL)
+		Log::Info("Ragdoll Skeleton: %s", ragdoll_skeleton->m_name.cString());
+	add(animation_skeleton, root);
 }
 
 
