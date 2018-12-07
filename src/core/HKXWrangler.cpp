@@ -566,8 +566,16 @@ set<string> HKXWrapper::create_animations(
 							hkaAnnotationTrack::Annotation new_ann;
 							new_ann.m_time = first_curve->KeyGet(i).GetTime().GetSecondDouble();
 							string text = annotation.GetNameAsCStr();
-							text = text.substr(2, text.size()); //remove "hk"
-							text += annotation.GetEnumValue(first_curve->KeyGet(i).GetValue());
+							//remove "hk"
+							text = text.substr(2, text.size());
+							//set first part to lowercase
+							std::transform(text.begin(), text.end(), text.begin(), ::tolower);
+							string value = annotation.GetEnumValue(first_curve->KeyGet(i).GetValue());
+							//set second part to lowercase
+							std::transform(value.begin(), value.end(), value.begin(), ::tolower);
+							//now first char uppercase
+							*value.begin() = ::toupper(*value.begin());
+							text += value;
 							new_ann.m_text = text.c_str();
 							a_track.m_annotations.pushBack(new_ann);
 						}
@@ -673,7 +681,300 @@ string HKXWrapper::write_project(const string& out_name, const string& out_path,
 	return GetPath();
 }
 
-void HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* root)
+string longestCommonPrefix(const vector<string>& strs) {
+	int n = INT_MAX;
+	if (strs.size() <= 0) {
+		return "";
+	}
+	if (strs.size() == 1) {
+		return strs[0];
+	}
+	// get the min length
+	for (int i = 0; i < strs.size(); i++) {
+		n = strs[i].length() < n ? strs[i].length() : n;
+	}
+	for (int i = 0; i < n; i++) { // check each character
+		for (int j = 1; j < strs.size(); j++) {
+			if (strs[j][i] != strs[j - 1][i]) { // we find a mis-match
+				return strs[0].substr(0, i);
+			}
+		}
+	}
+	// prefix is n-length
+	return strs[0].substr(0, n);
+}
+
+template <class S>
+auto powerset(const S& s)
+{
+	std::set<S> ret;
+	ret.emplace();
+	for (auto&& e : s) {
+		std::set<S> rs;
+		for (auto x : ret) {
+			x.push_back(e);
+			rs.insert(x);
+		}
+		ret.insert(begin(rs), end(rs));
+	}
+	return ret;
+}
+
+void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBinding* binding, vector<FbxNode*>& ordered_skeleton, FbxNode* skeleton_root)
+{
+	FbxString lAnimStackName;
+	FbxTime lTime;
+	int lKeyIndex = 0;
+
+	FbxAnimStack* lAnimStack = FbxAnimStack::Create(ordered_skeleton[0]->GetScene(), name.c_str());
+
+	// The animation nodes can only exist on AnimLayers therefore it is mandatory to
+	// add at least one AnimLayer to the AnimStack. And for the purpose of this example,
+	// one layer is all we need.
+	FbxAnimLayer* lAnimLayer = FbxAnimLayer::Create(ordered_skeleton[0]->GetScene(), "Base Layer");
+	lAnimStack->AddMember(lAnimLayer);
+
+	// havok related animation stuff now
+	const int numBones = ordered_skeleton.size();
+
+	int FrameNumber = animation->getNumOriginalFrames();
+	int TrackNumber = animation->m_numberOfTransformTracks;
+	int FloatNumber = animation->m_numberOfFloatTracks;
+
+	float AnimDuration = animation->m_duration;
+	hkReal incrFrame = animation->m_duration / (hkReal)(FrameNumber - 1);
+
+
+
+	if (TrackNumber > numBones)
+	{
+		Log::Error("\nERROR: More tracks than the actual skeleton loaded! some will be ignored\n");		
+	}
+
+	hkLocalArray<float> floatsOut(FloatNumber);
+	hkLocalArray<hkQsTransform> transformOut(TrackNumber);
+	floatsOut.setSize(FloatNumber);
+	transformOut.setSize(TrackNumber);
+	hkReal startTime = 0.0;
+
+	hkArray<hkInt16> tracks;
+	tracks.setSize(TrackNumber);
+	for (int i = 0; i<TrackNumber; ++i) tracks[i] = i;
+
+	hkReal time = startTime;
+
+	FbxAnimCurve* lCurve_Trans_X;
+	FbxAnimCurve* lCurve_Trans_Y;
+	FbxAnimCurve* lCurve_Trans_Z;
+	FbxAnimCurve* lCurve_Rot_X;
+	FbxAnimCurve* lCurve_Rot_Y;
+	FbxAnimCurve* lCurve_Rot_Z;
+	FbxAnimCurve* lCurve_Scaling_X;
+	FbxAnimCurve* lCurve_Scaling_Y;
+	FbxAnimCurve* lCurve_Scaling_Z;
+
+	//add annotations
+	if (animation->m_annotationTracks.getSize() > 0)
+	{
+		hkaAnnotationTrack& a_track = animation->m_annotationTracks[0];
+
+		if (a_track.m_annotations.getSize() > 0)
+		{
+			//rebuild enums
+			set<string> all_annotations;
+
+			//multimap<string, string> enum_to_create;
+			map<string, FbxDataType> enums_created;
+
+			for (int i = 0; i < a_track.m_annotations.getSize(); i++)
+			{
+				hkaAnnotationTrack::Annotation& this_hk_ann = a_track.m_annotations[i];
+				string hk_value = this_hk_ann.m_text.cString();
+				size_t index = 0;
+				for (index = hk_value.size()-1; index >= 0; index--)
+				{
+					if (::isupper(hk_value[index]))
+						break;
+				}
+				if (index > 0)
+				{
+					string e_type = hk_value.substr(0, index);
+					string e_value = hk_value.substr(index, hk_value.size() - index);
+					FbxProperty this_p = ordered_skeleton[0]->FindProperty(e_type.c_str());
+					if (!this_p.IsValid()) {
+						this_p = FbxProperty::Create(ordered_skeleton[0], FbxEnumDT, e_type.c_str());
+					}
+					//this_p.
+
+					////enum_to_create.insert(pair<string, string>({ e_type , e_value }));
+					//map<string, FbxDataType>::iterator enum_it = enums_created.find(e_type);
+					//if (enum_it == enums_created.end()) {
+					//	FbxDataType new_enum = FbxDataType::Create(e_type.c_str(), FbxEnumDT);
+					//	new_enum.GetTypeInfoHandle().AddEnumValue(e_value.c_str());
+					//}
+					//else {
+					//	enum_it->second.GetTypeInfoHandle().AddEnumValue(e_value.c_str());
+					//}
+
+				}
+			}
+
+			//set<FbxDataType> enums;
+
+			//for (multimap<string, string>::iterator it = enum_to_create.begin(); 
+			//	it != enum_to_create.end(); )
+
+
+
+			//FbxDataType pippo = FbxDataType::Create("pippo", FbxEnumDT);
+			//pippo.
+			//FbxEnumDT pluto;
+
+
+			vector<string> v_all_annotations(all_annotations.begin(), all_annotations.end());
+
+			set<string> outputs;
+			//calculate the power set;
+			auto pset = powerset(v_all_annotations);
+			for (auto&& subset : pset) {
+				outputs.insert(longestCommonPrefix(subset));
+			}
+
+			printf("lol");
+		}
+
+	}
+
+	//FbxProperty annotation = FbxProperty::Create(skeleton_root, FbxEnumDT, "lol");
+
+	//for (FbxProperty annotation : annotations)
+	//{
+	//	FbxAnimCurveNode* curve_node = annotation.GetCurveNode();
+	//	if (curve_node)
+	//	{
+	//		//conventionally we want annotation on a single enum channel
+	//		FbxAnimCurve* first_curve = curve_node->GetCurve(0);
+	//		if (first_curve) {
+	//			size_t keys = first_curve->KeyGetCount();
+	//			hkaAnnotationTrack& a_track = tempAnim->m_annotationTracks[0];
+	//			if (keys > 0)
+	//			{
+	//				for (int i = 0; i < keys; i++)
+	//				{
+	//					hkaAnnotationTrack::Annotation new_ann;
+	//					new_ann.m_time = first_curve->KeyGet(i).GetTime().GetSecondDouble();
+	//					string text = annotation.GetNameAsCStr();
+	//					text = text.substr(2, text.size()); //remove "hk"
+	//					text += annotation.GetEnumValue(first_curve->KeyGet(i).GetValue());
+	//					new_ann.m_text = text.c_str();
+	//					a_track.m_annotations.pushBack(new_ann);
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
+
+	// loop through keyframes
+	for (int iFrame = 0; iFrame<FrameNumber; ++iFrame, time += incrFrame)
+	{
+		animation->samplePartialTracks(time, TrackNumber, transformOut.begin(), FloatNumber, floatsOut.begin(), NULL);
+		hkaSkeletonUtils::normalizeRotations(transformOut.begin(), TrackNumber);
+
+		// assume 1-to-1 transforms
+		// loop through animated bones
+		for (int i = 0; i<TrackNumber; ++i)
+		{
+			FbxNode* CurrentJointNode = binding->m_transformTrackToBoneIndices.getSize() > 0 ?
+				ordered_skeleton[binding->m_transformTrackToBoneIndices[i]] :
+				ordered_skeleton[i];
+
+			// Translation
+			lCurve_Trans_X = CurrentJointNode->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+			lCurve_Trans_Y = CurrentJointNode->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+			lCurve_Trans_Z = CurrentJointNode->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+
+			// Rotation
+			lCurve_Rot_X = CurrentJointNode->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+			lCurve_Rot_Y = CurrentJointNode->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+			lCurve_Rot_Z = CurrentJointNode->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+
+			lCurve_Scaling_X = CurrentJointNode->LclScaling.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+			lCurve_Scaling_Y = CurrentJointNode->LclScaling.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+			lCurve_Scaling_Z = CurrentJointNode->LclScaling.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+
+
+			hkQsTransform& transform = transformOut[i];
+			const hkVector4& anim_pos = transform.getTranslation();
+			const hkQuaternion& anim_rot = transform.getRotation();
+			const hkVector4& anim_scal = transform.getScale();
+
+			// todo support for anything else beside 30 fps?
+			lTime.SetTime(0, 0, 0, iFrame, 0, 0, lTime.eFrames30);
+
+			// Translation first
+			lCurve_Trans_X->KeyModifyBegin();
+			lKeyIndex = lCurve_Trans_X->KeyAdd(lTime);
+			lCurve_Trans_X->KeySetValue(lKeyIndex, anim_pos.getSimdAt(0));
+			lCurve_Trans_X->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Trans_X->KeyModifyEnd();
+
+			lCurve_Trans_Y->KeyModifyBegin();
+			lKeyIndex = lCurve_Trans_Y->KeyAdd(lTime);
+			lCurve_Trans_Y->KeySetValue(lKeyIndex, anim_pos.getSimdAt(1));
+			lCurve_Trans_Y->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Trans_Y->KeyModifyEnd();
+
+			lCurve_Trans_Z->KeyModifyBegin();
+			lKeyIndex = lCurve_Trans_Z->KeyAdd(lTime);
+			lCurve_Trans_Z->KeySetValue(lKeyIndex, anim_pos.getSimdAt(2));
+			lCurve_Trans_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Trans_Z->KeyModifyEnd();
+
+			// Rotation
+			Quat QuatRotNew = { anim_rot.m_vec.getSimdAt(0), anim_rot.m_vec.getSimdAt(1), anim_rot.m_vec.getSimdAt(2), anim_rot.m_vec.getSimdAt(3) };
+			EulerAngles inAngs_Animation = Eul_FromQuat(QuatRotNew, EulOrdXYZs);
+
+			lCurve_Rot_X->KeyModifyBegin();
+			lKeyIndex = lCurve_Rot_X->KeyAdd(lTime);
+			lCurve_Rot_X->KeySetValue(lKeyIndex, float(rad2deg(inAngs_Animation.x)));
+			lCurve_Rot_X->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Rot_X->KeyModifyEnd();
+
+			lCurve_Rot_Y->KeyModifyBegin();
+			lKeyIndex = lCurve_Rot_Y->KeyAdd(lTime);
+			lCurve_Rot_Y->KeySetValue(lKeyIndex, float(rad2deg(inAngs_Animation.y)));
+			lCurve_Rot_Y->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Rot_Y->KeyModifyEnd();
+
+			lCurve_Rot_Z->KeyModifyBegin();
+			lKeyIndex = lCurve_Rot_Z->KeyAdd(lTime);
+			lCurve_Rot_Z->KeySetValue(lKeyIndex, float(rad2deg(inAngs_Animation.z)));
+			lCurve_Rot_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Rot_Z->KeyModifyEnd();
+
+			//Scaling
+			lCurve_Scaling_X->KeyModifyBegin();
+			lKeyIndex = lCurve_Scaling_X->KeyAdd(lTime);
+			lCurve_Scaling_X->KeySetValue(lKeyIndex, anim_scal.getSimdAt(0));
+			lCurve_Scaling_X->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Scaling_X->KeyModifyEnd();
+
+			lCurve_Scaling_Y->KeyModifyBegin();
+			lKeyIndex = lCurve_Scaling_Y->KeyAdd(lTime);
+			lCurve_Scaling_Y->KeySetValue(lKeyIndex, anim_scal.getSimdAt(1));
+			lCurve_Scaling_Y->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Scaling_Y->KeyModifyEnd();
+
+			lCurve_Scaling_Z->KeyModifyBegin();
+			lKeyIndex = lCurve_Scaling_Z->KeyAdd(lTime);
+			lCurve_Scaling_Z->KeySetValue(lKeyIndex, anim_scal.getSimdAt(2));
+			lCurve_Scaling_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Scaling_Z->KeyModifyEnd();
+		}
+	}
+}
+
+vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, FbxNode*& skeleton_root)
 {
 	
 	// get number of bones and apply reference pose
@@ -693,7 +994,7 @@ void HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* root)
 		const hkVector4& pos = localTransform.getTranslation();
 		const hkQuaternion& rot = localTransform.getRotation();
 
-		FbxSkeleton* lSkeletonLimbNodeAttribute1 = FbxSkeleton::Create(root->GetScene(), b_name.c_str());
+		FbxSkeleton* lSkeletonLimbNodeAttribute1 = FbxSkeleton::Create(scene_root->GetScene(), b_name.c_str());
 
 		if ((b == 0))
 			lSkeletonLimbNodeAttribute1->SetSkeletonType(FbxSkeleton::eRoot);
@@ -701,7 +1002,7 @@ void HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* root)
 			lSkeletonLimbNodeAttribute1->SetSkeletonType(FbxSkeleton::eLimbNode);
 
 		lSkeletonLimbNodeAttribute1->Size.Set(1.0);
-		FbxNode* BaseJoint = FbxNode::Create(root->GetScene(), b_name.c_str());
+		FbxNode* BaseJoint = FbxNode::Create(scene_root->GetScene(), b_name.c_str());
 		BaseJoint->SetNodeAttribute(lSkeletonLimbNodeAttribute1);
 
 		// Set Translation
@@ -712,26 +1013,31 @@ void HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* root)
 		EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
 		BaseJoint->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
 
-		root->GetScene()->GetRootNode()->AddChild(BaseJoint);
+		scene_root->GetScene()->GetRootNode()->AddChild(BaseJoint);
 		conversion_map[b] = BaseJoint;
 	}
+
+	vector<FbxNode*> ordered_skeleton(conversion_map.size());
 
 	// process parenting and transform now
 	for (int c = 0; c < numBones; c++)
 	{
 		const hkInt32& parent = skeleton->m_parentIndices[c];
-
+		ordered_skeleton[c] = conversion_map[c];
 		if (parent != -1)
 		{
 			FbxNode* ParentJointNode = conversion_map[parent];
 			FbxNode* CurrentJointNode = conversion_map[c];
 			ParentJointNode->AddChild(CurrentJointNode);
 		}
+		else {
+			skeleton_root = conversion_map[c];
+		}
 	}
-
+	return ordered_skeleton;
 }
 
-void HKXWrapper::load_skeleton(const fs::path& path, FbxNode* root)
+vector<FbxNode*> HKXWrapper::load_skeleton(const fs::path& path, FbxNode* scene_root, FbxNode*& skeleton_root)
 {
 	vector<string> ordered_tracks;
 	hkArray<hkVariant> objects;
@@ -765,7 +1071,7 @@ void HKXWrapper::load_skeleton(const fs::path& path, FbxNode* root)
 		}
 	}
 	if (skeletons.empty())
-		return;
+		return {};
 	if (skeletons.size() > 1)
 	{
 		if (ragdoll_instance == NULL)
@@ -784,9 +1090,39 @@ void HKXWrapper::load_skeleton(const fs::path& path, FbxNode* root)
 	Log::Info("Animation Skeleton: %s", animation_skeleton->m_name.cString());
 	if (ragdoll_instance != NULL)
 		Log::Info("Ragdoll Skeleton: %s", ragdoll_skeleton->m_name.cString());
-	add(animation_skeleton, root);
+	return add(animation_skeleton, scene_root, skeleton_root);
 }
 
+void HKXWrapper::load_animation(const fs::path& path, vector<FbxNode*>& ordered_skeleton, FbxNode* skeleton_root)
+{
+	hkArray<hkVariant> objects;
+	read(path, objects);
+
+	hkaAnimationContainer* container = NULL;
+
+	hkaAnimation* animation;
+	hkaAnimationBinding* binding;
+
+	for (const auto& variant : objects) {
+		//read skeletons
+		if (strcmp(variant.m_class->getName(), "hkaAnimationContainer") == 0)
+		{
+			container = (hkaAnimationContainer*)variant.m_object;
+		}
+	}
+
+	if (container == NULL) {
+		Log::Info("Error: cannot find an animation container inside the file %s", path.string().c_str());
+		return;
+	}
+	animation = container->m_animations[0];
+	binding = container->m_bindings[0];
+
+	const string debug = path.filename().string();
+	const string name = path.filename().replace_extension("").string();
+	add(name, animation, binding, ordered_skeleton, skeleton_root);
+
+}
 
 
 string HKXWrapperCollection::wrap(const string& out_name, const string& out_path, const string& out_path_root, const string& prefix, const set<string>& sequences_names)

@@ -1522,20 +1522,8 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 						(float)color.mGreen,
 						(float)color.mBlue,
 						(float)color.mAlpha
-					)
-				;
-
+					);
 			}
-			//if (m->GetPolygonVertex(t, 0)) 
-			//{
-			//	vc->GetDirectArray().GetAt(v).mData[1]
-			//	uvs[p1] = TexCoord(v_uv.mData[0], v_uv.mData[1]);
-			//}
-			//if (m->GetPolygonVertex(t, 1))
-			//	uvs[p2] = TexCoord(v_uv.mData[0], v_uv.mData[1]);
-
-			//if (m->GetPolygonVertex(t, 2))
-			//	uvs[p3] = TexCoord(v_uv.mData[0], v_uv.mData[1]);
 		}
 	}
 	if (tris.size()) {
@@ -2717,8 +2705,13 @@ bool FBXWrangler::SaveNif(const string& fileName) {
 	return out.Save(fileName);
 }
 
-void FBXWrangler::importExternalSkeleton(const string& external_skeleton_path)
-{
+vector<FbxNode*> FBXWrangler::importExternalSkeleton(const string& external_skeleton_path, FbxNode*& skeleton_root)
+{	
 	this->external_skeleton_path = external_skeleton_path;
-	hkxWrapper.load_skeleton(external_skeleton_path, scene->GetRootNode());
+	return hkxWrapper.load_skeleton(external_skeleton_path, scene->GetRootNode(), skeleton_root);
+}
+
+void FBXWrangler::importAnimationOnSkeleton(const string& external_skeleton_path, vector<FbxNode*>& skeleton, FbxNode* skeleton_root)
+{
+	hkxWrapper.load_animation(external_skeleton_path, skeleton, skeleton_root);
 }
