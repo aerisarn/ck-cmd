@@ -2662,6 +2662,10 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 					//found all the tracks, needs no mapping
 					transformTrackToFloatIndices.clear();
 
+				//reorder annotations
+				vector<FbxProperty> annotations(annotated.begin(), annotated.end());
+				
+
 				havok_sequences = hkxWrapper.create_animations
 				(
 					external_name, 

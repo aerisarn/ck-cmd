@@ -502,6 +502,10 @@ vector<FbxNode*> HKXWrapper::create_skeleton(const string& name, const set<FbxNo
 	return move(ordered_bones);
 }
 
+bool annotation_sorter(hkaAnnotationTrack::Annotation const& lhs, hkaAnnotationTrack::Annotation const& rhs) {
+	return lhs.m_time < rhs.m_time;
+}
+
 set<string> HKXWrapper::create_animations(
 	const string& skeleton_name,
 	vector<FbxNode*>& skeleton,
@@ -549,6 +553,7 @@ set<string> HKXWrapper::create_animations(
 		tempAnim->m_floats.setSize(tempAnim->m_numberOfFloatTracks);
 
 		//Annotations
+		vector<hkaAnnotationTrack::Annotation> temp_track;
 		for (FbxProperty annotation : annotations)
 		{
 			FbxAnimCurveNode* curve_node = annotation.GetCurveNode();
@@ -557,8 +562,8 @@ set<string> HKXWrapper::create_animations(
 				//conventionally we want annotation on a single enum channel
 				FbxAnimCurve* first_curve = curve_node->GetCurve(0);
 				if (first_curve) {
-					size_t keys = first_curve->KeyGetCount();
-					hkaAnnotationTrack& a_track = tempAnim->m_annotationTracks[0];
+					size_t keys = first_curve->KeyGetCount();					
+					//hkaAnnotationTrack& a_track = tempAnim->m_annotationTracks[0];
 					if (keys > 0)
 					{						
 						for (int i = 0; i < keys; i++)
@@ -569,7 +574,7 @@ set<string> HKXWrapper::create_animations(
 							//remove "hk"
 							text = text.substr(2, text.size());
 							//set first part to lowercase
-							std::transform(text.begin(), text.end(), text.begin(), ::tolower);
+							//std::transform(text.begin(), text.end(), text.begin(), ::tolower);
 							string value = annotation.GetEnumValue(first_curve->KeyGet(i).GetValue());
 							//set second part to lowercase
 							std::transform(value.begin(), value.end(), value.begin(), ::tolower);
@@ -577,12 +582,18 @@ set<string> HKXWrapper::create_animations(
 							*value.begin() = ::toupper(*value.begin());
 							text += value;
 							new_ann.m_text = text.c_str();
-							a_track.m_annotations.pushBack(new_ann);
+							temp_track.push_back(new_ann);
 						}
 					}
 				}
 			}
 		}
+
+		//sort annotations by time
+		sort(temp_track.begin(), temp_track.end(), &annotation_sorter);
+		hkaAnnotationTrack& a_track = tempAnim->m_annotationTracks[0];
+		for (const auto& ann : temp_track)
+			a_track.m_annotations.pushBack(ann);
 
 		// Sample each animation frame
 		for (FbxTime time = startTime, priorSampleTime = endTime;
