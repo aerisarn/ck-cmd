@@ -88,8 +88,8 @@ bool BeginConversion(const string& importSkeleton, const string& exportPath) {
 
 	FBXWrangler wrangler;
 	wrangler.NewScene();
-	FbxNode* skeleton_root = NULL;
-	wrangler.importExternalSkeleton(importSkeleton, skeleton_root);
+	vector<FbxProperty> float_tracks;
+	wrangler.importExternalSkeleton(importSkeleton, float_tracks);
 	fs::path out_path = outputDir / fs::path(importSkeleton).filename().replace_extension(".fbx");
 	fs::create_directories(outputDir);
 	wrangler.ExportScene(out_path.string().c_str());

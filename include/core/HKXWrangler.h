@@ -99,8 +99,8 @@ namespace ckcmd {
 
 			void create_behavior(const set<string>& kf_sequences_names, const set<string>& havok_sequences_names);
 
-			vector<FbxNode*> add(hkaSkeleton* skeleton, FbxNode* root, FbxNode*& skeleton_root);
-			void add(const string& name, hkaAnimation* animation, hkaAnimationBinding* binding, vector<FbxNode*>& ordered_skeleton, FbxNode* skeleton_root);
+			vector<FbxNode*> add(hkaSkeleton* skeleton, FbxNode* root, vector<FbxProperty>& float_tracks);
+			void add(const string& name, hkaAnimation* animation, hkaAnimationBinding* binding, vector<FbxNode*>& ordered_skeleton, vector<FbxProperty>& float_tracks);
 
 		public:
 
@@ -126,8 +126,8 @@ namespace ckcmd {
 				const vector<uint32_t>& transform_track_to_float_indices = {}
 			);
 
-			vector<FbxNode*> load_skeleton(const fs::path& path, FbxNode* scene_root, FbxNode*& skeleton_root);
-			void load_animation(const fs::path& path, vector<FbxNode*>&, FbxNode* skeleton_root);
+			vector<FbxNode*> load_skeleton(const fs::path& path, FbxNode* scene_root, vector<FbxProperty>& float_tracks);
+			void load_animation(const fs::path& path, vector<FbxNode*>&, vector<FbxProperty>& float_tracks);
 
 			void write_animations(const string& out_path, const set<string>& havok_sequences_names);
 		

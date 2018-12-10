@@ -96,8 +96,9 @@ bool BeginConversion(const string& importSkeleton, const string& importHKX, cons
 	FBXWrangler wrangler;
 	wrangler.NewScene();
 	FbxNode* skeleton_root = NULL;
-	vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, skeleton_root);
-	wrangler.importAnimationOnSkeleton(importHKX, ordered_skeleton, skeleton_root);
+	vector<FbxProperty> floats;
+	vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, floats);
+	wrangler.importAnimationOnSkeleton(importHKX, ordered_skeleton, floats);
 	
 	fs::path out_path = outputDir / fs::path(importHKX).filename().replace_extension(".fbx");
 	fs::create_directories(outputDir);

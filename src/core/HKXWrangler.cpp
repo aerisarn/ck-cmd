@@ -681,46 +681,7 @@ string HKXWrapper::write_project(const string& out_name, const string& out_path,
 	return GetPath();
 }
 
-string longestCommonPrefix(const vector<string>& strs) {
-	int n = INT_MAX;
-	if (strs.size() <= 0) {
-		return "";
-	}
-	if (strs.size() == 1) {
-		return strs[0];
-	}
-	// get the min length
-	for (int i = 0; i < strs.size(); i++) {
-		n = strs[i].length() < n ? strs[i].length() : n;
-	}
-	for (int i = 0; i < n; i++) { // check each character
-		for (int j = 1; j < strs.size(); j++) {
-			if (strs[j][i] != strs[j - 1][i]) { // we find a mis-match
-				return strs[0].substr(0, i);
-			}
-		}
-	}
-	// prefix is n-length
-	return strs[0].substr(0, n);
-}
-
-template <class S>
-auto powerset(const S& s)
-{
-	std::set<S> ret;
-	ret.emplace();
-	for (auto&& e : s) {
-		std::set<S> rs;
-		for (auto x : ret) {
-			x.push_back(e);
-			rs.insert(x);
-		}
-		ret.insert(begin(rs), end(rs));
-	}
-	return ret;
-}
-
-void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBinding* binding, vector<FbxNode*>& ordered_skeleton, FbxNode* skeleton_root)
+void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBinding* binding, vector<FbxNode*>& ordered_skeleton, vector<FbxProperty>& float_tracks)
 {
 	FbxString lAnimStackName;
 	FbxTime lTime;
@@ -780,12 +741,7 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 
 		if (a_track.m_annotations.getSize() > 0)
 		{
-			//rebuild enums
-			set<string> all_annotations;
-
-			//multimap<string, string> enum_to_create;
-			map<string, FbxDataType> enums_created;
-
+			//on first pass we create the enums
 			for (int i = 0; i < a_track.m_annotations.getSize(); i++)
 			{
 				hkaAnnotationTrack::Annotation& this_hk_ann = a_track.m_annotations[i];
@@ -800,79 +756,40 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 				{
 					string e_type = hk_value.substr(0, index);
 					string e_value = hk_value.substr(index, hk_value.size() - index);
-					FbxProperty this_p = ordered_skeleton[0]->FindProperty(e_type.c_str());
+					string out_name = "hk" + e_type;
+					FbxProperty this_p = ordered_skeleton[0]->FindProperty(out_name.c_str());
 					if (!this_p.IsValid()) {
-						this_p = FbxProperty::Create(ordered_skeleton[0], FbxEnumDT, e_type.c_str());
+						this_p = FbxProperty::Create(ordered_skeleton[0], FbxEnumDT, out_name.c_str());
+						this_p.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+						this_p.ModifyFlag(FbxPropertyFlags::eAnimatable, true);
 					}
-					//this_p.
-
-					////enum_to_create.insert(pair<string, string>({ e_type , e_value }));
-					//map<string, FbxDataType>::iterator enum_it = enums_created.find(e_type);
-					//if (enum_it == enums_created.end()) {
-					//	FbxDataType new_enum = FbxDataType::Create(e_type.c_str(), FbxEnumDT);
-					//	new_enum.GetTypeInfoHandle().AddEnumValue(e_value.c_str());
-					//}
-					//else {
-					//	enum_it->second.GetTypeInfoHandle().AddEnumValue(e_value.c_str());
-					//}
-
+					//check that the enum already has the value
+					bool already_inserted = false;
+					size_t enum_values = this_p.GetEnumCount();
+					int e_index = 0;
+					for (e_index = 0; e_index < enum_values; e_index++) {
+						string enum_val = this_p.GetEnumValue(e_index);
+						if (enum_val == e_value) {
+							already_inserted = true;
+							break;
+						}
+					}
+					if (!already_inserted)
+					{
+						e_index = enum_values;
+						this_p.AddEnumValue(e_value.c_str());
+					}
+					//annotate curve
+					FbxAnimCurve* fcurve = this_p.GetCurve(lAnimLayer, out_name.c_str(), true);
+					fcurve->KeyModifyBegin();
+					FbxTime time; time.SetSecondDouble(this_hk_ann.m_time);
+					lKeyIndex = fcurve->KeyAdd(time);
+					fcurve->KeySet(lKeyIndex, time, (float)e_index, FbxAnimCurveDef::eInterpolationConstant);
+					fcurve->KeyModifyEnd();
 				}
 			}
-
-			//set<FbxDataType> enums;
-
-			//for (multimap<string, string>::iterator it = enum_to_create.begin(); 
-			//	it != enum_to_create.end(); )
-
-
-
-			//FbxDataType pippo = FbxDataType::Create("pippo", FbxEnumDT);
-			//pippo.
-			//FbxEnumDT pluto;
-
-
-			vector<string> v_all_annotations(all_annotations.begin(), all_annotations.end());
-
-			set<string> outputs;
-			//calculate the power set;
-			auto pset = powerset(v_all_annotations);
-			for (auto&& subset : pset) {
-				outputs.insert(longestCommonPrefix(subset));
-			}
-
-			printf("lol");
 		}
-
 	}
-
-	//FbxProperty annotation = FbxProperty::Create(skeleton_root, FbxEnumDT, "lol");
-
-	//for (FbxProperty annotation : annotations)
-	//{
-	//	FbxAnimCurveNode* curve_node = annotation.GetCurveNode();
-	//	if (curve_node)
-	//	{
-	//		//conventionally we want annotation on a single enum channel
-	//		FbxAnimCurve* first_curve = curve_node->GetCurve(0);
-	//		if (first_curve) {
-	//			size_t keys = first_curve->KeyGetCount();
-	//			hkaAnnotationTrack& a_track = tempAnim->m_annotationTracks[0];
-	//			if (keys > 0)
-	//			{
-	//				for (int i = 0; i < keys; i++)
-	//				{
-	//					hkaAnnotationTrack::Annotation new_ann;
-	//					new_ann.m_time = first_curve->KeyGet(i).GetTime().GetSecondDouble();
-	//					string text = annotation.GetNameAsCStr();
-	//					text = text.substr(2, text.size()); //remove "hk"
-	//					text += annotation.GetEnumValue(first_curve->KeyGet(i).GetValue());
-	//					new_ann.m_text = text.c_str();
-	//					a_track.m_annotations.pushBack(new_ann);
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
 
 	// loop through keyframes
 	for (int iFrame = 0; iFrame<FrameNumber; ++iFrame, time += incrFrame)
@@ -882,6 +799,10 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 
 		// assume 1-to-1 transforms
 		// loop through animated bones
+
+		// todo support for anything else beside 30 fps?
+		lTime.SetTime(0, 0, 0, iFrame, 0, 0, lTime.eFrames30);
+
 		for (int i = 0; i<TrackNumber; ++i)
 		{
 			FbxNode* CurrentJointNode = binding->m_transformTrackToBoneIndices.getSize() > 0 ?
@@ -907,9 +828,6 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 			const hkVector4& anim_pos = transform.getTranslation();
 			const hkQuaternion& anim_rot = transform.getRotation();
 			const hkVector4& anim_scal = transform.getScale();
-
-			// todo support for anything else beside 30 fps?
-			lTime.SetTime(0, 0, 0, iFrame, 0, 0, lTime.eFrames30);
 
 			// Translation first
 			lCurve_Trans_X->KeyModifyBegin();
@@ -971,10 +889,24 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 			lCurve_Scaling_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
 			lCurve_Scaling_Z->KeyModifyEnd();
 		}
+
+		for (int k = 0; k < FloatNumber; k++) {
+			FbxProperty this_p = binding->m_floatTrackToFloatSlotIndices.getSize() > 0 ?
+				float_tracks[binding->m_floatTrackToFloatSlotIndices[k]] :
+				float_tracks[k];
+			if (this_p.IsValid())
+			{
+				FbxAnimCurve* fcurve = this_p.GetCurve(lAnimLayer, this_p.GetNameAsCStr(), true);
+				fcurve->KeyModifyBegin();
+				lKeyIndex = fcurve->KeyAdd(lTime);
+				fcurve->KeySet(lKeyIndex, time, floatsOut[k], FbxAnimCurveDef::eInterpolationConstant);
+				fcurve->KeyModifyEnd();
+			}
+		}
 	}
 }
 
-vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, FbxNode*& skeleton_root)
+vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vector<FbxProperty>& float_tracks)
 {
 	
 	// get number of bones and apply reference pose
@@ -1030,14 +962,26 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, Fbx
 			FbxNode* CurrentJointNode = conversion_map[c];
 			ParentJointNode->AddChild(CurrentJointNode);
 		}
-		else {
-			skeleton_root = conversion_map[c];
-		}
+		//else {
+		//	skeleton_root = conversion_map[c];
+		//}
 	}
+
+	//add floats properties
+	int float_size = skeleton->m_floatSlots.getSize();
+	float_tracks.resize(float_size);
+	for (int i = 0; i < float_size; i++)
+	{
+		//to be sure to preserve 
+		float_tracks[i] = FbxProperty::Create(ordered_skeleton[0], FbxFloatDT, skeleton->m_floatSlots[i].cString());
+		float_tracks[i].ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+		float_tracks[i].ModifyFlag(FbxPropertyFlags::eAnimatable, true);
+	}
+
 	return ordered_skeleton;
 }
 
-vector<FbxNode*> HKXWrapper::load_skeleton(const fs::path& path, FbxNode* scene_root, FbxNode*& skeleton_root)
+vector<FbxNode*> HKXWrapper::load_skeleton(const fs::path& path, FbxNode* scene_root, vector<FbxProperty>& float_tracks)
 {
 	vector<string> ordered_tracks;
 	hkArray<hkVariant> objects;
@@ -1090,10 +1034,10 @@ vector<FbxNode*> HKXWrapper::load_skeleton(const fs::path& path, FbxNode* scene_
 	Log::Info("Animation Skeleton: %s", animation_skeleton->m_name.cString());
 	if (ragdoll_instance != NULL)
 		Log::Info("Ragdoll Skeleton: %s", ragdoll_skeleton->m_name.cString());
-	return add(animation_skeleton, scene_root, skeleton_root);
+	return add(animation_skeleton, scene_root, float_tracks);
 }
 
-void HKXWrapper::load_animation(const fs::path& path, vector<FbxNode*>& ordered_skeleton, FbxNode* skeleton_root)
+void HKXWrapper::load_animation(const fs::path& path, vector<FbxNode*>& ordered_skeleton, vector<FbxProperty>& float_tracks)
 {
 	hkArray<hkVariant> objects;
 	read(path, objects);
@@ -1120,7 +1064,7 @@ void HKXWrapper::load_animation(const fs::path& path, vector<FbxNode*>& ordered_
 
 	const string debug = path.filename().string();
 	const string name = path.filename().replace_extension("").string();
-	add(name, animation, binding, ordered_skeleton, skeleton_root);
+	add(name, animation, binding, ordered_skeleton, float_tracks);
 
 }
 

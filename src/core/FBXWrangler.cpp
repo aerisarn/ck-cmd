@@ -2632,7 +2632,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 
 				for (int i = 0; i < external_floats.size(); i++)
 				{
-					FbxProperty float_p = scene->GetAnimationEvaluator()->FindProperty(external_floats[i].c_str());
+					FbxProperty float_p = tracks[0]->FindProperty(external_floats[i].c_str());
 					if (!float_p.IsValid())
 					{
 						//try uppercase, due to nif exporter changing that
@@ -2649,6 +2649,10 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 					if (!float_p.IsValid())
 					{
 						Log::Info("Float track not present: %s", external_floats[i].c_str());
+						continue;
+					}
+					if (!float_p.IsAnimated())
+					{
 						continue;
 					}
 					transformTrackToFloatIndices.push_back(i);
@@ -2727,13 +2731,13 @@ bool FBXWrangler::SaveNif(const string& fileName) {
 	return out.Save(fileName);
 }
 
-vector<FbxNode*> FBXWrangler::importExternalSkeleton(const string& external_skeleton_path, FbxNode*& skeleton_root)
+vector<FbxNode*> FBXWrangler::importExternalSkeleton(const string& external_skeleton_path, vector<FbxProperty>& float_tracks)
 {	
 	this->external_skeleton_path = external_skeleton_path;
-	return hkxWrapper.load_skeleton(external_skeleton_path, scene->GetRootNode(), skeleton_root);
+	return hkxWrapper.load_skeleton(external_skeleton_path, scene->GetRootNode(), float_tracks);
 }
 
-void FBXWrangler::importAnimationOnSkeleton(const string& external_skeleton_path, vector<FbxNode*>& skeleton, FbxNode* skeleton_root)
+void FBXWrangler::importAnimationOnSkeleton(const string& external_skeleton_path, vector<FbxNode*>& skeleton, vector<FbxProperty>& float_tracks)
 {
-	hkxWrapper.load_animation(external_skeleton_path, skeleton, skeleton_root);
+	hkxWrapper.load_animation(external_skeleton_path, skeleton, float_tracks);
 }
