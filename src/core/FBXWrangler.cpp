@@ -2428,6 +2428,9 @@ void FBXWrangler::checkAnimatedNodes()
 					{
 						annotated.insert(p);
 					}
+					else if (p.IsAnimated()){
+						float_properties.insert(p);
+					}
 				}					
 				p = pNode->GetNextProperty(p);
 			}
@@ -2586,6 +2589,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			else {
 
 				string external_name;
+				printf("lol");
 				string external_root;
 				vector<string> external_floats;
 				vector<string> external_bones = hkxWrapper.read_track_list(external_skeleton_path, external_name, external_root, external_floats);
@@ -2632,39 +2636,27 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 
 				for (int i = 0; i < external_floats.size(); i++)
 				{
-					FbxProperty float_p = tracks[0]->FindProperty(external_floats[i].c_str());
-					if (!float_p.IsValid())
+					string track_name = external_floats[i];
+					int index = track_name.find(":");
+
+					if (index != string::npos)
 					{
-						//try uppercase, due to nif exporter changing that
-						string uppercase;
-						transform(external_floats[i].begin(), external_floats[i].end(), back_inserter(uppercase), toupper);
-						float_p = scene->GetAnimationEvaluator()->FindProperty(uppercase.c_str());
+						string parent = track_name.substr(index + 1, track_name.size());
+						track_name = track_name.substr(0, index);
+						for (const auto& this_prop : float_properties)
+						{
+							if (track_name == this_prop.GetNameAsCStr())
+							{
+								transformTrackToFloatIndices.push_back(i);
+								floats.push_back(this_prop);
+								break;
+							}
+						}
 					}
-					if (!float_p.IsValid())
-					{
-						string sanitized = external_floats[i];
-						sanitizeString(sanitized);
-						float_p = scene->GetAnimationEvaluator()->FindProperty(sanitized.c_str());
-					}
-					if (!float_p.IsValid())
-					{
-						Log::Info("Float track not present: %s", external_floats[i].c_str());
-						continue;
-					}
-					if (!float_p.IsAnimated())
-					{
-						continue;
-					}
-					transformTrackToFloatIndices.push_back(i);
-					floats.push_back(float_p);
 				}
 				if (external_floats.size() == floats.size())
 					//found all the tracks, needs no mapping
 					transformTrackToFloatIndices.clear();
-
-				//reorder annotations
-				vector<FbxProperty> annotations(annotated.begin(), annotated.end());
-				
 
 				havok_sequences = hkxWrapper.create_animations
 				(

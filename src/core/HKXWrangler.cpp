@@ -905,13 +905,13 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 			FbxProperty this_p = binding->m_floatTrackToFloatSlotIndices.getSize() > 0 ?
 				float_tracks[binding->m_floatTrackToFloatSlotIndices[k]] :
 				float_tracks[k];
-			if (this_p.IsValid())
+			FbxAnimCurve* curve = this_p.GetCurve(lAnimLayer, "Value", true);
+			if (this_p.IsValid() && curve != NULL)
 			{
-				FbxAnimCurve* fcurve = this_p.GetCurve(lAnimLayer, this_p.GetNameAsCStr(), true);
-				fcurve->KeyModifyBegin();
-				lKeyIndex = fcurve->KeyAdd(lTime);
-				fcurve->KeySet(lKeyIndex, time, floatsOut[k], FbxAnimCurveDef::eInterpolationConstant);
-				fcurve->KeyModifyEnd();
+				curve->KeyModifyBegin();
+				lKeyIndex = curve->KeyAdd(lTime);
+				curve->KeySet(lKeyIndex, time, floatsOut[k], FbxAnimCurveDef::eInterpolationConstant);
+				curve->KeyModifyEnd();
 			}
 		}
 	}
@@ -973,9 +973,6 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 			FbxNode* CurrentJointNode = conversion_map[c];
 			ParentJointNode->AddChild(CurrentJointNode);
 		}
-		//else {
-		//	skeleton_root = conversion_map[c];
-		//}
 	}
 
 	//add floats properties
@@ -983,8 +980,30 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 	float_tracks.resize(float_size);
 	for (int i = 0; i < float_size; i++)
 	{
+
+		//check if property has a valid parent
+		string track_name = skeleton->m_floatSlots[i].cString();
+		int index = track_name.find(":");
+
+		if (index != string::npos)
+		{
+			string parent = track_name.substr(index + 1, track_name.size());
+			track_name = track_name.substr(0, index);
+			FbxNode* parent_node = ordered_skeleton[0]->GetScene()->FindNodeByName(parent.c_str());
+			if (parent_node != NULL)
+			{
+				float_tracks[i] = FbxProperty::Create(parent_node, FbxFloatDT, track_name.c_str());
+			}
+			else {
+				float_tracks[i] = FbxProperty::Create(ordered_skeleton[0], FbxFloatDT, track_name.c_str());
+			}
+		}
+		else {
+			float_tracks[i] = FbxProperty::Create(ordered_skeleton[0], FbxFloatDT, track_name.c_str());
+		}
+
 		//to be sure to preserve 
-		float_tracks[i] = FbxProperty::Create(ordered_skeleton[0], FbxFloatDT, skeleton->m_floatSlots[i].cString());
+		
 		float_tracks[i].ModifyFlag(FbxPropertyFlags::eUserDefined, true);
 		float_tracks[i].ModifyFlag(FbxPropertyFlags::eAnimatable, true);
 	}
