@@ -2326,15 +2326,15 @@ void FBXWrangler::checkAnimatedNodes()
 				p = pNode->GetNextProperty(p);
 			}
 
-			if (pNode->GetNodeAttribute())
-			{
-				FbxNodeAttribute::EType node_type = pNode->GetNodeAttribute()->GetAttributeType();
+			//if (pNode->GetNodeAttribute())
+			//{
+			//	FbxNodeAttribute::EType node_type = pNode->GetNodeAttribute()->GetAttributeType();
 
-				if (node_type == FbxNodeAttribute::eSkeleton)
-				{
-					hasSkinnedTracks = true;
-				}
-			}
+			//	if (node_type == FbxNodeAttribute::eSkeleton)
+			//	{
+			//		hasSkinnedTracks = true;
+			//	}
+			//}
 
 			if (isAnimated) {
 				if (hasSkinnedTracks)
@@ -2489,7 +2489,6 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			else {
 
 				string external_name;
-				printf("lol");
 				string external_root;
 				vector<string> external_floats;
 				vector<string> external_bones = hkxWrapper.read_track_list(external_skeleton_path, external_name, external_root, external_floats);

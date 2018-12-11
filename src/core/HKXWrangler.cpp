@@ -590,10 +590,13 @@ set<string> HKXWrapper::create_animations(
 		}
 
 		//sort annotations by time
-		sort(temp_track.begin(), temp_track.end(), &annotation_sorter);
-		hkaAnnotationTrack& a_track = tempAnim->m_annotationTracks[0];
-		for (const auto& ann : temp_track)
-			a_track.m_annotations.pushBack(ann);
+		if (!temp_track.empty())
+		{ 
+			sort(temp_track.begin(), temp_track.end(), &annotation_sorter);
+			hkaAnnotationTrack& a_track = tempAnim->m_annotationTracks[0];
+			for (const auto& ann : temp_track)
+				a_track.m_annotations.pushBack(ann);
+		}
 
 		// Sample each animation frame
 		for (FbxTime time = startTime, priorSampleTime = endTime;
