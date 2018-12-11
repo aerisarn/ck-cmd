@@ -802,6 +802,21 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 		}
 	}
 
+	//prepare track vector
+	vector<FbxProperty> floats_properties;
+
+	for (int k = 0; k < FloatNumber; k++) {
+		FbxProperty this_p = binding->m_floatTrackToFloatSlotIndices.getSize() > 0 ?
+			float_tracks[binding->m_floatTrackToFloatSlotIndices[k]] :
+			float_tracks[k];
+		FbxAnimCurve* curve = this_p.GetCurve(lAnimLayer, true);
+
+		if (this_p.IsValid() && curve != NULL)
+		{
+			floats_properties.push_back(this_p);
+		}
+	}
+
 	// loop through keyframes
 	for (int iFrame = 0; iFrame<FrameNumber; ++iFrame, time += incrFrame)
 	{
@@ -902,11 +917,8 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 		}
 
 		for (int k = 0; k < FloatNumber; k++) {
-			FbxProperty this_p = binding->m_floatTrackToFloatSlotIndices.getSize() > 0 ?
-				float_tracks[binding->m_floatTrackToFloatSlotIndices[k]] :
-				float_tracks[k];
-			FbxAnimCurve* curve = this_p.GetCurve(lAnimLayer, "Value", true);
-			if (this_p.IsValid() && curve != NULL)
+			FbxAnimCurve* curve = floats_properties[k].GetCurve(lAnimLayer, true);
+			if (curve != NULL)
 			{
 				curve->KeyModifyBegin();
 				lKeyIndex = curve->KeyAdd(lTime);

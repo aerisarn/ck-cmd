@@ -1738,7 +1738,6 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 		for (int i = 0; i < curveX->KeyGetCount(); i++)
 		{
 			FbxAnimCurveKey& key = curveX->KeyGet(i);
-			//timeMapX[key.GetTime().GetSecondDouble()] = i;
 			times.insert(key.GetTime().GetSecondDouble());
 		}
 	}
@@ -1747,7 +1746,6 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 		for (int i = 0; i < curveY->KeyGetCount(); i++)
 		{
 			FbxAnimCurveKey& key = curveY->KeyGet(i);
-			//timeMapY[key.GetTime().GetSecondDouble()] = i;
 			times.insert(key.GetTime().GetSecondDouble());
 		}
 	}
@@ -1756,7 +1754,6 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 		for (int i = 0; i < curveX->KeyGetCount(); i++)
 		{
 			FbxAnimCurveKey& key = curveZ->KeyGet(i);
-			//timeMapZ[key.GetTime().GetSecondDouble()] = i;
 			times.insert(key.GetTime().GetSecondDouble());
 		}
 	}
@@ -1773,42 +1770,6 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 			// Set the time at two seconds.
 			lTime.SetSecondDouble((float)time);
 			FbxVector4 trans = node->EvaluateLocalTransform(lTime).GetT();
-
-			//float x = 0.0;
-			//float y = 0.0;
-			//float z = 0.0;
-			//if (timeMapX.find(time) != timeMapX.end())
-			//{
-			//	x = curveX->KeyGet(timeMapX[time]).GetValue();
-			//}
-			//else {
-			//	if (curveX != NULL)
-			//		x = curveX->Evaluate(time);
-			//	else
-			//		x = position[0];
-			//}
-			//if (timeMapY.find(time) != timeMapY.end())
-			//{
-			//	y = curveY->KeyGet(timeMapY[time]).GetValue();
-			//}
-			//else
-			//{
-			//	if (curveY != NULL)
-			//		y = curveY->Evaluate(time);
-			//	else
-			//		y = position[1];
-			//}
-			//if (timeMapZ.find(time) != timeMapZ.end())
-			//{
-			//	z = curveZ->KeyGet(timeMapZ[time]).GetValue();
-			//}
-			//else
-			//{
-			//	if (curveZ != NULL)
-			//		z = curveZ->Evaluate(time);
-			//	else
-			//		z = position[2];
-			//}
 
 			Key<Vector3 > temp;
 			temp.data = Vector3(trans[0], trans[1], trans[2]);
@@ -1837,47 +1798,6 @@ void addRotationKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAn
 	NiTransformDataRef data = interpolator->GetData();
 	if (data == NULL) data = new NiTransformData();
 	Niflib::array<3, KeyGroup<float > > tkeys = data->GetXyzRotations();
-	//set<double> times;
-	//if (curveI != NULL)
-	//{
-	//	for (int i = 0; i < curveI->KeyGetCount(); i++)
-	//	{
-	//		FbxAnimCurveKey& key = curveI->KeyGet(i);
-	//		times.insert(key.GetTime().GetSecondDouble());
-	//	}
-	//}
-	//if (curveJ != NULL)
-	//{
-	//	for (int i = 0; i < curveJ->KeyGetCount(); i++)
-	//	{
-	//		FbxAnimCurveKey& key = curveJ->KeyGet(i);
-	//		timeMapY[key.GetTime().GetSecondDouble()] = i;
-	//		times.insert(key.GetTime().GetSecondDouble());
-	//	}
-	//}
-	//if (curveK != NULL)
-	//{
-	//	for (int i = 0; i < curveK->KeyGetCount(); i++)
-	//	{
-	//		FbxAnimCurveKey& key = curveK->KeyGet(i);
-	//		timeMapZ[key.GetTime().GetSecondDouble()] = i;
-	//		times.insert(key.GetTime().GetSecondDouble());
-	//	}
-	//}
-	//if (times.size() > 0)
-	//{
-	//	for (const auto& time : times) {
-	//		FbxVector4 rot = node->EvaluateLocalRotation(time);
-	//		Key<float> new_key_i;
-	//		new_key_i.data = deg2rad(rot[0]);
-	//		new_key_i.forward_tangent = deg2rad(node- curveI->KeyGetRightTangentVelocity(i));
-	//		new_key_i.backward_tangent = deg2rad(curveI->KeyGetLeftTangentVelocity(i));
-	//		tkeys[0].keys.push_back(new_key_i);
-	//	}
-	//}
-
-	
-
 
 	int IkeySize = 0;
 	if (curveI != NULL)
