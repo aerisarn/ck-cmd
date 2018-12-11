@@ -1321,69 +1321,17 @@ vector<NiTriShapeRef> FBXWrangler::importMultipleShape(FbxNode* child, const FBX
 	return vector<NiTriShapeRef>();
 }
 
-NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& options) {
+NiTriShapeRef FBXWrangler::importShape(const string& name, FbxMesh* m, const FBXImportOptions& options) {
 	NiTriShapeRef out = new NiTriShape();
 	NiTriShapeDataRef data = new NiTriShapeData();
 
 	bool hasAlpha = false;
 
-	FbxMesh* m = (FbxMesh*)child->GetNodeAttribute();
-
-	const char* lMappingTypes[] = { "None", "By Control Point", "By Polygon Vertex", "By Polygon", "By Edge", "All Same" };
-	const char* lReferenceMode[] = { "Direct", "Index", "Index to Direct" };
-
-	if (!m->IsTriangleMesh()) {
-		FbxGeometryConverter converter(sdkManager);
-		m = (FbxMesh*)converter.Triangulate((FbxNodeAttribute*)m, true);
-	}
-
-	int lMtrlCount = 0;
-	FbxNode* lNode = NULL;
-	if (m) {
-		lNode = m->GetNode();
-		if (lNode)
-			lMtrlCount = lNode->GetMaterialCount();
-	}
-
-	map<int, int> material_map;
-
-	for (int l = 0; l < m->GetElementMaterialCount(); l++)
-	{
-		FbxGeometryElementMaterial* leMat = m->GetElementMaterial(l);
-		if (leMat)
-		{
-
-			int lMaterialCount = 0;
-
-			if (leMat->GetReferenceMode() == FbxGeometryElement::eDirect ||
-				leMat->GetReferenceMode() == FbxGeometryElement::eIndexToDirect)
-			{
-				lMaterialCount = lMtrlCount;
-			}
-
-			if (leMat->GetReferenceMode() == FbxGeometryElement::eIndex ||
-				leMat->GetReferenceMode() == FbxGeometryElement::eIndexToDirect)
-			{
-				int i;
-
-				int lIndexArrayCount = leMat->GetIndexArray().GetCount();
-				for (i = 0; i < lIndexArrayCount; i++)
-				{					
-					material_map[i] = leMat->GetIndexArray().GetAt(i);
-				}
-			}
-		}
-	}
-
 	FbxGeometryElementUV* uv = m->GetElementUV(0);
 	FbxGeometryElementNormal* normal = m->GetElementNormal(0);
 	FbxGeometryElementVertexColor* vc = m->GetElementVertexColor(0);
-	//FbxLayerElementArrayTemplate<int>* m_indices = new FbxLayerElementArrayTemplate<int>(eFbxInt);
-	//m->GetMaterialIndices(&m_indices);
 
-	//size_t m_ind_size = m_indices->GetCount();
-
-	out->SetName(string(child->GetName()));
+	out->SetName(name);
 	int numVerts = m->GetControlPointsCount();
 	int numTris = m->GetPolygonCount();
 
@@ -1392,7 +1340,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 	vector<Color4 > vcs;
 
 	if (normal == NULL) {
-		Log::Info("Warning: cannot find normals, I'll recalculate them for %s", child->GetName());
+		Log::Info("Warning: cannot find normals, I'll recalculate them for %s", name.c_str());
 	}
 	vector<TexCoord> uvs;
 
@@ -1426,7 +1374,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 			vcs.emplace_back(
 				Color4
 				(
-					(float)vc->GetDirectArray().GetAt(v).mRed,
+				(float)vc->GetDirectArray().GetAt(v).mRed,
 					(float)vc->GetDirectArray().GetAt(v).mGreen,
 					(float)vc->GetDirectArray().GetAt(v).mBlue,
 					(float)vc->GetDirectArray().GetAt(v).mAlpha
@@ -1488,7 +1436,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 				nif_uv = TexCoord(v_uv.mData[0], v_uv.mData[1]);
 				has_uv = true;
 			}
-			if (vc && vc->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) 
+			if (vc && vc->GetMappingMode() == FbxGeometryElement::eByPolygonVertex)
 			{
 				switch (vc->GetReferenceMode())
 				{
@@ -1554,13 +1502,13 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 			else {
 				if (has_normal)
 					normals[vertex_index] = nif_n;
-				if (has_uv) 
+				if (has_uv)
 					uvs[vertex_index] = nif_uv;
 				if (has_vc)
 					vcs[vertex_index] = nif_color;
 			}
 		}
-		
+
 		tris.emplace_back(triangle[0], triangle[1], triangle[2]);
 	}
 	if (verts.size() > 0) {
@@ -1571,7 +1519,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 	if (tris.size()) {
 		data->SetHasTriangles(true);
 		data->SetNumTriangles(tris.size());
-		data->SetNumTrianglePoints(tris.size()*3);
+		data->SetNumTrianglePoints(tris.size() * 3);
 		data->SetTriangles(tris);
 
 		if (normals.empty() && verts.size())
@@ -1655,73 +1603,90 @@ NiTriShapeRef FBXWrangler::importShape(FbxNode* child, const FBXImportOptions& o
 		out->SetAlphaProperty(alpharef);
 	}
 
-	if (child->GetMaterialCount() != 0)
-	{
-		std::vector<std::string> vTextures(9);
-		FbxSurfaceMaterial * material = child->GetMaterial(0);
-		FbxProperty prop = NULL;
-		FbxPropertyT<FbxDouble3> colour;
-		FbxPropertyT<FbxDouble> factor;
-		FbxFileTexture *texture;
+	//if (m->GetMaterialCount() != 0)
+	//{
+	//	std::vector<std::string> vTextures(9);
+	//	FbxSurfaceMaterial * material = child->GetMaterial(0);
+	//	FbxProperty prop = NULL;
+	//	FbxPropertyT<FbxDouble3> colour;
+	//	FbxPropertyT<FbxDouble> factor;
+	//	FbxFileTexture *texture;
 
-		//specular
-		colour = material->FindProperty(material->sSpecular, true);
-		factor = material->FindProperty(material->sSpecularFactor, true);
-		if (colour.IsValid() && factor.IsValid())
-		{
-			FbxDouble3 colourvec = colour.Get();
-			shader->SetSpecularStrength(factor.Get());
-			shader->SetSpecularColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
-		}
+	//	//specular
+	//	colour = material->FindProperty(material->sSpecular, true);
+	//	factor = material->FindProperty(material->sSpecularFactor, true);
+	//	if (colour.IsValid() && factor.IsValid())
+	//	{
+	//		FbxDouble3 colourvec = colour.Get();
+	//		shader->SetSpecularStrength(factor.Get());
+	//		shader->SetSpecularColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
+	//	}
 
-		//emissive
-		colour = material->FindProperty(material->sEmissive, true);
-		factor = material->FindProperty(material->sEmissiveFactor, true);
-		if (colour.IsValid() && factor.IsValid())
-		{
-			FbxDouble3 colourvec = colour.Get();
-			shader->SetEmissiveMultiple(factor.Get());
-			shader->SetEmissiveColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
-		}
+	//	//emissive
+	//	colour = material->FindProperty(material->sEmissive, true);
+	//	factor = material->FindProperty(material->sEmissiveFactor, true);
+	//	if (colour.IsValid() && factor.IsValid())
+	//	{
+	//		FbxDouble3 colourvec = colour.Get();
+	//		shader->SetEmissiveMultiple(factor.Get());
+	//		shader->SetEmissiveColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
+	//	}
 
-		//shiny/gloss
-		factor = material->FindProperty(material->sShininess, true);
-		if (factor.IsValid())
-		{
-			shader->SetGlossiness(factor.Get());
-		}
+	//	//shiny/gloss
+	//	factor = material->FindProperty(material->sShininess, true);
+	//	if (factor.IsValid())
+	//	{
+	//		shader->SetGlossiness(factor.Get());
+	//	}
 
-		//Diffuse.
-		prop = material->FindProperty(FbxSurfaceMaterial::sDiffuse, true);
-		factor = material->FindProperty(FbxSurfaceMaterial::sDiffuseFactor, true);
-		if (prop.IsValid() && factor.IsValid())
-		{
-			texture = prop.GetSrcObject<FbxFileTexture>(0);
-			if (texture != NULL)
-				vTextures[0] = texture->GetFileName();
-		}
+	//	//Diffuse.
+	//	prop = material->FindProperty(FbxSurfaceMaterial::sDiffuse, true);
+	//	factor = material->FindProperty(FbxSurfaceMaterial::sDiffuseFactor, true);
+	//	if (prop.IsValid() && factor.IsValid())
+	//	{
+	//		texture = prop.GetSrcObject<FbxFileTexture>(0);
+	//		if (texture != NULL)
+	//			vTextures[0] = texture->GetFileName();
+	//	}
 
-		//Normal/Bump.
-		prop = material->FindProperty(FbxSurfaceMaterial::sBump, true);
-		factor = material->FindProperty(FbxSurfaceMaterial::sBumpFactor, true);
-		if (prop.IsValid() && factor.IsValid())
-		{
-			texture = prop.GetSrcObject<FbxFileTexture>(0);
-			if (texture != NULL)
-				vTextures[1] = texture->GetFileName();
-		}
+	//	//Normal/Bump.
+	//	prop = material->FindProperty(FbxSurfaceMaterial::sBump, true);
+	//	factor = material->FindProperty(FbxSurfaceMaterial::sBumpFactor, true);
+	//	if (prop.IsValid() && factor.IsValid())
+	//	{
+	//		texture = prop.GetSrcObject<FbxFileTexture>(0);
+	//		if (texture != NULL)
+	//			vTextures[1] = texture->GetFileName();
+	//	}
 
-		textures->SetTextures(vTextures);
-	}
+	//	textures->SetTextures(vTextures);
+	//}
 
 	shader->SetTextureSet(textures);
 
 	out->SetFlags(524302);
 	out->SetShaderProperty(shader);
 	out->SetData(StaticCast<NiGeometryData>(data));
-	
+
 
 	return out;
+}
+
+NiNodeRef FBXWrangler::importShapes(FbxNode* child, const FBXImportOptions& options) {
+	NiNodeRef dummy = new NiNode();
+	string name = child->GetName();
+	dummy->SetName(name);
+	vector<NiAVObjectRef> children;
+	size_t attributes_size = child->GetNodeAttributeCount();
+	for (int i = 0; i < attributes_size; i++) {
+		if (FbxNodeAttribute::eMesh == child->GetNodeAttributeByIndex(i)->GetAttributeType())
+		{
+			string sub_name = name + "_mesh_" + to_string(i);
+			children.push_back(StaticCast<NiAVObject>(importShape(sub_name, (FbxMesh*)child->GetNodeAttributeByIndex(i), options)));
+		}
+	}
+	dummy->SetChildren(children);
+	return dummy;
 }
 
 void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAnimCurve* curveX, FbxAnimCurve* curveY, FbxAnimCurve* curveZ, double time_offset) {
@@ -2236,6 +2201,7 @@ void FBXWrangler::buildKF() {
 		NiControllerSequenceRef sequence = new NiControllerSequence();
 		//Translate
 		convert(lAnimLayer, sequence, extra_targets, controller, transformController, string(conversion_root->GetName()), reference.GetStart().GetSecondDouble());
+
 		sequence->SetName(string(lAnimStack->GetName()));
 		sequences_names.insert(string(lAnimStack->GetName()));
 		sequences.push_back(sequence);
@@ -2369,7 +2335,10 @@ void FBXWrangler::checkAnimatedNodes()
 				if (hasSkinnedTracks)
 					skinned_animations.insert(lAnimStack);
 				else
+				{
 					unskinned_animations.insert(lAnimStack);
+					unskinned_bones.insert(pNode);
+				}
 			}
 		}
 	}
@@ -2427,6 +2396,12 @@ size_t getNearestCommonAncestor(const vector<int>& parentMap, const set<size_t>&
 bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	if (!scene)
 		return false;
+
+	//Split meshes before starting
+
+	FbxGeometryConverter lConverter(sdkManager);
+	lConverter.SplitMeshesPerMaterial(scene, true);
+	lConverter.Triangulate(scene, true);
 	
 	//nodes
 	std::function<void(FbxNode*)> loadNodeChildren = [&](FbxNode* root) {
@@ -2434,7 +2409,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			FbxNode* child = root->GetChild(i);
 			NiAVObjectRef nif_child = NULL;
 			if (child->GetNodeAttribute() != NULL && child->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh) {
-				nif_child = StaticCast<NiAVObject>(importShape(child, options));
+				nif_child = StaticCast<NiAVObject>(importShapes(child, options));
 				setAvTransform(child, nif_child);
 			}
 			if (nif_child == NULL) {

@@ -75,7 +75,7 @@ namespace FBX {
 
 		string comName;
 		map<string, FBXShape> shapes;
-		NiTriShapeRef importShape(FbxNode* child, const FBXImportOptions& options);
+		NiNodeRef FBXWrangler::importShapes(FbxNode* child, const FBXImportOptions& options);
 		vector<NiTriShapeRef> importMultipleShape(FbxNode* child, const FBXImportOptions& options);
 
 		map<NiAVObjectRef, NiAVObjectRef> conversion_parent_Map;
@@ -96,6 +96,8 @@ namespace FBX {
 		set<string> havok_sequences;
 
 		string external_skeleton_path = "";
+
+		NiTriShapeRef importShape(const string& name, FbxMesh* m, const FBXImportOptions& options);
 			
 		void checkAnimatedNodes();
 		void buildKF();
