@@ -537,8 +537,15 @@ public:
 		built_nodes(map<void*, FbxNode*>())
 	{
 		build_stack.push_front(&sceneNode);
-		NiObjectRef rootNode = nif.GetRoot();
-		rootNode->accept(*this, info);
+		//NiObjectRef rootNode = nif.GetRoot();
+		//rootNode->accept(*this, info);
+		NiNodeRef rootNode = DynamicCast<NiNode>(nif.GetRoot());
+		built_nodes[&(*rootNode)] = &sceneNode;
+		for (NiObjectRef child : rootNode->GetChildren())
+			child->accept(*this, info);
+		//visit managers too
+		if (rootNode->GetController())
+			rootNode->GetController()->accept(*this, info);
 		//Sort out skinning now
 		processSkins();
 		buildManagers();
@@ -593,7 +600,7 @@ public:
 		}
 	}
 
-	//Tailored over oblivion right now
+	//Deferred
 	template<>
 	inline void visit_object(NiControllerManager& obj) {
 		if (alreadyVisitedNodes.find(&obj) == alreadyVisitedNodes.end()) {
@@ -601,6 +608,7 @@ public:
 			alreadyVisitedNodes.insert(&obj);
 		}
 	}
+
 
 	template<class T>
 	inline void visit_compound(T& obj) {}
@@ -661,9 +669,6 @@ public:
 		//TODO: handle materials
 		return setTransform(&obj, AddGeometry(obj));
 	}
-
-
-
 };
 
 void FBXWrangler::AddNif(NifFile& nif) {
