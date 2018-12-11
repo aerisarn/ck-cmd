@@ -1,4 +1,5 @@
 #include <commands/ExportAnimation.h>
+#include <core/MathHelper.h>
 
 #include "stdafx.h"
 #include <core/hkxcmd.h>
@@ -79,30 +80,67 @@ bool ExportAnimation::InternalRunCommand(map<string, docopt::value> parsedArgs)
 }
 
 bool BeginConversion(const string& importSkeleton, const string& importHKX, const string& exportPath) {
+	bool batch = false;
 	if (!fs::exists(importSkeleton) || !fs::is_regular_file(importSkeleton)) {
 		Log::Error("Invalid file: %s", importSkeleton.c_str());
 		return false;
 	}
-	if (!fs::exists(importHKX) || !fs::is_regular_file(importHKX)) {
-		Log::Error("Invalid file: %s", importHKX.c_str());
-		return false;
+	if (fs::exists(importHKX))
+	{ 
+		if (fs::is_regular_file(importHKX)) {
+			batch = false;
+		}
+		else if (fs::is_directory(importHKX)) {
+			batch = true;
+		}
+		else {
+			Log::Error("Invalid path: %s", importHKX.c_str());
+			return false;
+		}
 	}
 	fs::path outputDir = fs::path(exportPath);
+	fs::create_directories(outputDir);
 	if (!fs::exists(outputDir) || !fs::is_directory(outputDir)) {
 		Log::Info("Invalid Directory: %s, using current_dir", exportPath.c_str());
 		outputDir = fs::current_path();
 	}
 
-	FBXWrangler wrangler;
-	wrangler.NewScene();
-	FbxNode* skeleton_root = NULL;
-	vector<FbxProperty> floats;
-	vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, floats);
-	wrangler.importAnimationOnSkeleton(importHKX, ordered_skeleton, floats);
-	
-	fs::path out_path = outputDir / fs::path(importHKX).filename().replace_extension(".fbx");
-	fs::create_directories(outputDir);
-	wrangler.ExportScene(out_path.string().c_str());
+	if (!batch)
+	{
+		FBXWrangler wrangler;
+		wrangler.NewScene();
+		FbxNode* skeleton_root = NULL;
+		vector<FbxProperty> floats;
+		vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, floats);
+		wrangler.importAnimationOnSkeleton(importHKX, ordered_skeleton, floats);
+
+		fs::path out_path = outputDir / fs::path(importHKX).filename().replace_extension(".fbx");
+
+		wrangler.ExportScene(out_path.string().c_str());
+	}
+	else {
+		vector<fs::path> fbxs;
+		find_files(importHKX, ".hkx", fbxs);
+		for (const auto& fbx : fbxs) {
+			Log::Info("Exporting: %s, using current_dir", fbx.string().c_str());
+			FBXWrangler wrangler;
+			wrangler.NewScene();
+			FbxNode* skeleton_root = NULL;
+			vector<FbxProperty> floats;
+			vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, floats);
+			wrangler.importAnimationOnSkeleton(fbx.string(), ordered_skeleton, floats);
+			fs::path parent_path = fbx.parent_path();
+			fs::path rel_path = "";
+			while (parent_path != importHKX)
+			{
+				rel_path = parent_path.filename() / rel_path;
+				parent_path = parent_path.parent_path();
+			}
+			fs::path out_path = outputDir / rel_path / fbx.filename().replace_extension(".fbx");
+			fs::create_directories(out_path.parent_path());
+			wrangler.ExportScene(out_path.string().c_str());
+		}
+	}
 	return true;
 }
 

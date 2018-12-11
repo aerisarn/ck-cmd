@@ -1,4 +1,5 @@
 #include <commands/ImportAnimation.h>
+#include <core/MathHelper.h>
 
 #include "stdafx.h"
 #include <core/hkxcmd.h>
@@ -79,28 +80,62 @@ bool ImportAnimation::InternalRunCommand(map<string, docopt::value> parsedArgs)
 }
 
 bool BeginConversion(const string& importSkeleton, const string& importFBX, const string& exportPath) {
+	bool batch = false;
 	fs::path fbxModelpath = fs::path(importFBX);
 	if (!fs::exists(importSkeleton) || !fs::is_regular_file(importSkeleton)) {
 		Log::Error("Invalid file: %s", importSkeleton.c_str());
 		return false;
 	}
-	if (!fs::exists(fbxModelpath) || !fs::is_regular_file(fbxModelpath)) {
-		Log::Error("Invalid file: %s", fbxModelpath.c_str());
-		return false;
+	if (fs::exists(importFBX))
+	{
+		if (fs::is_regular_file(importFBX)) {
+			batch = false;
+		}
+		else if (fs::is_directory(importFBX)) {
+			batch = true;
+		}
+		else {
+			Log::Error("Invalid path: %s", importFBX.c_str());
+			return false;
+		}
 	}
 	fs::path outputDir = fs::path(exportPath);
+	fs::create_directories(outputDir);
 	if (!fs::exists(outputDir) || !fs::is_directory(outputDir)) {
 		Log::Info("Invalid Directory: %s, using current_dir", exportPath.c_str());
 		outputDir = fs::current_path();
 	}
+	if (!batch)
+	{
+		FBXWrangler wrangler;
+		wrangler.setExternalSkeletonPath(importSkeleton);
+		wrangler.ImportScene(fbxModelpath.string().c_str());
 
-	FBXWrangler wrangler;
-	wrangler.setExternalSkeletonPath(importSkeleton);
-	wrangler.ImportScene(fbxModelpath.string().c_str());
+		fs::path out_path = outputDir / fbxModelpath.filename().replace_extension(".hkx");
+		fs::create_directories(outputDir);
+		wrangler.SaveAnimation(out_path.string());
+	}
+	else {
+		vector<fs::path> fbxs;
+		find_files(importFBX, ".fbx", fbxs);
+		for (const auto& fbx : fbxs) {
+			Log::Info("Exporting: %s, using current_dir", fbx.string().c_str());
+			FBXWrangler wrangler;
+			wrangler.setExternalSkeletonPath(importSkeleton);
+			wrangler.ImportScene(fbx.string().c_str());
+			fs::path parent_path = fbx.parent_path();
+			fs::path rel_path = "";
+			while (parent_path != importFBX)
+			{
+				rel_path = parent_path.filename() / rel_path;
+				parent_path = parent_path.parent_path();
+			}
+			fs::path out_path = outputDir / rel_path / fbx.filename().replace_extension(".hkx");
+			fs::create_directories(out_path.parent_path());
+			wrangler.SaveAnimation(out_path.string());
+		}
+	}
 
-	fs::path out_path = outputDir / fbxModelpath.filename().replace_extension(".hkx");
-	fs::create_directories(outputDir);
-	wrangler.SaveAnimation(out_path.string());
 	return true;
 }
 
