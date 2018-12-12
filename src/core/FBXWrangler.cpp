@@ -11,6 +11,17 @@ See the included LICENSE file
 #include <commands/NifScan.h>
 #include <core/log.h>
 
+#include <Physics\Utilities\Collide\ShapeUtils\CreateShape\hkpCreateShapeUtility.h>
+#include <Common\GeometryUtilities\Misc\hkGeometryUtils.h>
+#include <Physics\Utilities\Collide\ShapeUtils\ShapeConverter\hkpShapeConverter.h>
+#include <Physics/Collide/Shape/Convex/Box/hkpBoxShape.h>
+#include <Physics/Collide/Shape/Convex/Capsule/hkpCapsuleShape.h>
+#include <Common\Base\Types\Geometry\hkGeometry.h>
+#include <Physics\Collide\Shape\Convex\ConvexVertices\hkpConvexVerticesShape.h>
+#include <Common\Base\Types\Geometry\hkStridedVertices.h>
+#include <Physics\Collide\Shape\Convex\Sphere\hkpSphereShape.h>
+
+
 #include <algorithm>
 
 using namespace ckcmd::FBX;
@@ -18,6 +29,53 @@ using namespace  ckcmd::Geometry;
 using namespace ckcmd::nifscan;
 using namespace ckcmd::HKX;
 
+static inline Niflib::Vector3 TOVECTOR3(const hkVector4& v) {
+	return Niflib::Vector3(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2));
+}
+
+static inline Niflib::Vector4 TOVECTOR4(const hkVector4& v) {
+	return Niflib::Vector4(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
+}
+
+static inline hkVector4 TOVECTOR4(const Niflib::Vector4& v) {
+	return hkVector4(v.x, v.y, v.z, v.w);
+}
+
+static inline Niflib::Quaternion TOQUAT(const ::hkQuaternion& q, bool inverse = false) {
+	Niflib::Quaternion qt(q.m_vec.getSimdAt(3), q.m_vec.getSimdAt(0), q.m_vec.getSimdAt(1), q.m_vec.getSimdAt(2));
+	return inverse ? qt.Inverse() : qt;
+}
+
+static inline ::hkQuaternion TOQUAT(const Niflib::Quaternion& q, bool inverse = false) {
+	hkVector4 v(q.x, q.y, q.z, q.w);
+	v.normalize4();
+	::hkQuaternion qt(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
+	if (inverse) qt.setInverse(qt);
+	return qt;
+}
+
+static inline ::hkQuaternion TOQUAT(const Niflib::hkQuaternion& q, bool inverse = false) {
+	hkVector4 v(q.x, q.y, q.z, q.w);
+	v.normalize4();
+	::hkQuaternion qt(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
+	if (inverse) qt.setInverse(qt);
+	return qt;
+}
+
+static inline hkMatrix3 TOMATRIX3(const Niflib::InertiaMatrix& q, bool inverse = false) {
+	hkMatrix3 m3;
+	m3.setCols(TOVECTOR4(q.rows[0]), TOVECTOR4(q.rows[1]), TOVECTOR4(q.rows[2]));
+	if (inverse) m3.invert(0.001);
+}
+
+static inline Vector4 HKMATRIXROW(const hkTransform& q, const unsigned int row) {
+	return Vector4(q(row, 0), q(row, 1), q(row, 2), q(row, 3));
+}
+
+static inline FbxVector4 TOFBXVECTOR4(const hkVector4& v)
+{
+	return FbxVector4(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
+}
 
 FBXWrangler::FBXWrangler() {
 	sdkManager = FbxManager::Create();
@@ -84,6 +142,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				uvs = ref->GetUvSets()[0];
 		}
 
+		alreadyVisitedNodes.insert(node.GetData());
+
 		return AddGeometry(shapeName, verts, norms, tris, uvs);
 	}
 
@@ -105,6 +165,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			if (!ref->GetUvSets().empty())
 				uvs = ref->GetUvSets()[0];
 		}
+
+		alreadyVisitedNodes.insert(node.GetData());
 
 		if (verts.empty())
 			return FbxNode::Create(&scene, shapeName.c_str());
@@ -180,6 +242,19 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
 		node->LclScaling.Set(FbxDouble3(av->GetScale(), av->GetScale(), av->GetScale()));
 
+		return node;
+	}
+
+	FbxNode* setTransform(const Matrix44& av, FbxNode* node) {
+		Vector3 translation = av.GetTranslation();
+		//
+		node->LclTranslation.Set(FbxDouble3(translation.x, translation.y, translation.z));
+
+		Quaternion rotation = av.GetRotation().AsQuaternion();
+		Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
+		EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+		node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+		node->LclScaling.Set(FbxDouble3(av.GetScale(), av.GetScale(), av.GetScale()));
 		return node;
 	}
 
@@ -530,25 +605,180 @@ public:
 	template<class T>
 	inline void visit_object(T& obj) {
 		if (alreadyVisitedNodes.find(&obj) == alreadyVisitedNodes.end()) {
-			visit_new_object(obj);
+			FbxNode* node = visit_new_object(obj);
+			if (node != NULL)
+				build_stack.push_front(node);
+			else
+				build_stack.push_front(build_stack.front());
 		}
 	}
 
 	template<class T>
-	inline void visit_new_object(T& object) {
+	FbxNode* visit_new_object(T& object) {
 		FbxNode* parent = build_stack.front();
 		FbxNode* current = getBuiltNode(object);
 		if (current == NULL) {
 			current = build(object, parent);
 			parent->AddChild(current);
 		}
-		build_stack.push_front(current);
+		return current;
 	}
 
 	//Deferred
 	template<>
-	inline void visit_new_object(NiControllerManager& obj) {
+	FbxNode* visit_new_object(NiControllerManager& obj) {
 		managers.insert(&obj);
+		return NULL;
+	}
+
+
+	//Collisions. Fbx has no support for shapes, so we must generate a geometry out of them
+
+	FbxNode* recursive_convert(bhkShape* shape, FbxNode* parent)
+	{
+		//Containers
+		hkGeometry geom;
+		string parent_name = parent->GetName();
+		//bhkConvexTransformShape, bhkTransformShape
+		if (shape->IsDerivedType(bhkTransformShape::TYPE))
+		{
+			parent_name += "_transform";
+			bhkTransformShapeRef transform_block = DynamicCast<bhkTransformShape>(shape);
+			transform_block->GetTransform();
+			FbxNode* transform_node = FbxNode::Create(&scene, parent_name.c_str());
+			parent->AddChild(transform_node);
+			setTransform(transform_block->GetTransform(), transform_node);
+			recursive_convert(transform_block->GetShape(), parent);
+		}
+		//bhkListShape, /bhkConvexListShape
+		else if (shape->IsDerivedType(bhkListShape::TYPE))
+		{
+			parent_name += "_list";
+			bhkListShapeRef list_block = DynamicCast<bhkListShape>(shape);
+			const vector<bhkShapeRef>& shapes = list_block->GetSubShapes();
+			for (int i = 0; i < shapes.size(); i++) {
+				string name_index = parent_name + "_" + to_string(i);
+				FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
+				parent->AddChild(child_shape_node);
+				recursive_convert(shapes[i], parent);
+			}
+		}
+		else if (shape->IsDerivedType(bhkConvexListShape::TYPE))
+		{
+			parent_name += "_convex_list";
+			bhkConvexListShapeRef list_block = DynamicCast<bhkConvexListShape>(shape);
+			const vector<bhkConvexShapeRef>& shapes = list_block->GetSubShapes();
+			for (int i = 0; i < shapes.size(); i++) {
+				string name_index = parent_name + "_" + to_string(i);
+				FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
+				parent->AddChild(child_shape_node);
+				recursive_convert(shapes[i], parent);
+			}
+		}
+		//shapes
+		//bhkSphereShape
+		else if (shape->IsDerivedType(bhkSphereShape::TYPE))
+		{
+			parent_name += "_sphere";
+			bhkSphereShapeRef sphere = DynamicCast<bhkSphereShape>(shape);
+			hkpSphereShape hkSphere(sphere->GetRadius());
+			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkSphere));
+		}
+		//bhkBoxShape
+		else if (shape->IsDerivedType(bhkBoxShape::TYPE))
+		{
+			parent_name += "_box";
+			bhkBoxShapeRef box = DynamicCast<bhkBoxShape>(shape);
+			hkpBoxShape hkBox(TOVECTOR4(box->GetDimensions()), box->GetRadius());
+			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkBox));
+			
+		}
+		//bhkCapsuleShape
+		else if (shape->IsDerivedType(bhkCapsuleShape::TYPE))
+		{
+			parent_name += "_capsule";
+			bhkCapsuleShapeRef capsule = DynamicCast<bhkCapsuleShape>(shape);
+			hkpCapsuleShape hkCapsule(TOVECTOR4(capsule->GetFirstPoint()), TOVECTOR4(capsule->GetSecondPoint()), capsule->GetRadius());
+			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkCapsule));
+		}
+		//bhkConvexVerticesShape
+		else if (shape->IsDerivedType(bhkConvexVerticesShape::TYPE))
+		{
+			parent_name += "_convex";
+			bhkConvexVerticesShapeRef convex = DynamicCast<bhkConvexVerticesShape>(shape);
+			hkArray<hkVector4> vertices;
+			for (const auto& vert : convex->GetVertices())
+				vertices.pushBack(TOVECTOR4(vert));
+			hkStridedVertices strided_vertices(vertices);
+			hkpConvexVerticesShape hkConvex(strided_vertices);
+			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkConvex));
+		}
+		//pack
+		if (geom.m_vertices.getSize() > 0)
+		{
+			parent_name += "_mesh";
+			FbxMesh* m = FbxMesh::Create(&scene, parent_name.c_str());
+			m->InitControlPoints(geom.m_vertices.getSize());
+			FbxVector4* points = m->GetControlPoints();
+
+			for (int i = 0; i < m->GetControlPointsCount(); i++) {
+				points[i] = TOFBXVECTOR4(geom.m_vertices[i]);
+			}
+
+			for (int i = 0; i < geom.m_triangles.getSize(); i++)
+			{
+				m->BeginPolygon();
+				m->AddPolygon(geom.m_triangles[i].m_a);
+				m->AddPolygon(geom.m_triangles[i].m_a);
+				m->AddPolygon(geom.m_triangles[i].m_a);
+				m->EndPolygon();
+			}
+			parent->SetNodeAttribute(m);
+
+		}
+		alreadyVisitedNodes.insert(shape);
+		return parent;
+	}
+
+	FbxNode* generate_collision_geometry(bhkShape* shape, FbxNode* parent)
+	{
+		return recursive_convert(shape, parent);
+	}
+
+	template<>
+	inline FbxNode* visit_new_object(bhkRigidBody& obj) {
+		FbxNode* parent = build_stack.front();
+		string name = parent->GetName();
+		name += "_rb";
+		FbxNode* rb_node = FbxNode::Create(&scene, name.c_str());
+
+		Vector4 translation = obj.GetTranslation();
+		rb_node->LclTranslation.Set(FbxDouble3(translation.x, translation.y, translation.z));
+		Niflib::hkQuaternion rotation = obj.GetRotation();
+		Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
+		EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+		rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+
+		generate_collision_geometry(obj.GetShape(), rb_node);
+		return rb_node;
+	}
+
+	template<>
+	inline FbxNode* visit_new_object(bhkRigidBodyT& obj) {
+		FbxNode* parent = build_stack.front();
+		string name = parent->GetName();
+		name += "_rb";
+		FbxNode* rb_node = FbxNode::Create(&scene, name.c_str());
+
+		Vector4 translation = obj.GetTranslation();
+		rb_node->LclTranslation.Set(FbxDouble3(translation.x, translation.y, translation.z));
+		Niflib::hkQuaternion rotation = obj.GetRotation();
+		Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
+		EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+		rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+
+		generate_collision_geometry(obj.GetShape(), rb_node);
+		return rb_node;
 	}
 
 	template<class T>
@@ -574,7 +804,7 @@ public:
 	FbxNode* build(NiTriShape& obj, FbxNode* parent) {
 		//need to import the whole tree structure before skinning, so defer into a list
 		if (obj.GetSkinInstance() != NULL)
-			skins[&*(obj.GetSkinInstance())] = &obj;
+			skins[obj.GetSkinInstance()] = &obj;
 		return setTransform(&obj, AddGeometry(obj));
 	}
 
@@ -582,7 +812,7 @@ public:
 	FbxNode* build(NiTriStrips& obj, FbxNode* parent) {
 		//need to import the whole tree structure before skinning, so defer into a list
 		if (obj.GetSkinInstance() != NULL)
-			skins[&*(obj.GetSkinInstance())] = &obj;
+			skins[obj.GetSkinInstance()] = &obj;
 		return setTransform(&obj, AddGeometry(obj));
 	}
 };
@@ -715,65 +945,8 @@ void FBXWrangler::AddNif(NifFile& nif) {
 //		node->AddChild(AddLimb(nif, b));
 //}
 //
-//void FBXWrangler::AddNif(NifFile* nif, const std::string& shapeName) {
-//	AddSkeleton(nif, true);
-//
-//	for (auto &s : nif->GetShapeNames()) {
-//		if (s == shapeName || shapeName.empty()) {
-//			std::vector<Triangle> tris;
-//			auto shape = nif->FindBlockByName<NiShape>(s);
-//			if (shape && shape->GetTriangles(tris)) {
-//				const std::vector<Vector3>* verts = nif->GetRawVertsForShape(s);
-//				const std::vector<Vector3>* norms = nif->GetNormalsForShape(s, false);
-//				const std::vector<Vector2>* uvs = nif->GetUvsForShape(s);
-//				AddGeometry(s, verts, norms, &tris, uvs);
-//			}
-//		}
-//	}
-//}
-//
-//void FBXWrangler::AddSkinning(AnimInfo* anim, const std::string& shapeName) {
-//	FbxNode* rootNode = scene->GetRootNode();
-//	FbxNode* skelNode = rootNode->FindChild("NifSkeleton");
-//	if (!skelNode)
-//		return;
-//
-//	for (auto &animSkin : anim->shapeSkinning) {
-//		if (animSkin.first != shapeName && !shapeName.empty())
-//			continue;
-//
-//		std::string shape = animSkin.first;
-//		FbxNode* shapeNode = rootNode->FindChild(shape.c_str());
-//		if (!shapeNode)
-//			continue;
-//
-//		std::string shapeSkin = shape + "_sk";
-//		FbxSkin* skin = FbxSkin::Create(scene, shapeSkin.c_str());
-//
-//		for (auto &bone : anim->shapeBones[shape]) {
-//			FbxNode* jointNode = skelNode->FindChild(bone.c_str());
-//			if (jointNode) {
-//				std::string boneSkin = bone + "_sk";
-//				FbxCluster* aCluster = FbxCluster::Create(scene, boneSkin.c_str());
-//				aCluster->SetLink(jointNode);
-//				aCluster->SetLinkMode(FbxCluster::eTotalOne);
-//
-//				auto weights = anim->GetWeightsPtr(shape, bone);
-//				if (weights) {
-//					for (auto &vw : *weights)
-//						aCluster->AddControlPointIndex(vw.first, vw.second);
-//				}
-//
-//				skin->AddCluster(aCluster);
-//			}
-//		}
-//
-//		FbxMesh* shapeMesh = (FbxMesh*)shapeNode->GetNodeAttribute();
-//		if (shapeMesh)
-//			shapeMesh->AddDeformer(skin);
-//	}
-//}
-//
+
+
 bool FBXWrangler::ExportScene(const std::string& fileName) {
 	FbxExporter* iExporter = FbxExporter::Create(sdkManager, "");
 	if (!iExporter->Initialize(fileName.c_str(), -1, sdkManager->GetIOSettings())) {
