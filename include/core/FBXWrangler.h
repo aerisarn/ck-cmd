@@ -131,7 +131,6 @@ namespace FBX {
 		//void AddLimbChildren(FbxNode* node, NifFile* nif, NiNode* nifBone);
 
 		void AddNif(NifFile& nif);
-		void AddExternalSkinnedMeshes(NifFile& skeleton, set<NifFile*> meshes);
 		//void AddSkinning(AnimInfo* anim, const std::string& shapeName = "");
 		//void AddGeometry(const std::string& shapeName,
 		//	const std::vector<Vector3>& verts,

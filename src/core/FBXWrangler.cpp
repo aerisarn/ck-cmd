@@ -60,12 +60,11 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	FbxScene& scene;
 	deque<FbxNode*> build_stack;
 	set<void*>& alreadyVisitedNodes;
-	set<void*>& alreadyStartedNodes;
-	map<void*, FbxNode*> built_nodes;
 	map<NiSkinInstance*, NiTriBasedGeom*> skins;
 	set<NiControllerManager*>& managers;
 	NifFile& nif_file;
 	FbxAnimStack* lAnimStack = NULL;
+	string root_name;
 
 	FbxNode* AddGeometry(NiTriStrips& node) {
 		const string& shapeName = node.GetName();
@@ -158,20 +157,13 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		}
 
 		FbxNode* mNode = FbxNode::Create(&scene, shapeName.c_str());
-		//parent->AddChild(mNode);
-		//setTransform(&node, mNode);
 		mNode->SetNodeAttribute(m);
-
-		// Intended for Maya
-		//mNode->LclScaling.Set(FbxDouble3(1, 1, 1));
-		//mNode->LclRotation.Set(FbxDouble3(-90, 0, 0));
-		//mNode->LclTranslation.Set(FbxDouble3(0, 120, 0));
-
 		return mNode;
 	}
 
 	FbxNode* setNullTransform(FbxNode* node) {
 		node->LclTranslation.Set(FbxDouble3(0.0,0.0,0.0));
+		node->LclRotation.Set(FbxVector4(0.0,0.0,0.0));
 		node->LclScaling.Set(FbxDouble3(1.0,1.0,1.0));
 
 		return node;
@@ -191,40 +183,26 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		return node;
 	}
 
-	FbxNode* getBuiltNode(void* obj) {
-		NiObject* node = (NiObject*)obj;
-		if (node->IsSameType(NiNode::TYPE))
-		{
-			NiNodeRef noderef = DynamicCast<NiNode>(node);
-			if (noderef != NULL && !noderef->GetName().empty()) {
-				//by name:
-				for (pair<void*, FbxNode*> pair : built_nodes) {
-					NiNodeRef build = DynamicCast<NiNode>((NiObject*)pair.first);
-					if (build != NULL && build->GetName() == noderef->GetName())
-						return pair.second;
-				}
-			}
-		}
-		if (built_nodes.find(obj) != built_nodes.end())
-			return built_nodes[obj];
+	template<typename T>
+	FbxNode* getBuiltNode(T& obj) {
+		NiObject* node = (NiObject*)&obj;
+		if (node->IsDerivedType(NiAVObject::TYPE))
+			return scene.FindNodeByName(DynamicCast<NiAVObject>(node)->GetName().c_str());
 		return NULL;
 	}
 
-	FbxNode* getBuiltNode(const string& palette, int offset) {
-		string name = getPalettedString(palette, offset);
-		for (pair<void*, FbxNode*> nodes : built_nodes)
-		{
-			NiObject* node = (NiObject*)nodes.first;
-			if (node->IsDerivedType(NiAVObject::TYPE))
-			{
-				NiAVObjectRef build = DynamicCast<NiAVObject>((NiObject*)nodes.first);
-				if(build != NULL && 
-					(build->GetName() == name || build->GetName() == name + (char)0 || build->GetName()+ (char)0 == name)) {
-					return nodes.second;
-				}
-			}
-		}
-		return NULL;
+	template<>
+	inline FbxNode* getBuiltNode(string& name) {
+		if (name == root_name)
+			return scene.GetRootNode();
+		return scene.FindNodeByName(name.c_str());
+	}
+
+	template<>
+	inline FbxNode* getBuiltNode(const string& name) {
+		if (name == root_name)
+			return scene.GetRootNode();
+		return scene.FindNodeByName(name.c_str());
 	}
 
 	void processSkins() {
@@ -265,7 +243,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				boneIndex++;
 			}
 
-			FbxMesh* shapeMesh = (FbxMesh*)built_nodes[&*mesh]->GetNodeAttribute();
+			FbxMesh* shapeMesh = (FbxMesh*)getBuiltNode(mesh)->GetNodeAttribute();
 			if (shapeMesh)
 				shapeMesh->AddDeformer(fbx_skin);
 
@@ -273,21 +251,14 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	}
 
 	string getPalettedString(NiStringPaletteRef nipalette, unsigned int offset) {
-		int find = nipalette->GetPalette().palette.find((char)0, offset);
-		string ret = nipalette->GetPalette().palette.substr(
-			offset,
-			find - offset
-		);
-		return ret;
-	}
-
-	string getPalettedString(string palette_string, unsigned int offset) {
-		int find = palette_string.find((char)0, offset);
-		string ret = palette_string.substr(
-			offset,
-			find - offset
-		);
-		return ret;
+		StringPalette s_palette = nipalette->GetPalette();
+		const char* c_palette = s_palette.palette.c_str();
+		for (size_t i = offset; i < s_palette.length; i++)
+		{
+			if (c_palette[i] == 0)
+				return string(&c_palette[offset], &c_palette[i]);
+		}
+		return "";
 	}
 
 	template<typename interpolatorT>
@@ -367,9 +338,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			}
 		}
 	}
-
-
-
 	void addKeys(const Niflib::array<3, KeyGroup<float > >& rotations, FbxNode* node, FbxAnimLayer *lAnimLayer) {
 		if (!rotations.empty()) {
 			FbxAnimCurve* lCurve_Rot_X = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
@@ -405,7 +373,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			}
 		}
 	}
-
 	void addKeys(const vector<Key<Quaternion > >& rotations, FbxNode* node, FbxAnimLayer *lAnimLayer) {
 		if (!rotations.empty()) {
 			FbxAnimCurve* lCurve_Rot_X = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
@@ -493,7 +460,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				//default palette
 				controlledBlockID = block.nodeName;
 			}
-			FbxNode* animatedNode = getBuiltNode(controlledBlockID, block.priority);
+			FbxNode* animatedNode = getBuiltNode(controlledBlockID/*, block.priority*/);
 
 			if (animatedNode == NULL)
 				throw runtime_error("exportKFSequence: Referenced node not found by name:" + controlledBlockID);
@@ -512,10 +479,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 	void buildManagers() {
 		//Usually the root node for animations sequences
-		//if animation layer doesn't exist in the file, create it
-		//if (!lAnimStack)
-		//	lAnimStack = FbxAnimStack::Create(&scene, "KF");
-
 		for (NiControllerManager* obj : managers) {
 			//Next Controller can be ignored because it should be referred by individual sequences
 			for (NiControllerSequenceRef ref : obj->GetControllerSequences()) {
@@ -530,50 +493,30 @@ public:
 		RecursiveFieldVisitor(*this, info),
 		nif_file(nif),
 		alreadyVisitedNodes(set<void*>()),
-		alreadyStartedNodes(set<void*>()),
 		this_info(info),
 		scene(scene),
-		managers(set<NiControllerManager*>()),
-		built_nodes(map<void*, FbxNode*>())
+		managers(set<NiControllerManager*>())
 	{
-		build_stack.push_front(&sceneNode);
-		//NiObjectRef rootNode = nif.GetRoot();
-		//rootNode->accept(*this, info);
 		NiNodeRef rootNode = DynamicCast<NiNode>(nif.GetRoot());
-		built_nodes[&(*rootNode)] = &sceneNode;
-		for (NiObjectRef child : rootNode->GetChildren())
-			child->accept(*this, info);
-		//visit managers too
-		if (rootNode->GetController())
-			rootNode->GetController()->accept(*this, info);
-		//Sort out skinning now
-		processSkins();
-		buildManagers();
+		if (rootNode != NULL)
+		{
+
+			build_stack.push_front(&sceneNode);
+			root_name = rootNode->GetName();
+			for (NiObjectRef child : rootNode->GetChildren())
+				child->accept(*this, info);
+			//visit managers too
+			if (rootNode->GetController())
+				rootNode->GetController()->accept(*this, info);
+			//TODO: handle different root types
+			//Sort out skinning now
+			processSkins();
+			buildManagers();
+		}
 	}
 
-	FBXBuilderVisitor(NifFile& nif, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info, map<void*, FbxNode*> nodeMap) :
-		RecursiveFieldVisitor(*this, info),
-		nif_file(nif),
-		alreadyVisitedNodes(set<void*>()),
-		alreadyStartedNodes(set<void*>()),
-		this_info(info),
-		scene(scene),
-		managers(set<NiControllerManager*>()),
-		built_nodes(nodeMap)
-	{
-		build_stack.push_front(&sceneNode);
-		NiNodeRef rootNode = DynamicCast<NiNode>(nif.GetRoot());
-		for (NiObjectRef child : rootNode->GetChildren())
-			child->accept(*this, info);
-		//Sort out skinning now
-		processSkins();
-		buildManagers();
-	}
-
-	map<void*, FbxNode*> getBuiltNodesMap() { return built_nodes; }
 
 	virtual inline void start(NiObject& in, const NifInfo& info) {
-		alreadyStartedNodes.insert(&in);
 	}
 
 	virtual inline void end(NiObject& in, const NifInfo& info) {
@@ -581,34 +524,32 @@ public:
 			build_stack.pop_front();
 			alreadyVisitedNodes.insert(&in);
 		}
-		alreadyStartedNodes.erase(alreadyStartedNodes.find(&in));
 	}
 
 	//Always insert into the stack to be consistant
 	template<class T>
 	inline void visit_object(T& obj) {
 		if (alreadyVisitedNodes.find(&obj) == alreadyVisitedNodes.end()) {
-			void* ptr = &obj;
-			FbxNode* parent = build_stack.front();
-			FbxNode* current = getBuiltNode(ptr);
-			if (current == NULL) {
-				current = build(obj, parent);
-				built_nodes[ptr] = current;
-				parent->AddChild(current);
-			}
-			build_stack.push_front(current);
+			visit_new_object(obj);
 		}
+	}
+
+	template<class T>
+	inline void visit_new_object(T& object) {
+		FbxNode* parent = build_stack.front();
+		FbxNode* current = getBuiltNode(object);
+		if (current == NULL) {
+			current = build(object, parent);
+			parent->AddChild(current);
+		}
+		build_stack.push_front(current);
 	}
 
 	//Deferred
 	template<>
-	inline void visit_object(NiControllerManager& obj) {
-		if (alreadyVisitedNodes.find(&obj) == alreadyVisitedNodes.end()) {
-			managers.insert(&obj);
-			alreadyVisitedNodes.insert(&obj);
-		}
+	inline void visit_new_object(NiControllerManager& obj) {
+		managers.insert(&obj);
 	}
-
 
 	template<class T>
 	inline void visit_compound(T& obj) {}
@@ -622,29 +563,6 @@ public:
 		if (pobj->IsDerivedType(NiAVObject::TYPE)) {
 			NiAVObjectRef av = DynamicCast<NiAVObject>(pobj);
 			FbxNode* node = FbxNode::Create(&scene, av->GetName().c_str());
-			/*if (nif_file.isSkeletonOnly() && (av->GetName().find("NPC") == 0 || av->GetName().find("Bip") == 0)) {
-				NiNodeRef nibone = DynamicCast<NiNode>(av);
-				bool isTerminal = true;
-				bool isRoot = true;
-				for (NiAVObjectRef child : nibone->GetChildren()) {
-					if (child->GetName().find("NPC") == 0 || child->GetName().find("Bip") == 0)
-						isTerminal = false;
-				}
-				for (FbxNode* n : build_stack) {
-					std::string name(n->GetName());
-					if (name.find("NPC") == 0 || name.find("Bip") == 0)
-						isRoot = false;
-				}
-				FbxSkeleton* skel = FbxSkeleton::Create(&scene, av->GetName().c_str());
-				if (isRoot)
-					skel->SetSkeletonType(FbxSkeleton::eRoot);
-				else if (isTerminal)
-					skel->SetSkeletonType(FbxSkeleton::eEffector);
-				else
-					skel->SetSkeletonType(FbxSkeleton::eLimbNode);
-				node->SetNodeAttribute(skel);
-			}*/
-			//parent->AddChild(node);
 			return setTransform(av, node);
 		}
 		return setNullTransform(
@@ -657,7 +575,6 @@ public:
 		//need to import the whole tree structure before skinning, so defer into a list
 		if (obj.GetSkinInstance() != NULL)
 			skins[&*(obj.GetSkinInstance())] = &obj;
-		//TODO: handle materials
 		return setTransform(&obj, AddGeometry(obj));
 	}
 
@@ -666,27 +583,12 @@ public:
 		//need to import the whole tree structure before skinning, so defer into a list
 		if (obj.GetSkinInstance() != NULL)
 			skins[&*(obj.GetSkinInstance())] = &obj;
-		//TODO: handle materials
 		return setTransform(&obj, AddGeometry(obj));
 	}
 };
 
 void FBXWrangler::AddNif(NifFile& nif) {
-	//will cause problems due to the skinned meshes having flattened hierarchy, use an appropriate method AddExternalSkinnedMeshes
-	//if (!nif.hasExternalSkin())
 	FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo());
-}
-
-void FBXWrangler::AddExternalSkinnedMeshes(NifFile& skeleton, set<NifFile*> meshes) {
-	map<void*, FbxNode*> skeleton_nodes;
-	if (skeleton.isSkeletonOnly())
-		skeleton_nodes = FBXBuilderVisitor(skeleton, *scene->GetRootNode(), *scene, skeleton.GetInfo()).getBuiltNodesMap();
-	else
-		return;
-
-	for (auto& mesh : meshes)
-		if (mesh->hasExternalSkin())
-			FBXBuilderVisitor(*mesh, *scene->GetRootNode(), *scene, mesh->GetInfo(), skeleton_nodes);
 }
 
 //void FBXWrangler::AddSkeleton(NifFile* nif, bool onlyNonSkeleton) {
