@@ -112,6 +112,140 @@ void FBXWrangler::CloseScene() {
 	comName.clear();
 }
 
+namespace std {
+
+	template <>
+	struct hash<Triangle>
+	{
+		std::size_t operator()(const Triangle& k) const
+		{
+			using std::size_t;
+			using std::hash;
+			using std::string;
+
+			// Compute individual hash values for first,
+			// second and third and combine them using XOR
+			// and bit shifting:
+
+			return ((hash<unsigned short>()(k.v1)
+				^ (hash<unsigned short>()(k.v2) << 1)) >> 1)
+				^ (hash<unsigned short>()(k.v3) << 1);
+		}
+	};
+
+}
+
+template<>
+class Accessor<bhkCompressedMeshShapeData> 
+{
+public:
+	vector<Vector3> verts;
+	vector<Triangle> tris;
+	multimap<unsigned int, Triangle> materialMap;
+	unordered_map<Triangle, unsigned int> triangleMap;
+
+	Accessor(bhkCompressedMeshShapeRef cmesh)
+	{
+		//bhkCompressedMeshShapeRef cmesh = DynamicCast<bhkCompressedMeshShape>(moppbv->GetShape());
+		bhkCompressedMeshShapeDataRef data = cmesh->GetData();
+
+		const vector<bhkCMSDChunk>& chunks = data->chunks;
+		const vector<Vector4>& bigVerts = data->GetBigVerts();
+
+		bool multipleShapes = (chunks.size() + bigVerts.empty() ? 0 : 1) > 1;
+
+		if (!data->GetBigVerts().empty())
+		{
+			const vector<bhkCMSDBigTris>& bigTris = data->GetBigTris();
+
+			for (int i = 0; i < bigVerts.size(); i++)
+				verts.push_back({ bigVerts[i][0], bigVerts[i][1], bigVerts[i][2] });
+
+			for (int i = 0; i < bigTris.size(); i++) {
+				Niflib::Triangle t(bigTris[i].triangle1, bigTris[i].triangle2, bigTris[i].triangle3);
+				triangleMap[t] = tris.size();
+				tris.push_back(t);
+				bhkCMSDMaterial m = data->chunkMaterials[bigTris[i].material];
+				materialMap.insert(pair<unsigned int, Triangle>(m.material, t));
+
+			}
+		}
+
+		int i = 0;
+		const vector<bhkCMSDMaterial>& materials = data->chunkMaterials;
+		const vector<bhkCMSDTransform>& transforms = data->chunkTransforms;
+		auto n = chunks.size();
+		for (const bhkCMSDChunk& chunk : chunks)
+		{
+			Vector3 chunkOrigin = { chunk.translation[0], chunk.translation[1], chunk.translation[2] };
+			int numOffsets = chunk.numVertices;
+			int numIndices = chunk.numIndices;
+			int numStrips = chunk.numStrips;
+			const vector<unsigned short>& offsets = chunk.vertices;
+			const vector<unsigned short>& indices = chunk.indices;
+			const vector<unsigned short>& strips = chunk.strips;
+
+			//vector<Vector3> verts(numOffsets / 3);
+			int offset = 0;
+
+			const bhkCMSDTransform& transform = transforms[chunk.transformIndex];
+			const bhkCMSDMaterial& material = materials[chunk.materialIndex];
+			//int mtlIdx = GetHavokIndexFromSkyrimMaterial(material.layer);
+			//int lyrIdx = GetHavokIndexFromSkyrimLayer(material.layer);
+
+			hkQTransform t;
+			t.setTranslation(TOVECTOR4(transform.translation * 69.9));
+			t.setRotation(TOQUAT(transform.rotation));
+			hkMatrix4 rr; rr.set(t);
+			
+			//Matrix3 wm(true);
+			//wm.SetRotate(TOQUAT(transform.rotation));
+			//wm.Translate(TOPOINT3(transform.translation) * ni.bhkScaleFactor);
+
+			//Matrix3 m3p = tm; // *parent->GetNodeTM(0);
+			//m3p.Invert();
+			//Matrix3 lm = wm * m3p;
+
+			int verOffsets = verts.size();
+			int n = 0;
+			for (n = 0; n < (numOffsets / 3); n++) {
+				Vector3 vec = chunkOrigin + Vector3(offsets[3 * n], offsets[3 * n + 1], offsets[3 * n + 2]) / 1000.0f;
+				hkVector4 p = TOVECTOR4(vec);
+				hkVector4 positionOut;
+				rr.transformPosition(p, positionOut);
+				//lm * p;
+				verts.push_back(TOVECTOR3(positionOut));
+
+			}
+
+			for (auto s = 0; s < numStrips; s++) {
+				for (auto f = 0; f < strips[s] - 2; f++) {
+					if ((f + 1) % 2 == 0) {
+						Niflib::Triangle t(indices[offset + f + 2] + verOffsets, indices[offset + f + 1] + verOffsets, indices[offset + f + 0] + verOffsets);
+						triangleMap[t] = tris.size();
+						tris.push_back(t);
+						materialMap.insert(pair<unsigned int, Triangle>(material.material, t));
+					}
+					else {
+						Niflib::Triangle t(indices[offset + f + 0] + verOffsets, indices[offset + f + 1] + verOffsets, indices[offset + f + 2] + verOffsets);
+						triangleMap[t] = tris.size();
+						tris.push_back(t);
+						materialMap.insert(pair<unsigned int, Triangle>(material.material, t));
+					}
+				}
+				offset += strips[s];
+			}
+
+			// Non-stripped tris
+			for (auto f = 0; f < (numIndices - offset); f += 3) {
+				Niflib::Triangle t(indices[offset + f + 0] + verOffsets, indices[offset + f + 1] + verOffsets, indices[offset + f + 2] + verOffsets);
+				triangleMap[t] = tris.size();
+				tris.push_back(t);
+				materialMap.insert(pair<unsigned int, Triangle>(material.material, t));
+			}
+		}
+	}
+};
 
 class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	const NifInfo& this_info;
@@ -583,6 +717,8 @@ public:
 			//visit managers too
 			if (rootNode->GetController())
 				rootNode->GetController()->accept(*this, info);
+			if (rootNode->GetCollisionObject())
+				rootNode->GetCollisionObject()->accept(*this, info);
 			//TODO: handle different root types
 			//Sort out skinning now
 			processSkins();
@@ -713,6 +849,37 @@ public:
 			hkpConvexVerticesShape hkConvex(strided_vertices);
 			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkConvex));
 		}
+		//bhkMoppBvTree
+		else if (shape->IsDerivedType(bhkMoppBvTreeShape::TYPE))
+		{
+			parent_name += "_mopp";
+			bhkMoppBvTreeShapeRef moppbv = DynamicCast<bhkMoppBvTreeShape>(shape);
+			if (moppbv->GetShape() != NULL)
+			{
+				alreadyVisitedNodes.insert(moppbv);
+				if (moppbv->GetShape()->IsDerivedType(bhkCompressedMeshShape::TYPE))
+				{
+					if (moppbv->GetShape() != NULL)
+					{
+						bhkCompressedMeshShapeRef cmesh = DynamicCast<bhkCompressedMeshShape>(moppbv->GetShape());
+						alreadyVisitedNodes.insert(cmesh);
+						alreadyVisitedNodes.insert(cmesh->GetData());
+						Accessor<bhkCompressedMeshShapeData> converter(DynamicCast<bhkCompressedMeshShape>(moppbv->GetShape()));
+						for (const auto& v : converter.verts)
+							geom.m_vertices.pushBack(TOVECTOR4(v));
+						for (const auto& t : converter.tris)
+							geom.m_triangles.pushBack({ t.v1, t.v2, t.v3, (int)converter.triangleMap[t] });
+					}
+				}
+				else if (moppbv->GetShape()->IsDerivedType(bhkNiTriStripsShape::TYPE)) {
+//					bhkNiTriStripsShapeRef cmesh = DynamicCast<bhkNiTriStripsShape>(moppbv->GetShape());
+				
+				}
+				else if (moppbv->GetShape()->IsDerivedType(bhkPackedNiTriStripsShape::TYPE)) {
+					//bhkPackedNiTriStripsShapeRef cmesh = DynamicCast<bhkPackedNiTriStripsShape>(moppbv->GetShape());
+				}
+			}
+		}
 		//pack
 		if (geom.m_vertices.getSize() > 0)
 		{
@@ -729,8 +896,8 @@ public:
 			{
 				m->BeginPolygon();
 				m->AddPolygon(geom.m_triangles[i].m_a);
-				m->AddPolygon(geom.m_triangles[i].m_a);
-				m->AddPolygon(geom.m_triangles[i].m_a);
+				m->AddPolygon(geom.m_triangles[i].m_b);
+				m->AddPolygon(geom.m_triangles[i].m_c);
 				m->EndPolygon();
 			}
 			parent->SetNodeAttribute(m);
@@ -760,6 +927,7 @@ public:
 		rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
 
 		generate_collision_geometry(obj.GetShape(), rb_node);
+		parent->AddChild(rb_node);
 		return rb_node;
 	}
 
@@ -778,6 +946,7 @@ public:
 		rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
 
 		generate_collision_geometry(obj.GetShape(), rb_node);
+		parent->AddChild(rb_node);
 		return rb_node;
 	}
 
