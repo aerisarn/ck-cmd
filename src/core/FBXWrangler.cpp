@@ -21,6 +21,25 @@ See the included LICENSE file
 #include <Common\Base\Types\Geometry\hkStridedVertices.h>
 #include <Physics\Collide\Shape\Convex\Sphere\hkpSphereShape.h>
 
+//// Physics
+#include <Physics/Dynamics/Entity/hkpRigidBody.h>
+#include <Physics/Collide/Shape/Convex/Box/hkpBoxShape.h>
+#include <Physics/Utilities/Dynamics/Inertia/hkpInertiaTensorComputer.h>
+
+#include <Physics/Collide/Shape/Convex/Sphere/hkpSphereShape.h>
+#include <Physics/Collide/Shape/Convex/Capsule/hkpCapsuleShape.h>
+
+#include <Physics\Dynamics\Constraint\Bilateral\Ragdoll\hkpRagdollConstraintData.h>
+#include <Physics\Dynamics\Constraint\Bilateral\BallAndSocket\hkpBallAndSocketConstraintData.h>
+#include <Physics\Dynamics\Constraint\Bilateral\Hinge\hkpHingeConstraintData.h>
+#include <Physics\Dynamics\Constraint\Bilateral\LimitedHinge\hkpLimitedHingeConstraintData.h>
+#include <Physics\Dynamics\Constraint\Bilateral\Prismatic\hkpPrismaticConstraintData.h>
+#include <Physics\Dynamics\Constraint\Malleable\hkpMalleableConstraintData.h>
+#include <Physics\Dynamics\Constraint\Bilateral\StiffSpring\hkpStiffSpringConstraintData.h>
+
+#include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
+#include <Physics\Dynamics\World\hkpPhysicsSystem.h>
+#include <Physics\Utilities\Serialize\hkpPhysicsData.h>
 
 #include <algorithm>
 
@@ -235,6 +254,139 @@ public:
 		}
 	}
 };
+
+class ConstraintVisitor {
+protected:
+	vector<bhkBlendCollisionObjectRef>& nifBodies;
+	hkArray<hkpRigidBody*>& hkBodies;
+
+	hkpRigidBody* getEntity(Ref<bhkEntity> e) {
+		int index = find_if(nifBodies.begin(), nifBodies.end(), [e](bhkBlendCollisionObjectRef b) -> bool { return &(*b->GetBody()) == &*e; }) - nifBodies.begin();
+		if (index < 0 || index >= hkBodies.getSize()) throw runtime_error("Invalid entity into constraint!");
+		return hkBodies[index];
+	}
+public:
+	virtual hkpConstraintData* visit(RagdollDescriptor& constraint) = 0;
+	virtual hkpConstraintData* visit(PrismaticDescriptor& constraint) = 0;
+	virtual hkpConstraintData* visit(MalleableDescriptor& constraint) = 0;
+	virtual hkpConstraintData* visit(HingeDescriptor& constraint) = 0;
+	virtual hkpConstraintData* visit(LimitedHingeDescriptor& constraint) = 0;
+	virtual hkpConstraintData* visit(BallAndSocketDescriptor& constraint) = 0;
+	virtual hkpConstraintData* visit(StiffSpringDescriptor& constraint) = 0;
+
+	virtual hkpConstraintInstance* visitConstraint(bhkConstraintRef constraint) {
+		hkpConstraintData* data = NULL;
+		if (constraint)
+		{
+			if (constraint->IsSameType(bhkRagdollConstraint::TYPE))
+				data = visit(DynamicCast<bhkRagdollConstraint>(constraint)->GetRagdoll());
+			else if (constraint->IsSameType(bhkPrismaticConstraint::TYPE))
+				data = visit(DynamicCast<bhkPrismaticConstraint>(constraint)->GetPrismatic());
+			else if (constraint->IsSameType(bhkMalleableConstraint::TYPE))
+				data = visit(DynamicCast<bhkMalleableConstraint>(constraint)->GetMalleable());
+			else if (constraint->IsSameType(bhkHingeConstraint::TYPE))
+				data = visit(DynamicCast<bhkHingeConstraint>(constraint)->GetHinge());
+			else if (constraint->IsSameType(bhkLimitedHingeConstraint::TYPE))
+				data = visit(DynamicCast<bhkLimitedHingeConstraint>(constraint)->GetLimitedHinge());
+			else if (constraint->IsSameType(bhkBallAndSocketConstraint::TYPE))
+				data = visit(DynamicCast<bhkBallAndSocketConstraint>(constraint)->GetBallAndSocket());
+			else if (constraint->IsSameType(bhkStiffSpringConstraint::TYPE))
+				data = visit(DynamicCast<bhkStiffSpringConstraint>(constraint)->GetStiffSpring());
+			else
+				throw new runtime_error("Unimplemented constraint type!");
+			return new hkpConstraintInstance(getEntity(constraint->GetEntities()[0]), getEntity(constraint->GetEntities()[1]), data);
+		}
+	}
+
+	ConstraintVisitor(vector<bhkBlendCollisionObjectRef>& nbodies, hkArray<hkpRigidBody*>& hkbodies) : nifBodies(nbodies), hkBodies(hkbodies) {}
+};
+
+//class ConstraintBuilder : public ConstraintVisitor {
+//public:
+//
+//	virtual hkpConstraintData* visit(BallAndSocketDescriptor& constraint)
+//	{
+//		hkpBallAndSocketConstraintData* data = new hkpBallAndSocketConstraintData();
+//		return data;
+//	}
+//
+//	virtual hkpConstraintData* visit(StiffSpringDescriptor& constraint)
+//	{
+//		hkpStiffSpringConstraintData* data = new hkpStiffSpringConstraintData();
+//		return data;
+//	}
+//
+//	virtual hkpConstraintData* visit(RagdollDescriptor& descriptor) {
+//		hkpRagdollConstraintData* data = new hkpRagdollConstraintData();
+//		data->setInBodySpace(
+//			TOVECTOR4(descriptor.pivotA * 7),
+//			TOVECTOR4(descriptor.pivotB * 7),
+//			TOVECTOR4(descriptor.planeA),
+//			TOVECTOR4(descriptor.planeB),
+//			TOVECTOR4(descriptor.twistA),
+//			TOVECTOR4(descriptor.twistB)
+//		);
+//		return data;
+//	}
+//
+//	virtual hkpConstraintData* visit(PrismaticDescriptor& descriptor) {
+//		//hkpPrismaticConstraintData* data = new hkpPrismaticConstraintData();
+//		//data->setInBodySpace(
+//		//	TOVECTOR4(descriptor.pivotA * 7),
+//		//	TOVECTOR4(descriptor.pivotB * 7),
+//		//	);
+//		//);
+//
+//		//return new hkpConstraintInstance(getEntity(constraint.GetEntities()[0]), getEntity(constraint.GetEntities()[1]), data);
+//		return NULL;
+//	}
+//
+//	virtual hkpConstraintData* visit(MalleableDescriptor& descriptor) {
+//		switch (descriptor.type) {
+//			case BALLANDSOCKET:
+//				return visit(descriptor.ballAndSocket);
+//			case HINGE:
+//				return visit(descriptor.hinge);
+//			case LIMITED_HINGE:
+//				return visit(descriptor.limitedHinge);
+//			case PRISMATIC:
+//				return visit(descriptor.prismatic);
+//			case RAGDOLL:
+//				return visit(descriptor.ragdoll);
+//			case STIFFSPRING:
+//				return visit(descriptor.stiffSpring);
+//			case MALLEABLE:
+//				break;
+//		}
+//		
+//		return NULL;
+//	}
+//
+//	virtual hkpConstraintData* visit(HingeDescriptor& descriptor) {
+//		hkpHingeConstraintData* data = new hkpHingeConstraintData();
+//		data->setInBodySpace(
+//			TOVECTOR4(descriptor.pivotA * 7),
+//			TOVECTOR4(descriptor.pivotB * 7),
+//			TOVECTOR4(descriptor.axleA),
+//			TOVECTOR4(descriptor.axleB)
+//		);
+//		return data;
+//	}
+//	virtual hkpConstraintData* visit(LimitedHingeDescriptor& descriptor){
+//		hkpLimitedHingeConstraintData* data = new hkpLimitedHingeConstraintData();
+//		data->setInBodySpace(
+//			TOVECTOR4(descriptor.pivotA * 7),
+//			TOVECTOR4(descriptor.pivotB * 7),
+//			TOVECTOR4(descriptor.axleA),
+//			TOVECTOR4(descriptor.axleB),
+//			TOVECTOR4(descriptor.perp2AxleInA1),
+//			TOVECTOR4(descriptor.perp2AxleInB1)
+//		);
+//		return data;
+//	}
+//
+//	ConstraintBuilder(vector<bhkBlendCollisionObjectRef>& nbodies, hkArray<hkpRigidBody*>& hkbodies) : ConstraintVisitor(nbodies,hkbodies) {}
+//};
 
 class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	const NifInfo& this_info;
@@ -918,47 +1070,47 @@ public:
 		return parent;
 	}
 
-	FbxNode* generate_collision_geometry(bhkShape* shape, FbxNode* parent)
-	{
-		return recursive_convert(shape, parent);
-	}
-
-	template<>
-	inline FbxNode* visit_new_object(bhkRigidBody& obj) {
+	inline FbxNode* visit_rigid_body(bhkRigidBodyRef obj, const string& collision_name) {
 		FbxNode* parent = build_stack.front();
-		string name = parent->GetName();
+		string name = collision_name;
 		name += "_rb";
 		FbxNode* rb_node = FbxNode::Create(&scene, name.c_str());
-
-		//Vector4 translation = obj.GetTranslation();
-		//rb_node->LclTranslation.Set(FbxDouble3(translation.x*bhkScaleFactor, translation.y*bhkScaleFactor, translation.z*bhkScaleFactor));
-		//Niflib::hkQuaternion rotation = obj.GetRotation();
-		//Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
-		//EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
-		//rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
-
-		generate_collision_geometry(obj.GetShape(), rb_node);
+		if (obj->IsSameType(bhkRigidBodyT::TYPE))
+		{
+			Vector4 translation = obj->GetTranslation();
+			rb_node->LclTranslation.Set(FbxDouble3(translation.x*bhkScaleFactor, translation.y*bhkScaleFactor, translation.z*bhkScaleFactor));
+			Niflib::hkQuaternion rotation = obj->GetRotation();
+			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
+			EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+			rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+		}
+		recursive_convert(obj->GetShape(), rb_node);
 		parent->AddChild(rb_node);
 		return rb_node;
 	}
 
 	template<>
-	inline FbxNode* visit_new_object(bhkRigidBodyT& obj) {
+	inline FbxNode* visit_new_object(bhkCollisionObject& obj) {
 		FbxNode* parent = build_stack.front();
-		string name = parent->GetName();
-		name += "_rb";
-		FbxNode* rb_node = FbxNode::Create(&scene, name.c_str());
+		string name = obj.GetTarget()->GetName();
+		if (obj.GetBody() && obj.GetBody()->IsDerivedType(bhkRigidBody::TYPE))
+		{
+			alreadyVisitedNodes.insert(obj.GetBody());
+			return visit_rigid_body(DynamicCast<bhkRigidBody>(obj.GetBody()), name);
+		}
+		return NULL;
+	}
 
-		Vector4 translation = obj.GetTranslation();
-		rb_node->LclTranslation.Set(FbxDouble3(translation.x*bhkScaleFactor, translation.y*bhkScaleFactor, translation.z*bhkScaleFactor));
-		Niflib::hkQuaternion rotation = obj.GetRotation();
-		Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
-		EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
-		rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
-
-		generate_collision_geometry(obj.GetShape(), rb_node);
-		parent->AddChild(rb_node);
-		return rb_node;
+	template<>
+	inline FbxNode* visit_new_object(bhkBlendCollisionObject& obj) {
+		FbxNode* parent = build_stack.front();
+		string name = obj.GetTarget()->GetName();
+		if (obj.GetBody() && obj.GetBody()->IsDerivedType(bhkRigidBody::TYPE))
+		{
+			alreadyVisitedNodes.insert(obj.GetBody());
+			return visit_rigid_body(DynamicCast<bhkRigidBody>(obj.GetBody()), name);
+		}
+		return NULL;
 	}
 
 	template<class T>
