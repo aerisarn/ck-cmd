@@ -133,6 +133,7 @@ int NifFile::Load(const std::string& fileName) {
 	Clear();
 	try {
 		blocks = ReadNifList(fileName.c_str(), &hdr);
+		bhkScaleFactor = hdr.version < VER_20_2_0_7 ? 6.9969 : 69.99124908;
 	}
 	catch (...) {
 		throw runtime_error("Unable to read file: " + fileName);
@@ -152,6 +153,7 @@ int NifFile::Load(std::istream& stream) {
 	Clear();
 	try {
 		blocks = ReadNifList(stream, &hdr);
+		bhkScaleFactor = hdr.version < VER_20_2_0_7 ? 6.9969 : 69.99124908;
 	}
 	catch (...) {
 		throw runtime_error("Unable to read file from stream");

@@ -44,6 +44,8 @@ using namespace Niflib;
 
 			void PrepareData();
 
+			double bhkScaleFactor; // = 6.9969
+
 		public:
 			string name;
 
@@ -79,6 +81,7 @@ using namespace Niflib;
 			bool hasExternalSkin() { return hasExternalSkinning; }
 			bool isSkeletonOnly() { return isSkeleton; }
 			bool hasAnimation() { return hasNiSequence; }
+			double GetBhkScaleFactor() { return bhkScaleFactor; }
 	
 
 			void Create(const NifInfo& version);

@@ -146,7 +146,6 @@ public:
 
 	Accessor(bhkCompressedMeshShapeRef cmesh)
 	{
-		//bhkCompressedMeshShapeRef cmesh = DynamicCast<bhkCompressedMeshShape>(moppbv->GetShape());
 		bhkCompressedMeshShapeDataRef data = cmesh->GetData();
 
 		const vector<bhkCMSDChunk>& chunks = data->chunks;
@@ -194,28 +193,18 @@ public:
 			//int lyrIdx = GetHavokIndexFromSkyrimLayer(material.layer);
 
 			hkQTransform t;
-			t.setTranslation(TOVECTOR4(transform.translation * 69.9));
+			t.setTranslation(TOVECTOR4(transform.translation));
 			t.setRotation(TOQUAT(transform.rotation));
 			hkMatrix4 rr; rr.set(t);
-			
-			//Matrix3 wm(true);
-			//wm.SetRotate(TOQUAT(transform.rotation));
-			//wm.Translate(TOPOINT3(transform.translation) * ni.bhkScaleFactor);
 
-			//Matrix3 m3p = tm; // *parent->GetNodeTM(0);
-			//m3p.Invert();
-			//Matrix3 lm = wm * m3p;
 
 			int verOffsets = verts.size();
 			int n = 0;
 			for (n = 0; n < (numOffsets / 3); n++) {
 				Vector3 vec = chunkOrigin + Vector3(offsets[3 * n], offsets[3 * n + 1], offsets[3 * n + 2]) / 1000.0f;
 				hkVector4 p = TOVECTOR4(vec);
-				hkVector4 positionOut;
-				rr.transformPosition(p, positionOut);
-				//lm * p;
-				verts.push_back(TOVECTOR3(positionOut));
-
+				rr.transformPosition(p, p);
+				verts.push_back(TOVECTOR3(p));
 			}
 
 			for (auto s = 0; s < numStrips; s++) {
@@ -257,6 +246,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	NifFile& nif_file;
 	FbxAnimStack* lAnimStack = NULL;
 	string root_name;
+	double bhkScaleFactor = 1.0;
 
 	FbxNode* AddGeometry(NiTriStrips& node) {
 		const string& shapeName = node.GetName();
@@ -706,6 +696,7 @@ public:
 		scene(scene),
 		managers(set<NiControllerManager*>())
 	{
+		bhkScaleFactor = nif.GetBhkScaleFactor();
 		NiNodeRef rootNode = DynamicCast<NiNode>(nif.GetRoot());
 		if (rootNode != NULL)
 		{
@@ -889,18 +880,38 @@ public:
 			FbxVector4* points = m->GetControlPoints();
 
 			for (int i = 0; i < m->GetControlPointsCount(); i++) {
-				points[i] = TOFBXVECTOR4(geom.m_vertices[i]);
+				points[i] = TOFBXVECTOR4(geom.m_vertices[i])*bhkScaleFactor;
 			}
+
+			string lMaterialName = "material";
+			string lShadingName = "Phong";
+			FbxDouble3 lRed(1.0, 0.0, 0.0);
+			FbxDouble3 lDiffuseColor(0.75, 0.75, 0.0);
+			FbxSurfacePhong* gMaterial = FbxSurfacePhong::Create(scene.GetFbxManager(), lMaterialName.c_str());
+			//The following properties are used by the Phong shader to calculate the color for each pixel in the material :
+
+			// Generate primary and secondary colors.
+			gMaterial->Emissive = lRed;
+			gMaterial->TransparentColor = { 1.0,1.0,1.0 };
+			gMaterial->TransparencyFactor = 0.9;
+			gMaterial->ShadingModel = lShadingName.c_str();
+			gMaterial->Shininess = 0.5;
+
+			parent->SetNodeAttribute(m);
+			parent->AddMaterial(gMaterial);
+			FbxGeometryElementMaterial* lMaterialElement = m->CreateElementMaterial();
+			lMaterialElement->SetMappingMode(FbxGeometryElement::eByPolygon);
+			lMaterialElement->SetReferenceMode(FbxGeometryElement::eIndexToDirect);
 
 			for (int i = 0; i < geom.m_triangles.getSize(); i++)
 			{
-				m->BeginPolygon();
+				m->BeginPolygon(0);
 				m->AddPolygon(geom.m_triangles[i].m_a);
 				m->AddPolygon(geom.m_triangles[i].m_b);
 				m->AddPolygon(geom.m_triangles[i].m_c);
 				m->EndPolygon();
 			}
-			parent->SetNodeAttribute(m);
+			
 
 		}
 		alreadyVisitedNodes.insert(shape);
@@ -919,12 +930,12 @@ public:
 		name += "_rb";
 		FbxNode* rb_node = FbxNode::Create(&scene, name.c_str());
 
-		Vector4 translation = obj.GetTranslation();
-		rb_node->LclTranslation.Set(FbxDouble3(translation.x, translation.y, translation.z));
-		Niflib::hkQuaternion rotation = obj.GetRotation();
-		Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
-		EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
-		rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+		//Vector4 translation = obj.GetTranslation();
+		//rb_node->LclTranslation.Set(FbxDouble3(translation.x*bhkScaleFactor, translation.y*bhkScaleFactor, translation.z*bhkScaleFactor));
+		//Niflib::hkQuaternion rotation = obj.GetRotation();
+		//Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
+		//EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+		//rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
 
 		generate_collision_geometry(obj.GetShape(), rb_node);
 		parent->AddChild(rb_node);
@@ -939,7 +950,7 @@ public:
 		FbxNode* rb_node = FbxNode::Create(&scene, name.c_str());
 
 		Vector4 translation = obj.GetTranslation();
-		rb_node->LclTranslation.Set(FbxDouble3(translation.x, translation.y, translation.z));
+		rb_node->LclTranslation.Set(FbxDouble3(translation.x*bhkScaleFactor, translation.y*bhkScaleFactor, translation.z*bhkScaleFactor));
 		Niflib::hkQuaternion rotation = obj.GetRotation();
 		Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
 		EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
