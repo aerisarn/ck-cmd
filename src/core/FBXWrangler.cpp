@@ -162,6 +162,9 @@ public:
 	vector<Triangle> tris;
 	multimap<unsigned int, Triangle> materialMap;
 	unordered_map<Triangle, unsigned int> triangleMap;
+	unordered_map<Triangle, unsigned int> triangleLayerMap;
+	set<SkyrimHavokMaterial> materials;
+	set<SkyrimLayer> layers;
 
 	Accessor(bhkCompressedMeshShapeRef cmesh)
 	{
@@ -185,7 +188,7 @@ public:
 				tris.push_back(t);
 				bhkCMSDMaterial m = data->chunkMaterials[bigTris[i].material];
 				materialMap.insert(pair<unsigned int, Triangle>(m.material, t));
-
+				materials.insert(m.material);
 			}
 		}
 
@@ -401,7 +404,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	double bhkScaleFactor = 1.0;
 
 	FbxNode* AddGeometry(NiTriStrips& node) {
-		const string& shapeName = node.GetName();
+		string shapeName = node.GetName();
+		sanitizeString(shapeName);
 
 		if (node.GetData() == NULL) return FbxNode::Create(&scene, shapeName.c_str());
 
@@ -425,7 +429,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 	FbxNode* AddGeometry(NiTriShape& node) {
 
-		const string& shapeName = node.GetName();
+		string shapeName = node.GetName();
+		sanitizeString(shapeName);
 
 		if (node.GetData() == NULL) return FbxNode::Create(&scene, shapeName.c_str());
 
@@ -538,22 +543,30 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	FbxNode* getBuiltNode(T& obj) {
 		NiObject* node = (NiObject*)&obj;
 		if (node->IsDerivedType(NiAVObject::TYPE))
-			return scene.FindNodeByName(DynamicCast<NiAVObject>(node)->GetName().c_str());
+			return getBuiltNode(string(DynamicCast<NiAVObject>(node)->GetName().c_str()));
 		return NULL;
 	}
 
 	template<>
 	inline FbxNode* getBuiltNode(string& name) {
-		if (name == root_name)
+		string sanitized = name; sanitizeString(sanitized);
+		if (name == root_name || sanitized == root_name)
 			return scene.GetRootNode();
-		return scene.FindNodeByName(name.c_str());
+		FbxNode* result = scene.FindNodeByName(name.c_str());
+		if (result == NULL)
+			result = scene.FindNodeByName(sanitized.c_str());
+		return result;
 	}
 
 	template<>
 	inline FbxNode* getBuiltNode(const string& name) {
-		if (name == root_name)
+		string sanitized = name; sanitizeString(sanitized);
+		if (name == root_name || sanitized == root_name)
 			return scene.GetRootNode();
-		return scene.FindNodeByName(name.c_str());
+		FbxNode* result = scene.FindNodeByName(name.c_str());
+		if (result == NULL)
+			result = scene.FindNodeByName(sanitized.c_str());
+		return result;
 	}
 
 	void processSkins() {
@@ -918,6 +931,7 @@ public:
 		//Containers
 		hkGeometry geom;
 		string parent_name = parent->GetName();
+		set<SkyrimHavokMaterial> material;
 		//bhkConvexTransformShape, bhkTransformShape
 		if (shape->IsDerivedType(bhkTransformShape::TYPE))
 		{
@@ -962,6 +976,7 @@ public:
 			bhkSphereShapeRef sphere = DynamicCast<bhkSphereShape>(shape);
 			hkpSphereShape hkSphere(sphere->GetRadius());
 			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkSphere));
+			material.insert(sphere->GetMaterial().material_sk);
 		}
 		//bhkBoxShape
 		else if (shape->IsDerivedType(bhkBoxShape::TYPE))
@@ -970,6 +985,7 @@ public:
 			bhkBoxShapeRef box = DynamicCast<bhkBoxShape>(shape);
 			hkpBoxShape hkBox(TOVECTOR4(box->GetDimensions()), box->GetRadius());
 			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkBox));
+			material.insert(box->GetMaterial().material_sk);
 			
 		}
 		//bhkCapsuleShape
@@ -979,6 +995,7 @@ public:
 			bhkCapsuleShapeRef capsule = DynamicCast<bhkCapsuleShape>(shape);
 			hkpCapsuleShape hkCapsule(TOVECTOR4(capsule->GetFirstPoint()), TOVECTOR4(capsule->GetSecondPoint()), capsule->GetRadius());
 			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkCapsule));
+			material.insert(capsule->GetMaterial().material_sk);
 		}
 		//bhkConvexVerticesShape
 		else if (shape->IsDerivedType(bhkConvexVerticesShape::TYPE))
@@ -991,6 +1008,7 @@ public:
 			hkStridedVertices strided_vertices(vertices);
 			hkpConvexVerticesShape hkConvex(strided_vertices);
 			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkConvex));
+			material.insert(convex->GetMaterial().material_sk);
 		}
 		//bhkMoppBvTree
 		else if (shape->IsDerivedType(bhkMoppBvTreeShape::TYPE))
@@ -1093,6 +1111,7 @@ public:
 	inline FbxNode* visit_new_object(bhkCollisionObject& obj) {
 		FbxNode* parent = build_stack.front();
 		string name = obj.GetTarget()->GetName();
+		sanitizeString(name);
 		if (obj.GetBody() && obj.GetBody()->IsDerivedType(bhkRigidBody::TYPE))
 		{
 			alreadyVisitedNodes.insert(obj.GetBody());
@@ -1105,6 +1124,7 @@ public:
 	inline FbxNode* visit_new_object(bhkBlendCollisionObject& obj) {
 		FbxNode* parent = build_stack.front();
 		string name = obj.GetTarget()->GetName();
+		sanitizeString(name);
 		if (obj.GetBody() && obj.GetBody()->IsDerivedType(bhkRigidBody::TYPE))
 		{
 			alreadyVisitedNodes.insert(obj.GetBody());
@@ -1124,7 +1144,8 @@ public:
 		NiObject* pobj = (NiObject*)&obj;
 		if (pobj->IsDerivedType(NiAVObject::TYPE)) {
 			NiAVObjectRef av = DynamicCast<NiAVObject>(pobj);
-			FbxNode* node = FbxNode::Create(&scene, av->GetName().c_str());
+			string name = av->GetName().c_str(); sanitizeString(name);
+			FbxNode* node = FbxNode::Create(&scene, name.c_str());
 			return setTransform(av, node);
 		}
 		return setNullTransform(

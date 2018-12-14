@@ -940,6 +940,9 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 
 	map<int, FbxNode*> conversion_map;
 
+	// first track is actually a dummy, find the real root
+
+
 	// create base limb objects first
 	for (hkInt16 b = 0; b < numBones; b++)
 	{
@@ -954,7 +957,8 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 
 		FbxSkeleton* lSkeletonLimbNodeAttribute1 = FbxSkeleton::Create(scene_root->GetScene(), b_name.c_str());
 
-		if ((b == 0))
+		//TODO: fix with ragdoll mapping
+		if (b == 0)
 			lSkeletonLimbNodeAttribute1->SetSkeletonType(FbxSkeleton::eRoot);
 		else
 			lSkeletonLimbNodeAttribute1->SetSkeletonType(FbxSkeleton::eLimbNode);

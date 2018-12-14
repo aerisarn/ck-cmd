@@ -83,6 +83,8 @@ using namespace Niflib;
 			bool hasAnimation() { return hasNiSequence; }
 			double GetBhkScaleFactor() { return bhkScaleFactor; }
 	
+			static const char* material_name(SkyrimHavokMaterial& material);
+			static SkyrimHavokMaterial material_value(const string& name);
 
 			void Create(const NifInfo& version);
 			void Clear();
