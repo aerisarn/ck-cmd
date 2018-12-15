@@ -1754,12 +1754,13 @@ vector<NiTriShapeRef> FBXWrangler::importMultipleShape(FbxNode* child, const FBX
 	return vector<NiTriShapeRef>();
 }
 
-NiTriShapeRef FBXWrangler::importShape(const string& name, FbxMesh* m, const FBXImportOptions& options) {
+NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* node, const FBXImportOptions& options) {
 	NiTriShapeRef out = new NiTriShape();
 	NiTriShapeDataRef data = new NiTriShapeData();
 
 	bool hasAlpha = false;
 
+	FbxMesh* m = (FbxMesh*)node;
 	FbxGeometryElementUV* uv = m->GetElementUV(0);
 	FbxGeometryElementNormal* normal = m->GetElementNormal(0);
 	FbxGeometryElementVertexColor* vc = m->GetElementVertexColor(0);
@@ -2008,6 +2009,7 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxMesh* m, const FBX
 	}
 
 	BSLightingShaderProperty* shader = new BSLightingShaderProperty();
+
 	if (data->GetHasVertexColors() == false)
 		shader->SetShaderFlags2_sk(SkyrimShaderPropertyFlags2(shader->GetShaderFlags2() & ~SLSF2_VERTEX_COLORS));
 
@@ -2036,64 +2038,84 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxMesh* m, const FBX
 		out->SetAlphaProperty(alpharef);
 	}
 
-	//if (m->GetMaterialCount() != 0)
-	//{
-	//	std::vector<std::string> vTextures(9);
-	//	FbxSurfaceMaterial * material = child->GetMaterial(0);
-	//	FbxProperty prop = NULL;
-	//	FbxPropertyT<FbxDouble3> colour;
-	//	FbxPropertyT<FbxDouble> factor;
-	//	FbxFileTexture *texture;
+	if (node->GetNodeCount() > 0)
+	{
+		if (node->GetNodeCount() > 1)
+			Log::Info("node->NodeCount() is above 1. Is this normal?");
 
-	//	//specular
-	//	colour = material->FindProperty(material->sSpecular, true);
-	//	factor = material->FindProperty(material->sSpecularFactor, true);
-	//	if (colour.IsValid() && factor.IsValid())
-	//	{
-	//		FbxDouble3 colourvec = colour.Get();
-	//		shader->SetSpecularStrength(factor.Get());
-	//		shader->SetSpecularColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
-	//	}
+		FbxNode* tempN = node->GetNode();
 
-	//	//emissive
-	//	colour = material->FindProperty(material->sEmissive, true);
-	//	factor = material->FindProperty(material->sEmissiveFactor, true);
-	//	if (colour.IsValid() && factor.IsValid())
-	//	{
-	//		FbxDouble3 colourvec = colour.Get();
-	//		shader->SetEmissiveMultiple(factor.Get());
-	//		shader->SetEmissiveColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
-	//	}
+		FbxSurfaceMaterial * material = tempN->GetMaterial(0);
+		FbxProperty prop = nullptr;
+		FbxPropertyT<FbxDouble3> colour;
+		FbxPropertyT<FbxDouble> factor;
+		FbxFileTexture *texture;
+		vector<string> vTextures = textures->GetTextures();
 
-	//	//shiny/gloss
-	//	factor = material->FindProperty(material->sShininess, true);
-	//	if (factor.IsValid())
-	//	{
-	//		shader->SetGlossiness(factor.Get());
-	//	}
+		//diffuse first:
+		prop = material->FindProperty(FbxSurfaceMaterial::sDiffuse, true);
+		texture = prop.GetSrcObject<FbxFileTexture>(0);
 
-	//	//Diffuse.
-	//	prop = material->FindProperty(FbxSurfaceMaterial::sDiffuse, true);
-	//	factor = material->FindProperty(FbxSurfaceMaterial::sDiffuseFactor, true);
-	//	if (prop.IsValid() && factor.IsValid())
-	//	{
-	//		texture = prop.GetSrcObject<FbxFileTexture>(0);
-	//		if (texture != NULL)
-	//			vTextures[0] = texture->GetFileName();
-	//	}
+		if (prop.IsValid() && texture)
+		{
+			std::string tempString = string(texture->GetFileName());
+			size_t idx = tempString.find("textures", 0);
+			tempString.erase(tempString.begin(), tempString.begin() + idx);
+			vTextures[0] = tempString;
+		}
 
-	//	//Normal/Bump.
-	//	prop = material->FindProperty(FbxSurfaceMaterial::sBump, true);
-	//	factor = material->FindProperty(FbxSurfaceMaterial::sBumpFactor, true);
-	//	if (prop.IsValid() && factor.IsValid())
-	//	{
-	//		texture = prop.GetSrcObject<FbxFileTexture>(0);
-	//		if (texture != NULL)
-	//			vTextures[1] = texture->GetFileName();
-	//	}
+		//normal first:
+		prop = material->FindProperty(FbxSurfaceMaterial::sBump, true);
+		texture = prop.GetSrcObject<FbxFileTexture>(0);
 
-	//	textures->SetTextures(vTextures);
-	//}
+		if (prop.IsValid() && texture)
+		{
+			std::string tempString = string(texture->GetFileName());
+			size_t idx = tempString.find_first_of("textures", 0);
+			tempString.erase(tempString.begin(), tempString.begin() + idx);
+			vTextures[1] = tempString;
+		}
+
+		//if this isn't found, then we could go down the alternate route and do 1f-transparency?
+		factor = material->FindProperty("Opacity", true);
+
+		if (factor.IsValid())
+		{
+			printf("%f", factor.Get());
+			shader->SetAlpha(factor.Get());
+		}
+
+		//spec:
+		colour = material->FindProperty(material->sSpecular, true);
+		factor = material->FindProperty(material->sSpecularFactor, true);
+		if (colour.IsValid() && factor.IsValid())
+		{
+			//correct set this flag or my ocd will throw fits.
+			factor.Get() > 0.0 ? shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() | SLSF1_SPECULAR)) : shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() & ~SLSF1_SPECULAR));
+			FbxDouble3 colourvec = colour.Get();
+			shader->SetSpecularStrength(factor.Get());
+			shader->SetSpecularColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
+		}
+
+		//emissive
+		colour = material->FindProperty(material->sEmissive, true);
+		factor = material->FindProperty(material->sEmissiveFactor, true);
+		if (colour.IsValid() && factor.IsValid())
+		{
+			FbxDouble3 colourvec = colour.Get();
+			shader->SetEmissiveMultiple(factor.Get());
+			shader->SetEmissiveColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
+		}
+
+		//	//shiny/gloss
+		factor = material->FindProperty(material->sShininess, true);
+		if (factor.IsValid())
+		{
+			shader->SetGlossiness(factor.Get());
+		}
+
+		textures->SetTextures(vTextures);
+	}
 
 	shader->SetTextureSet(textures);
 
@@ -2113,9 +2135,9 @@ NiNodeRef FBXWrangler::importShapes(FbxNode* child, const FBXImportOptions& opti
 	size_t attributes_size = child->GetNodeAttributeCount();
 	for (int i = 0; i < attributes_size; i++) {
 		if (FbxNodeAttribute::eMesh == child->GetNodeAttributeByIndex(i)->GetAttributeType())
-		{
+		{		
 			string sub_name = name + "_mesh_" + to_string(i);
-			children.push_back(StaticCast<NiAVObject>(importShape(sub_name, (FbxMesh*)child->GetNodeAttributeByIndex(i), options)));
+			children.push_back(StaticCast<NiAVObject>(importShape(sub_name, child->GetNodeAttributeByIndex(i), options)));
 		}
 	}
 	dummy->SetChildren(children);

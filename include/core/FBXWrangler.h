@@ -97,7 +97,7 @@ namespace FBX {
 
 		string external_skeleton_path = "";
 
-		NiTriShapeRef importShape(const string& name, FbxMesh* m, const FBXImportOptions& options);
+		NiTriShapeRef importShape(const string& name, FbxNodeAttribute* node, const FBXImportOptions& options);
 			
 		void checkAnimatedNodes();
 		void buildKF();
