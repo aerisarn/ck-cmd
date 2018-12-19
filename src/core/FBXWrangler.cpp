@@ -157,16 +157,20 @@ namespace std {
 template<>
 class Accessor<bhkCompressedMeshShapeData> 
 {
+	hkGeometry& geometry;
+	vector<bhkCMSDMaterial>& havok_materials;
 public:
-	vector<Vector3> verts;
-	vector<Triangle> tris;
-	multimap<unsigned int, Triangle> materialMap;
-	unordered_map<Triangle, unsigned int> triangleMap;
-	unordered_map<Triangle, unsigned int> triangleLayerMap;
-	set<SkyrimHavokMaterial> materials;
-	set<SkyrimLayer> layers;
+	//vector<Vector3> verts;
+	//vector<Triangle> tris;
+	//multimap<unsigned int, Triangle> materialMap;
+	//unordered_map<Triangle, unsigned int> triangleMap;
+	//unordered_map<Triangle, unsigned int> triangleLayerMap;
+	//set<SkyrimHavokMaterial> materials;
+	//set<SkyrimLayer> layers;
 
-	Accessor(bhkCompressedMeshShapeRef cmesh)
+
+
+	Accessor(bhkCompressedMeshShapeRef cmesh, hkGeometry& geometry, vector<bhkCMSDMaterial>& materials) : geometry(geometry), havok_materials(materials)
 	{
 		bhkCompressedMeshShapeDataRef data = cmesh->GetData();
 
@@ -180,20 +184,29 @@ public:
 			const vector<bhkCMSDBigTris>& bigTris = data->GetBigTris();
 
 			for (int i = 0; i < bigVerts.size(); i++)
-				verts.push_back({ bigVerts[i][0], bigVerts[i][1], bigVerts[i][2] });
+				geometry.m_vertices.pushBack({ bigVerts[i][0], bigVerts[i][1], bigVerts[i][2] });//verts.push_back({ bigVerts[i][0], bigVerts[i][1], bigVerts[i][2] });
 
 			for (int i = 0; i < bigTris.size(); i++) {
-				Niflib::Triangle t(bigTris[i].triangle1, bigTris[i].triangle2, bigTris[i].triangle3);
-				triangleMap[t] = tris.size();
-				tris.push_back(t);
-				bhkCMSDMaterial m = data->chunkMaterials[bigTris[i].material];
-				materialMap.insert(pair<unsigned int, Triangle>(m.material, t));
-				materials.insert(m.material);
+				geometry.m_triangles.pushBack(
+					{ 
+						(int)bigTris[i].triangle1,
+						(int)bigTris[i].triangle2,
+						(int)bigTris[i].triangle3,
+						(int)bigTris[i].material
+					}
+				);//verts.push_back({ bigVerts[i][0], bigVerts[i][1], bigVerts[i][2] });
+
+				//Niflib::Triangle t(bigTris[i].triangle1, bigTris[i].triangle2, bigTris[i].triangle3);
+				//triangleMap[t] = tris.size();
+				//tris.push_back(t);
+				//bhkCMSDMaterial m = data->chunkMaterials[bigTris[i].material];
+				//materialMap.insert(pair<unsigned int, Triangle>(m.material, t));
+				//materials.insert(m.material);
 			}
 		}
 
 		int i = 0;
-		const vector<bhkCMSDMaterial>& materials = data->chunkMaterials;
+		havok_materials = data->chunkMaterials;
 		const vector<bhkCMSDTransform>& transforms = data->chunkTransforms;
 		auto n = chunks.size();
 		for (const bhkCMSDChunk& chunk : chunks)
@@ -210,7 +223,8 @@ public:
 			int offset = 0;
 
 			const bhkCMSDTransform& transform = transforms[chunk.transformIndex];
-			const bhkCMSDMaterial& material = materials[chunk.materialIndex];
+			//const bhkCMSDMaterial& material = materials[chunk.materialIndex];
+			
 			//int mtlIdx = GetHavokIndexFromSkyrimMaterial(material.layer);
 			//int lyrIdx = GetHavokIndexFromSkyrimLayer(material.layer);
 
@@ -220,28 +234,36 @@ public:
 			hkMatrix4 rr; rr.set(t);
 
 
-			int verOffsets = verts.size();
+			int verOffsets = geometry.m_vertices.getSize();
 			int n = 0;
 			for (n = 0; n < (numOffsets / 3); n++) {
 				Vector3 vec = chunkOrigin + Vector3(offsets[3 * n], offsets[3 * n + 1], offsets[3 * n + 2]) / 1000.0f;
 				hkVector4 p = TOVECTOR4(vec);
 				rr.transformPosition(p, p);
-				verts.push_back(TOVECTOR3(p));
+				geometry.m_vertices.pushBack(p); //verts.push_back(TOVECTOR3(p));
 			}
 
 			for (auto s = 0; s < numStrips; s++) {
 				for (auto f = 0; f < strips[s] - 2; f++) {
 					if ((f + 1) % 2 == 0) {
-						Niflib::Triangle t(indices[offset + f + 2] + verOffsets, indices[offset + f + 1] + verOffsets, indices[offset + f + 0] + verOffsets);
-						triangleMap[t] = tris.size();
-						tris.push_back(t);
-						materialMap.insert(pair<unsigned int, Triangle>(material.material, t));
+						geometry.m_triangles.pushBack(
+							{ 
+								(int)indices[offset + f + 2] + verOffsets, 
+								(int)indices[offset + f + 1] + verOffsets, 
+								(int)indices[offset + f + 0] + verOffsets, 
+								(int)chunk.materialIndex
+							}
+						);
 					}
 					else {
-						Niflib::Triangle t(indices[offset + f + 0] + verOffsets, indices[offset + f + 1] + verOffsets, indices[offset + f + 2] + verOffsets);
-						triangleMap[t] = tris.size();
-						tris.push_back(t);
-						materialMap.insert(pair<unsigned int, Triangle>(material.material, t));
+						geometry.m_triangles.pushBack(
+							{
+								(int)indices[offset + f + 0] + verOffsets,
+								(int)indices[offset + f + 1] + verOffsets,
+								(int)indices[offset + f + 2] + verOffsets,
+								(int)chunk.materialIndex
+							}
+						);
 					}
 				}
 				offset += strips[s];
@@ -249,10 +271,14 @@ public:
 
 			// Non-stripped tris
 			for (auto f = 0; f < (numIndices - offset); f += 3) {
-				Niflib::Triangle t(indices[offset + f + 0] + verOffsets, indices[offset + f + 1] + verOffsets, indices[offset + f + 2] + verOffsets);
-				triangleMap[t] = tris.size();
-				tris.push_back(t);
-				materialMap.insert(pair<unsigned int, Triangle>(material.material, t));
+				geometry.m_triangles.pushBack(
+					{
+						(int)indices[offset + f + 0] + verOffsets,
+						(int)indices[offset + f + 1] + verOffsets,
+						(int)indices[offset + f + 2] + verOffsets,
+						(int)chunk.materialIndex
+					}
+				);
 			}
 		}
 	}
@@ -923,15 +949,22 @@ public:
 		return NULL;
 	}
 
+	inline int find_material_index(const vector<bhkCMSDMaterial>& materials, bhkCMSDMaterial& material)
+	{
+		for (int i = 0; i < materials.size(); i++)
+			if (materials[i].material == material.material && materials[i].filter == material.filter)
+				return i;
+		return -1;
+	}
 
 	//Collisions. Fbx has no support for shapes, so we must generate a geometry out of them
 
-	FbxNode* recursive_convert(bhkShape* shape, FbxNode* parent)
+	FbxNode* recursive_convert(bhkShape* shape, FbxNode* parent, HavokFilter layer)
 	{
 		//Containers
 		hkGeometry geom;
 		string parent_name = parent->GetName();
-		set<SkyrimHavokMaterial> material;
+		vector<bhkCMSDMaterial> materials;
 		//bhkConvexTransformShape, bhkTransformShape
 		if (shape->IsDerivedType(bhkTransformShape::TYPE))
 		{
@@ -941,7 +974,7 @@ public:
 			FbxNode* transform_node = FbxNode::Create(&scene, parent_name.c_str());
 			parent->AddChild(transform_node);
 			setTransform(transform_block->GetTransform(), transform_node);
-			recursive_convert(transform_block->GetShape(), parent);
+			recursive_convert(transform_block->GetShape(), parent, layer);
 		}
 		//bhkListShape, /bhkConvexListShape
 		else if (shape->IsDerivedType(bhkListShape::TYPE))
@@ -953,7 +986,7 @@ public:
 				string name_index = parent_name + "_" + to_string(i);
 				FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
 				parent->AddChild(child_shape_node);
-				recursive_convert(shapes[i], parent);
+				recursive_convert(shapes[i], parent, layer);
 			}
 		}
 		else if (shape->IsDerivedType(bhkConvexListShape::TYPE))
@@ -965,7 +998,7 @@ public:
 				string name_index = parent_name + "_" + to_string(i);
 				FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
 				parent->AddChild(child_shape_node);
-				recursive_convert(shapes[i], parent);
+				recursive_convert(shapes[i], parent, layer);
 			}
 		}
 		//shapes
@@ -976,7 +1009,20 @@ public:
 			bhkSphereShapeRef sphere = DynamicCast<bhkSphereShape>(shape);
 			hkpSphereShape hkSphere(sphere->GetRadius());
 			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkSphere));
-			material.insert(sphere->GetMaterial().material_sk);
+			bhkCMSDMaterial material;
+			material.material = sphere->GetMaterial().material_sk;
+			material.filter = layer;
+			int index = find_material_index(materials, material);
+			if (index == -1)
+			{
+				index = materials.size();
+				materials.push_back(material);
+			}
+			for (int i = 0; i < geom.m_triangles.getSize(); i++)
+			{
+				geom.m_triangles[i].m_material = index;
+			}
+				
 		}
 		//bhkBoxShape
 		else if (shape->IsDerivedType(bhkBoxShape::TYPE))
@@ -985,7 +1031,19 @@ public:
 			bhkBoxShapeRef box = DynamicCast<bhkBoxShape>(shape);
 			hkpBoxShape hkBox(TOVECTOR4(box->GetDimensions()), box->GetRadius());
 			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkBox));
-			material.insert(box->GetMaterial().material_sk);
+			bhkCMSDMaterial material;
+			material.material = box->GetMaterial().material_sk;
+			material.filter = layer;
+			int index = find_material_index(materials, material);
+			if (index == -1)
+			{
+				index = materials.size();
+				materials.push_back(material);
+			}
+			for (int i = 0; i < geom.m_triangles.getSize(); i++)
+			{
+				geom.m_triangles[i].m_material = index;
+			}
 			
 		}
 		//bhkCapsuleShape
@@ -995,7 +1053,19 @@ public:
 			bhkCapsuleShapeRef capsule = DynamicCast<bhkCapsuleShape>(shape);
 			hkpCapsuleShape hkCapsule(TOVECTOR4(capsule->GetFirstPoint()), TOVECTOR4(capsule->GetSecondPoint()), capsule->GetRadius());
 			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkCapsule));
-			material.insert(capsule->GetMaterial().material_sk);
+			bhkCMSDMaterial material;
+			material.material = capsule->GetMaterial().material_sk;
+			material.filter = layer;
+			int index = find_material_index(materials, material);
+			if (index == -1)
+			{
+				index = materials.size();
+				materials.push_back(material);
+			}
+			for (int i = 0; i < geom.m_triangles.getSize(); i++)
+			{
+				geom.m_triangles[i].m_material = index;
+			}
 		}
 		//bhkConvexVerticesShape
 		else if (shape->IsDerivedType(bhkConvexVerticesShape::TYPE))
@@ -1008,7 +1078,19 @@ public:
 			hkStridedVertices strided_vertices(vertices);
 			hkpConvexVerticesShape hkConvex(strided_vertices);
 			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkConvex));
-			material.insert(convex->GetMaterial().material_sk);
+			bhkCMSDMaterial material;
+			material.material = convex->GetMaterial().material_sk;
+			material.filter = layer;
+			int index = find_material_index(materials, material);
+			if (index == -1)
+			{
+				index = materials.size();
+				materials.push_back(material);
+			}
+			for (int i = 0; i < geom.m_triangles.getSize(); i++)
+			{
+				geom.m_triangles[i].m_material = index;
+			}
 		}
 		//bhkMoppBvTree
 		else if (shape->IsDerivedType(bhkMoppBvTreeShape::TYPE))
@@ -1025,22 +1107,38 @@ public:
 						bhkCompressedMeshShapeRef cmesh = DynamicCast<bhkCompressedMeshShape>(moppbv->GetShape());
 						alreadyVisitedNodes.insert(cmesh);
 						alreadyVisitedNodes.insert(cmesh->GetData());
-						Accessor<bhkCompressedMeshShapeData> converter(DynamicCast<bhkCompressedMeshShape>(moppbv->GetShape()));
-						for (const auto& v : converter.verts)
-							geom.m_vertices.pushBack(TOVECTOR4(v));
-						for (const auto& t : converter.tris)
-							geom.m_triangles.pushBack({ t.v1, t.v2, t.v3, (int)converter.triangleMap[t] });
+						Accessor<bhkCompressedMeshShapeData> converter(DynamicCast<bhkCompressedMeshShape>(moppbv->GetShape()), geom, materials);
 					}
 				}
 				else if (moppbv->GetShape()->IsDerivedType(bhkNiTriStripsShape::TYPE)) {
-//					bhkNiTriStripsShapeRef cmesh = DynamicCast<bhkNiTriStripsShape>(moppbv->GetShape());
+//					bhkNiTriStripsShapeRef cmesh = DynamicCast<bhkNiTriStripsShape>(moppbv->GetShape()); TODO
 				
 				}
 				else if (moppbv->GetShape()->IsDerivedType(bhkPackedNiTriStripsShape::TYPE)) {
-					//bhkPackedNiTriStripsShapeRef cmesh = DynamicCast<bhkPackedNiTriStripsShape>(moppbv->GetShape());
+					//bhkPackedNiTriStripsShapeRef cmesh = DynamicCast<bhkPackedNiTriStripsShape>(moppbv->GetShape()); TODO
 				}
 			}
 		}
+		//create collision materials
+		for (const auto& material : materials)
+		{
+			string lMaterialName = NifFile::material_name(material.material);
+			string lShadingName = "Phong";
+			FbxDouble3 lcolor((float)material.material/ 4283869410, (float)material.material / 4283869410, (float)material.material / 4283869410);
+			FbxDouble3 lDiffuseColor(0.75, 0.75, 0.0);
+			FbxSurfacePhong* gMaterial = FbxSurfacePhong::Create(scene.GetFbxManager(), lMaterialName.c_str());
+			//The following properties are used by the Phong shader to calculate the color for each pixel in the material :
+
+			// Generate primary and secondary colors.
+			gMaterial->Emissive = lcolor;
+			gMaterial->TransparentColor = { 1.0,1.0,1.0 };
+			gMaterial->TransparencyFactor = 0.9;
+			gMaterial->ShadingModel = lShadingName.c_str();
+			gMaterial->Shininess = 0.5;
+
+			parent->AddMaterial(gMaterial);
+		}
+
 		//pack
 		if (geom.m_vertices.getSize() > 0)
 		{
@@ -1053,36 +1151,21 @@ public:
 				points[i] = TOFBXVECTOR4(geom.m_vertices[i])*bhkScaleFactor;
 			}
 
-			string lMaterialName = "material";
-			string lShadingName = "Phong";
-			FbxDouble3 lRed(1.0, 0.0, 0.0);
-			FbxDouble3 lDiffuseColor(0.75, 0.75, 0.0);
-			FbxSurfacePhong* gMaterial = FbxSurfacePhong::Create(scene.GetFbxManager(), lMaterialName.c_str());
-			//The following properties are used by the Phong shader to calculate the color for each pixel in the material :
-
-			// Generate primary and secondary colors.
-			gMaterial->Emissive = lRed;
-			gMaterial->TransparentColor = { 1.0,1.0,1.0 };
-			gMaterial->TransparencyFactor = 0.9;
-			gMaterial->ShadingModel = lShadingName.c_str();
-			gMaterial->Shininess = 0.5;
-
-			parent->SetNodeAttribute(m);
-			parent->AddMaterial(gMaterial);
+			
 			FbxGeometryElementMaterial* lMaterialElement = m->CreateElementMaterial();
 			lMaterialElement->SetMappingMode(FbxGeometryElement::eByPolygon);
 			lMaterialElement->SetReferenceMode(FbxGeometryElement::eIndexToDirect);
 
 			for (int i = 0; i < geom.m_triangles.getSize(); i++)
 			{
-				m->BeginPolygon(0);
+				m->BeginPolygon(geom.m_triangles[i].m_material);
 				m->AddPolygon(geom.m_triangles[i].m_a);
 				m->AddPolygon(geom.m_triangles[i].m_b);
 				m->AddPolygon(geom.m_triangles[i].m_c);
 				m->EndPolygon();
 			}
 			
-
+			parent->SetNodeAttribute(m);
 		}
 		alreadyVisitedNodes.insert(shape);
 		return parent;
@@ -1102,7 +1185,7 @@ public:
 			EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
 			rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
 		}
-		recursive_convert(obj->GetShape(), rb_node);
+		recursive_convert(obj->GetShape(), rb_node, obj->GetHavokFilter());
 		parent->AddChild(rb_node);
 		return rb_node;
 	}
