@@ -160,15 +160,6 @@ class Accessor<bhkCompressedMeshShapeData>
 	hkGeometry& geometry;
 	vector<bhkCMSDMaterial>& havok_materials;
 public:
-	//vector<Vector3> verts;
-	//vector<Triangle> tris;
-	//multimap<unsigned int, Triangle> materialMap;
-	//unordered_map<Triangle, unsigned int> triangleMap;
-	//unordered_map<Triangle, unsigned int> triangleLayerMap;
-	//set<SkyrimHavokMaterial> materials;
-	//set<SkyrimLayer> layers;
-
-
 
 	Accessor(bhkCompressedMeshShapeRef cmesh, hkGeometry& geometry, vector<bhkCMSDMaterial>& materials) : geometry(geometry), havok_materials(materials)
 	{
@@ -194,14 +185,7 @@ public:
 						(int)bigTris[i].triangle3,
 						(int)bigTris[i].material
 					}
-				);//verts.push_back({ bigVerts[i][0], bigVerts[i][1], bigVerts[i][2] });
-
-				//Niflib::Triangle t(bigTris[i].triangle1, bigTris[i].triangle2, bigTris[i].triangle3);
-				//triangleMap[t] = tris.size();
-				//tris.push_back(t);
-				//bhkCMSDMaterial m = data->chunkMaterials[bigTris[i].material];
-				//materialMap.insert(pair<unsigned int, Triangle>(m.material, t));
-				//materials.insert(m.material);
+				);
 			}
 		}
 
@@ -1124,17 +1108,21 @@ public:
 		{
 			string lMaterialName = NifFile::material_name(material.material);
 			string lShadingName = "Phong";
-			FbxDouble3 lcolor((float)material.material/ 4283869410, (float)material.material / 4283869410, (float)material.material / 4283869410);
+			FbxDouble3 white = FbxDouble3(1, 1, 1);
+			std::array<double, 3> m_color = NifFile::material_color(material.material);
+			FbxDouble3 lcolor(m_color[0], m_color[1], m_color[2]);
 			FbxDouble3 lDiffuseColor(0.75, 0.75, 0.0);
 			FbxSurfacePhong* gMaterial = FbxSurfacePhong::Create(scene.GetFbxManager(), lMaterialName.c_str());
 			//The following properties are used by the Phong shader to calculate the color for each pixel in the material :
 
 			// Generate primary and secondary colors.
 			gMaterial->Emissive = lcolor;
-			gMaterial->TransparentColor = { 1.0,1.0,1.0 };
-			gMaterial->TransparencyFactor = 0.9;
-			gMaterial->ShadingModel = lShadingName.c_str();
+			gMaterial->TransparencyFactor = 0.5;
+			gMaterial->Ambient = white;
+			gMaterial->Diffuse = white;
 			gMaterial->Shininess = 0.5;
+
+			gMaterial->ShadingModel = NifFile::layer_name(material.filter.layer_sk);
 
 			parent->AddMaterial(gMaterial);
 		}
@@ -1256,132 +1244,6 @@ public:
 void FBXWrangler::AddNif(NifFile& nif) {
 	FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo());
 }
-
-//void FBXWrangler::AddSkeleton(NifFile* nif, bool onlyNonSkeleton) {
-//	auto root = nif->FindBlockByName<NiNode>(Config["Anim/SkeletonRootName"]);
-//	auto com = nif->FindBlockByName<NiNode>("COM");
-//	if (!com)
-//		com = nif->FindBlockByName<NiNode>("NPC COM [COM ]");
-//	if (!com)
-//		com = nif->FindBlockByName<NiNode>("Bip01 NonAccum");
-//
-//	// Likely a NIF with non-hierarchical nodes
-//	if (!com)
-//		com = nif->GetRootNode();
-//	if (!com)
-//		return;
-//
-//	if (comName.empty())
-//		comName = com->GetName();
-//
-//	// Check if skeleton already exists
-//	std::string skelName = "NifSkeleton";
-//	FbxNode* skelNode = scene->GetRootNode()->FindChild(skelName.c_str());
-//	if (skelNode && onlyNonSkeleton) {
-//		// Add non-skeleton nodes to the existing skeleton
-//		FbxNode* comNode = skelNode->FindChild(comName.c_str());
-//		if (comNode) {
-//			std::vector<NiNode*> boneNodes = nif->GetChildren<NiNode>(com);
-//			for (auto &b : boneNodes)
-//				comNode->AddChild(AddLimb(nif, b));
-//		}
-//	}
-//	else if (!skelNode) {
-//		// Create new skeleton
-//		FbxSkeleton* skel = FbxSkeleton::Create(scene, skelName.c_str());
-//		skel->SetSkeletonType(FbxSkeleton::eRoot);
-//
-//		skelNode = FbxNode::Create(scene, skelName.c_str());
-//		skelNode->SetNodeAttribute(skel);
-//		skelNode->LclTranslation.Set(FbxDouble3(0.0, 0.0, 0.0));
-//		//skelNode->LclRotation.Set(FbxDouble3(0.0, 0.0, 0.0));
-//		//skelNode->SetRotationOrder(FbxNode::eSourcePivot, eEulerZYX);
-//
-//		FbxNode* parentNode = skelNode;
-//		if (root) {
-//			FbxSkeleton* rootBone = FbxSkeleton::Create(scene, root->GetName().c_str());
-//			rootBone->SetSkeletonType(FbxSkeleton::eLimbNode);
-//			rootBone->Size.Set(1.0);
-//
-//			FbxNode* rootNode = FbxNode::Create(scene, root->GetName().c_str());
-//			rootNode->SetNodeAttribute(rootBone);
-//
-//			rootNode->LclTranslation.Set(FbxDouble3(root->transform.translation.x, root->transform.translation.y, root->transform.translation.z));
-//
-//			float rx, ry, rz;
-//			root->transform.ToEulerDegrees(rx, ry, rz);
-//			rootNode->LclRotation.Set(FbxDouble3(rx, ry, rz));
-//			//rootNode->SetRotationOrder(FbxNode::eSourcePivot, eEulerZYX);
-//
-//			// Add root as first node
-//			parentNode->AddChild(rootNode);
-//			parentNode = rootNode;
-//		}
-//
-//		if (com) {
-//			FbxSkeleton* comBone = FbxSkeleton::Create(scene, com->GetName().c_str());
-//			comBone->SetSkeletonType(FbxSkeleton::eLimbNode);
-//			comBone->Size.Set(1.0);
-//
-//			FbxNode* comNode = FbxNode::Create(scene, com->GetName().c_str());
-//			comNode->SetNodeAttribute(comBone);
-//
-//			comNode->LclTranslation.Set(FbxDouble3(com->transform.translation.y, com->transform.translation.z, com->transform.translation.x));
-//
-//			float rx, ry, rz;
-//			com->transform.ToEulerDegrees(rx, ry, rz);
-//			comNode->LclRotation.Set(FbxDouble3(rx, ry, rz));
-//			//comNode->SetRotationOrder(FbxNode::eSourcePivot, eEulerZYX);
-//
-//			// Add COM as child of root
-//			parentNode->AddChild(comNode);
-//			parentNode = comNode;
-//		}
-//
-//		std::vector<NiNode*> boneNodes = nif->GetChildren<NiNode>(com);
-//		for (auto bn : boneNodes)
-//			parentNode->AddChild(AddLimb(nif, bn));
-//
-//		scene->GetRootNode()->AddChild(skelNode);
-//	}
-//}
-//
-//FbxNode* FBXWrangler::AddLimb(NifFile* nif, NiNode* nifBone) {
-//	FbxNode* node = scene->GetRootNode()->FindChild(nifBone->GetName().c_str());
-//	if (!node) {
-//		// Add new bone
-//		FbxSkeleton* bone = FbxSkeleton::Create(scene, nifBone->GetName().c_str());
-//		bone->SetSkeletonType(FbxSkeleton::eLimbNode);
-//		bone->Size.Set(1.0f);
-//
-//		node = FbxNode::Create(scene, nifBone->GetName().c_str());
-//		node->SetNodeAttribute(bone);
-//
-//		Vector3 translation = nifBone->transform.translation;
-//		node->LclTranslation.Set(FbxDouble3(translation.x, translation.y, translation.z));
-//
-//		float rx, ry, rz;
-//		nifBone->transform.ToEulerDegrees(rx, ry, rz);
-//		node->LclRotation.Set(FbxDouble3(rx, ry, rz));
-//		//myNode->SetRotationOrder(FbxNode::eSourcePivot, eEulerZYX);
-//	}
-//	else {
-//		// Bone already exists, but go through children and return nullptr
-//		AddLimbChildren(node, nif, nifBone);
-//		return nullptr;
-//	}
-//
-//	AddLimbChildren(node, nif, nifBone);
-//	return node;
-//}
-//
-//void FBXWrangler::AddLimbChildren(FbxNode* node, NifFile* nif, NiNode* nifBone) {
-//	std::vector<NiNode*> boneNodes = nif->GetChildren<NiNode>(nifBone);
-//	for (auto &b : boneNodes)
-//		node->AddChild(AddLimb(nif, b));
-//}
-//
-
 
 bool FBXWrangler::ExportScene(const std::string& fileName) {
 	FbxExporter* iExporter = FbxExporter::Create(sdkManager, "");
@@ -1830,11 +1692,6 @@ void getElement(FbxLayerElementTemplate<Type>* layer, size_t index, T& element) 
 	case FbxLayerElement::EMappingMode::eByEdge:
 	case FbxLayerElement::EMappingMode::eAllSame:
 	}
-}
-
-vector<NiTriShapeRef> FBXWrangler::importMultipleShape(FbxNode* child, const FBXImportOptions& options) {
-	//todo
-	return vector<NiTriShapeRef>();
 }
 
 NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* node, const FBXImportOptions& options) {
@@ -2859,16 +2716,6 @@ void FBXWrangler::checkAnimatedNodes()
 				p = pNode->GetNextProperty(p);
 			}
 
-			//if (pNode->GetNodeAttribute())
-			//{
-			//	FbxNodeAttribute::EType node_type = pNode->GetNodeAttribute()->GetAttributeType();
-
-			//	if (node_type == FbxNodeAttribute::eSkeleton)
-			//	{
-			//		hasSkinnedTracks = true;
-			//	}
-			//}
-
 			if (isAnimated) {
 				if (hasSkinnedTracks)
 					skinned_animations.insert(lAnimStack);
@@ -2929,6 +2776,17 @@ size_t getNearestCommonAncestor(const vector<int>& parentMap, const set<size_t>&
 		result = bone;
 	}
 	return result;
+}
+
+void FBXWrangler::buildCollisions()
+{
+	//group gemoetries by
+
+	//static model
+	if (unskinned_bones.empty() && skinned_bones.empty()) {
+
+	}
+
 }
 
 bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
@@ -3104,6 +2962,10 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			}
 		}
 	}
+
+	//collisions
+
+	buildCollisions();
 
 	return true;
 }

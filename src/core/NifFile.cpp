@@ -6,107 +6,7 @@ See the included LICENSE file
 
 #include <core/NifFile.h>
 
-//#include <obj\NiNode.h>
-//#include <obj\NiGeometry.h>
-//
 using namespace ckcmd::NIF;
-//
-
-//#declare Aquamarine = color red 0.439216 green 0.858824 blue 0.576471
-//#declare BlueViolet = color red 0.62352 green 0.372549 blue 0.623529
-//#declare Brown = color red 0.647059 green 0.164706 blue 0.164706
-//#declare CadetBlue = color red 0.372549 green 0.623529 blue 0.623529
-//#declare Coral = color red 1.0 green 0.498039 blue 0.0
-//#declare CornflowerBlue = color red 0.258824 green 0.258824 blue 0.435294
-//#declare DarkGreen = color red 0.184314 green 0.309804 blue 0.184314
-//#declare DarkOliveGreen = color red 0.309804 green 0.309804 blue 0.184314
-//#declare DarkOrchid = color red 0.6 green 0.196078 blue 0.8
-//#declare DarkSlateBlue = color red 0.419608 green 0.137255 blue 0.556863
-//#declare DarkSlateGray = color red 0.184314 green 0.309804 blue 0.309804
-//#declare DarkSlateGrey = color red 0.184314 green 0.309804 blue 0.309804
-//#declare DarkTurquoise = color red 0.439216 green 0.576471 blue 0.858824
-//#declare Firebrick = color red 0.556863 green 0.137255 blue 0.137255
-//#declare ForestGreen = color red 0.137255 green 0.556863 blue 0.137255
-//#declare Gold = color red 0.8 green 0.498039 blue 0.196078
-//#declare Goldenrod = color red 0.858824 green 0.858824 blue 0.439216
-//#declare GreenYellow = color red 0.576471 green 0.858824 blue 0.439216
-//#declare IndianRed = color red 0.309804 green 0.184314 blue 0.184314
-//#declare Khaki = color red 0.623529 green 0.623529 blue 0.372549
-//#declare LightBlue = color red 0.74902 green 0.847059 blue 0.847059
-//#declare LightSteelBlue = color red 0.560784 green 0.560784 blue 0.737255
-//#declare LimeGreen = color red 0.196078 green 0.8 blue 0.196078
-//#declare Maroon = color red 0.556863 green 0.137255 blue 0.419608
-//#declare MediumAquamarine = color red 0.196078 green 0.8 blue 0.6
-//#declare MediumBlue = color red 0.196078 green 0.196078 blue 0.8
-//#declare MediumForestGreen = color red 0.419608 green 0.556863 blue 0.137255
-//#declare MediumGoldenrod = color red 0.917647 green 0.917647 blue 0.678431
-//#declare MediumOrchid = color red 0.576471 green 0.439216 blue 0.858824
-//#declare MediumSeaGreen = color red 0.258824 green 0.435294 blue 0.258824
-//#declare MediumSlateBlue = color red 0.498039 blue 1.0
-//#declare MediumSpringGreen = color red 0.498039 green 1.0
-//#declare MediumTurquoise = color red 0.439216 green 0.858824 blue 0.858824
-//#declare MediumVioletRed = color red 0.858824 green 0.439216 blue 0.576471
-//#declare MidnightBlue = color red 0.184314 green 0.184314 blue 0.309804
-//#declare Navy = color red 0.137255 green 0.137255 blue 0.556863
-//#declare NavyBlue = color red 0.137255 green 0.137255 blue 0.556863
-//#declare Orange = color red 1 green 0.5 blue 0.0
-//#declare OrangeRed = color red 1.0 green 0.25
-//#declare Orchid = color red 0.858824 green 0.439216 blue 0.858824
-//#declare PaleGreen = color red 0.560784 green 0.737255 blue 0.560784
-//#declare Pink = color red 0.737255 green 0.560784 blue 0.560784
-//#declare Plum = color red 0.917647 green 0.678431 blue 0.917647
-//#declare Salmon = color red 0.435294 green 0.258824 blue 0.258824
-//#declare SeaGreen = color red 0.137255 green 0.556863 blue 0.419608
-//#declare Sienna = color red 0.556863 green 0.419608 blue 0.137255
-//#declare SkyBlue = color red 0.196078 green 0.6 blue 0.8
-//#declare SlateBlue = color green 0.498039 blue 1.0
-//#declare SpringGreen = color green 1.0 blue 0.498039
-//#declare SteelBlue = color red 0.137255 green 0.419608 blue 0.556863
-//#declare Tan = color red 0.858824 green 0.576471 blue 0.439216
-//#declare Thistle = color red 0.847059 green 0.74902 blue 0.847059
-//#declare Turquoise = color red 0.678431 green 0.917647 blue 0.917647
-//#declare Violet = color red 0.309804 green 0.184314 blue 0.309804
-//#declare VioletRed = color red 0.8 green 0.196078 blue 0.6
-//#declare Wheat = color red 0.847059 green 0.847059 blue 0.74902
-//#declare YellowGreen = color red 0.6 green 0.8 blue 0.196078
-//#declare SummerSky = color red 0.22 green 0.69 blue 0.87
-//#declare RichBlue = color red 0.35 green 0.35 blue 0.67
-//#declare Brass = color red 0.71 green 0.65 blue 0.26
-//#declare Copper = color red 0.72 green 0.45 blue 0.20
-//#declare Bronze = color red 0.55 green 0.47 blue 0.14
-//#declare Bronze2 = color red 0.65 green 0.49 blue 0.24
-//#declare Silver = color red 0.90 green 0.91 blue 0.98
-//#declare BrightGold = color red 0.85 green 0.85 blue 0.10
-//#declare OldGold = color red 0.81 green 0.71 blue 0.23
-//#declare Feldspar = color red 0.82 green 0.57 blue 0.46
-//#declare Quartz = color red 0.85 green 0.85 blue 0.95
-//#declare Mica = color Black // needed in textures.inc
-//#declare NeonPink = color red 1.00 green 0.43 blue 0.78
-//#declare DarkPurple = color red 0.53 green 0.12 blue 0.47
-//#declare NeonBlue = color red 0.30 green 0.30 blue 1.00
-//#declare CoolCopper = color red 0.85 green 0.53 blue 0.10
-//#declare MandarinOrange = color red 0.89 green 0.47 blue 0.20
-//#declare LightWood = color red 0.91 green 0.76 blue 0.65
-//#declare MediumWood = color red 0.65 green 0.50 blue 0.39
-//#declare DarkWood = color red 0.52 green 0.37 blue 0.26
-//#declare SpicyPink = color red 1.00 green 0.11 blue 0.68
-//#declare SemiSweetChoc = color red 0.42 green 0.26 blue 0.15
-//#declare BakersChoc = color red 0.36 green 0.20 blue 0.09
-//#declare Flesh = color red 0.96 green 0.80 blue 0.69
-//#declare NewTan = color red 0.92 green 0.78 blue 0.62
-//#declare NewMidnightBlue = color red 0.00 green 0.00 blue 0.61
-//#declare VeryDarkBrown = color red 0.35 green 0.16 blue 0.14
-//#declare DarkBrown = color red 0.36 green 0.25 blue 0.20
-//#declare DarkTan = color red 0.59 green 0.41 blue 0.31
-//#declare GreenCopper = color red 0.32 green 0.49 blue 0.46
-//#declare DkGreenCopper = color red 0.29 green 0.46 blue 0.43
-//#declare DustyRose = color red 0.52 green 0.39 blue 0.39
-//#declare HuntersGreen = color red 0.13 green 0.37 blue 0.31
-//#declare Scarlet = color red 0.55 green 0.09 blue 0.09
-//
-//#declare Med_Purple = colour red 0.73 green 0.16 blue 0.96
-//#declare Light_Purple = colour red 0.87 green 0.58 blue 0.98
-//#declare Very_Light_Purple = colour red 0.94 green 0.81 blue 0.99
 
 template<class T>
 Ref<T> NifFile::FindBlockByName(const std::string& name) {
@@ -116,6 +16,135 @@ Ref<T> NifFile::FindBlockByName(const std::string& name) {
 			return namedBlock;
 	}
 	return NULL;
+}
+
+std::array<double, 3> NifFile::material_color(const SkyrimHavokMaterial& material) {
+	switch (material) {
+	//#declare Aquamarine = color red 0.439216 green 0.858824 blue 0.576471
+	case SKY_HAV_MAT_BROKEN_STONE: return { 0.439216, 0.858824, 0.576471 };
+	//#declare CoolCopper = color red 0.85 green 0.53 blue 0.10
+	case SKY_HAV_MAT_LIGHT_WOOD: return { 0.85, 0.53, 0.10 };
+	//#declare SummerSky = color red 0.22 green 0.69 blue 0.87
+	case SKY_HAV_MAT_SNOW: return { 0.22, 0.69, 0.87 };
+	//#declare DarkSlateGray = color red 0.184314 green 0.309804 blue 0.309804
+	case SKY_HAV_MAT_GRAVEL: return { 0.184314, 0.309804, 0.309804 };
+	//#declare Brass = color red 0.71 green 0.65 blue 0.26
+	case SKY_HAV_MAT_MATERIAL_CHAIN_METAL: return { 0.71, 0.65, 0.26 };
+	//#declare DarkOliveGreen = color red 0.309804 green 0.309804 blue 0.184314
+	case SKY_HAV_MAT_BOTTLE: return { 0.309804, 0.309804, 0.184314 };
+	//#declare MediumWood = color red 0.65 green 0.50 blue 0.39
+	case SKY_HAV_MAT_WOOD: return { 0.65, 0.50, 0.39 };
+	//#declare Flesh = color red 0.96 green 0.80 blue 0.69
+	case SKY_HAV_MAT_SKIN: return { 0.96, 0.80, 0.69 };
+	//#declare Scarlet = color red 0.55 green 0.09 blue 0.09
+	case SKY_HAV_MAT_UNKNOWN_617099282: return { 0.55, 0.09, 0.09 };
+	//#declare Maroon = color red 0.556863 green 0.137255 blue 0.419608
+	case SKY_HAV_MAT_BARREL: return { 0.556863, 0.137255, 0.419608 };
+	//#declare Quartz = color red 0.85 green 0.85 blue 0.95
+	case SKY_HAV_MAT_MATERIAL_CERAMIC_MEDIUM: return { 0.85, 0.85, 0.95 };
+	//#declare Khaki = color red 0.623529 green 0.623529 blue 0.372549
+	case SKY_HAV_MAT_MATERIAL_BASKET: return { 0.623529, 0.623529, 0.372549 };
+	//#declare LightBlue = color red 0.74902 green 0.847059 blue 0.847059
+	case SKY_HAV_MAT_ICE: return { 0.74902, 0.847059, 0.847059 };
+	//#declare Silver = color red 0.90 green 0.91 blue 0.98
+	case SKY_HAV_MAT_STAIRS_STONE: return { 0.90, 0.91, 0.98 };
+	//#declare MediumAquamarine = color red 0.196078 green 0.8 blue 0.6
+	case SKY_HAV_MAT_WATER: return { 0.196078, 0.8, 0.6 };
+	//#declare NewTan = color red 0.92 green 0.78 blue 0.62
+	case SKY_HAV_MAT_UNKNOWN_1028101969: return { 0.92, 0.78, 0.62 };
+	//#declare NavyBlue = color red 0.137255 green 0.137255 blue 0.556863
+	case SKY_HAV_MAT_MATERIAL_BLADE_1HAND: return { 0.137255, 0.137255, 0.556863 };
+	//#declare BakersChoc = color red 0.36 green 0.20 blue 0.09
+	case SKY_HAV_MAT_MATERIAL_BOOK: return { 0.36, 0.20, 0.09 };
+	//#declare Sienna = color red 0.556863 green 0.419608 blue 0.137255
+	case SKY_HAV_MAT_MATERIAL_CARPET: return { 0.556863, 0.419608, 0.137255 };
+	//#declare Feldspar = color red 0.82 green 0.57 blue 0.46
+	case SKY_HAV_MAT_SOLID_METAL: return { 0.82, 0.57, 0.46 };
+	//#declare DkGreenCopper = color red 0.29 green 0.46 blue 0.43
+	case SKY_HAV_MAT_MATERIAL_AXE_1HAND: return { 0.29, 0.46, 0.43 };
+	//#declare Very_Light_Purple = colour red 0.94 green 0.81 blue 0.99
+	case SKY_HAV_MAT_UNKNOWN_1440721808: return { 0.94, 0.81, 0.99 };
+	//#declare YellowGreen = color red 0.6 green 0.8 blue 0.196078
+	case SKY_HAV_MAT_STAIRS_WOOD: return { 0.6, 0.8, 0.196078 };
+	//#declare DarkWood = color red 0.52 green 0.37 blue 0.26
+	case SKY_HAV_MAT_MUD: return {0.52, 0.37, 0.26};
+	//#declare Plum = color red 0.917647 green 0.678431 blue 0.917647
+	case SKY_HAV_MAT_MATERIAL_BOULDER_SMALL: return { 0.917647, 0.678431, 0.917647 };
+	//#declare SkyBlue = color red 0.196078 green 0.6 blue 0.8
+	case SKY_HAV_MAT_STAIRS_SNOW: return { 0.196078, 0.6, 0.8 };
+	//#declare DarkTan = color red 0.59 green 0.41 blue 0.31
+	case SKY_HAV_MAT_HEAVY_STONE: return { 0.59, 0.41, 0.31 };
+	//#declare Med_Purple = colour red 0.73 green 0.16 blue 0.96
+	case SKY_HAV_MAT_UNKNOWN_1574477864: return { 0.73, 0.16, 0.96 };
+	//#declare Light_Purple = colour red 0.87 green 0.58 blue 0.98
+	case SKY_HAV_MAT_UNKNOWN_1591009235: return { 0.87, 0.58, 0.98 };
+	//#declare DarkBrown = color red 0.36 green 0.25 blue 0.20
+	case SKY_HAV_MAT_MATERIAL_BOWS_STAVES: return { 0.36, 0.25, 0.20 };
+	//#declare Bronze2 = color red 0.65 green 0.49 blue 0.24
+	case SKY_HAV_MAT_MATERIAL_WOOD_AS_STAIRS: return { 0.65, 0.49, 0.24 };
+	//#declare SpringGreen = color green 1.0 blue 0.498039
+	case SKY_HAV_MAT_GRASS: return {0.0, 1.0, 0.498039 };
+	//#declare OrangeRed = color red 1.0 green 0.25
+	case SKY_HAV_MAT_MATERIAL_BOULDER_LARGE: return { 1.0, 0.25, 0.0 };
+	//#declare DustyRose = color red 0.52 green 0.39 blue 0.39
+	case SKY_HAV_MAT_MATERIAL_STONE_AS_STAIRS: return { 0.52, 0.39, 0.39 };
+	//#declare NewMidnightBlue = color red 0.00 green 0.00 blue 0.61
+	case SKY_HAV_MAT_MATERIAL_BLADE_2HAND: return { 0.0, 0.0, 0.61 };
+	//#declare SeaGreen = color red 0.137255 green 0.556863 blue 0.419608
+	case SKY_HAV_MAT_MATERIAL_BOTTLE_SMALL: return { 0.137255, 0.556863, 0.419608 };
+	//#declare Wheat = color red 0.847059 green 0.847059 blue 0.74902
+	case SKY_HAV_MAT_SAND: return { 0.847059, 0.847059, 0.74902};
+	//#declare SteelBlue = color red 0.137255 green 0.419608 blue 0.556863
+	case SKY_HAV_MAT_HEAVY_METAL: return { 0.137255, 0.419608, 0.556863 };
+	//#declare SpicyPink = color red 1.00 green 0.11 blue 0.68
+	case SKY_HAV_MAT_UNKNOWN_2290050264: return {1.0, 0.11, 0.68};
+	//#declare BrightGold = color red 0.85 green 0.85 blue 0.10
+	case SKY_HAV_MAT_DRAGON: return { 0.85, 0.85, 0.10 };
+	//#declare GreenCopper = color red 0.32 green 0.49 blue 0.46
+	case SKY_HAV_MAT_MATERIAL_BLADE_1HAND_SMALL: return { 0.32, 0.49, 0.46 };
+	//#declare NeonPink = color red 1.00 green 0.43 blue 0.78
+	case SKY_HAV_MAT_MATERIAL_SKIN_SMALL: return { 1.0, 0.43, 0.78 };
+	//#declare SemiSweetChoc = color red 0.42 green 0.26 blue 0.15
+	case SKY_HAV_MAT_STAIRS_BROKEN_STONE: return { 0.42, 0.26, 0.15 };
+	//#declare MandarinOrange = color red 0.89 green 0.47 blue 0.20
+	case SKY_HAV_MAT_MATERIAL_SKIN_LARGE: return { 0.89, 0.47, 0.20 };
+	//#declare Tan = color red 0.858824 green 0.576471 blue 0.439216
+	case SKY_HAV_MAT_ORGANIC: return { 0.858824, 0.576471, 0.439216 };
+	//#declare Thistle = color red 0.847059 green 0.74902 blue 0.847059
+	case SKY_HAV_MAT_MATERIAL_BONE: return { 0.847059, 0.74902, 0.847059 };
+	//#declare LightWood = color red 0.91 green 0.76 blue 0.65
+	case SKY_HAV_MAT_HEAVY_WOOD: return { 0.91, 0.76, 0.65 };
+	//#declare NeonBlue = color red 0.30 green 0.30 blue 1.00
+	case SKY_HAV_MAT_MATERIAL_CHAIN: return { 0.30, 0.30, 1.00 };
+	//#declare IndianRed = color red 0.309804 green 0.184314 blue 0.184314
+	case SKY_HAV_MAT_DIRT: return { 0.309804, 0.184314, 0.184314 };
+	//#declare MediumBlue = color red 0.196078 green 0.196078 blue 0.8
+	case SKY_HAV_MAT_MATERIAL_ARMOR_LIGHT: return { 0.196078, 0.196078, 0.8 };
+	//#declare MediumForestGreen = color red 0.419608 green 0.556863 blue 0.137255
+	case SKY_HAV_MAT_MATERIAL_SHIELD_LIGHT: return { 0.419608, 0.556863, 0.137255 };
+	//#declare OldGold = color red 0.81 green 0.71 blue 0.23
+	case SKY_HAV_MAT_MATERIAL_COIN: return {0.81, 0.71, 0.23};
+	//#declare MediumGoldenrod = color red 0.917647 green 0.917647 blue 0.678431
+	case SKY_HAV_MAT_MATERIAL_SHIELD_HEAVY: return { 0.917647, 0.917647, 0.678431 };
+	//#declare MediumOrchid = color red 0.576471 green 0.439216 blue 0.858824
+	case SKY_HAV_MAT_MATERIAL_ARMOR_HEAVY: return { 0.576471, 0.439216, 0.858824 };
+	//#declare MediumSeaGreen = color red 0.258824 green 0.435294 blue 0.258824
+	case SKY_HAV_MAT_MATERIAL_ARROW: return { 0.258824, 0.435294, 0.258824 };
+	//#declare RichBlue = color red 0.35 green 0.35 blue 0.67
+	case SKY_HAV_MAT_GLASS: return { 0.35, 0.35, 0.67 };
+	//#declare Firebrick = color red 0.556863 green 0.137255 blue 0.137255
+	case SKY_HAV_MAT_STONE: return { 0.556863, 0.137255, 0.137255 };
+	//#declare DarkGreen = color red 0.184314 green 0.309804 blue 0.184314
+	case SKY_HAV_MAT_CLOTH: return { 0.184314, 0.309804, 0.184314 };
+	//#declare MidnightBlue = color red 0.184314 green 0.184314 blue 0.309804
+	case SKY_HAV_MAT_MATERIAL_BLUNT_2HAND: return { 0.184314, 0.184314, 0.309804 };
+	//#declare VioletRed = color red 0.8 green 0.196078 blue 0.6
+	case SKY_HAV_MAT_UNKNOWN_4239621792: return { 0.8, 0.196078, 0.6 };
+	//#declare Salmon = color red 0.435294 green 0.258824 blue 0.258824
+	case SKY_HAV_MAT_MATERIAL_BOULDER_MEDIUM: return { 0.435294, 0.258824, 0.258824 };
+	}
+	//red
+	return { 1.0, 0.0, 0.0 };
 }
 
 const char* NifFile::material_name(const SkyrimHavokMaterial& material) {
@@ -251,16 +280,110 @@ SkyrimHavokMaterial NifFile::material_value(const string& name) {
 	return SKY_HAV_MAT_WOOD;
 }
 
-//int NifFile::GetBlockID(NiObject* block) {
-//	auto it = std::find_if(blocks.begin(), blocks.end(), [&block](const auto& ptr) {
-//		return &*ptr == block;
-//	});
-//
-//	if (it != blocks.end())
-//		return std::distance(blocks.begin(), it);
-//
-//	return 0xFFFFFFFF;
-//}
+const char* NifFile::layer_name(const SkyrimLayer& layer) {
+	switch (layer) {
+	case SKYL_UNIDENTIFIED: return "SKYL_UNIDENTIFIED";
+	case SKYL_STATIC: return "SKYL_STATIC";
+	case SKYL_ANIMSTATIC: return "SKYL_ANIMSTATIC";
+	case SKYL_TRANSPARENT: return "SKYL_TRANSPARENT";
+	case SKYL_CLUTTER: return "SKYL_CLUTTER";
+	case SKYL_WEAPON: return "SKYL_WEAPON";
+	case SKYL_PROJECTILE: return "SKYL_PROJECTILE";
+	case SKYL_NONCOLLIDABLE: return "SKYL_NONCOLLIDABLE";
+	case SKYL_BIPED: return "SKYL_BIPED";
+	case SKYL_TREES: return "SKYL_TREES";
+	case SKYL_PROPS: return "SKYL_PROPS";
+	case SKYL_WATER: return "SKYL_WATER";
+	case SKYL_TRIGGER: return "SKYL_TRIGGER";
+	case SKYL_TERRAIN: return "SKYL_TERRAIN";
+	case SKYL_TRAP: return "SKYL_TRAP";
+	case SKYL_CLOUD_TRAP: return "SKYL_CLOUD_TRAP";
+	case SKYL_GROUND: return "SKYL_GROUND";
+	case SKYL_PORTAL: return "SKYL_PORTAL";
+	case SKYL_DEBRIS_SMALL: return "SKYL_DEBRIS_SMALL";
+	case SKYL_DEBRIS_LARGE: return "SKYL_DEBRIS_LARGE";
+	case SKYL_ACOUSTIC_SPACE: return "SKYL_ACOUSTIC_SPACE";
+	case SKYL_ACTORZONE: return "SKYL_ACTORZONE";
+	case SKYL_PROJECTILEZONE: return "SKYL_PROJECTILEZONE";
+	case SKYL_GASTRAP: return "SKYL_GASTRAP";
+	case SKYL_SHELLCASING: return "SKYL_SHELLCASING";
+	case SKYL_TRANSPARENT_SMALL: return "SKYL_TRANSPARENT_SMALL";
+	case SKYL_INVISIBLE_WALL: return "SKYL_INVISIBLE_WALL";
+	case SKYL_TRANSPARENT_SMALL_ANIM: return "SKYL_TRANSPARENT_SMALL_ANIM";
+	case SKYL_WARD: return "SKYL_WARD";
+	case SKYL_CHARCONTROLLER: return "SKYL_CHARCONTROLLER";
+	case SKYL_STAIRHELPER: return "SKYL_STAIRHELPER";
+	case SKYL_DEADBIP: return "SKYL_DEADBIP";
+	case SKYL_BIPED_NO_CC: return "SKYL_BIPED_NO_CC";
+	case SKYL_AVOIDBOX: return "SKYL_AVOIDBOX";
+	case SKYL_COLLISIONBOX: return "SKYL_COLLISIONBOX";
+	case SKYL_CAMERASHPERE: return "SKYL_CAMERASHPERE";
+	case SKYL_DOORDETECTION: return "SKYL_DOORDETECTION";
+	case SKYL_CONEPROJECTILE: return "SKYL_CONEPROJECTILE";
+	case SKYL_CAMERAPICK: return "SKYL_CAMERAPICK";
+	case SKYL_ITEMPICK: return "SKYL_ITEMPICK";
+	case SKYL_LINEOFSIGHT: return "SKYL_LINEOFSIGHT";
+	case SKYL_PATHPICK: return "SKYL_PATHPICK";
+	case SKYL_CUSTOMPICK1: return "SKYL_CUSTOMPICK1";
+	case SKYL_CUSTOMPICK2: return "SKYL_CUSTOMPICK2";
+	case SKYL_SPELLEXPLOSION: return "SKYL_SPELLEXPLOSION";
+	case SKYL_DROPPINGPICK: return "SKYL_DROPPINGPICK";
+	case SKYL_NULL: return "SKYL_NULL";
+	}
+	return "SKYL_UNIDENTIFIED";
+}
+
+SkyrimLayer NifFile::layer_value(const string& name) {
+	if (name == "SKYL_UNIDENTIFIED") return SKYL_UNIDENTIFIED;
+	if (name == "SKYL_STATIC") return SKYL_STATIC;
+	if (name == "SKYL_ANIMSTATIC") return SKYL_ANIMSTATIC;
+	if (name == "SKYL_TRANSPARENT") return SKYL_TRANSPARENT;
+	if (name == "SKYL_CLUTTER") return SKYL_CLUTTER;
+	if (name == "SKYL_WEAPON") return SKYL_WEAPON;
+	if (name == "SKYL_PROJECTILE") return SKYL_PROJECTILE;
+	if (name == "SKYL_NONCOLLIDABLE") return SKYL_NONCOLLIDABLE;
+	if (name == "SKYL_BIPED") return SKYL_BIPED;
+	if (name == "SKYL_TREES") return SKYL_TREES;
+	if (name == "SKYL_PROPS") return SKYL_PROPS;
+	if (name == "SKYL_WATER") return SKYL_WATER;
+	if (name == "SKYL_TRIGGER") return SKYL_TRIGGER;
+	if (name == "SKYL_TERRAIN") return SKYL_TERRAIN;
+	if (name == "SKYL_TRAP") return SKYL_TRAP;
+	if (name == "SKYL_CLOUD_TRAP") return SKYL_CLOUD_TRAP;
+	if (name == "SKYL_GROUND") return SKYL_GROUND;
+	if (name == "SKYL_PORTAL") return SKYL_PORTAL;
+	if (name == "SKYL_DEBRIS_SMALL") return SKYL_DEBRIS_SMALL;
+	if (name == "SKYL_DEBRIS_LARGE") return SKYL_DEBRIS_LARGE;
+	if (name == "SKYL_ACOUSTIC_SPACE") return SKYL_ACOUSTIC_SPACE;
+	if (name == "SKYL_ACTORZONE") return SKYL_ACTORZONE;
+	if (name == "SKYL_PROJECTILEZONE") return SKYL_PROJECTILEZONE;
+	if (name == "SKYL_GASTRAP") return SKYL_GASTRAP;
+	if (name == "SKYL_SHELLCASING") return SKYL_SHELLCASING;
+	if (name == "SKYL_TRANSPARENT_SMALL") return SKYL_TRANSPARENT_SMALL;
+	if (name == "SKYL_INVISIBLE_WALL") return SKYL_INVISIBLE_WALL;
+	if (name == "SKYL_TRANSPARENT_SMALL_ANIM") return SKYL_TRANSPARENT_SMALL_ANIM;
+	if (name == "SKYL_WARD") return SKYL_WARD;
+	if (name == "SKYL_CHARCONTROLLER") return SKYL_CHARCONTROLLER;
+	if (name == "SKYL_STAIRHELPER") return SKYL_STAIRHELPER;
+	if (name == "SKYL_DEADBIP") return SKYL_DEADBIP;
+	if (name == "SKYL_BIPED_NO_CC") return SKYL_BIPED_NO_CC;
+	if (name == "SKYL_AVOIDBOX") return SKYL_AVOIDBOX;
+	if (name == "SKYL_COLLISIONBOX") return SKYL_COLLISIONBOX;
+	if (name == "SKYL_CAMERASHPERE") return SKYL_CAMERASHPERE;
+	if (name == "SKYL_DOORDETECTION") return SKYL_DOORDETECTION;
+	if (name == "SKYL_CONEPROJECTILE") return SKYL_CONEPROJECTILE;
+	if (name == "SKYL_CAMERAPICK") return SKYL_CAMERAPICK;
+	if (name == "SKYL_ITEMPICK") return SKYL_ITEMPICK;
+	if (name == "SKYL_LINEOFSIGHT") return SKYL_LINEOFSIGHT;
+	if (name == "SKYL_PATHPICK") return SKYL_PATHPICK;
+	if (name == "SKYL_CUSTOMPICK1") return SKYL_CUSTOMPICK1;
+	if (name == "SKYL_CUSTOMPICK2") return SKYL_CUSTOMPICK2;
+	if (name == "SKYL_SPELLEXPLOSION") return SKYL_SPELLEXPLOSION;
+	if (name == "SKYL_DROPPINGPICK") return SKYL_DROPPINGPICK;
+	if (name == "SKYL_NULL") return SKYL_NULL;
+
+	return SKYL_STATIC;
+}
 
 class ParentFinder : public RecursiveFieldVisitor<ParentFinder> {
 

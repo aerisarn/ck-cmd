@@ -76,7 +76,6 @@ namespace FBX {
 		string comName;
 		map<string, FBXShape> shapes;
 		NiNodeRef FBXWrangler::importShapes(FbxNode* child, const FBXImportOptions& options);
-		vector<NiTriShapeRef> importMultipleShape(FbxNode* child, const FBXImportOptions& options);
 
 		map<NiAVObjectRef, NiAVObjectRef> conversion_parent_Map;
 		map<FbxNode*, NiObjectRef> conversion_Map;
@@ -101,6 +100,7 @@ namespace FBX {
 			
 		void checkAnimatedNodes();
 		void buildKF();
+		void buildCollisions();
 		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start);
 		void convertSkins(FbxMesh* m, NiTriShapeRef shape);
 	public:

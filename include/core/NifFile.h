@@ -85,6 +85,9 @@ using namespace Niflib;
 	
 			static const char* material_name(const SkyrimHavokMaterial& material);
 			static SkyrimHavokMaterial material_value(const string& name);
+			static std::array<double, 3> material_color(const SkyrimHavokMaterial& material);
+			static const char* layer_name(const SkyrimLayer& layer);
+			static SkyrimLayer layer_value(const string& name);
 
 			void Create(const NifInfo& version);
 			void Clear();
