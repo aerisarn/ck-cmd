@@ -43,6 +43,8 @@ See the included LICENSE file
 
 #include <algorithm>
 
+#include <boundingmesh.h>
+
 using namespace ckcmd::FBX;
 using namespace  ckcmd::Geometry;
 using namespace ckcmd::nifscan;
@@ -1918,6 +1920,9 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 
 		skins_Map[m] = out;
 	}
+	else {
+		meshes.insert(m);
+	}
 
 	if (options.InvertU)
 		for (auto &u : uvs)
@@ -2780,11 +2785,100 @@ size_t getNearestCommonAncestor(const vector<int>& parentMap, const set<size_t>&
 
 void FBXWrangler::buildCollisions()
 {
-	//group gemoetries by
+	map<FbxMesh*, NiObjectRef> meshes_parent_map;
 
-	//static model
-	if (unskinned_bones.empty() && skinned_bones.empty()) {
+	//group gemoetries by parent ninode
+	for (const auto& m : meshes) {
+		FbxNode* parent = m->GetNode();
+		while (hasNoTransform(parent) && unskinned_bones.find(parent) == unskinned_bones.end())
+			parent = parent->GetParent();
+		NiObjectRef ni_parent = conversion_Map[parent];
+		if (ni_parent != NULL)
+			meshes_parent_map[m] = ni_parent;
+	}
 
+	map<NiObjectRef, shared_ptr<boundingmesh::Mesh>> collision_map;
+
+	//TODO: can we do a ragdoll for skinned meshes?
+	for (const auto& pair : meshes_parent_map)
+	{
+		NiObjectRef parent = pair.second;
+		FbxMesh* mesh = pair.first;
+
+		shared_ptr<boundingmesh::Mesh> bmesh;
+		if (collision_map.find(parent) == collision_map.end())
+		{
+			bmesh = make_shared<boundingmesh::Mesh>();
+			collision_map[parent] = bmesh;
+		}
+		else {
+			bmesh = collision_map[parent];
+		}
+
+		size_t vertices_count = mesh->GetControlPointsCount();
+		size_t map_offset = bmesh->nVertices();
+		for (int i = 0; i < vertices_count; i++) {
+			FbxVector4 vertex = mesh->GetControlPointAt(i);
+			bmesh->addVertex({ vertex[0], vertex[1], vertex[2] });
+		}
+
+
+		size_t tris_count = mesh->GetPolygonCount();
+
+		for (int i = 0; i < tris_count; i++) {
+			int v1 = mesh->GetPolygonVertex(i, 0);
+			int v2 = mesh->GetPolygonVertex(i, 1);
+			int v3 = mesh->GetPolygonVertex(i, 2);
+
+			bmesh->addTriangle(v1 + map_offset, v2 + map_offset, v3 + map_offset);
+		}
+	}
+
+	for (const auto& pair : collision_map)
+	{
+		NiNodeRef parent = DynamicCast<NiNode>(pair.first);
+		 
+		shared_ptr<boundingmesh::Mesh> bmesh = pair.second;
+
+		//shared_ptr<boundingmesh::Mesh> bmesh = make_shared<boundingmesh::Mesh>();
+
+		bmesh->closeHoles();
+		boundingmesh::Decimator decimator;
+		decimator.setDirection(boundingmesh::Outward);
+		decimator.setMetric(boundingmesh::Average);
+		decimator.setTargetVertices(bmesh->nVertices() / 2);
+		decimator.setMesh(*bmesh);
+		std::shared_ptr<boundingmesh::Mesh> result = decimator.compute();
+		result->cleanAndRenumber();
+
+		NiTriShapeRef out = new NiTriShape();
+		NiTriShapeDataRef data = new NiTriShapeData();
+		vector<Vector3> vertices;
+		vector<Triangle> tris;
+
+		for (int i = 0; i < result->nVertices(); i++)
+		{
+			boundingmesh::Vector3 v = result->vertex(i).position();
+			vertices.push_back({ (float)v[0], (float)v[1], (float)v[2] });
+		}
+
+		for (int i = 0; i < result->nTriangles(); i++)
+		{
+			boundingmesh::Triangle v = result->triangle(i);
+			tris.push_back({ (unsigned short)v.vertex(0), (unsigned short)v.vertex(1), (unsigned short)v.vertex(2) });
+		}
+
+		data->SetHasVertices(true);
+		data->SetVertices(vertices);
+		data->SetHasTriangles(true);
+		data->SetNumTriangles(tris.size());
+		data->SetNumTrianglePoints(tris.size() * 3);
+		data->SetTriangles(tris);
+
+		out->SetData(StaticCast<NiGeometryData>(data));
+		vector<NiAVObjectRef> children = parent->GetChildren();
+		children.push_back(DynamicCast<NiAVObject>(out));
+		//parent->SetChildren(children);
 	}
 
 }
