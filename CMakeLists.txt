@@ -283,11 +283,14 @@ set(LIBIGL_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/libigl/include")
 
 set(BOUNDINGMESH_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/bounding-mesh/src/boundingmesh")
 file(GLOB BOUNDINGMESH_SRCS "${CMAKE_SOURCE_DIR}/modules/geometry/bounding-mesh/src/boundingmesh/*.cpp" )
+file(GLOB BOUNDINGMESH_THIRD_SRCS "${CMAKE_SOURCE_DIR}/modules/geometry/bounding-mesh/thirdparty/EigenQP.*" )
 
 set(QUICKHULL_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/quickhull")
 file(GLOB QUICKHULL_SRCS "${CMAKE_SOURCE_DIR}/modules/geometry/quickhull/*.cpp" )
 
 set(VHACD_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src/VHACD_Lib/public" )
+include_directories("${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src/VHACD_Lib/public" )
+
 
 list(APPEND TEST_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES ${HAVOK_LIBS})
@@ -295,6 +298,7 @@ list(APPEND PROJECT_LIBRARIES loki)
 list(APPEND PROJECT_LIBRARIES niflib)
 list(APPEND PROJECT_LIBRARIES fbxsdk)
 list(APPEND PROJECT_LIBRARIES libbsa)
+list(APPEND PROJECT_LIBRARIES vhacd)
 list(APPEND TEST_INCLUDES ${HAVOK_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_COMPAT_INCLUDES_PATH})
@@ -405,6 +409,7 @@ list (APPEND PROJECT_INCLUDES ${VHACD_INCLUDES})
 
 #submodules
 list (APPEND PROJECT_SRC ${BOUNDINGMESH_SRCS})
+list (APPEND PROJECT_SRC ${BOUNDINGMESH_THIRD_SRCS})
 list (APPEND PROJECT_SRC ${QUICKHULL_SRCS})
 list (APPEND PROJECT_SRC ${MIKKTSPACE_SRCS})
 
@@ -428,7 +433,7 @@ source_group("Geometry\\QuickHull" FILES ${QUICKHULL_SRCS})
 
 # Settings when compiling with MSVC.
 IF (MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
     # Update compiler flags.
     IF (PROJECT_STATIC_RUNTIME)
@@ -451,6 +456,8 @@ IF (MSVC)
 	#find_library(WIN32_LEGACY legacy_stdio_definitions.lib)
 
 ENDIF ()
+
+add_subdirectory(${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src)
 
 # Build core
 add_executable				(ck-cmd ${PROJECT_SRC} ${PROJECT_HEADERS})
