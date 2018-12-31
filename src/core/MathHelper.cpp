@@ -39,3 +39,10 @@ void find_files(fs::path startingDir, string extension, vector<fs::path>& result
 		}
 	}
 }
+
+fs::path relative_to(const fs::path& p, const fs::path& base) {
+	fs::path in = p;
+	fs::path out;
+	while (in.has_parent_path() && in != base) { out = in.filename() / out; in = in.parent_path(); }
+	return out;
+}

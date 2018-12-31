@@ -20,3 +20,5 @@ void replaceAll(std::string& str, const std::string& from, const std::string& to
 void sanitizeString(string& to_sanitize);
 
 void find_files(fs::path startingDir, string extension, vector<fs::path>& results);
+
+fs::path relative_to(const fs::path& p, const fs::path& base);

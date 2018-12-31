@@ -5,6 +5,7 @@
 #include <core/log.h>
 
 #include <commands/desaturateVC.h>
+#include <core/MathHelper.h>
 
 using namespace ckcmd;
 using namespace ckcmd::desaturateVC;
@@ -87,12 +88,6 @@ void desaturate(vector<NiObjectRef> blocks, NifInfo info) {
 			data->SetVertexColors(vcs);
 		}
 	}
-}
-fs::path relative_to(const fs::path& p, const fs::path& base) {
-	fs::path in = p;
-	fs::path out;
-	while (in.has_parent_path() && in != base) { out = in.filename() / out; in = in.parent_path(); }
-	return out;
 }
 
 bool DesaturateVC::InternalRunCommand(map<string, docopt::value> parsedArgs)

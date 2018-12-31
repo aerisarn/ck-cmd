@@ -206,14 +206,9 @@ public:
 			const vector<unsigned short>& indices = chunk.indices;
 			const vector<unsigned short>& strips = chunk.strips;
 
-			//vector<Vector3> verts(numOffsets / 3);
 			int offset = 0;
 
 			const bhkCMSDTransform& transform = transforms[chunk.transformIndex];
-			//const bhkCMSDMaterial& material = materials[chunk.materialIndex];
-			
-			//int mtlIdx = GetHavokIndexFromSkyrimMaterial(material.layer);
-			//int lyrIdx = GetHavokIndexFromSkyrimLayer(material.layer);
 
 			hkQTransform t;
 			t.setTranslation(TOVECTOR4(transform.translation));
@@ -227,7 +222,7 @@ public:
 				Vector3 vec = chunkOrigin + Vector3(offsets[3 * n], offsets[3 * n + 1], offsets[3 * n + 2]) / 1000.0f;
 				hkVector4 p = TOVECTOR4(vec);
 				rr.transformPosition(p, p);
-				geometry.m_vertices.pushBack(p); //verts.push_back(TOVECTOR3(p));
+				geometry.m_vertices.pushBack(p);
 			}
 
 			for (auto s = 0; s < numStrips; s++) {
@@ -271,53 +266,53 @@ public:
 	}
 };
 
-class ConstraintVisitor {
-protected:
-	vector<bhkBlendCollisionObjectRef>& nifBodies;
-	hkArray<hkpRigidBody*>& hkBodies;
-
-	hkpRigidBody* getEntity(Ref<bhkEntity> e) {
-		int index = find_if(nifBodies.begin(), nifBodies.end(), [e](bhkBlendCollisionObjectRef b) -> bool { return &(*b->GetBody()) == &*e; }) - nifBodies.begin();
-		if (index < 0 || index >= hkBodies.getSize()) throw runtime_error("Invalid entity into constraint!");
-		return hkBodies[index];
-	}
-public:
-	virtual hkpConstraintData* visit(RagdollDescriptor& constraint) = 0;
-	virtual hkpConstraintData* visit(PrismaticDescriptor& constraint) = 0;
-	virtual hkpConstraintData* visit(MalleableDescriptor& constraint) = 0;
-	virtual hkpConstraintData* visit(HingeDescriptor& constraint) = 0;
-	virtual hkpConstraintData* visit(LimitedHingeDescriptor& constraint) = 0;
-	virtual hkpConstraintData* visit(BallAndSocketDescriptor& constraint) = 0;
-	virtual hkpConstraintData* visit(StiffSpringDescriptor& constraint) = 0;
-
-	virtual hkpConstraintInstance* visitConstraint(bhkConstraintRef constraint) {
-		hkpConstraintData* data = NULL;
-		if (constraint)
-		{
-			if (constraint->IsSameType(bhkRagdollConstraint::TYPE))
-				data = visit(DynamicCast<bhkRagdollConstraint>(constraint)->GetRagdoll());
-			else if (constraint->IsSameType(bhkPrismaticConstraint::TYPE))
-				data = visit(DynamicCast<bhkPrismaticConstraint>(constraint)->GetPrismatic());
-			else if (constraint->IsSameType(bhkMalleableConstraint::TYPE))
-				data = visit(DynamicCast<bhkMalleableConstraint>(constraint)->GetMalleable());
-			else if (constraint->IsSameType(bhkHingeConstraint::TYPE))
-				data = visit(DynamicCast<bhkHingeConstraint>(constraint)->GetHinge());
-			else if (constraint->IsSameType(bhkLimitedHingeConstraint::TYPE))
-				data = visit(DynamicCast<bhkLimitedHingeConstraint>(constraint)->GetLimitedHinge());
-			else if (constraint->IsSameType(bhkBallAndSocketConstraint::TYPE))
-				data = visit(DynamicCast<bhkBallAndSocketConstraint>(constraint)->GetBallAndSocket());
-			else if (constraint->IsSameType(bhkStiffSpringConstraint::TYPE))
-				data = visit(DynamicCast<bhkStiffSpringConstraint>(constraint)->GetStiffSpring());
-			else
-				throw new runtime_error("Unimplemented constraint type!");
-			return new hkpConstraintInstance(getEntity(constraint->GetEntities()[0]), getEntity(constraint->GetEntities()[1]), data);
-		}
-	}
-
-	ConstraintVisitor(vector<bhkBlendCollisionObjectRef>& nbodies, hkArray<hkpRigidBody*>& hkbodies) : nifBodies(nbodies), hkBodies(hkbodies) {}
-};
-
-//class ConstraintBuilder : public ConstraintVisitor {
+//class ConstraintVisitor {
+//protected:
+//	vector<bhkBlendCollisionObjectRef>& nifBodies;
+//	hkArray<hkpRigidBody*>& hkBodies;
+//
+//	hkpRigidBody* getEntity(Ref<bhkEntity> e) {
+//		int index = find_if(nifBodies.begin(), nifBodies.end(), [e](bhkBlendCollisionObjectRef b) -> bool { return &(*b->GetBody()) == &*e; }) - nifBodies.begin();
+//		if (index < 0 || index >= hkBodies.getSize()) throw runtime_error("Invalid entity into constraint!");
+//		return hkBodies[index];
+//	}
+//public:
+//	virtual hkpConstraintData* visit(RagdollDescriptor& constraint) = 0;
+//	virtual hkpConstraintData* visit(PrismaticDescriptor& constraint) = 0;
+//	virtual hkpConstraintData* visit(MalleableDescriptor& constraint) = 0;
+//	virtual hkpConstraintData* visit(HingeDescriptor& constraint) = 0;
+//	virtual hkpConstraintData* visit(LimitedHingeDescriptor& constraint) = 0;
+//	virtual hkpConstraintData* visit(BallAndSocketDescriptor& constraint) = 0;
+//	virtual hkpConstraintData* visit(StiffSpringDescriptor& constraint) = 0;
+//
+//	virtual hkpConstraintInstance* visitConstraint(bhkConstraintRef constraint) {
+//		hkpConstraintData* data = NULL;
+//		if (constraint)
+//		{
+//			if (constraint->IsSameType(bhkRagdollConstraint::TYPE))
+//				data = visit(DynamicCast<bhkRagdollConstraint>(constraint)->GetRagdoll());
+//			else if (constraint->IsSameType(bhkPrismaticConstraint::TYPE))
+//				data = visit(DynamicCast<bhkPrismaticConstraint>(constraint)->GetPrismatic());
+//			else if (constraint->IsSameType(bhkMalleableConstraint::TYPE))
+//				data = visit(DynamicCast<bhkMalleableConstraint>(constraint)->GetMalleable());
+//			else if (constraint->IsSameType(bhkHingeConstraint::TYPE))
+//				data = visit(DynamicCast<bhkHingeConstraint>(constraint)->GetHinge());
+//			else if (constraint->IsSameType(bhkLimitedHingeConstraint::TYPE))
+//				data = visit(DynamicCast<bhkLimitedHingeConstraint>(constraint)->GetLimitedHinge());
+//			else if (constraint->IsSameType(bhkBallAndSocketConstraint::TYPE))
+//				data = visit(DynamicCast<bhkBallAndSocketConstraint>(constraint)->GetBallAndSocket());
+//			else if (constraint->IsSameType(bhkStiffSpringConstraint::TYPE))
+//				data = visit(DynamicCast<bhkStiffSpringConstraint>(constraint)->GetStiffSpring());
+//			else
+//				throw new runtime_error("Unimplemented constraint type!");
+//			return new hkpConstraintInstance(getEntity(constraint->GetEntities()[0]), getEntity(constraint->GetEntities()[1]), data);
+//		}
+//	}
+//
+//	ConstraintVisitor(vector<bhkBlendCollisionObjectRef>& nbodies, hkArray<hkpRigidBody*>& hkbodies) : nifBodies(nbodies), hkBodies(hkbodies) {}
+//};
+//
+//class FBXConstraintBuilder : public ConstraintVisitor {
 //public:
 //
 //	virtual hkpConstraintData* visit(BallAndSocketDescriptor& constraint)
@@ -410,6 +405,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	deque<FbxNode*> build_stack;
 	set<void*>& alreadyVisitedNodes;
 	map<NiSkinInstance*, NiTriBasedGeom*> skins;
+	map<bhkRigidBodyRef, FbxNode*> bodies;
 	set<NiControllerManager*>& managers;
 	NifFile& nif_file;
 	FbxAnimStack* lAnimStack = NULL;
@@ -1110,24 +1106,51 @@ public:
 		for (const auto& material : materials)
 		{
 			string lMaterialName = NifFile::material_name(material.material);
-			string lShadingName = "Phong";
-			FbxDouble3 white = FbxDouble3(1, 1, 1);
-			std::array<double, 3> m_color = NifFile::material_color(material.material);
-			FbxDouble3 lcolor(m_color[0], m_color[1], m_color[2]);
-			FbxDouble3 lDiffuseColor(0.75, 0.75, 0.0);
-			FbxSurfacePhong* gMaterial = FbxSurfacePhong::Create(scene.GetFbxManager(), lMaterialName.c_str());
-			//The following properties are used by the Phong shader to calculate the color for each pixel in the material :
+			string collision_layer_name = NifFile::layer_name(material.filter.layer_sk);
 
-			// Generate primary and secondary colors.
-			gMaterial->Emissive = lcolor;
-			gMaterial->TransparencyFactor = 0.5;
-			gMaterial->Ambient = white;
-			gMaterial->Diffuse = white;
-			gMaterial->Shininess = 0.5;
+			//FbxScene* scene = parent->GetScene();
 
-			gMaterial->ShadingModel = NifFile::layer_name(material.filter.layer_sk);
+			size_t materials_count = scene.GetMaterialCount();
+			bool material_found = false;
+			FbxSurfaceMaterial* m = NULL;
+			for (int mm = 0; mm < materials_count; mm++)
+			{
+				m = scene.GetMaterial(mm);
+				string m_name = m->GetName();
+				FbxProperty layer = m->FindProperty("CollisionLayer");
+				FbxString m_layer_v = layer.Get<FbxString>();
+				string m_layer = m_layer_v.Buffer();
+				if (m_name == lMaterialName && collision_layer_name == m_layer)
+				{
+					material_found = true;
+					break;
+				}
+			}
 
-			parent->AddMaterial(gMaterial);
+			if (!material_found)
+			{
+				string lShadingName = "Phong";
+				FbxDouble3 white = FbxDouble3(1, 1, 1);
+				std::array<double, 3> m_color = NifFile::material_color(material.material);
+				FbxDouble3 lcolor(m_color[0], m_color[1], m_color[2]);
+				FbxDouble3 lDiffuseColor(0.75, 0.75, 0.0);
+				FbxSurfacePhong* gMaterial = FbxSurfacePhong::Create(scene.GetFbxManager(), lMaterialName.c_str());
+				//The following properties are used by the Phong shader to calculate the color for each pixel in the material :
+
+				// Generate primary and secondary colors.
+				gMaterial->Emissive = lcolor;
+				gMaterial->TransparencyFactor = 0.5;
+				gMaterial->Ambient = lcolor;
+				gMaterial->Diffuse = lcolor;
+				gMaterial->Shininess = 0.5;
+
+				gMaterial->ShadingModel.Set(lShadingName.c_str());
+				FbxProperty layer = FbxProperty::Create(gMaterial, FbxStringDT, "CollisionLayer");
+				layer.Set(FbxString(collision_layer_name.c_str()));
+				layer.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+				m = gMaterial;
+			}
+			parent->AddMaterial(m);
 		}
 
 		//pack
@@ -1162,11 +1185,71 @@ public:
 		return parent;
 	}
 
+	class FbxConstraintBuilder {
+	protected:
+
+		void visit(RagdollDescriptor& constraint) {}
+		void visit(PrismaticDescriptor& constraint) {}
+		void visit(MalleableDescriptor& constraint) {}
+		void visit(HingeDescriptor& constraint) {}
+		void visit(LimitedHingeDescriptor& constraint) {}
+		void visit(BallAndSocketDescriptor& constraint) {}
+		void visit(StiffSpringDescriptor& constraint) {}
+
+		void visitConstraint(FbxNode* holder, map<bhkRigidBodyRef, FbxNode*>& bodies, bhkRigidBodyRef parent, bhkConstraintRef constraint) {
+			if (constraint)
+			{
+				for (const auto& entity : constraint->GetEntities())
+				{
+					if (entity->IsDerivedType(bhkRigidBody::TYPE))
+					{
+						bhkRigidBodyRef rbentity = DynamicCast<bhkRigidBody>(entity);
+						if (rbentity != parent)
+						{
+							if (bodies.find(rbentity) == bodies.end())
+								throw runtime_error("Wrong Nif Hierarchy, entity referred before being built!");
+							FbxNode* child = bodies[rbentity];
+							FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(child, string(string(holder->GetName()) + "_con").c_str());
+							fbx_constraint->SetConstrainedObject(child);
+							fbx_constraint->AddConstraintSource(holder);
+						}
+					}
+				}
+
+				if (constraint->IsSameType(bhkRagdollConstraint::TYPE))
+					visit(DynamicCast<bhkRagdollConstraint>(constraint)->GetRagdoll());
+				else if (constraint->IsSameType(bhkPrismaticConstraint::TYPE))
+					visit(DynamicCast<bhkPrismaticConstraint>(constraint)->GetPrismatic());
+				else if (constraint->IsSameType(bhkMalleableConstraint::TYPE))
+					visit(DynamicCast<bhkMalleableConstraint>(constraint)->GetMalleable());
+				else if (constraint->IsSameType(bhkHingeConstraint::TYPE))
+					visit(DynamicCast<bhkHingeConstraint>(constraint)->GetHinge());
+				else if (constraint->IsSameType(bhkLimitedHingeConstraint::TYPE))
+					visit(DynamicCast<bhkLimitedHingeConstraint>(constraint)->GetLimitedHinge());
+				else if (constraint->IsSameType(bhkBallAndSocketConstraint::TYPE))
+					visit(DynamicCast<bhkBallAndSocketConstraint>(constraint)->GetBallAndSocket());
+				else if (constraint->IsSameType(bhkStiffSpringConstraint::TYPE))
+					visit(DynamicCast<bhkStiffSpringConstraint>(constraint)->GetStiffSpring());
+				else
+					throw new runtime_error("Unimplemented constraint type!");
+			}
+		}
+
+	public:
+
+		FbxConstraintBuilder(FbxNode* holder, map<bhkRigidBodyRef, FbxNode*>& bodies, bhkRigidBodyRef parent, bhkConstraintRef constraint)
+		{
+			visitConstraint(holder, bodies, parent, constraint);
+		}
+		
+	};
+
 	inline FbxNode* visit_rigid_body(bhkRigidBodyRef obj, const string& collision_name) {
 		FbxNode* parent = build_stack.front();
 		string name = collision_name;
 		name += "_rb";
 		FbxNode* rb_node = FbxNode::Create(&scene, name.c_str());
+		bodies[obj] = rb_node;
 		if (obj->IsSameType(bhkRigidBodyT::TYPE))
 		{
 			Vector4 translation = obj->GetTranslation();
@@ -1178,6 +1261,17 @@ public:
 		}
 		recursive_convert(obj->GetShape(), rb_node, obj->GetHavokFilter());
 		parent->AddChild(rb_node);
+		//Constraints
+		for (const auto& constraint : obj->GetConstraints())
+		{
+			if (constraint->IsDerivedType(bhkConstraint::TYPE)) {
+				FbxConstraintBuilder(rb_node, bodies, obj, DynamicCast<bhkConstraint>(constraint));
+			}
+			else {
+				throw runtime_error("Unknown constraint hierarchy!");
+			}
+		}
+
 		return rb_node;
 	}
 
