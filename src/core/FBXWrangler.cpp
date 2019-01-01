@@ -99,6 +99,19 @@ static inline FbxVector4 TOFBXVECTOR4(const hkVector4& v)
 	return FbxVector4(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
 }
 
+FbxNode* setMatTransform(const Matrix44& av, FbxNode* node) {
+	Vector3 translation = av.GetTranslation();
+	//
+	node->LclTranslation.Set(FbxDouble3(translation.x, translation.y, translation.z));
+
+	Quaternion rotation = av.GetRotation().AsQuaternion();
+	Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
+	EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+	node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+	node->LclScaling.Set(FbxDouble3(av.GetScale(), av.GetScale(), av.GetScale()));
+	return node;
+}
+
 FBXWrangler::FBXWrangler() {
 	sdkManager = FbxManager::Create();
 
@@ -535,19 +548,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		return node;
 	}
 
-	FbxNode* setTransform(const Matrix44& av, FbxNode* node) {
-		Vector3 translation = av.GetTranslation();
-		//
-		node->LclTranslation.Set(FbxDouble3(translation.x, translation.y, translation.z));
-
-		Quaternion rotation = av.GetRotation().AsQuaternion();
-		Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
-		EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
-		node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
-		node->LclScaling.Set(FbxDouble3(av.GetScale(), av.GetScale(), av.GetScale()));
-		return node;
-	}
-
 	template<typename T>
 	FbxNode* getBuiltNode(T& obj) {
 		NiObject* node = (NiObject*)&obj;
@@ -956,7 +956,7 @@ public:
 			transform_block->GetTransform();
 			FbxNode* transform_node = FbxNode::Create(&scene, parent_name.c_str());
 			parent->AddChild(transform_node);
-			setTransform(transform_block->GetTransform(), transform_node);
+			setMatTransform(transform_block->GetTransform(), transform_node);
 			recursive_convert(transform_block->GetShape(), parent, layer);
 		}
 		//bhkListShape, /bhkConvexListShape
@@ -1186,15 +1186,84 @@ public:
 	}
 
 	class FbxConstraintBuilder {
+		double bhkScaleFactor;
+
 	protected:
 
-		void visit(RagdollDescriptor& constraint) {}
-		void visit(PrismaticDescriptor& constraint) {}
-		void visit(MalleableDescriptor& constraint) {}
-		void visit(HingeDescriptor& constraint) {}
-		void visit(LimitedHingeDescriptor& constraint) {}
-		void visit(BallAndSocketDescriptor& constraint) {}
-		void visit(StiffSpringDescriptor& constraint) {}
+		//TODO: pre 2010/660 import format!
+		FbxNode* visit(RagdollDescriptor& descriptor, FbxNode* parent, FbxNode* child)
+		{
+			Vector4 row1 = descriptor.twistB;
+			Vector4 row2 = descriptor.planeB;
+			Vector4 row3 = descriptor.motorB;
+			Vector4 row4 = descriptor.pivotB * bhkScaleFactor;
+
+			Matrix44 mat = Matrix44(
+				row1[0], row1[1], row1[2], row1[3],
+				row2[0], row2[1], row2[2], row2[3],
+				row3[0], row3[1], row3[2], row3[3],
+				row4[0], row4[1], row4[2], row4[3]
+			);
+			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
+			parent->AddChild(constraint_node);
+			setMatTransform(mat, constraint_node);
+			return constraint_node;
+		}
+		FbxNode* visit(PrismaticDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
+		{
+			return parent;
+		}
+		FbxNode* visit(MalleableDescriptor& descriptor, FbxNode* parent, FbxNode* child)
+		{
+			switch (descriptor.type) {
+				case BALLANDSOCKET:
+					return visit(descriptor.ballAndSocket, parent, child);
+				case HINGE:
+					return visit(descriptor.hinge, parent, child);
+				case LIMITED_HINGE:
+					return visit(descriptor.limitedHinge, parent, child);
+				case PRISMATIC:
+					return visit(descriptor.prismatic, parent, child);
+				case RAGDOLL:
+					return visit(descriptor.ragdoll, parent, child);
+				case STIFFSPRING:
+					return visit(descriptor.stiffSpring, parent, child);
+				case MALLEABLE:
+					throw runtime_error("Recursive Malleable Constraint detected!");
+			}
+			throw runtime_error("Unknown Malleable Constraint detected!");
+			return parent;
+		}
+		FbxNode* visit(HingeDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
+		{
+			return parent;
+		}
+		FbxNode* visit(LimitedHingeDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
+		{
+			Vector4 row1 = descriptor.axleB;
+			Vector4 row2 = descriptor.perp2AxleInB1;
+			Vector4 row3 = descriptor.perp2AxleInB2;
+			Vector4 row4 = descriptor.pivotB * bhkScaleFactor;
+
+			Matrix44 mat = Matrix44(
+				row1[0], row1[1], row1[2], row1[3],
+				row2[0], row2[1], row2[2], row2[3],
+				row3[0], row3[1], row3[2], row3[3],
+				row4[0], row4[1], row4[2], row4[3]
+			);
+			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
+			parent->AddChild(setMatTransform(mat, constraint_node));
+			return constraint_node;
+			return parent;
+		}
+		FbxNode* visit(BallAndSocketDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
+		{
+			return parent;
+		}
+		FbxNode* visit(StiffSpringDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
+		{
+			return parent;
+		}
 
 		void visitConstraint(FbxNode* holder, map<bhkRigidBodyRef, FbxNode*>& bodies, bhkRigidBodyRef parent, bhkConstraintRef constraint) {
 			if (constraint)
@@ -1208,36 +1277,54 @@ public:
 						{
 							if (bodies.find(rbentity) == bodies.end())
 								throw runtime_error("Wrong Nif Hierarchy, entity referred before being built!");
-							FbxNode* child = bodies[rbentity];
-							FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(child, string(string(holder->GetName()) + "_con").c_str());
-							fbx_constraint->SetConstrainedObject(child);
-							fbx_constraint->AddConstraintSource(holder);
+							FbxNode* parent = bodies[rbentity];
+							//parent->AddChild(holder);
+							//Constraints need an animation stack?
+							FbxScene* scene = holder->GetScene();
+							size_t stacks = scene->GetSrcObjectCount<FbxAnimStack>();
+							if (stacks == 0)
+							{
+								FbxAnimStack* lAnimStack = FbxAnimStack::Create(scene, "Take 001");
+								FbxAnimLayer* layer = FbxAnimLayer::Create(scene, "Default");
+							}
+
+							//Rigid bodies have an absolute transform which is used by constraints
+							rbentity->GetTranslation();
+							rbentity->GetRotation();
+
+
+
+							FbxNode* constraint_position = NULL;
+
+							if (constraint->IsSameType(bhkRagdollConstraint::TYPE))
+								constraint_position = visit(DynamicCast<bhkRagdollConstraint>(constraint)->GetRagdoll(), parent, holder);
+							else if (constraint->IsSameType(bhkPrismaticConstraint::TYPE))
+								constraint_position = visit(DynamicCast<bhkPrismaticConstraint>(constraint)->GetPrismatic(), parent, holder);
+							else if (constraint->IsSameType(bhkMalleableConstraint::TYPE))
+								constraint_position = visit(DynamicCast<bhkMalleableConstraint>(constraint)->GetMalleable(), parent, holder);
+							else if (constraint->IsSameType(bhkHingeConstraint::TYPE))
+								constraint_position = visit(DynamicCast<bhkHingeConstraint>(constraint)->GetHinge(), parent, holder);
+							else if (constraint->IsSameType(bhkLimitedHingeConstraint::TYPE))
+								constraint_position = visit(DynamicCast<bhkLimitedHingeConstraint>(constraint)->GetLimitedHinge(), parent, holder);
+							else if (constraint->IsSameType(bhkBallAndSocketConstraint::TYPE))
+								constraint_position = visit(DynamicCast<bhkBallAndSocketConstraint>(constraint)->GetBallAndSocket(), parent, holder);
+							else if (constraint->IsSameType(bhkStiffSpringConstraint::TYPE))
+								constraint_position = visit(DynamicCast<bhkStiffSpringConstraint>(constraint)->GetStiffSpring(), parent, holder);
+							else
+								throw new runtime_error("Unimplemented constraint type!");
+
+							FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_position, string(string(parent->GetName()) + "_con_" + string(holder->GetName())).c_str());
+							fbx_constraint->SetConstrainedObject(holder);
+							fbx_constraint->AddConstraintSource(constraint_position);
 						}
 					}
-				}
-
-				if (constraint->IsSameType(bhkRagdollConstraint::TYPE))
-					visit(DynamicCast<bhkRagdollConstraint>(constraint)->GetRagdoll());
-				else if (constraint->IsSameType(bhkPrismaticConstraint::TYPE))
-					visit(DynamicCast<bhkPrismaticConstraint>(constraint)->GetPrismatic());
-				else if (constraint->IsSameType(bhkMalleableConstraint::TYPE))
-					visit(DynamicCast<bhkMalleableConstraint>(constraint)->GetMalleable());
-				else if (constraint->IsSameType(bhkHingeConstraint::TYPE))
-					visit(DynamicCast<bhkHingeConstraint>(constraint)->GetHinge());
-				else if (constraint->IsSameType(bhkLimitedHingeConstraint::TYPE))
-					visit(DynamicCast<bhkLimitedHingeConstraint>(constraint)->GetLimitedHinge());
-				else if (constraint->IsSameType(bhkBallAndSocketConstraint::TYPE))
-					visit(DynamicCast<bhkBallAndSocketConstraint>(constraint)->GetBallAndSocket());
-				else if (constraint->IsSameType(bhkStiffSpringConstraint::TYPE))
-					visit(DynamicCast<bhkStiffSpringConstraint>(constraint)->GetStiffSpring());
-				else
-					throw new runtime_error("Unimplemented constraint type!");
+				}	
 			}
 		}
 
 	public:
 
-		FbxConstraintBuilder(FbxNode* holder, map<bhkRigidBodyRef, FbxNode*>& bodies, bhkRigidBodyRef parent, bhkConstraintRef constraint)
+		FbxConstraintBuilder(FbxNode* holder, map<bhkRigidBodyRef, FbxNode*>& bodies, bhkRigidBodyRef parent, bhkConstraintRef constraint, double bhkScaleFactor) : bhkScaleFactor(bhkScaleFactor)
 		{
 			visitConstraint(holder, bodies, parent, constraint);
 		}
@@ -1250,22 +1337,23 @@ public:
 		name += "_rb";
 		FbxNode* rb_node = FbxNode::Create(&scene, name.c_str());
 		bodies[obj] = rb_node;
-		if (obj->IsSameType(bhkRigidBodyT::TYPE))
-		{
+		/*if (obj->IsSameType(bhkRigidBodyT::TYPE))
+		{*/
 			Vector4 translation = obj->GetTranslation();
 			rb_node->LclTranslation.Set(FbxDouble3(translation.x*bhkScaleFactor, translation.y*bhkScaleFactor, translation.z*bhkScaleFactor));
 			Niflib::hkQuaternion rotation = obj->GetRotation();
 			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
 			EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
 			rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
-		}
+		//}
 		recursive_convert(obj->GetShape(), rb_node, obj->GetHavokFilter());
-		parent->AddChild(rb_node);
+		scene.GetRootNode()->AddChild(rb_node);
 		//Constraints
 		for (const auto& constraint : obj->GetConstraints())
 		{
 			if (constraint->IsDerivedType(bhkConstraint::TYPE)) {
-				FbxConstraintBuilder(rb_node, bodies, obj, DynamicCast<bhkConstraint>(constraint));
+				FbxConstraintBuilder(rb_node, bodies, obj, DynamicCast<bhkConstraint>(constraint), bhkScaleFactor);
+				alreadyVisitedNodes.insert(constraint);
 			}
 			else {
 				throw runtime_error("Unknown constraint hierarchy!");
@@ -1358,6 +1446,7 @@ bool FBXWrangler::ExportScene(const std::string& fileName) {
 	ios->SetBoolProp(EXP_FBX_EMBEDDED, false);
 	ios->SetBoolProp(EXP_FBX_SHAPE, true);
 	ios->SetBoolProp(EXP_FBX_GOBO, true);
+	ios->SetBoolProp(EXP_FBX_CONSTRAINT, true);
 	ios->SetBoolProp(EXP_FBX_ANIMATION, true);
 	ios->SetBoolProp(EXP_FBX_GLOBAL_SETTINGS, true);
 
