@@ -421,6 +421,7 @@ public:
 
 class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	const NifInfo& this_info;
+	const string& texturePath;
 	FbxScene& scene;
 	deque<FbxNode*> build_stack;
 	set<void*>& alreadyVisitedNodes;
@@ -432,12 +433,13 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	string root_name;
 	double bhkScaleFactor = 1.0;
 
-	FbxFileTexture* create_texture(const char* texture_type, const string& texture_path)
+	FbxFileTexture* create_texture(const char* texture_type, const string& texture_path, const FbxFileTexture::ETextureUse use = FbxTexture::eStandard)
 	{
 		FbxFileTexture* lTexture = FbxFileTexture::Create(&scene, texture_type);
 		// Set texture properties.
-		lTexture->SetFileName("gradient.jpg"); // Resource file is in current directory.
-		lTexture->SetTextureUse(FbxTexture::eStandard);
+		fs::path out_path = fs::path(texturePath) / texture_path;
+		lTexture->SetFileName(out_path.string().c_str()); // Resource file is in current directory.		
+		lTexture->SetTextureUse(use);
 		lTexture->SetMappingType(FbxTexture::eUV);
 		lTexture->SetMaterialUse(FbxFileTexture::eModelMaterial);
 		lTexture->SetSwapUV(false);
@@ -486,11 +488,16 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				//TODO: support more
 				if (!texture_set[0].empty())
 				{
-					FbxFileTexture* diffuse = create_texture("Diffuse Texture", material_property->GetTextureSet()->GetTextures()[0]);
+					FbxFileTexture* diffuse = create_texture("Diffuse Texture", texture_set[0]);
 					if (diffuse && gMaterial)
 						gMaterial->Diffuse.ConnectSrcObject(diffuse);
 				}
-
+				if (!texture_set[1].empty())
+				{
+					FbxFileTexture* normal = create_texture("Normal Map", texture_set[1] );
+					if (normal && gMaterial)
+						gMaterial->NormalMap.ConnectSrcObject(normal);
+				}
 
 			}
 
@@ -620,7 +627,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			if (normElement)
 				normElement->GetDirectArray().Add(FbxVector4(norms[i].x, norms[i].y, norms[i].z));
 			if (uvElement)
-				uvElement->GetDirectArray().Add(FbxVector2(uvs[i].u, uvs[i].v));
+				uvElement->GetDirectArray().Add(FbxVector2(uvs[i].u, 1 - uvs[i].v));
 			if (vcElement)
 				vcElement->GetDirectArray().Add(FbxColor(vcs[i].r, vcs[i].g, vcs[i].b, vcs[i].a));
 		}
@@ -988,13 +995,14 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 public:
 
-	FBXBuilderVisitor(NifFile& nif, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info) :
+	FBXBuilderVisitor(NifFile& nif, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info, const string& texture_path) :
 		RecursiveFieldVisitor(*this, info),
 		nif_file(nif),
 		alreadyVisitedNodes(set<void*>()),
 		this_info(info),
 		scene(scene),
-		managers(set<NiControllerManager*>())
+		managers(set<NiControllerManager*>()),
+		texturePath(texture_path)
 	{
 		bhkScaleFactor = nif.GetBhkScaleFactor();
 		NiNodeRef rootNode = DynamicCast<NiNode>(nif.GetRoot());
@@ -1083,7 +1091,7 @@ public:
 			FbxNode* transform_node = FbxNode::Create(&scene, parent_name.c_str());
 			parent->AddChild(transform_node);
 			setMatTransform(transform_block->GetTransform(), transform_node);
-			recursive_convert(transform_block->GetShape(), parent, layer);
+			recursive_convert(transform_block->GetShape(), transform_node, layer);
 		}
 		//bhkListShape, /bhkConvexListShape
 		else if (shape->IsDerivedType(bhkListShape::TYPE))
@@ -1095,7 +1103,7 @@ public:
 				string name_index = parent_name + "_" + to_string(i);
 				FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
 				parent->AddChild(child_shape_node);
-				recursive_convert(shapes[i], parent, layer);
+				recursive_convert(shapes[i], child_shape_node, layer);
 			}
 		}
 		else if (shape->IsDerivedType(bhkConvexListShape::TYPE))
@@ -1107,7 +1115,20 @@ public:
 				string name_index = parent_name + "_" + to_string(i);
 				FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
 				parent->AddChild(child_shape_node);
-				recursive_convert(shapes[i], parent, layer);
+				recursive_convert(shapes[i], child_shape_node, layer);
+			}
+		}
+		//bhkMoppBvTree
+		else if (shape->IsDerivedType(bhkMoppBvTreeShape::TYPE))
+		{
+			parent_name += "_mopp";
+			bhkMoppBvTreeShapeRef moppbv = DynamicCast<bhkMoppBvTreeShape>(shape);
+			if (moppbv->GetShape() != NULL)
+			{
+				alreadyVisitedNodes.insert(moppbv);
+				FbxNode* mopp_node = FbxNode::Create(&scene, parent_name.c_str());
+				parent->AddChild(mopp_node);
+				recursive_convert(moppbv->GetShape(), mopp_node, layer);				
 			}
 		}
 		//shapes
@@ -1131,7 +1152,7 @@ public:
 			{
 				geom.m_triangles[i].m_material = index;
 			}
-				
+
 		}
 		//bhkBoxShape
 		else if (shape->IsDerivedType(bhkBoxShape::TYPE))
@@ -1153,7 +1174,7 @@ public:
 			{
 				geom.m_triangles[i].m_material = index;
 			}
-			
+
 		}
 		//bhkCapsuleShape
 		else if (shape->IsDerivedType(bhkCapsuleShape::TYPE))
@@ -1201,32 +1222,13 @@ public:
 				geom.m_triangles[i].m_material = index;
 			}
 		}
-		//bhkMoppBvTree
-		else if (shape->IsDerivedType(bhkMoppBvTreeShape::TYPE))
+		//bhkCompressedMeshShape
+		else if (shape->IsDerivedType(bhkCompressedMeshShape::TYPE))
 		{
-			parent_name += "_mopp";
-			bhkMoppBvTreeShapeRef moppbv = DynamicCast<bhkMoppBvTreeShape>(shape);
-			if (moppbv->GetShape() != NULL)
-			{
-				alreadyVisitedNodes.insert(moppbv);
-				if (moppbv->GetShape()->IsDerivedType(bhkCompressedMeshShape::TYPE))
-				{
-					if (moppbv->GetShape() != NULL)
-					{
-						bhkCompressedMeshShapeRef cmesh = DynamicCast<bhkCompressedMeshShape>(moppbv->GetShape());
-						alreadyVisitedNodes.insert(cmesh);
-						alreadyVisitedNodes.insert(cmesh->GetData());
-						Accessor<bhkCompressedMeshShapeData> converter(DynamicCast<bhkCompressedMeshShape>(moppbv->GetShape()), geom, materials);
-					}
-				}
-				else if (moppbv->GetShape()->IsDerivedType(bhkNiTriStripsShape::TYPE)) {
-//					bhkNiTriStripsShapeRef cmesh = DynamicCast<bhkNiTriStripsShape>(moppbv->GetShape()); TODO
-				
-				}
-				else if (moppbv->GetShape()->IsDerivedType(bhkPackedNiTriStripsShape::TYPE)) {
-					//bhkPackedNiTriStripsShapeRef cmesh = DynamicCast<bhkPackedNiTriStripsShape>(moppbv->GetShape()); TODO
-				}
-			}
+			bhkCompressedMeshShapeRef cmesh = DynamicCast<bhkCompressedMeshShape>(shape);
+			alreadyVisitedNodes.insert(cmesh);
+			alreadyVisitedNodes.insert(cmesh->GetData());
+			Accessor<bhkCompressedMeshShapeData> converter(DynamicCast<bhkCompressedMeshShape>(cmesh), geom, materials);
 		}
 		//create collision materials
 		for (const auto& material : materials)
@@ -1334,6 +1336,14 @@ public:
 			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
 			parent->AddChild(constraint_node);
 			setMatTransform(mat, constraint_node);
+
+			FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_node, string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
+			fbx_constraint->SetConstrainedObject(child);
+			fbx_constraint->AddConstraintSource(constraint_node);
+			fbx_constraint->AffectRotationX = false;
+			fbx_constraint->AffectRotationY = false;
+			fbx_constraint->AffectRotationZ = false;
+
 			return constraint_node;
 		}
 		FbxNode* visit(PrismaticDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
@@ -1376,6 +1386,12 @@ public:
 			);
 			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
 			parent->AddChild(setMatTransform(mat, constraint_node));
+
+			FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_node, string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
+			fbx_constraint->SetConstrainedObject(child);
+			fbx_constraint->AddConstraintSource(constraint_node);
+			fbx_constraint->AffectRotationX = false;
+
 			return constraint_node;
 		}
 		FbxNode* visit(LimitedHingeDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
@@ -1393,6 +1409,12 @@ public:
 			);
 			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
 			parent->AddChild(setMatTransform(mat, constraint_node));
+
+			FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_node, string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
+			fbx_constraint->SetConstrainedObject(child);
+			fbx_constraint->AddConstraintSource(constraint_node);
+			fbx_constraint->AffectRotationX = false;
+
 			return constraint_node;
 		}
 		FbxNode* visit(BallAndSocketDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
@@ -1447,9 +1469,12 @@ public:
 							else
 								throw new runtime_error("Unimplemented constraint type!");
 
-							FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_position, string(string(parent->GetName()) + "_con_" + string(holder->GetName())).c_str());
-							fbx_constraint->SetConstrainedObject(holder);
-							fbx_constraint->AddConstraintSource(constraint_position);
+							//FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_position, string(string(parent->GetName()) + "_con_" + string(holder->GetName())).c_str());
+							//fbx_constraint->SetConstrainedObject(holder);
+							//fbx_constraint->AddConstraintSource(constraint_position);
+							//fbx_constraint->AffectRotationX = false;
+							//fbx_constraint->AffectRotationY = false;
+							//fbx_constraint->AffectRotationZ = false;
 						}
 					}
 				}	
@@ -1523,7 +1548,8 @@ public:
 		rb_node->SetShadingMode(FbxNode::EShadingMode::eWireFrame);
 
 		Matrix44 transform = obj->GetTransform();
-		setMatTransform(transform, rb_node, bhkScaleFactor);
+		//Following nifskope, this is 
+		//setMatTransform(transform, rb_node, bhkScaleFactor);
 		recursive_convert(obj->GetShape(), rb_node, obj->GetHavokFilter());
 
 		//hmmmm... seems to be relative and not absolute as in the case of rigid bodies
@@ -1615,7 +1641,7 @@ public:
 };
 
 void FBXWrangler::AddNif(NifFile& nif) {
-	FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo());
+	FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo(), texture_path);
 }
 
 bool FBXWrangler::ExportScene(const std::string& fileName) {

@@ -13,7 +13,7 @@
 #include <bs/AnimDataFile.h>
 #include <bs/AnimSetDataFile.h>
 
-static bool BeginConversion(string importPath, string exportPath);
+static bool BeginConversion(string importPath, string exportPath, string texturePath);
 static void InitializeHavok();
 static void CloseHavok();
 
@@ -42,7 +42,7 @@ string ExportFBX::GetHelp() const
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
 
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_nif> [-e <path_to_export>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_nif> [-e <path_to_export>] [-t <path_to_textures>]\r\n";
 
 	const char help[] =
 		R"(Converts NIF format to FBX.
@@ -50,6 +50,7 @@ string ExportFBX::GetHelp() const
 		Arguments:
 			<path_to_nif> the NIF to convert
 			<path_to_export> path to the output directory
+			<path_to_textures> path to the folder with extracted texture (usually Skyrim Data subfolder)
 
 		)";
     return usage + help;
@@ -63,18 +64,19 @@ string ExportFBX::GetHelpShort() const
 bool ExportFBX::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
-	string importNIF, exportPath;
+	string importNIF, exportPath, texturePath;
 
 	importNIF = parsedArgs["<path_to_nif>"].asString();
 	exportPath = parsedArgs["<path_to_export>"].asString();
+	texturePath = parsedArgs["<path_to_textures>"].asString();
 
 	InitializeHavok();
-	BeginConversion(importNIF, exportPath);
+	BeginConversion(importNIF, exportPath, texturePath);
 	CloseHavok();
 	return true;
 }
 
-bool BeginConversion(string importNIF, string exportPath) {
+bool BeginConversion(string importNIF, string exportPath, string texturePath) {
 	fs::path nifModelpath = fs::path(importNIF);
 	if (!fs::exists(nifModelpath) || !fs::is_regular_file(nifModelpath)) {
 		Log::Info("Invalid file: %s", nifModelpath.c_str());
@@ -90,6 +92,7 @@ bool BeginConversion(string importNIF, string exportPath) {
 	fs::create_directories(outputDir);
 
 	FBXWrangler wrangler;
+	wrangler.texture_path = texturePath;
 	NifFile mesh(nifModelpath.string().c_str());
 	wrangler.NewScene();
 	wrangler.AddNif(mesh);
