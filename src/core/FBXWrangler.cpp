@@ -443,17 +443,20 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 		vector<Triangle>& tris = vector<Triangle>(0);
 		vector<TexCoord>& uvs = vector<TexCoord>(0);
+		vector<Color4>& vcs = vector<Color4>(0);
 
 		if (node.GetData()->IsSameType(NiTriStripsData::TYPE)) {
 			NiTriStripsDataRef ref = DynamicCast<NiTriStripsData>(node.GetData());
 			tris = triangulate(ref->GetPoints());
 			if (!ref->GetUvSets().empty())
 				uvs = ref->GetUvSets()[0];
+			if (!ref->GetVertexColors().empty())
+				vcs = ref->GetVertexColors();
 		}
 
 		alreadyVisitedNodes.insert(node.GetData());
 
-		return AddGeometry(shapeName, verts, norms, tris, uvs);
+		return AddGeometry(shapeName, verts, norms, tris, uvs, vcs);
 	}
 
 	FbxNode* AddGeometry(NiTriShape& node) {
@@ -468,12 +471,15 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 		vector<Triangle>& tris = vector<Triangle>(0);
 		vector<TexCoord>& uvs = vector<TexCoord>(0);
+		vector<Color4>& vcs = vector<Color4>(0);
 
 		if (node.GetData()->IsSameType(NiTriShapeData::TYPE)) {
 			NiTriShapeDataRef ref = DynamicCast<NiTriShapeData>(node.GetData());
 			tris = ref->GetTriangles();
 			if (!ref->GetUvSets().empty())
 				uvs = ref->GetUvSets()[0];
+			if (!ref->GetVertexColors().empty())
+				vcs = ref->GetVertexColors();
 		}
 
 		alreadyVisitedNodes.insert(node.GetData());
@@ -481,14 +487,15 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		if (verts.empty())
 			return FbxNode::Create(&scene, shapeName.c_str());
 
-		return AddGeometry(shapeName, verts, norms, tris, uvs);
+		return AddGeometry(shapeName, verts, norms, tris, uvs, vcs);
 	}
 
 	FbxNode* AddGeometry(const string& shapeName, 
 							const vector<Vector3>& verts,
 							const vector<Vector3>& norms,
 							const vector<Triangle>& tris,
-							vector<TexCoord>& uvs) {
+							vector<TexCoord>& uvs, 
+							vector<Color4>& vcs) {
 
 		FbxMesh* m = FbxMesh::Create(&scene, shapeName.c_str());
 
@@ -507,6 +514,13 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			uvElement->SetReferenceMode(FbxGeometryElement::eDirect);
 		}
 
+		FbxGeometryElementVertexColor* vcElement = nullptr;
+		if (!vcs.empty()) {
+			vcElement = m->CreateElementVertexColor();
+			vcElement->SetMappingMode(FbxGeometryElement::eByControlPoint);
+			vcElement->SetReferenceMode(FbxGeometryElement::eDirect);
+		}
+
 		m->InitControlPoints(verts.size());
 		FbxVector4* points = m->GetControlPoints();
 
@@ -516,6 +530,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				normElement->GetDirectArray().Add(FbxVector4(norms[i].x, norms[i].y, norms[i].z));
 			if (uvElement)
 				uvElement->GetDirectArray().Add(FbxVector2(uvs[i].u, uvs[i].v));
+			if (vcElement)
+				vcElement->GetDirectArray().Add(FbxColor(vcs[i].r, vcs[i].g, vcs[i].b, vcs[i].a));
 		}
 
 		if (!tris.empty()) {
