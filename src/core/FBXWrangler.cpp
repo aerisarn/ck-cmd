@@ -432,6 +432,92 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	string root_name;
 	double bhkScaleFactor = 1.0;
 
+	FbxFileTexture* create_texture(const char* texture_type, const string& texture_path)
+	{
+		FbxFileTexture* lTexture = FbxFileTexture::Create(&scene, texture_type);
+		// Set texture properties.
+		lTexture->SetFileName("gradient.jpg"); // Resource file is in current directory.
+		lTexture->SetTextureUse(FbxTexture::eStandard);
+		lTexture->SetMappingType(FbxTexture::eUV);
+		lTexture->SetMaterialUse(FbxFileTexture::eModelMaterial);
+		lTexture->SetSwapUV(false);
+		lTexture->SetTranslation(0.0, 0.0);
+		lTexture->SetScale(1.0, 1.0);
+		lTexture->SetRotation(0.0, 0.0);
+		return lTexture;
+	}
+
+	FbxSurfaceMaterial* create_material(const string& name, BSLightingShaderPropertyRef material_property, NiAlphaPropertyRef alpha)
+	{
+		if (material_property != NULL)
+		{
+			string lShadingName = "Phong";
+			string m_name = name + "_material";
+			FbxDouble3 lBlack(0.0, 0.0, 0.0);
+			FbxSurfacePhong* gMaterial = FbxSurfacePhong::Create(scene.GetFbxManager(), m_name.c_str());
+			//The following properties are used by the Phong shader to calculate the color for each pixel in the material :
+
+			// Generate primary and secondary colors.
+			Color3 nif_emissive_color = material_property->GetEmissiveColor();
+			gMaterial->Emissive = { nif_emissive_color.r, nif_emissive_color.g, nif_emissive_color.b };
+			gMaterial->EmissiveFactor = material_property->GetEmissiveMultiple();
+			//gMaterial->TransparentColor = { 1.0,1.0,1.0 };
+			//gMaterial->TransparencyFactor = 0.9;
+			
+			//Specular
+			Color3 nif_specular_color = material_property->GetSpecularColor();
+			gMaterial->Specular = { nif_specular_color.r, nif_specular_color.g, nif_specular_color.b };
+			gMaterial->SpecularFactor.Set(material_property->GetLightingEffect1());
+
+			//Diffuse
+			//gMaterial->Diffuse = lBlack;
+			gMaterial->DiffuseFactor = material_property->GetSpecularStrength();
+
+			//Ambient
+			gMaterial->Ambient = lBlack;
+			gMaterial->AmbientFactor.Set(1.);
+
+			gMaterial->Shininess = material_property->GetGlossiness();
+			gMaterial->ShadingModel.Set(lShadingName.c_str());
+
+			if (material_property->GetTextureSet() != NULL)
+			{
+				vector<string>& texture_set = material_property->GetTextureSet()->GetTextures();
+				//TODO: support more
+				if (!texture_set[0].empty())
+				{
+					FbxFileTexture* diffuse = create_texture("Diffuse Texture", material_property->GetTextureSet()->GetTextures()[0]);
+					if (diffuse && gMaterial)
+						gMaterial->Diffuse.ConnectSrcObject(diffuse);
+				}
+
+
+			}
+
+
+			return gMaterial;
+		}
+		return NULL;
+	}
+
+	template<typename shape_type, const unsigned int>
+	FbxSurfaceMaterial* extract_Material(shape_type& shape)
+	{
+		return NULL;
+	}
+
+	template<>
+	FbxSurfaceMaterial* extract_Material<NiTriStrips, VER_20_2_0_7>(NiTriStrips& shape)
+	{
+		return create_material(shape.GetName(), DynamicCast<BSLightingShaderProperty>(shape.GetShaderProperty()), shape.GetAlphaProperty());
+	}
+
+	template<>
+	FbxSurfaceMaterial* extract_Material<NiTriShape, VER_20_2_0_7>(NiTriShape& shape)
+	{
+		return create_material(shape.GetName(), DynamicCast<BSLightingShaderProperty>(shape.GetShaderProperty()), shape.GetAlphaProperty());
+	}
+
 	FbxNode* AddGeometry(NiTriStrips& node) {
 		string shapeName = node.GetName();
 		sanitizeString(shapeName);
@@ -456,7 +542,9 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 		alreadyVisitedNodes.insert(node.GetData());
 
-		return AddGeometry(shapeName, verts, norms, tris, uvs, vcs);
+		FbxSurfaceMaterial* material = extract_Material<NiTriStrips, VER_20_2_0_7>(node);
+
+		return AddGeometry(shapeName, verts, norms, tris, uvs, vcs, material);
 	}
 
 	FbxNode* AddGeometry(NiTriShape& node) {
@@ -487,7 +575,9 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		if (verts.empty())
 			return FbxNode::Create(&scene, shapeName.c_str());
 
-		return AddGeometry(shapeName, verts, norms, tris, uvs, vcs);
+		FbxSurfaceMaterial* material = extract_Material<NiTriShape, VER_20_2_0_7>(node);
+
+		return AddGeometry(shapeName, verts, norms, tris, uvs, vcs, material);
 	}
 
 	FbxNode* AddGeometry(const string& shapeName, 
@@ -495,7 +585,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 							const vector<Vector3>& norms,
 							const vector<Triangle>& tris,
 							vector<TexCoord>& uvs, 
-							vector<Color4>& vcs) {
+							vector<Color4>& vcs, 
+							FbxSurfaceMaterial* material) {
 
 		FbxMesh* m = FbxMesh::Create(&scene, shapeName.c_str());
 
@@ -536,7 +627,13 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 		if (!tris.empty()) {
 			for (auto &t : tris) {
-				m->BeginPolygon();
+				if (material != NULL)
+				{
+					m->BeginPolygon(0);
+				}
+				else {
+					m->BeginPolygon(1);
+				}
 				m->AddPolygon(t.v1);
 				m->AddPolygon(t.v2);
 				m->AddPolygon(t.v3);
@@ -546,6 +643,12 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 		FbxNode* mNode = FbxNode::Create(&scene, shapeName.c_str());
 		mNode->SetNodeAttribute(m);
+
+		//handle material
+		if (material != NULL)
+			mNode->AddMaterial(material);
+
+
 		return mNode;
 	}
 
