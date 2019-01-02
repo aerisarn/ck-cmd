@@ -99,10 +99,10 @@ static inline FbxVector4 TOFBXVECTOR4(const hkVector4& v)
 	return FbxVector4(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
 }
 
-FbxNode* setMatTransform(const Matrix44& av, FbxNode* node) {
+FbxNode* setMatTransform(const Matrix44& av, FbxNode* node, double bake_scale = 1.0) {
 	Vector3 translation = av.GetTranslation();
 	//
-	node->LclTranslation.Set(FbxDouble3(translation.x, translation.y, translation.z));
+	node->LclTranslation.Set(FbxDouble3(translation.x * bake_scale, translation.y * bake_scale, translation.z *bake_scale));
 
 	Quaternion rotation = av.GetRotation().AsQuaternion();
 	Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
@@ -1146,7 +1146,8 @@ public:
 
 				// Generate primary and secondary colors.
 				gMaterial->Emissive = lcolor;
-				gMaterial->TransparencyFactor = 0.5;
+				gMaterial->TransparentColor = { 1.0,1.0,1.0 };
+				gMaterial->TransparencyFactor = 0.9;
 				gMaterial->Ambient = lcolor;
 				gMaterial->Diffuse = lcolor;
 				gMaterial->Shininess = 0.5;
@@ -1243,7 +1244,20 @@ public:
 		}
 		FbxNode* visit(HingeDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
 		{
-			return parent;
+			Vector4 row1 = descriptor.axleB;
+			Vector4 row2 = descriptor.perp2AxleInB1;
+			Vector4 row3 = descriptor.perp2AxleInB2;
+			Vector4 row4 = descriptor.pivotB * bhkScaleFactor;
+
+			Matrix44 mat = Matrix44(
+				row1[0], row1[1], row1[2], row1[3],
+				row2[0], row2[1], row2[2], row2[3],
+				row3[0], row3[1], row3[2], row3[3],
+				row4[0], row4[1], row4[2], row4[3]
+			);
+			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
+			parent->AddChild(setMatTransform(mat, constraint_node));
+			return constraint_node;
 		}
 		FbxNode* visit(LimitedHingeDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
 		{
@@ -1261,7 +1275,6 @@ public:
 			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
 			parent->AddChild(setMatTransform(mat, constraint_node));
 			return constraint_node;
-			return parent;
 		}
 		FbxNode* visit(BallAndSocketDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
 		{
@@ -1383,6 +1396,29 @@ public:
 		return rb_node;
 	}
 
+	inline FbxNode* visit_phantom(bhkSimpleShapePhantomRef obj, const string& collision_name) {
+		FbxNode* parent = build_stack.front();
+		string name = collision_name;
+		name += "_sp";
+		FbxNode* rb_node = FbxNode::Create(&scene, name.c_str());
+		rb_node->SetShadingMode(FbxNode::EShadingMode::eWireFrame);
+
+		Matrix44 transform = obj->GetTransform();
+		setMatTransform(transform, rb_node, bhkScaleFactor);
+		recursive_convert(obj->GetShape(), rb_node, obj->GetHavokFilter());
+
+		//hmmmm... seems to be relative and not absolute as in the case of rigid bodies
+		//find the relative transform between nodes
+		//FbxAMatrix world_parent = parent->EvaluateGlobalTransform();
+		//FbxAMatrix world_child = rb_node->EvaluateGlobalTransform();
+
+		//FbxAMatrix rel = world_parent.Inverse() * world_child;
+
+		parent->AddChild(/*setMatATransform(rel, */rb_node/*)*/);
+
+		return rb_node;
+	}
+
 	template<>
 	inline FbxNode* visit_new_object(bhkCollisionObject& obj) {
 		FbxNode* parent = build_stack.front();
@@ -1405,6 +1441,19 @@ public:
 		{
 			alreadyVisitedNodes.insert(obj.GetBody());
 			return visit_rigid_body(DynamicCast<bhkRigidBody>(obj.GetBody()), name);
+		}
+		return NULL;
+	}
+
+	template<>
+	inline FbxNode* visit_new_object(bhkSPCollisionObject& obj) {
+		FbxNode* parent = build_stack.front();
+		string name = obj.GetTarget()->GetName();
+		sanitizeString(name);
+		if (obj.GetBody() && obj.GetBody()->IsDerivedType(bhkSimpleShapePhantom::TYPE))
+		{
+			alreadyVisitedNodes.insert(obj.GetBody());
+			return visit_phantom(DynamicCast<bhkSimpleShapePhantom>(obj.GetBody()), name);
 		}
 		return NULL;
 	}
