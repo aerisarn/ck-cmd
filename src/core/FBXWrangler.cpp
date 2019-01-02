@@ -112,6 +112,13 @@ FbxNode* setMatTransform(const Matrix44& av, FbxNode* node) {
 	return node;
 }
 
+FbxNode* setMatATransform(const FbxAMatrix& av, FbxNode* node) {
+	node->LclTranslation.Set(av.GetT());
+	node->LclRotation.Set(av.GetR());
+	node->LclScaling.Set(av.GetS());
+	return node;
+}
+
 FBXWrangler::FBXWrangler() {
 	sdkManager = FbxManager::Create();
 
@@ -1278,7 +1285,8 @@ public:
 							if (bodies.find(rbentity) == bodies.end())
 								throw runtime_error("Wrong Nif Hierarchy, entity referred before being built!");
 							FbxNode* parent = bodies[rbentity];
-							//parent->AddChild(holder);
+
+
 							//Constraints need an animation stack?
 							FbxScene* scene = holder->GetScene();
 							size_t stacks = scene->GetSrcObjectCount<FbxAnimStack>();
@@ -1287,12 +1295,6 @@ public:
 								FbxAnimStack* lAnimStack = FbxAnimStack::Create(scene, "Take 001");
 								FbxAnimLayer* layer = FbxAnimLayer::Create(scene, "Default");
 							}
-
-							//Rigid bodies have an absolute transform which is used by constraints
-							rbentity->GetTranslation();
-							rbentity->GetRotation();
-
-
 
 							FbxNode* constraint_position = NULL;
 
@@ -1337,6 +1339,16 @@ public:
 		name += "_rb";
 		FbxNode* rb_node = FbxNode::Create(&scene, name.c_str());
 		bodies[obj] = rb_node;
+
+		//This is funny: Rigid Bodies transform is an actual world matrix even if 
+		//it's parented into a NiNode. The value is actually ignored without a T derived class
+		//So while the creature is not in a ragdoll state, the rigid bodies are driven by the ninode;
+		//When the ragdoll kicks in, the transformations are matched
+		//Havok engine would originally separate the skeletal animation and the ragdoll,
+		//but that will require an additional linking between the ragdoll and the parent bone
+		//to avoid this, we are properly parenting the rigid body and calculate a relative matrix on import
+		//the T condition is left for reference
+
 		/*if (obj->IsSameType(bhkRigidBodyT::TYPE))
 		{*/
 			Vector4 translation = obj->GetTranslation();
@@ -1347,7 +1359,15 @@ public:
 			rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
 		//}
 		recursive_convert(obj->GetShape(), rb_node, obj->GetHavokFilter());
-		scene.GetRootNode()->AddChild(rb_node);
+
+		//find the relative transform between nodes
+		FbxAMatrix world_parent = parent->EvaluateGlobalTransform();
+		FbxAMatrix world_child = rb_node->EvaluateGlobalTransform();
+
+		FbxAMatrix rel = world_parent.Inverse() * world_child;
+
+		parent->AddChild(setMatATransform(rel, rb_node));
+
 		//Constraints
 		for (const auto& constraint : obj->GetConstraints())
 		{
