@@ -463,8 +463,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			Color3 nif_emissive_color = material_property->GetEmissiveColor();
 			gMaterial->Emissive = { nif_emissive_color.r, nif_emissive_color.g, nif_emissive_color.b };
 			gMaterial->EmissiveFactor = material_property->GetEmissiveMultiple();
-			//gMaterial->TransparentColor = { 1.0,1.0,1.0 };
-			//gMaterial->TransparencyFactor = 0.9;
+
 			
 			//Specular
 			Color3 nif_specular_color = material_property->GetSpecularColor();
@@ -472,7 +471,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			gMaterial->SpecularFactor.Set(material_property->GetLightingEffect1());
 
 			//Diffuse
-			//gMaterial->Diffuse = lBlack;
 			gMaterial->DiffuseFactor = material_property->GetSpecularStrength();
 
 			//Ambient
@@ -485,20 +483,22 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			if (material_property->GetTextureSet() != NULL)
 			{
 				vector<string>& texture_set = material_property->GetTextureSet()->GetTextures();
-				//TODO: support more
-				if (!texture_set[0].empty())
+				//TODO: support more 
+				if (!texture_set.empty())
 				{
-					FbxFileTexture* diffuse = create_texture("Diffuse Texture", texture_set[0]);
-					if (diffuse && gMaterial)
-						gMaterial->Diffuse.ConnectSrcObject(diffuse);
+					if (!texture_set[0].empty())
+					{
+						FbxFileTexture* diffuse = create_texture("Diffuse Texture", texture_set[0]);
+						if (diffuse && gMaterial)
+							gMaterial->Diffuse.ConnectSrcObject(diffuse);
+					}
+					if (!texture_set[1].empty())
+					{
+						FbxFileTexture* normal = create_texture("Normal Map", texture_set[1] );
+						if (normal && gMaterial)
+							gMaterial->NormalMap.ConnectSrcObject(normal);
+					}
 				}
-				if (!texture_set[1].empty())
-				{
-					FbxFileTexture* normal = create_texture("Normal Map", texture_set[1] );
-					if (normal && gMaterial)
-						gMaterial->NormalMap.ConnectSrcObject(normal);
-				}
-
 			}
 
 
@@ -687,6 +687,20 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		if (node->IsDerivedType(NiAVObject::TYPE))
 			return getBuiltNode(string(DynamicCast<NiAVObject>(node)->GetName().c_str()));
 		return NULL;
+	}
+
+	template<typename T>
+	FbxNode* getBuiltNode(Ref<T>& obj) {
+		NiObjectRef node = (NiObjectRef)obj;
+		if (node->IsDerivedType(NiAVObject::TYPE))
+			return getBuiltNode(string(DynamicCast<NiAVObject>(node)->GetName().c_str()));
+		return NULL;
+	}
+
+
+	template<>
+	inline FbxNode* getBuiltNode(NiNode*& node) {
+		return getBuiltNode(string(node->GetName().c_str()));
 	}
 
 	template<>

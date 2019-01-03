@@ -64,11 +64,18 @@ string ExportFBX::GetHelpShort() const
 bool ExportFBX::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
-	string importNIF, exportPath, texturePath;
+	string importNIF, exportPath = "", texturePath = "";
 
+	if (parsedArgs.find("<path_to_nif>") == parsedArgs.end())
+	{
+		Log::Error("<path_to_nif> argument is mandatory");
+		return false;
+	}
 	importNIF = parsedArgs["<path_to_nif>"].asString();
-	exportPath = parsedArgs["<path_to_export>"].asString();
-	texturePath = parsedArgs["<path_to_textures>"].asString();
+	if (parsedArgs["-e"].asBool())
+		exportPath = parsedArgs["<path_to_export>"].asString();
+	if (parsedArgs["-t"].asBool())
+		texturePath = parsedArgs["<path_to_textures>"].asString();
 
 	InitializeHavok();
 	BeginConversion(importNIF, exportPath, texturePath);
