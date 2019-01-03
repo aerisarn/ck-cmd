@@ -737,6 +737,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			std::string shapeSkin = mesh->GetName() + "_skin";
 			FbxSkin* fbx_skin = FbxSkin::Create(&scene, shapeSkin.c_str());
 			int boneIndex = 0;
+			vector<BoneData>& bonelistdata = data->GetBoneList();
 			for (NiNode* bone : skin.first->GetBones()) {
 				FbxNode* jointNode = getBuiltNode(bone);
 				if (jointNode) {
@@ -746,7 +747,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					aCluster->SetLink(jointNode);
 					aCluster->SetLinkMode(FbxCluster::eTotalOne);
 
-					BoneData& boneData = data->GetBoneList()[boneIndex];
+					BoneData& boneData = bonelistdata[boneIndex];
 
 					Vector3 translation = data->GetSkinTransform().translation;
 					Quaternion rotation = data->GetSkinTransform().rotation.AsQuaternion();
