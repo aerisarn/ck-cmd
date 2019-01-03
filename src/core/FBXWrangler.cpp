@@ -453,6 +453,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	{
 		if (material_property != NULL)
 		{
+			alreadyVisitedNodes.insert(material_property);
+
 			string lShadingName = "Phong";
 			string m_name = name + "_material";
 			FbxDouble3 lBlack(0.0, 0.0, 0.0);
@@ -482,6 +484,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 			if (material_property->GetTextureSet() != NULL)
 			{
+				alreadyVisitedNodes.insert(material_property->GetTextureSet());
 				vector<string>& texture_set = material_property->GetTextureSet()->GetTextures();
 				//TODO: support more 
 				if (!texture_set.empty())
@@ -501,6 +504,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				}
 			}
 
+			if (alpha!=NULL)
+				alreadyVisitedNodes.insert(alpha);
 
 			return gMaterial;
 		}
@@ -549,6 +554,17 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 		alreadyVisitedNodes.insert(node.GetData());
 
+		//defer skin
+		if (node.GetSkinInstance() != NULL)
+		{
+			alreadyVisitedNodes.insert(node.GetSkinInstance());
+			if (node.GetSkinInstance()->GetData() != NULL)
+				alreadyVisitedNodes.insert(node.GetSkinInstance()->GetData());
+			if (node.GetSkinInstance()->GetSkinPartition() != NULL)
+				alreadyVisitedNodes.insert(node.GetSkinInstance()->GetSkinPartition());
+		}
+
+
 		FbxSurfaceMaterial* material = extract_Material<NiTriStrips, VER_20_2_0_7>(node);
 
 		return AddGeometry(shapeName, verts, norms, tris, uvs, vcs, material);
@@ -578,6 +594,16 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		}
 
 		alreadyVisitedNodes.insert(node.GetData());
+
+		//defer skin
+		if (node.GetSkinInstance() != NULL)
+		{
+			alreadyVisitedNodes.insert(node.GetSkinInstance());
+			if (node.GetSkinInstance()->GetData() != NULL)
+				alreadyVisitedNodes.insert(node.GetSkinInstance()->GetData());
+			if (node.GetSkinInstance()->GetSkinPartition() != NULL)
+				alreadyVisitedNodes.insert(node.GetSkinInstance()->GetSkinPartition());
+		}
 
 		if (verts.empty())
 			return FbxNode::Create(&scene, shapeName.c_str());
