@@ -23,6 +23,16 @@ void sanitizeString(string& to_sanitize)
 	replaceAll(to_sanitize, " ", "_s_");
 	replaceAll(to_sanitize, "[", "_ob_");
 	replaceAll(to_sanitize, "]", "_cb_");
+	replaceAll(to_sanitize, ":", "_dd_");
+}
+
+string& unsanitizeString(string& to_unsanitize)
+{
+	replaceAll(to_unsanitize, "_s_", " ");
+	replaceAll(to_unsanitize, "_ob_", "[");
+	replaceAll(to_unsanitize, "_cb_", "]");
+	replaceAll(to_unsanitize, "_dd_", ":");
+	return to_unsanitize;
 }
 
 void find_files(fs::path startingDir, string extension, vector<fs::path>& results) {

@@ -449,6 +449,40 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		return lTexture;
 	}
 
+
+	union alpha_flags_modes
+	{
+		struct {
+			// Bit 0 : alpha blending enable
+			unsigned alpha_blending_enable : 1;
+			// Bits 1-4 : source blend mode
+			unsigned source_blend_mode : 4;
+			// Bits 5-8 : destination blend mode
+			unsigned destination_blend_mode : 4;
+			// Bit 9 : alpha test enable
+			unsigned alpha_test_enable : 1;
+			// Bit 10-12 : alpha test mode
+			unsigned alpha_test_mode : 3;
+			// Bit 13 : no sorter flag ( disables triangle sorting )
+			unsigned no_sorter_flag : 1;
+		} bits;
+		unsigned int value;	
+	};
+
+	enum gl_blend_modes {
+		GL_ONE = 0,
+		GL_ZERO = 1,
+		GL_SRC_COLOR = 2,
+		GL_ONE_MINUS_SRC_COLOR = 3,
+		GL_DST_COLOR = 4,
+		GL_ONE_MINUS_DST_COLOR = 5,
+		GL_SRC_ALPHA = 6,
+		GL_ONE_MINUS_SRC_ALPHA = 7,
+		GL_DST_ALPHA = 8,
+		GL_ONE_MINUS_DST_ALPHA = 9,
+		GL_SRC_ALPHA_SATURATE = 10
+	};
+
 	FbxSurfaceMaterial* create_material(const string& name, BSLightingShaderPropertyRef material_property, NiAlphaPropertyRef alpha)
 	{
 		if (material_property != NULL)
@@ -491,21 +525,122 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				{
 					if (!texture_set[0].empty())
 					{
-						FbxFileTexture* diffuse = create_texture("Diffuse Texture", texture_set[0]);
+						FbxFileTexture* diffuse = create_texture(FbxSurfaceMaterial::sDiffuse, texture_set[0]);
+						diffuse->SetTranslation(material_property->GetUvOffset().u, material_property->GetUvOffset().v);
+						diffuse->SetScale(material_property->GetUvScale().u, material_property->GetUvScale().v);
+						switch (material_property->GetTextureClampMode())
+						{
+						case CLAMP_S_CLAMP_T: 
+							/*!< Clamp in both directions. */
+							diffuse->SetWrapMode(FbxTexture::EWrapMode::eClamp, FbxTexture::EWrapMode::eClamp);
+							break;
+						case CLAMP_S_WRAP_T:
+							/*!< Clamp in the S(U) direction but wrap in the T(V) direction. */
+							diffuse->SetWrapMode(FbxTexture::EWrapMode::eClamp, FbxTexture::EWrapMode::eRepeat);
+							break;
+						case WRAP_S_CLAMP_T:
+							/*!< Wrap in the S(U) direction but clamp in the T(V) direction. */
+							diffuse->SetWrapMode(FbxTexture::EWrapMode::eRepeat, FbxTexture::EWrapMode::eClamp);
+							break;
+						case WRAP_S_WRAP_T:
+							/*!< Wrap in both directions. */
+							diffuse->SetWrapMode(FbxTexture::EWrapMode::eRepeat, FbxTexture::EWrapMode::eRepeat);
+							break;
+						default:
+							break;
+						};
+
+						diffuse->Alpha = material_property->GetAlpha();
+
 						if (diffuse && gMaterial)
+						{
 							gMaterial->Diffuse.ConnectSrcObject(diffuse);
+							if (alpha != NULL)
+							{
+								alreadyVisitedNodes.insert(alpha);
+								alpha_flags_modes alpha_flags;
+								alpha_flags.value = alpha->GetFlags();
+
+								if (alpha_flags.bits.alpha_blending_enable)
+								{
+									diffuse->SetBlendMode(FbxTexture::EBlendMode::eTranslucent);
+									diffuse->SetAlphaSource(FbxTexture::EAlphaSource::eRGBIntensity);
+
+								}
+								if (alpha_flags.bits.source_blend_mode == gl_blend_modes::GL_ONE && alpha_flags.bits.destination_blend_mode == gl_blend_modes::GL_ONE)
+								{
+									diffuse->SetBlendMode(FbxTexture::EBlendMode::eAdditive);
+								}
+								if (alpha_flags.bits.source_blend_mode == gl_blend_modes::GL_ZERO && alpha_flags.bits.destination_blend_mode == gl_blend_modes::GL_SRC_COLOR)
+								{
+									diffuse->SetBlendMode(FbxTexture::EBlendMode::eModulate);
+								}
+								if (alpha_flags.bits.source_blend_mode == gl_blend_modes::GL_DST_COLOR && alpha_flags.bits.destination_blend_mode == gl_blend_modes::GL_SRC_COLOR)
+								{
+									diffuse->SetBlendMode(FbxTexture::EBlendMode::eModulate2);
+								}
+								if (alpha_flags.bits.alpha_test_enable)
+								{
+									diffuse->SetBlendMode(FbxTexture::EBlendMode::eTranslucent);
+									diffuse->SetAlphaSource(FbxTexture::EAlphaSource::eBlack);
+								}
+
+								/*
+
+								// Bit 0 : alpha blending enable
+								// Bits 1-4 : source blend mode
+								// Bits 5-8 : destination blend mode
+								// Bit 9 : alpha test enable
+								// Bit 10-12 : alpha test mode
+								// Bit 13 : no sorter flag ( disables triangle sorting )
+								//
+								// blend modes (glBlendFunc):
+								// 0000 GL_ONE
+								//             0001 GL_ZERO
+								//             0010 GL_SRC_COLOR
+								//             0011 GL_ONE_MINUS_SRC_COLOR
+								//             0100 GL_DST_COLOR
+								//             0101 GL_ONE_MINUS_DST_COLOR
+								//             0110 GL_SRC_ALPHA
+								//             0111 GL_ONE_MINUS_SRC_ALPHA
+								//             1000 GL_DST_ALPHA
+								//             1001 GL_ONE_MINUS_DST_ALPHA
+								//             1010 GL_SRC_ALPHA_SATURATE
+
+								For Alpha Blending
+									Source Blend Mode: Src Alpha
+									Destination Blend Mode: Inv Src Alpha
+								For Additive Blending
+									Source Blend Mode: One
+									Destination Blend Mode: One
+								For Multiplicative Blending
+									Source Blend Mode: Zero
+									Destination Blend Mode: Src Color
+								For 2x Multiplicative Blending
+									Source Blend Mode: Dst Color
+									Destination Blend Mode: Src Color
+
+
+								For Alpha Testing check Enable Testing
+								Alpha Test Function sets how transparency channel grey values (0 to 255 or black to white) will be compared to the Alpha Test Threshold value to determine what is opaque
+									Less or Equal: Lighter will be more transparent
+									Greater or Equal: Darker will be more transparent
+								Alpha Test Threshold: Value from 0 to 255 (black to white)
+								*/
+
+							}
+						}
 					}
 					if (!texture_set[1].empty())
 					{
-						FbxFileTexture* normal = create_texture("Normal Map", texture_set[1] );
+						FbxFileTexture* normal = create_texture(FbxSurfaceMaterial::sNormalMap, texture_set[1] );
 						if (normal && gMaterial)
 							gMaterial->NormalMap.ConnectSrcObject(normal);
 					}
 				}
 			}
 
-			if (alpha!=NULL)
-				alreadyVisitedNodes.insert(alpha);
+
 
 			return gMaterial;
 		}
@@ -2135,7 +2270,8 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 	FbxGeometryElementNormal* normal = m->GetElementNormal(0);
 	FbxGeometryElementVertexColor* vc = m->GetElementVertexColor(0);
 
-	out->SetName(name);
+	string orig_name = name;
+	out->SetName(unsanitizeString(orig_name));
 	int numVerts = m->GetControlPointsCount();
 	int numTris = m->GetPolygonCount();
 
@@ -2425,28 +2561,48 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 		FbxFileTexture *texture;
 		vector<string> vTextures = textures->GetTextures();
 
-		//diffuse first:
+		//diffuse:
 		prop = material->FindProperty(FbxSurfaceMaterial::sDiffuse, true);
-		texture = prop.GetSrcObject<FbxFileTexture>(0);
-
-		if (prop.IsValid() && texture)
+		if (prop.IsValid())
 		{
-			std::string tempString = string(texture->GetFileName());
-			size_t idx = tempString.find("textures", 0);
-			tempString.erase(tempString.begin(), tempString.begin() + idx);
-			vTextures[0] = tempString;
+			texture = prop.GetSrcObject<FbxFileTexture>(0);
+			if (texture)
+			{
+				std::string tempString = string(texture->GetFileName());
+				size_t idx = tempString.find("textures", 0);
+				tempString.erase(tempString.begin(), tempString.begin() + idx);
+				vTextures[0] = tempString;
+			}
 		}
 
-		//normal first:
+		//normal:
 		prop = material->FindProperty(FbxSurfaceMaterial::sBump, true);
-		texture = prop.GetSrcObject<FbxFileTexture>(0);
 
-		if (prop.IsValid() && texture)
+		if (prop.IsValid())
 		{
-			std::string tempString = string(texture->GetFileName());
-			size_t idx = tempString.find_first_of("textures", 0);
-			tempString.erase(tempString.begin(), tempString.begin() + idx);
-			vTextures[1] = tempString;
+			texture = prop.GetSrcObject<FbxFileTexture>(0);
+
+			if (texture)
+			{
+				std::string tempString = string(texture->GetFileName());
+				size_t idx = tempString.find_first_of("textures", 0);
+				tempString.erase(tempString.begin(), tempString.begin() + idx);
+				vTextures[1] = tempString;
+			}
+			else {
+				prop = material->FindProperty(FbxSurfaceMaterial::sNormalMap, true);
+				if (prop.IsValid())
+				{
+					texture = prop.GetSrcObject<FbxFileTexture>(0);
+					if (texture)
+					{
+						std::string tempString = string(texture->GetFileName());
+						size_t idx = tempString.find_first_of("textures", 0);
+						tempString.erase(tempString.begin(), tempString.begin() + idx);
+						vTextures[1] = tempString;
+					}
+				}
+			}
 		}
 
 		//if this isn't found, then we could go down the alternate route and do 1f-transparency?
@@ -2503,7 +2659,7 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 NiNodeRef FBXWrangler::importShapes(FbxNode* child, const FBXImportOptions& options) {
 	NiNodeRef dummy = new NiNode();
 	string name = child->GetName();
-	dummy->SetName(name);
+	dummy->SetName(unsanitizeString(name));
 	vector<NiAVObjectRef> children;
 	size_t attributes_size = child->GetNodeAttributeCount();
 	for (int i = 0; i < attributes_size; i++) {
@@ -3446,7 +3602,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			}
 			if (nif_child == NULL) {
 				nif_child = new NiNode();
-				nif_child->SetName(string(child->GetName()));
+				nif_child->SetName(unsanitizeString(string(child->GetName())));
 				setAvTransform(child, nif_child);
 			}
 			conversion_Map[child] = nif_child;
