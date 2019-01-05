@@ -914,7 +914,15 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					Quaternion rotation = data->GetSkinTransform().rotation.AsQuaternion();
 					float scale = data->GetSkinTransform().scale;
 
-					aCluster->SetTransformLinkMatrix(jointNode->EvaluateGlobalTransform());
+					FbxAMatrix global_transform;
+					global_transform.SetT(FbxDouble3(translation.x, translation.y , translation.z ));
+					global_transform.SetQ({ rotation.x, rotation.y, rotation.z, rotation.w });
+					global_transform.SetS(FbxDouble3(scale, scale, scale));
+
+					FbxAMatrix joint_transform = jointNode->EvaluateGlobalTransform();
+
+					aCluster->SetTransformLinkMatrix(joint_transform);
+					aCluster->SetTransformMatrix(global_transform.Inverse());
 
 					for (BoneVertData& boneVertData : boneData.vertexWeights) {
 						aCluster->AddControlPointIndex(boneVertData.index, boneVertData.weight);
@@ -1880,9 +1888,11 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 
 	bool status = iImporter->Import(scene);
 
-	//FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
-	//FbxAxisSystem::Max.ConvertScene(scene);
-	//FbxSystemUnit::m.ConvertScene(scene);
+	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
+	FbxAxisSystem::Max.ConvertScene(scene);
+	//FbxSystemUnit unit = scene->GetGlobalSettings().GetSystemUnit(); // GetGlobalSettings()->G
+	//FbxSystemUnit::Inch.ConvertScene(scene);
+	//unit = scene->GetGlobalSettings().GetSystemUnit();
 
 	if (!status) {
 		FbxStatus ist = iImporter->GetStatus();
@@ -2083,7 +2093,13 @@ void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape) {
 
 				FbxTime lTime;
 				lTime.SetSecondDouble(0);
-				this_bone_data.skinTransform = GetAvTransform(cluster->GetLink()->EvaluateGlobalTransform(lTime).Inverse());
+				FbxAMatrix joint_transform; cluster->GetTransformLinkMatrix(joint_transform);
+				FbxAMatrix global_transform; global_transform = cluster->GetTransformMatrix(global_transform).Inverse();
+				FbxAMatrix local_transform =  (global_transform * joint_transform).Inverse();
+
+				data->SetSkinTransform(GetAvTransform(global_transform));
+
+				this_bone_data.skinTransform = GetAvTransform(local_transform);
 				this_bone_data.numVertices += cluster->GetControlPointIndicesCount();
 
 				vector<BoneVertData>& vertsData = this_bone_data.vertexWeights;
@@ -2221,6 +2237,8 @@ void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape) {
 
 		data->SetBoneList(vbones_data);
 		data->SetHasVertexWeights(1);
+
+		
 
 		NiTransform id; id.scale = 1; data->SetSkinTransform(id);
 
@@ -2540,13 +2558,6 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 		""
 		});
 
-	if (hasAlpha) {
-		NiAlphaPropertyRef alpharef = new NiAlphaProperty();
-		alpharef->SetFlags(237);
-		alpharef->SetThreshold(128);
-		out->SetAlphaProperty(alpharef);
-	}
-
 	if (node->GetNodeCount() > 0)
 	{
 		if (node->GetNodeCount() > 1)
@@ -2570,9 +2581,20 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 			{
 				std::string tempString = string(texture->GetFileName());
 				size_t idx = tempString.find("textures", 0);
-				tempString.erase(tempString.begin(), tempString.begin() + idx);
+				if (idx != string::npos)
+				{
+					tempString.erase(tempString.begin(), tempString.begin() + idx);
+				}
+				else {
+					Log::Warn("Unable to find a relative path to texture, using full FBX path: %s", tempString.c_str());
+				}
 				vTextures[0] = tempString;
+				if (texture->Alpha > 0.0)
+					hasAlpha = true;
+				if (texture->GetBlendMode() != FbxFileTexture::EBlendMode::eOver)
+					hasAlpha = true;
 			}
+
 		}
 
 		//normal:
@@ -2644,6 +2666,13 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 		}
 
 		textures->SetTextures(vTextures);
+	}
+
+	if (hasAlpha) {
+		NiAlphaPropertyRef alpharef = new NiAlphaProperty();
+		alpharef->SetFlags(237);
+		alpharef->SetThreshold(128);
+		out->SetAlphaProperty(alpharef);
 	}
 
 	shader->SetTextureSet(textures);
