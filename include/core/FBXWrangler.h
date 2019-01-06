@@ -95,10 +95,13 @@ namespace FBX {
 		set<string> sequences_names;
 		set<string> havok_sequences;
 
+		bool export_skin = false;
+
 		string external_skeleton_path = "";
 
 		NiTriShapeRef importShape(const string& name, FbxNodeAttribute* node, const FBXImportOptions& options);
-			
+		
+		set<FbxNode*> FBXWrangler::buildBonesList();
 		void checkAnimatedNodes();
 		void buildKF();
 		void buildCollisions();
@@ -146,6 +149,7 @@ namespace FBX {
 
 		bool LoadMeshes(const FBXImportOptions& options);
 		bool SaveNif(const string& fileName);
+		bool SaveSkin(const string& fileName);
 	};	
 	
 } 

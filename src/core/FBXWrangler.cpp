@@ -46,6 +46,8 @@ See the included LICENSE file
 #include <VHACD.h>
 #include <boundingmesh.h>
 
+#include <commands/fixsse.h>
+
 using namespace ckcmd::FBX;
 using namespace  ckcmd::Geometry;
 using namespace ckcmd::nifscan;
@@ -891,52 +893,69 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			return;
 		for (pair<NiSkinInstance*, NiTriBasedGeom*> skin : skins) {
 			NiTriBasedGeomRef mesh = skin.second;
-			
+
 			NiSkinDataRef data = skin.first->GetData();
 			NiSkinPartitionRef part = skin.first->GetSkinPartition();
-
-			std::string shapeSkin = mesh->GetName() + "_skin";
-			FbxSkin* fbx_skin = FbxSkin::Create(&scene, shapeSkin.c_str());
-			int boneIndex = 0;
 			vector<BoneData>& bonelistdata = data->GetBoneList();
-			for (NiNode* bone : skin.first->GetBones()) {
-				FbxNode* jointNode = getBuiltNode(bone);
-				if (jointNode) {
-					std::string boneSkin = bone->GetName() + "_skin";
-					FbxCluster* aCluster = FbxCluster::Create(&scene, boneSkin.c_str());
+			std::string shapeSkin = mesh->GetName() + "_skin";
 
-					aCluster->SetLink(jointNode);
-					aCluster->SetLinkMode(FbxCluster::eTotalOne);
 
-					BoneData& boneData = bonelistdata[boneIndex];
+			vector<NiNode * > data_bonelist = skin.first->GetBones();
 
-					Vector3 translation = data->GetSkinTransform().translation;
-					Quaternion rotation = data->GetSkinTransform().rotation.AsQuaternion();
-					float scale = data->GetSkinTransform().scale;
+			int partIndex = 0;
+			for (const auto& part_data : part->GetSkinPartitionBlocks())
+			{
+				FbxSkin* fbx_skin = FbxSkin::Create(&scene, shapeSkin.c_str());
+				map<unsigned short, FbxCluster*> clusters;
+				//create clusters
+				for (unsigned short bone_index : part_data.bones) {
+					NiNode* bone = skin.first->GetBones()[bone_index];
+					FbxNode* jointNode = getBuiltNode(bone);
+					if (jointNode) {
+						std::string boneSkin = bone->GetName() + "_cluster";
+						FbxCluster* aCluster = FbxCluster::Create(&scene, boneSkin.c_str());
+						aCluster->SetLink(jointNode);
+						aCluster->SetLinkMode(FbxCluster::eTotalOne);
 
-					FbxAMatrix global_transform;
-					global_transform.SetT(FbxDouble3(translation.x, translation.y , translation.z ));
-					global_transform.SetQ({ rotation.x, rotation.y, rotation.z, rotation.w });
-					global_transform.SetS(FbxDouble3(scale, scale, scale));
+						Vector3 translation = data->GetSkinTransform().translation;
+						Quaternion rotation = data->GetSkinTransform().rotation.AsQuaternion();
+						float scale = data->GetSkinTransform().scale;
 
-					FbxAMatrix joint_transform = jointNode->EvaluateGlobalTransform();
+						FbxAMatrix global_transform;
+						global_transform.SetT(FbxDouble3(translation.x, translation.y, translation.z));
+						global_transform.SetQ({ rotation.x, rotation.y, rotation.z, rotation.w });
+						global_transform.SetS(FbxDouble3(scale, scale, scale));
 
-					aCluster->SetTransformLinkMatrix(joint_transform);
-					aCluster->SetTransformMatrix(global_transform.Inverse());
+						FbxAMatrix joint_transform = jointNode->EvaluateGlobalTransform();
 
-					for (BoneVertData& boneVertData : boneData.vertexWeights) {
-						aCluster->AddControlPointIndex(boneVertData.index, boneVertData.weight);
+						aCluster->SetTransformLinkMatrix(joint_transform);
+						aCluster->SetTransformMatrix(global_transform.Inverse());
+
+						clusters[bone_index] = aCluster;
 					}
-					fbx_skin->AddCluster(aCluster);
-
 				}
-				boneIndex++;
+
+				for (int v = 0; v < part_data.vertexMap.size(); v++)
+				{
+					for (int b = 0; b < part_data.boneIndices[v].size(); b++)
+					{
+						unsigned short bone_index = part_data.bones[part_data.boneIndices[v][b]];
+						FbxCluster* cluster = clusters[bone_index];
+						unsigned short vertex_index = part_data.vertexMap[v];
+						float vertex_weight = part_data.vertexWeights[v][b];
+						cluster->AddControlPointIndex(vertex_index, vertex_weight);
+					}
+				}
+
+				for (const auto& cluster : clusters)
+				{
+					fbx_skin->AddCluster(cluster.second);
+				}
+
+				FbxMesh* shapeMesh = (FbxMesh*)getBuiltNode(mesh)->GetNodeAttribute();
+				if (shapeMesh)
+					shapeMesh->AddDeformer(fbx_skin);
 			}
-
-			FbxMesh* shapeMesh = (FbxMesh*)getBuiltNode(mesh)->GetNodeAttribute();
-			if (shapeMesh)
-				shapeMesh->AddDeformer(fbx_skin);
-
 		}
 	}
 
@@ -1877,10 +1896,6 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 		return false;
 	}
 
-	//scene = FbxScene::Create(sdkManager, "ckcmd");
-
-	//NewScene();
-
 	if (scene)
 		CloseScene();
 
@@ -1889,10 +1904,7 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 	bool status = iImporter->Import(scene);
 
 	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
-	FbxAxisSystem::Max.ConvertScene(scene);
-	//FbxSystemUnit unit = scene->GetGlobalSettings().GetSystemUnit(); // GetGlobalSettings()->G
-	//FbxSystemUnit::Inch.ConvertScene(scene);
-	//unit = scene->GetGlobalSettings().GetSystemUnit();
+	maxSystem.ConvertScene(scene);
 
 	if (!status) {
 		FbxStatus ist = iImporter->GetStatus();
@@ -1900,11 +1912,6 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 		return false;
 	}
 	iImporter->Destroy();
-
-	//FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
-	//scene->GetGlobalSettings().SetAxisSystem(maxSystem);
-	//scene->GetRootNode()->LclScaling.Set(FbxDouble3(1.0, 1.0, 1.0));
-
 
 	return LoadMeshes(options);
 }
@@ -1956,7 +1963,7 @@ bool hasNoTransform(FbxNode* node) {
 
 
 
-FbxAMatrix getNodeTransform(FbxNode* pNode) {
+FbxAMatrix getNodeTransform(FbxNode* pNode, bool absolute = false) {
 	FbxAMatrix matrixGeo;
 	matrixGeo.SetIdentity();
 	if (pNode->GetNodeAttribute())
@@ -1969,6 +1976,8 @@ FbxAMatrix getNodeTransform(FbxNode* pNode) {
 		matrixGeo.SetS(lS);
 	}
 	FbxAMatrix localMatrix = pNode->EvaluateLocalTransform();
+	if (absolute)
+		localMatrix = pNode->EvaluateGlobalTransform();
 
 	return localMatrix * matrixGeo;
 }
@@ -1997,8 +2006,8 @@ FbxAMatrix getWorldTransform(FbxNode* pNode) {
 	return parentMatrix * localMatrix * matrixGeo;
 }
 
-void setAvTransform(FbxNode* node, NiAVObject* av, bool rotation_only = false) {
-	FbxAMatrix tr = getNodeTransform(node);
+void setAvTransform(FbxNode* node, NiAVObject* av, bool rotation_only = false, bool absolute = false) {
+	FbxAMatrix tr = getNodeTransform(node, absolute);
 	FbxDouble3 trans = tr.GetT();
 	av->SetTranslation(Vector3(trans[0], trans[1], trans[2]));
 	av->SetRotation(
@@ -2038,218 +2047,256 @@ struct bone_weight {
 	bone_weight(NiNode* bone, float weight) : bone(bone), weight(weight) {}
 };
 
-void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape) {
-	if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
-		NiSkinInstanceRef skin = new NiSkinInstance();
-		NiSkinDataRef data = new NiSkinData();
-		NiSkinPartitionRef spartition = new NiSkinPartition();
+class AccessSkin {};
 
-		map<NiNode* , BoneData > bones_data;
-		vector<SkinPartition > partitions;
-		set<NiNode*> bones;
-		vector<NiNode*> vbones;
+template<>
+class Accessor<AccessSkin>
+{
+	public:
+		Accessor(FbxMesh* m, NiTriShapeRef shape, map<FbxNode*, NiObjectRef>& conversion_Map, NiNodeRef& conversion_root, bool export_skin) {
+			if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
+				NiSkinInstanceRef skin;
+				if (export_skin)
+					skin = new BSDismemberSkinInstance();
+				else
+					skin = new NiSkinInstance();
+				NiSkinDataRef data = new NiSkinData();
+				NiSkinPartitionRef spartition = new NiSkinPartition();
 
-		multimap<int, int> faces_map;
+				map<NiNode*, BoneData > bones_data;
+				vector<SkinPartition > partitions;
+				//set<NiNode*> bones;
+				//vector<NiNode*> vbones;
 
-		int numTris = m->GetPolygonCount();
-		for (int t = 0; t < numTris; t++) {
-			if (m->GetPolygonSize(t) != 3)
-				continue;
+				multimap<int, int> faces_map;
 
-			int p1 = m->GetPolygonVertex(t, 0);
-			int p2 = m->GetPolygonVertex(t, 1);
-			int p3 = m->GetPolygonVertex(t, 2);
+				int numTris = m->GetPolygonCount();
+				for (int t = 0; t < numTris; t++) {
+					if (m->GetPolygonSize(t) != 3)
+						continue;
 
-			faces_map.insert({ p1,t });
-			faces_map.insert({ p2,t });
-			faces_map.insert({ p3,t });
+					int p1 = m->GetPolygonVertex(t, 0);
+					int p2 = m->GetPolygonVertex(t, 1);
+					int p3 = m->GetPolygonVertex(t, 2);
 
-		}
-
-		multimap<int, bone_weight> influence_map;
-
-		for (int iSkin = 0; iSkin < m->GetDeformerCount(FbxDeformer::eSkin); iSkin++) {
-			FbxSkin* skin = (FbxSkin*)m->GetDeformer(iSkin, FbxDeformer::eSkin);
-
-			SkinPartition partition;
-			vector<unsigned short >& vertexMap = partition.vertexMap;
-			partition.vertexMap.resize(0);
-			map<int, unsigned short> inverse_vertex_map;
-			set<int> cluster_triangles;
-			vector<int> local_bones;
-
-			for (int iCluster = 0; iCluster < skin->GetClusterCount(); iCluster++) {
-				FbxCluster* cluster = skin->GetCluster(iCluster);
-				if (!cluster->GetLink())
-					continue;
-
-				skinned_bones.insert(cluster->GetLink());
-				NiNode* bone = DynamicCast<NiNode>(conversion_Map[cluster->GetLink()]);
-
-				if (bones_data.find(bone) == bones_data.end())
-					bones_data[bone] = BoneData();
-
-				BoneData& this_bone_data = bones_data[bone];
-
-				FbxTime lTime;
-				lTime.SetSecondDouble(0);
-				FbxAMatrix joint_transform; cluster->GetTransformLinkMatrix(joint_transform);
-				FbxAMatrix global_transform; global_transform = cluster->GetTransformMatrix(global_transform).Inverse();
-				FbxAMatrix local_transform =  (global_transform * joint_transform).Inverse();
-
-				data->SetSkinTransform(GetAvTransform(global_transform));
-
-				this_bone_data.skinTransform = GetAvTransform(local_transform);
-				this_bone_data.numVertices += cluster->GetControlPointIndicesCount();
-
-				vector<BoneVertData>& vertsData = this_bone_data.vertexWeights;
-				if (bone != NULL) {
-					for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++) {
-						int v = cluster->GetControlPointIndices()[iPoint];
-						float w = cluster->GetControlPointWeights()[iPoint];
-
-						vector<unsigned short >::iterator v_local_it = find(vertexMap.begin(), vertexMap.end(), v);
-
-						if (v_local_it == vertexMap.end()) {
-							partition.numVertices++;
-							inverse_vertex_map[v] = vertexMap.size();
-							vertexMap.push_back(v);
-						}
-
-						pair <multimap<int, int>::iterator, multimap<int, int>::iterator> this_faces = faces_map.equal_range(v);
-
-						for (multimap<int, int>::iterator faces_it = this_faces.first; faces_it != this_faces.second; faces_it++) {
-							cluster_triangles.insert(faces_it->second);
-						}
-
-						
-						influence_map.insert({ v, bone_weight(bone, w) });
-
-						//global data
-						BoneVertData vertData;
-						vertData.index = v;
-						vertData.weight = w;
-						vertsData.push_back(vertData);
-					}
-
-					int b_local_index = 0;
-					if (bones.insert(bone).second) {
-						vbones.push_back(bone);
-					}
+					faces_map.insert({ p1,t });
+					faces_map.insert({ p2,t });
+					faces_map.insert({ p3,t });
 
 				}
-			}
 
-			vector< vector<byte > >& pindexes = partition.boneIndices;
-			pindexes.resize(partition.numVertices);
-			vector< vector<float > >& vweights = partition.vertexWeights;
-			vweights.resize(partition.numVertices);
-			partition.numWeightsPerVertex = 4;
-			partition.numTriangles = cluster_triangles.size();
-			partition.hasFaces = cluster_triangles.size() > 0;
-			partition.triangles.resize(partition.numTriangles);
-			partition.trianglesCopy.resize(partition.numTriangles);
+				for (int iSkin = 0; iSkin < m->GetDeformerCount(FbxDeformer::eSkin); iSkin++) {
+					FbxSkin* fbx_skin = (FbxSkin*)m->GetDeformer(iSkin, FbxDeformer::eSkin);
+					SkinPartition partition;
+					
+					for (int iCluster = 0; iCluster < fbx_skin->GetClusterCount(); iCluster++) {
+						FbxCluster* cluster = fbx_skin->GetCluster(iCluster);
+						if (!cluster->GetLink())
+							continue;
 
-			partition.hasVertexMap = vertexMap.size() > 0;
-			partition.hasVertexWeights = influence_map.size() > 0;
-			partition.hasBoneIndices = influence_map.size() > 0;
+						FbxNode* bone = cluster->GetLink();
+						NiNodeRef ni_bone = DynamicCast<NiNode>(conversion_Map[cluster->GetLink()]);
 
-			for (const auto& pair : influence_map) {
-				int index = inverse_vertex_map[pair.first];
-				vector<byte >& pindex = pindexes[index];
-				vector<float >& vweight = vweights[index];
-				vector<NiNode*>::iterator bone_it = find(vbones.begin(), vbones.end(), pair.second.bone);
-				if (bone_it != vbones.end()) {
-					int bone_index = distance(vbones.begin(), bone_it);
-					vector<unsigned short >::iterator local_it = find(partition.bones.begin(), partition.bones.end(), bone_index);
-					size_t local_index = 0;
-					if (local_it == partition.bones.end())
+						//find global
+						vector<NiNode * >& bones = skin->bones;
+						vector<BoneData >& bone_data_list = data->boneList;
+						vector<NiNode * >::iterator bone_it = find(bones.begin(), bones.end(), ni_bone);
+						size_t bone_data_index = -1;
+						if (bone_it != bones.end())
+						{
+							bone_data_index = distance(bones.begin(), bone_it);
+						}
+						else {
+							bone_data_index = bones.size();
+							bones.push_back(ni_bone);
+							BoneData bd;
+
+							FbxAMatrix joint_transform; cluster->GetTransformLinkMatrix(joint_transform);
+							FbxAMatrix global_transform; global_transform = cluster->GetTransformMatrix(global_transform).Inverse();
+							FbxAMatrix local_transform = (global_transform * joint_transform).Inverse();
+
+							data->skinTransform = GetAvTransform(global_transform);
+							bd.skinTransform = GetAvTransform(local_transform);
+							bone_data_list.push_back(bd);
+							//data->SetBoneList(bone_data_list);
+						}
+						//Bone Data
+						BoneData& bone_data = bone_data_list[bone_data_index];
+
+						partition.numWeightsPerVertex = 4;
+
+						//find local values
+						vector<unsigned short >& partition_bones = partition.bones;
+						size_t local_bone_index = -1;
+						vector<unsigned short >::iterator local_bones_it = find(partition_bones.begin(), partition_bones.end(), bone_data_index);
+						if (local_bones_it == partition_bones.end())
+						{
+							local_bone_index = partition_bones.size();
+							partition_bones.push_back(bone_data_index);
+							partition.numBones++;
+						}
+						else {
+							local_bone_index = distance(partition_bones.begin(), local_bones_it);
+						}
+
+						size_t cp_count = cluster->GetControlPointIndicesCount();
+						vector< vector<float > >& local_vertices_weights = partition.vertexWeights;
+						//local_vertices_weights.resize(cp_count);
+						vector< vector<byte > >& local_vertices_indices = partition.boneIndices;
+						//local_vertices_indices.resize(cp_count);
+						vector<Triangle>& local_triangles = partition.triangles;
+						for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++)
+						{
+							int v = cluster->GetControlPointIndices()[iPoint];
+							float w = cluster->GetControlPointWeights()[iPoint];
+
+							if (w > 0.0)
+							{
+								BoneVertData bvd;
+								bvd.index = v;
+								bvd.weight = w;
+							
+								bone_data.vertexWeights.push_back(bvd);
+								bone_data.numVertices++;
+							}
+
+							size_t local_vertex_index = -1;
+							vector<unsigned short >::iterator v_local_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), v);
+
+							if (v_local_it == partition.vertexMap.end()) {
+								partition.numVertices++;
+								
+								local_vertex_index = partition.vertexMap.size();
+								partition.vertexMap.push_back(v);
+								local_vertices_weights.resize(partition.vertexMap.size());
+								local_vertices_indices.resize(partition.vertexMap.size());
+							}
+							else {
+								local_vertex_index = distance(partition.vertexMap.begin(), v_local_it);
+							}
+
+							vector<float >& local_vertex_weight_array = local_vertices_weights[local_vertex_index];
+							local_vertex_weight_array.push_back(w);
+							vector<byte >& local_bones_indices = local_vertices_indices[local_vertex_index];
+							local_bones_indices.push_back(local_bone_index);							
+						} //end points
+
+						//triangles
+						for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++)
+						{
+							int v = cluster->GetControlPointIndices()[iPoint];
+							pair <multimap<int, int>::iterator, multimap<int, int>::iterator> this_faces = faces_map.equal_range(v);
+
+							for (multimap<int, int>::iterator faces_it = this_faces.first; faces_it != this_faces.second; faces_it++)
+							{
+								int triangle_index = faces_it->second;
+
+								int global_v1 = m->GetPolygonVertex(triangle_index, 0);
+								int global_v2 = m->GetPolygonVertex(triangle_index, 1);
+								int global_v3 = m->GetPolygonVertex(triangle_index, 2);
+
+								vector<unsigned short >::iterator local_v1_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), global_v1);
+								vector<unsigned short >::iterator local_v2_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), global_v2);
+								vector<unsigned short >::iterator local_v3_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), global_v3);
+
+								if (local_v1_it != partition.vertexMap.end() && local_v2_it != partition.vertexMap.end() && local_v3_it != partition.vertexMap.end())
+								{
+									int local_v1 = distance(partition.vertexMap.begin(), local_v1_it);
+									int local_v2 = distance(partition.vertexMap.begin(), local_v2_it);
+									int local_v3 = distance(partition.vertexMap.begin(), local_v3_it);
+
+									Triangle ni_t = { (unsigned short)local_v1,
+										(unsigned short)local_v2,
+										(unsigned short)local_v3 };
+
+									vector<Triangle>::iterator tris_pos = find(local_triangles.begin(), local_triangles.end(), ni_t);
+									if (tris_pos == local_triangles.end())
+									{
+										local_triangles.push_back(ni_t);
+										partition.numTriangles++;
+									}
+								}
+							}
+						}
+
+						for (int i_f = 0; i_f < partition.numVertices; i_f++) {
+
+							vector<byte >& pindex = local_vertices_indices[i_f];
+							if (pindex.size() > 4)
+								Log::Error("Too many indices for bone");
+
+							vector<float >& vweight = local_vertices_weights[i_f];
+							if (vweight.size() > 4)
+								Log::Error("Too many weights for bone");
+
+							//find less influencing bone
+							if (pindex.size() != vweight.size()) {
+								Log::Error("Fatal Error: weights != indexes");
+								throw std::runtime_error("Fatal Error: weights != indexes");
+							}
+							bool removed = false;
+							while (vweight.size() > 4) {
+								removed = true;
+								int to_remove_bone = distance(vweight.begin(), min_element(begin(vweight), end(vweight)));
+								pindex.erase(pindex.begin() + to_remove_bone);
+								vweight.erase(vweight.begin() + to_remove_bone);
+							}
+							if (removed) {
+								float sum = std::accumulate(vweight.begin(), vweight.end(), 0.0f);
+								vweight[0] /= sum;
+								vweight[1] /= sum;
+								vweight[2] /= sum;
+								vweight[3] /= sum;
+							}
+
+							pindex.resize(4);
+							vweight.resize(4);
+						}
+					}
+
+					if (partition.bones.size()<4)
+						partition.bones.resize(4);
+
+					partition.numWeightsPerVertex = 4;
+					partition.numTriangles = partition.triangles.size();
+					partition.hasFaces = partition.triangles.size() > 0;
+					partition.trianglesCopy = partition.triangles;
+
+					partition.hasVertexMap = partition.vertexMap.size() > 0;
+					partition.hasVertexWeights = partition.vertexWeights.size() > 0;
+					partition.hasBoneIndices = partition.boneIndices.size() > 0;
+
+					partitions.push_back(partition);
+				}
+
+				spartition->SetSkinPartitionBlocks(partitions);
+				data->SetHasVertexWeights(1);
+				skin->SetData(data);
+				skin->SetSkinPartition(spartition);
+				skin->SetSkeletonRoot(conversion_root);
+
+				if (export_skin)
+				{
+					BSDismemberSkinInstanceRef bsskin = DynamicCast<BSDismemberSkinInstance>(skin);
+					bsskin->partitions.resize(bsskin->skinPartition->skinPartitionBlocks.size());
+					for (int i = 0; i < bsskin->partitions.size(); i++)
 					{
-						local_index = partition.bones.size();
-						partition.bones.push_back(bone_index);
+						bsskin->partitions[i].bodyPart = SBP_32_BODY;
+						bsskin->partitions[i].partFlag = (BSPartFlag)( PF_EDITOR_VISIBLE | PF_START_NET_BONESET);
 					}
-					else {
-						local_index = distance(partition.bones.begin(), local_it);
-					}
-
-					vweight.push_back(pair.second.weight);
-					pindex.push_back(local_index);
-				}
-			} 
-
-			for (int i_f = 0; i_f < partition.numVertices; i_f++) {
-
-				vector<byte >& pindex = pindexes[i_f]; 
-				if (pindex.size() > 4)
-					Log::Error("Too many indices for bone");
-
-				vector<float >& vweight = vweights[i_f]; 
-				if (vweight.size() > 4)
-					Log::Error("Too many weights for bone");
-
-				//find less influencing bone
-				if (pindex.size() != vweight.size()) {
-					Log::Error("Fatal Error: weights != indexes");
-					throw std::runtime_error("Fatal Error: weights != indexes");
-				}
-				bool removed = false;
-				while (vweight.size() > 4) {
-					removed = true;
-					int to_remove_bone = distance(vweight.begin(), min_element(begin(vweight), end(vweight)));
-					pindex.erase(pindex.begin() + to_remove_bone);
-					vweight.erase(vweight.begin() + to_remove_bone);
-				}
-				if (removed) {
-					float sum = std::accumulate(vweight.begin(), vweight.end(), 0.0f);
-					vweight[0] /= sum;
-					vweight[1] /= sum;
-					vweight[2] /= sum;
-					vweight[3] /= sum;
 				}
 
-				pindex.resize(4);
-				vweight.resize(4);
+				shape->SetSkinInstance(skin);
 			}
 
-			for (int t = 0; t < cluster_triangles.size(); t++) {
-				int p1 = m->GetPolygonVertex(t, 0);
-				int p2 = m->GetPolygonVertex(t, 1);
-				int p3 = m->GetPolygonVertex(t, 2);
-
-
-				partition.triangles[t] = Triangle
-				(
-					inverse_vertex_map[p1],
-					inverse_vertex_map[p2],
-					inverse_vertex_map[p3]
-				);
-			}
-
-			partitions.push_back(partition);
 		}
+};
 
-
-		spartition->SetSkinPartitionBlocks(partitions);
-
-		vector<BoneData > vbones_data;
-		for (const auto& bone : vbones) vbones_data.push_back(bones_data[bone]);
-
-
-		data->SetBoneList(vbones_data);
-		data->SetHasVertexWeights(1);
-
-		
-
-		NiTransform id; id.scale = 1; data->SetSkinTransform(id);
-
-		skin->SetBones(vbones);
-		skin->SetData(data);
-		skin->SetSkinPartition(spartition);
-		skin->SetSkeletonRoot(conversion_root);
-
-		shape->SetSkinInstance(skin);
-	}
-
+void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape) {
+	Accessor<AccessSkin> do_it(m, shape, conversion_Map, conversion_root, export_skin);
+	int bones = 60;
+	int weights = 4;
+	remake_partitions(StaticCast<NiTriBasedGeom>(shape), bones, weights, false, false);
 }
 
 template <class Type, typename T> 
@@ -3610,6 +3657,28 @@ void FBXWrangler::buildCollisions()
 
 }
 
+set<FbxNode*> FBXWrangler::buildBonesList()
+{
+	set<FbxNode*> bones;
+	for (int meshIndex = 0; meshIndex < scene->GetGeometryCount(); ++meshIndex)
+	{
+		const auto mesh = static_cast<FbxMesh*>(scene->GetGeometry(meshIndex));
+		if (mesh->GetDeformerCount(FbxDeformer::eSkin) > 0) {
+
+			for (int iSkin = 0; iSkin < mesh->GetDeformerCount(FbxDeformer::eSkin); iSkin++) {
+				FbxSkin* skin = (FbxSkin*)mesh->GetDeformer(iSkin, FbxDeformer::eSkin);
+				for (int iCluster = 0; iCluster < skin->GetClusterCount(); iCluster++) {
+					FbxCluster* cluster = skin->GetCluster(iCluster);
+					if (!cluster->GetLink())
+						continue;
+					bones.insert(cluster->GetLink());
+				}
+			}
+		}
+	}
+	return move(bones);
+}
+
 bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	if (!scene)
 		return false;
@@ -3619,6 +3688,18 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	FbxGeometryConverter lConverter(sdkManager);
 	lConverter.SplitMeshesPerMaterial(scene, true);
 	lConverter.Triangulate(scene, true);
+
+	set<FbxNode*> bones;
+	set<NiAVObjectRef> deferred_skins;
+	if (export_skin)
+		bones = buildBonesList();
+
+	FbxNode* root = scene->GetRootNode();
+	if (export_skin)
+		conversion_root = new NiNode();
+	else
+		conversion_root = new BSFadeNode();
+	conversion_root->SetName(string("Scene"));
 	
 	//nodes
 	std::function<void(FbxNode*)> loadNodeChildren = [&](FbxNode* root) {
@@ -3638,9 +3719,33 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			
 
 			NiNodeRef parent = DynamicCast<NiNode>(conversion_Map[root]);
+			if (export_skin)
+				parent = conversion_root;
 			if (parent != NULL) {
 				vector<Ref<NiAVObject > > children = parent->GetChildren();
-				children.push_back(nif_child);
+				if (export_skin)
+				{
+					if (nif_child->IsDerivedType(NiNode::TYPE))
+					{
+						NiNodeRef node_child = DynamicCast<NiNode>(nif_child);
+						vector<Ref<NiAVObject > > to_add_children = node_child->GetChildren();
+						for (const auto& ref : to_add_children) {
+							if (ref->IsDerivedType(NiTriBasedGeom::TYPE)) {
+								//defer
+								deferred_skins.insert(ref);
+								//children.push_back(ref);
+							}
+						}
+					}
+					if (bones.find(child) != bones.end())
+					{
+						setAvTransform(child, nif_child, false, true);
+						children.push_back(nif_child);
+					}
+				}
+				else {
+					children.push_back(nif_child);
+				}
 				parent->SetChildren(children);
 				conversion_parent_Map[StaticCast<NiAVObject>(nif_child)] = StaticCast<NiAVObject>(parent);
 			}
@@ -3648,10 +3753,6 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			loadNodeChildren(child);
 		}
 	};
-
-	FbxNode* root = scene->GetRootNode();
-	conversion_root = new BSFadeNode();
-	conversion_root->SetName(string("Scene"));
 
 	if (!hasNoTransform(root)) {
 		NiNodeRef proxyNiNode = new NiNode();
@@ -3669,6 +3770,17 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	for (const auto& p : skins_Map)
 	{
 		convertSkins(p.first, p.second);
+	}
+
+	//insertion deferred for skins
+	if (export_skin)
+	{
+		vector<Ref<NiAVObject > > children = conversion_root->GetChildren();
+		for (const auto& skin_def : deferred_skins)
+		{
+			children.push_back(skin_def);
+		}
+		conversion_root->SetChildren(children);
 	}
 
 	//animations
@@ -3796,6 +3908,11 @@ bool FBXWrangler::SaveAnimation(const string& fileName) {
 	return true;
 }
 
+bool FBXWrangler::SaveSkin(const string& fileName) {
+	export_skin = true;
+	return SaveNif(fileName);
+}
+
 bool FBXWrangler::SaveNif(const string& fileName) {
 
 	NifInfo info;
@@ -3806,18 +3923,18 @@ bool FBXWrangler::SaveNif(const string& fileName) {
 	vector<NiObjectRef> objects = RebuildVisitor(conversion_root, info).blocks;
 	bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(objects, info);
 
-	//adjust for havok
-	if (!skinned_animations.empty())
-		calculated_flags[0] = true;
+	if (!export_skin)
+	{
+		//adjust for havok
+		if (!skinned_animations.empty())
+			calculated_flags[0] = true;
 
-	BSXFlagsRef bref = new BSXFlags();
-	bref->SetName(string("BSX"));
-	bref->SetIntegerData(calculated_flags.to_ulong());
+		BSXFlagsRef bref = new BSXFlags();
+		bref->SetName(string("BSX"));
+		bref->SetIntegerData(calculated_flags.to_ulong());
 
-
-
-	conversion_root->SetExtraDataList({ StaticCast<NiExtraData>(bref) });
-
+		conversion_root->SetExtraDataList({ StaticCast<NiExtraData>(bref) });
+	}
 	HKXWrapperCollection wrappers;
 
 	if (!unskinned_animations.empty() || !skinned_animations.empty()) {

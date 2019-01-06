@@ -16,6 +16,8 @@
 #include <obj/NiExtraData.h>
 #include <obj/NiCollisionObject.h>
 #include <obj/NiProperty.h>
+#pragma once
+
 #include <obj/NiDynamicEffect.h>
 
 #include <algorithm>
@@ -27,7 +29,18 @@
 #include <bitset>
 #include <filesystem>
 
+#include <core/hkxcmd.h>
+#include <core/hkfutils.h>
+#include <core/log.h>
+#include <core/MathHelper.h>
+#include <commands/Geometry.h>
+
+#include <unordered_map>
+
 namespace fs = std::experimental::filesystem;
+
+Niflib::NiTriShapeRef remake_partitions(Niflib::NiTriBasedGeomRef iShape, int & maxBonesPerPartition, int & maxBonesPerVertex, bool make_strips, bool pad);
+
 
 namespace ckcmd {
 	namespace fixsse {

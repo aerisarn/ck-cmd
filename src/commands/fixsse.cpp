@@ -2,14 +2,6 @@
 
 #include <commands/fixsse.h>
 
-#include <core/hkxcmd.h>
-#include <core/hkfutils.h>
-#include <core/log.h>
-#include <core/MathHelper.h>
-#include <commands/Geometry.h>
-
-#include <unordered_map>
-
 
 using namespace ckcmd;
 using namespace ckcmd::fixsse;
@@ -367,7 +359,7 @@ NiTriShapeRef remake_partitions(NiTriBasedGeomRef iShape, int & maxBonesPerParti
 		for (const Triangle& tri : triangles)
 		{
 			do {
-				tribones.clear();
+				//tribones.clear();
 
 				for (int c = 0; c < 3; c++) {
 					for (const auto bw : weights[tri[c]]) {
@@ -398,7 +390,7 @@ NiTriShapeRef remake_partitions(NiTriBasedGeomRef iShape, int & maxBonesPerParti
 					int minBone = -1;
 
 					for (const auto b : sum) {
-						if (find(nono.begin(),nono.end(),b.first)== nono.end() && sum[b.first] < minWeight) {
+						if (find(nono.begin(),nono.end(),b.first)!= nono.end() && sum[b.first] < minWeight) {
 							minWeight = sum[b.first];
 							minBone = b.first;
 						}
