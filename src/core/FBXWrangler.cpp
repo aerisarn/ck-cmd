@@ -3910,7 +3910,9 @@ bool FBXWrangler::SaveAnimation(const string& fileName) {
 
 bool FBXWrangler::SaveSkin(const string& fileName) {
 	export_skin = true;
-	return SaveNif(fileName);
+	SaveNif(fileName);
+	export_skin = false;
+	return true;
 }
 
 bool FBXWrangler::SaveNif(const string& fileName) {

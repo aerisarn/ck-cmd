@@ -361,6 +361,7 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/AnimationCache.h"
 #COMMANDS
 					 "${CMAKE_SOURCE_DIR}/include/commands/ImportFbx.h"
+					 "${CMAKE_SOURCE_DIR}/include/commands/ImportSkin.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ImportAnimation.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ExportAnimation.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ExportRig.h"
