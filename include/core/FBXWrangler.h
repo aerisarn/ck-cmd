@@ -95,6 +95,8 @@ namespace FBX {
 		set<string> sequences_names;
 		set<string> havok_sequences;
 
+		set<FbxNode*> physic_entities;
+
 		bool export_skin = false;
 
 		string external_skeleton_path = "";
@@ -105,6 +107,7 @@ namespace FBX {
 		void checkAnimatedNodes();
 		void buildKF();
 		void buildCollisions();
+		NiCollisionObjectRef build_physics(FbxNode* rigid_body, set < FbxMesh*>& geometry_meshes);
 		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start);
 		void convertSkins(FbxMesh* m, NiTriShapeRef shape);
 	public:

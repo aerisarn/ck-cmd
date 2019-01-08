@@ -23,3 +23,5 @@ string& unsanitizeString(string& to_unsanitize);
 void find_files(fs::path startingDir, string extension, vector<fs::path>& results);
 
 fs::path relative_to(const fs::path& p, const fs::path& base);
+
+bool ends_with(std::string const & value, std::string const & ending);

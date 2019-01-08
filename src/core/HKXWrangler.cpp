@@ -57,8 +57,26 @@
 
 #include <Physics\Utilities\Collide\ShapeUtils\ShapeConverter\hkpShapeConverter.h>
 
+//collisions
+#include <Physics\Collide\Shape\Misc\Transform\hkpTransformShape.h>
+#include <Physics\Collide\Shape\Compound\Collection\List\hkpListShape.h>
+#include <Physics\Collide\Shape\Deprecated\ConvexList\hkpConvexListShape.h>
+
+#include "Physics/Collide/Shape/Compound/Tree/Mopp/hkpMoppBvTreeShape.h"
+#include "Physics/Collide/Shape/Compound/Collection/CompressedMesh/hkpCompressedMeshShapeBuilder.h"
+#include "Physics/Collide/Shape/Compound/Tree/Mopp/hkpMoppUtility.h"
+#include "Physics/Collide/Util/Welding/hkpMeshWeldingUtility.h"
+#include "Physics/Collide/Shape/Compound/Collection/ExtendedMeshShape/hkpExtendedMeshShape.h"
+#include <Physics\Collide\Shape\Compound\Collection\CompressedMesh\hkpCompressedMeshShape.h>
+
 #include <core/EulerAngles.h>
 #include <core/MathHelper.h>
+
+#include <algorithm>
+
+#include <VHACD.h>
+#include <boundingmesh.h>
+
 
 using namespace ckcmd::HKX;
 
@@ -1117,6 +1135,228 @@ void HKXWrapper::load_animation(const fs::path& path, vector<FbxNode*>& ordered_
 
 }
 
+struct bmeshinfo
+{
+	vector<float> points;
+	vector<int> triangles;
+};
+
+void convert_geometry(shared_ptr<bmeshinfo> bmesh, FbxMesh* mesh)
+{
+	size_t vertices_count = mesh->GetControlPointsCount();
+	size_t map_offset = bmesh->points.size() / 3;
+	for (int i = 0; i < vertices_count; i++) {
+		FbxVector4 vertex = mesh->GetControlPointAt(i);
+		//bmesh->addVertex({ vertex[0], vertex[1], vertex[2] });
+		bmesh->points.push_back(vertex[0]);
+		bmesh->points.push_back(vertex[1]);
+		bmesh->points.push_back(vertex[2]);
+	}
+
+	size_t tris_count = mesh->GetPolygonCount();
+
+	for (int i = 0; i < tris_count; i++) {
+		int v1 = mesh->GetPolygonVertex(i, 0);
+		int v2 = mesh->GetPolygonVertex(i, 1);
+		int v3 = mesh->GetPolygonVertex(i, 2);
+
+		bmesh->triangles.push_back(v1 + map_offset);
+		bmesh->triangles.push_back(v2 + map_offset);
+		bmesh->triangles.push_back(v3 + map_offset);
+	}
+}
+
+void convert_hkgeometry(hkGeometry& geometry, FbxMesh* mesh)
+{
+	size_t vertices_count = mesh->GetControlPointsCount();
+	int map_offset = geometry.m_vertices.getSize();
+	for (int i = 0; i < vertices_count; i++) {
+		FbxVector4 vertex = mesh->GetControlPointAt(i);
+		geometry.m_vertices.pushBack(
+			{ (hkReal)vertex[0],  (hkReal)vertex[1], (hkReal)vertex[2], }
+		);
+	}
+
+	size_t tris_count = mesh->GetPolygonCount();
+
+	for (int i = 0; i < tris_count; i++) {
+		int v1 = mesh->GetPolygonVertex(i, 0);
+		int v2 = mesh->GetPolygonVertex(i, 1);
+		int v3 = mesh->GetPolygonVertex(i, 2);
+
+		geometry.m_triangles.pushBack(
+			{ v1 + map_offset, v2 + map_offset , v3 + map_offset }
+		);
+	}
+}
+
+void extract_bounding_geometry(FbxNode* shape_root, set < FbxMesh*>& geometry_meshes, vector<hkGeometry> & geometry)
+{
+	set<FbxMesh*> geometry_in;
+
+	if (shape_root->GetNodeAttribute() != NULL &&
+		shape_root->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh)
+	{
+		geometry_in.insert((FbxMesh*)shape_root->GetNodeAttribute());
+	}
+	else {
+		//calculate geometry
+		VHACD::IVHACD* interfaceVHACD = VHACD::CreateVHACD();
+		shared_ptr<bmeshinfo> cmesh;
+		for (const auto& mesh : geometry_meshes)
+		{
+			convert_geometry(cmesh, mesh);
+		}
+		VHACD::IVHACD::Parameters params;
+		bool res = interfaceVHACD->Compute(&cmesh->points[0], (unsigned int)cmesh->points.size() / 3,
+			(const uint32_t *)&cmesh->triangles[0], (unsigned int)cmesh->triangles.size() / 3, params);
+
+		bool convex = false;
+
+		if (res) {
+			unsigned int nConvexHulls = interfaceVHACD->GetNConvexHulls();
+
+			if (nConvexHulls <= 8)
+			{
+				convex = true;
+				for (unsigned int p = 0; p < nConvexHulls; ++p) {
+					VHACD::IVHACD::ConvexHull ch;
+
+					interfaceVHACD->GetConvexHull(p, ch);
+
+					vector<Vector3> vertices;
+					vector<Triangle> tris;
+
+					for (int i = 0; i < ch.m_nPoints; i++) {
+						vertices.push_back(Vector3(ch.m_points[3 * i], ch.m_points[3 * i + 1], ch.m_points[3 * i + 2]));
+					}
+
+					for (int i = 0; i < ch.m_nTriangles; i++) {
+						tris.push_back(Triangle(ch.m_triangles[3 * i], ch.m_triangles[3 * i + 1], ch.m_triangles[3 * i + 2]));
+					}
+				}
+			}
+		}
+
+		if (!convex)
+		{
+			//convex optimization failed, we need a bounding mesh
+			boundingmesh::Mesh bmesh;
+			shared_ptr<bmeshinfo> bbmesh = cmesh;
+
+			for (int i = 0; i < bbmesh->points.size() / 3; i++)
+			{
+				bmesh.addVertex({ bbmesh->points[i * 3], bbmesh->points[i * 3 + 1], bbmesh->points[i * 3 + 2] });
+			}
+
+			for (int i = 0; i < bbmesh->triangles.size() / 3; i++)
+			{
+				bmesh.addTriangle(bbmesh->triangles[i * 3], bbmesh->triangles[i * 3 + 1], bbmesh->triangles[i * 3 + 2]);
+			}
+
+			//bmesh.closeHoles();
+			boundingmesh::Decimator decimator;
+			decimator.setMesh(bmesh);
+			decimator.setMetric(boundingmesh::Average);
+			double error = 0.5;
+			decimator.setMaximumError(error);
+
+			std::shared_ptr<boundingmesh::Mesh> result = decimator.compute();
+
+			//		for (int i = 0; i < result->nVertices(); i++)
+			//		{
+			//			boundingmesh::Vector3 v = result->vertex(i).position();
+			//			vertices.push_back({ (float)v[0], (float)v[1], (float)v[2] });
+			//		}
+
+			//		for (int i = 0; i < result->nTriangles(); i++)
+			//		{
+			//			boundingmesh::Triangle v = result->triangle(i);
+			//			tris.push_back({ (unsigned short)v.vertex(0), (unsigned short)v.vertex(1), (unsigned short)v.vertex(2) });
+			//		}
+		}
+	}
+	
+}
+
+hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set < FbxMesh*>& geometry_meshes)
+{
+	hkRefPtr<hkpShape> shape = NULL;
+	string name = shape_root->GetName();
+	//	//Containers
+	if (ends_with(name, "_transform"))
+	{
+		hkpShape* childShape = build_shape(shape_root->GetChild(0), geometry_meshes);
+		hkTransform transform;
+		return new hkpTransformShape(childShape, transform);
+	}
+	if (ends_with(name, "_list"))
+	{
+		size_t num_children = shape_root->GetChildCount();
+		vector<hkRefPtr<hkpShape>> sub_shapes;
+		for (int i = 0; i < num_children; i++)
+		{
+			hkRefPtr<hkpShape> sub_shape = build_shape(shape_root->GetChild(i), geometry_meshes);
+			if (sub_shape != NULL)
+				sub_shapes.push_back(sub_shape);
+		}
+		return new hkpListShape((const hkpShape*const*)sub_shapes.data(), sub_shapes.size());
+	}
+	if (ends_with(name, "_convex_list"))
+	{
+		size_t num_children = shape_root->GetChildCount();
+		vector<hkRefPtr<hkpConvexShape>> sub_shapes;
+		for (int i = 0; i < num_children; i++)
+		{
+			//GOSH!!!!, TODO: fix
+			hkRefPtr<hkpConvexShape> sub_shape = (hkpConvexShape*)&*build_shape(shape_root->GetChild(i), geometry_meshes);
+			if (sub_shape != NULL)
+				sub_shapes.push_back(sub_shape);
+		}
+		return new hkpConvexListShape((const hkpConvexShape*const*)sub_shapes.data(), sub_shapes.size());
+	}
+	if (ends_with(name, "_mopp"))
+	{
+		hkpMoppCode*							pMoppCode(NULL);
+
+		hkpMoppCompilerInput					mci;
+		hkpShape* childShape = build_shape(shape_root->GetChild(0), geometry_meshes);
+		hkpShapeCollection* collection;
+		hkpShapeType result_type = childShape->getType();
+		if (result_type != HK_SHAPE_LIST && result_type != HK_SHAPE_COMPRESSED_MESH)
+			throw runtime_error("Invalid Mopp Shape type detected: " + to_string(result_type));
+		collection = dynamic_cast<hkpShapeCollection*>(childShape);
+		//create welding info
+		mci.m_enableChunkSubdivision = false;  //  PC version
+
+		pMoppCode = hkpMoppUtility::buildCode(collection->getContainer(), mci);
+		hkRefPtr<hkpMoppBvTreeShape> pMoppBvTree = new hkpMoppBvTreeShape(collection, pMoppCode);
+		hkpMeshWeldingUtility::computeWeldingInfo(collection, pMoppBvTree, hkpWeldingUtility::WELDING_TYPE_TWO_SIDED);
+		return pMoppBvTree;
+	}
+	//shapes
+	if (ends_with(name, "_sphere"))
+	{
+
+	}
+	if (ends_with(name, "_box"))
+	{
+
+	}
+	if (ends_with(name, "_capsule"))
+	{
+
+	}
+	if (ends_with(name, "_convex"))
+	{
+
+	}
+	if (ends_with(name, "_mesh"))
+	{
+
+	}
+	return shape;
+}
 
 string HKXWrapperCollection::wrap(const string& out_name, const string& out_path, const string& out_path_root, const string& prefix, const set<string>& sequences_names)
 {

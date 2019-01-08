@@ -47,7 +47,7 @@ string ImportSkin::GetHelp() const
     string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_fbx> [-e <path_to_export>]\r\n";
 
 	const char help[] =
-		R"(Converts FBX format to NIF, with the proper structure to be a Creature Skin or an Armor.
+		R"(Converts FBX format to NIF, with the proper structure for a Creature Skin or an Armor.
 		
 		Arguments:
 			<path_to_fbx> the FBX containing a Skin/Armor to convert

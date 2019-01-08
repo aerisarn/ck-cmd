@@ -56,3 +56,9 @@ fs::path relative_to(const fs::path& p, const fs::path& base) {
 	while (in.has_parent_path() && in != base) { out = in.filename() / out; in = in.parent_path(); }
 	return out;
 }
+
+bool ends_with(std::string const & value, std::string const & ending)
+{
+	if (ending.size() > value.size()) return false;
+	return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
+}
