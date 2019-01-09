@@ -1174,7 +1174,7 @@ void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> transla
 	size_t vertices_count = mesh->GetControlPointsCount();
 	int map_offset = geometry.m_vertices.getSize();
 	for (int i = 0; i < vertices_count; i++) {
-		FbxVector4 vertex = translated_mesh.first * mesh->GetControlPointAt(i);
+		FbxVector4 vertex = translated_mesh.first.MultT(mesh->GetControlPointAt(i));
 		geometry.m_vertices.pushBack(
 			{ (hkReal)vertex[0],  (hkReal)vertex[1], (hkReal)vertex[2], }
 		);
