@@ -493,6 +493,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 			string lShadingName = "Phong";
 			string m_name = name + "_material";
+			sanitizeString(m_name);
+			FbxDouble3 lDiffuse(1.0, 1.0, 1.0);
 			FbxDouble3 lBlack(0.0, 0.0, 0.0);
 			FbxSurfacePhong* gMaterial = FbxSurfacePhong::Create(scene.GetFbxManager(), m_name.c_str());
 			//The following properties are used by the Phong shader to calculate the color for each pixel in the material :
@@ -506,10 +508,13 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			//Specular
 			Color3 nif_specular_color = material_property->GetSpecularColor();
 			gMaterial->Specular = { nif_specular_color.r, nif_specular_color.g, nif_specular_color.b };
-			gMaterial->SpecularFactor.Set(material_property->GetLightingEffect1());
+			FbxDouble3 scolor = gMaterial->Specular.Get();
+			
+			//gMaterial->SpecularFactor.Set(material_property->GetSpecularStrength());
 
 			//Diffuse
-			gMaterial->DiffuseFactor = material_property->GetSpecularStrength();
+			gMaterial->Diffuse = lDiffuse;
+			//gMaterial->DiffuseFactor = material_property->GetSpecularStrength();
 
 			//Ambient
 			gMaterial->Ambient = lBlack;
@@ -557,80 +562,80 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 						if (diffuse && gMaterial)
 						{
 							gMaterial->Diffuse.ConnectSrcObject(diffuse);
-							if (alpha != NULL)
-							{
-								alreadyVisitedNodes.insert(alpha);
-								alpha_flags_modes alpha_flags;
-								alpha_flags.value = alpha->GetFlags();
+					//		if (alpha != NULL)
+					//		{
+					//			alreadyVisitedNodes.insert(alpha);
+					//			alpha_flags_modes alpha_flags;
+					//			alpha_flags.value = alpha->GetFlags();
 
-								if (alpha_flags.bits.alpha_blending_enable)
-								{
-									diffuse->SetBlendMode(FbxTexture::EBlendMode::eTranslucent);
-									diffuse->SetAlphaSource(FbxTexture::EAlphaSource::eRGBIntensity);
+					//			if (alpha_flags.bits.alpha_blending_enable)
+					//			{
+					//				diffuse->SetBlendMode(FbxTexture::EBlendMode::eTranslucent);
+					//				diffuse->SetAlphaSource(FbxTexture::EAlphaSource::eRGBIntensity);
 
-								}
-								if (alpha_flags.bits.source_blend_mode == gl_blend_modes::GL_ONE && alpha_flags.bits.destination_blend_mode == gl_blend_modes::GL_ONE)
-								{
-									diffuse->SetBlendMode(FbxTexture::EBlendMode::eAdditive);
-								}
-								if (alpha_flags.bits.source_blend_mode == gl_blend_modes::GL_ZERO && alpha_flags.bits.destination_blend_mode == gl_blend_modes::GL_SRC_COLOR)
-								{
-									diffuse->SetBlendMode(FbxTexture::EBlendMode::eModulate);
-								}
-								if (alpha_flags.bits.source_blend_mode == gl_blend_modes::GL_DST_COLOR && alpha_flags.bits.destination_blend_mode == gl_blend_modes::GL_SRC_COLOR)
-								{
-									diffuse->SetBlendMode(FbxTexture::EBlendMode::eModulate2);
-								}
-								if (alpha_flags.bits.alpha_test_enable)
-								{
-									diffuse->SetBlendMode(FbxTexture::EBlendMode::eTranslucent);
-									diffuse->SetAlphaSource(FbxTexture::EAlphaSource::eBlack);
-								}
+					//			}
+					//			if (alpha_flags.bits.source_blend_mode == gl_blend_modes::GL_ONE && alpha_flags.bits.destination_blend_mode == gl_blend_modes::GL_ONE)
+					//			{
+					//				diffuse->SetBlendMode(FbxTexture::EBlendMode::eAdditive);
+					//			}
+					//			if (alpha_flags.bits.source_blend_mode == gl_blend_modes::GL_ZERO && alpha_flags.bits.destination_blend_mode == gl_blend_modes::GL_SRC_COLOR)
+					//			{
+					//				diffuse->SetBlendMode(FbxTexture::EBlendMode::eModulate);
+					//			}
+					//			if (alpha_flags.bits.source_blend_mode == gl_blend_modes::GL_DST_COLOR && alpha_flags.bits.destination_blend_mode == gl_blend_modes::GL_SRC_COLOR)
+					//			{
+					//				diffuse->SetBlendMode(FbxTexture::EBlendMode::eModulate2);
+					//			}
+					//			if (alpha_flags.bits.alpha_test_enable)
+					//			{
+					//				diffuse->SetBlendMode(FbxTexture::EBlendMode::eTranslucent);
+					//				diffuse->SetAlphaSource(FbxTexture::EAlphaSource::eBlack);
+					//			}
 
-								/*
+					//			/*
 
-								// Bit 0 : alpha blending enable
-								// Bits 1-4 : source blend mode
-								// Bits 5-8 : destination blend mode
-								// Bit 9 : alpha test enable
-								// Bit 10-12 : alpha test mode
-								// Bit 13 : no sorter flag ( disables triangle sorting )
-								//
-								// blend modes (glBlendFunc):
-								// 0000 GL_ONE
-								//             0001 GL_ZERO
-								//             0010 GL_SRC_COLOR
-								//             0011 GL_ONE_MINUS_SRC_COLOR
-								//             0100 GL_DST_COLOR
-								//             0101 GL_ONE_MINUS_DST_COLOR
-								//             0110 GL_SRC_ALPHA
-								//             0111 GL_ONE_MINUS_SRC_ALPHA
-								//             1000 GL_DST_ALPHA
-								//             1001 GL_ONE_MINUS_DST_ALPHA
-								//             1010 GL_SRC_ALPHA_SATURATE
+					//			// Bit 0 : alpha blending enable
+					//			// Bits 1-4 : source blend mode
+					//			// Bits 5-8 : destination blend mode
+					//			// Bit 9 : alpha test enable
+					//			// Bit 10-12 : alpha test mode
+					//			// Bit 13 : no sorter flag ( disables triangle sorting )
+					//			//
+					//			// blend modes (glBlendFunc):
+					//			// 0000 GL_ONE
+					//			//             0001 GL_ZERO
+					//			//             0010 GL_SRC_COLOR
+					//			//             0011 GL_ONE_MINUS_SRC_COLOR
+					//			//             0100 GL_DST_COLOR
+					//			//             0101 GL_ONE_MINUS_DST_COLOR
+					//			//             0110 GL_SRC_ALPHA
+					//			//             0111 GL_ONE_MINUS_SRC_ALPHA
+					//			//             1000 GL_DST_ALPHA
+					//			//             1001 GL_ONE_MINUS_DST_ALPHA
+					//			//             1010 GL_SRC_ALPHA_SATURATE
 
-								For Alpha Blending
-									Source Blend Mode: Src Alpha
-									Destination Blend Mode: Inv Src Alpha
-								For Additive Blending
-									Source Blend Mode: One
-									Destination Blend Mode: One
-								For Multiplicative Blending
-									Source Blend Mode: Zero
-									Destination Blend Mode: Src Color
-								For 2x Multiplicative Blending
-									Source Blend Mode: Dst Color
-									Destination Blend Mode: Src Color
+					//			For Alpha Blending
+					//				Source Blend Mode: Src Alpha
+					//				Destination Blend Mode: Inv Src Alpha
+					//			For Additive Blending
+					//				Source Blend Mode: One
+					//				Destination Blend Mode: One
+					//			For Multiplicative Blending
+					//				Source Blend Mode: Zero
+					//				Destination Blend Mode: Src Color
+					//			For 2x Multiplicative Blending
+					//				Source Blend Mode: Dst Color
+					//				Destination Blend Mode: Src Color
 
 
-								For Alpha Testing check Enable Testing
-								Alpha Test Function sets how transparency channel grey values (0 to 255 or black to white) will be compared to the Alpha Test Threshold value to determine what is opaque
-									Less or Equal: Lighter will be more transparent
-									Greater or Equal: Darker will be more transparent
-								Alpha Test Threshold: Value from 0 to 255 (black to white)
-								*/
+					//			For Alpha Testing check Enable Testing
+					//			Alpha Test Function sets how transparency channel grey values (0 to 255 or black to white) will be compared to the Alpha Test Threshold value to determine what is opaque
+					//				Less or Equal: Lighter will be more transparent
+					//				Greater or Equal: Darker will be more transparent
+					//			Alpha Test Threshold: Value from 0 to 255 (black to white)
+					//			*/
 
-							}
+					//		}
 						}
 					}
 					if (!texture_set[1].empty())
@@ -2777,7 +2782,7 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 	}
 	if (curveZ != NULL)
 	{
-		for (int i = 0; i < curveX->KeyGetCount(); i++)
+		for (int i = 0; i < curveZ->KeyGetCount(); i++)
 		{
 			FbxAnimCurveKey& key = curveZ->KeyGet(i);
 			times.insert(key.GetTime().GetSecondDouble());
@@ -2799,7 +2804,7 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 
 			Key<Vector3 > temp;
 			temp.data = Vector3(trans[0], trans[1], trans[2]);
-			temp.time = time - time_offset;
+			temp.time = time;
 			keyvalues.push_back(temp);
 		}
 		tkeys.numKeys = keyvalues.size();
