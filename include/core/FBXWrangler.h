@@ -72,7 +72,7 @@ namespace FBX {
 		void buildKF();
 		void buildCollisions();
 		bhkShapeRef FBXWrangler::convert_from_hk(hkRefPtr<hkpShape> shape);
-		NiCollisionObjectRef build_physics(FbxNode* rigid_body, set < FbxMesh*>& geometry_meshes);
+		NiCollisionObjectRef build_physics(FbxNode* rigid_body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
 		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start);
 		void convertSkins(FbxMesh* m, NiTriShapeRef shape);
 	public:

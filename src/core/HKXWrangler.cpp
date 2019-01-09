@@ -1168,18 +1168,17 @@ void convert_geometry(shared_ptr<bmeshinfo> bmesh, FbxMesh* mesh)
 	}
 }
 
-void convert_hkgeometry(hkGeometry& geometry, FbxMesh* mesh)
+void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> translated_mesh)
 {
+	FbxMesh* mesh = translated_mesh.second;
 	size_t vertices_count = mesh->GetControlPointsCount();
 	int map_offset = geometry.m_vertices.getSize();
 	for (int i = 0; i < vertices_count; i++) {
-		FbxVector4 vertex = mesh->GetControlPointAt(i);
+		FbxVector4 vertex = translated_mesh.first * mesh->GetControlPointAt(i);
 		geometry.m_vertices.pushBack(
 			{ (hkReal)vertex[0],  (hkReal)vertex[1], (hkReal)vertex[2], }
 		);
 	}
-
-
 
 	size_t tris_count = mesh->GetPolygonCount();
 
@@ -1194,13 +1193,13 @@ void convert_hkgeometry(hkGeometry& geometry, FbxMesh* mesh)
 	}
 }
 
-hkGeometry extract_bounding_geometry(FbxNode* shape_root, set < FbxMesh*>& geometry_meshes)
+hkGeometry extract_bounding_geometry(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
 	hkGeometry out;
 	if (shape_root->GetNodeAttribute() != NULL &&
 		shape_root->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh)
 	{
-		convert_hkgeometry(out, (FbxMesh*)shape_root->GetNodeAttribute());
+		convert_hkgeometry(out, {FbxAMatrix(), (FbxMesh*)shape_root->GetNodeAttribute() });
 	}
 	else {
 		for (const auto& mesh : geometry_meshes)
@@ -1288,7 +1287,7 @@ hkGeometry extract_bounding_geometry(FbxNode* shape_root, set < FbxMesh*>& geome
 	
 }
 
-hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set < FbxMesh*>& geometry_meshes)
+hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
 	hkRefPtr<hkpShape> shape = NULL;
 	//If shape_root is null, no hints were given on how to handle the collisions

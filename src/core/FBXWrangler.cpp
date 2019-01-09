@@ -3547,7 +3547,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(hkRefPtr<hkpShape> shape)
 }
 
 
-NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set < FbxMesh*>& geometry_meshes)
+NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
 	NiCollisionObjectRef return_collision = NULL;
 	string name = rigid_body->GetName();
@@ -3611,10 +3611,17 @@ void FBXWrangler::buildCollisions()
 	{
 		pair<multimap<FbxNode*, FbxMesh*>::iterator, std::multimap<FbxNode*, FbxMesh*>::iterator> this_body_meshes;
 		this_body_meshes = bodies_meshes_map.equal_range(rb);
-		set < FbxMesh*> meshes;
+		FbxNode* this_body_parent = rb->GetParent();
+		set<pair<FbxAMatrix, FbxMesh*>> meshes;
 		for (multimap<FbxNode*, FbxMesh*>::iterator it = this_body_meshes.first; it != this_body_meshes.second; ++it)
 		{
-			meshes.insert(it->second);
+			FbxAMatrix transform;
+			FbxNode* mesh_parent = it->second->GetNode();
+			while (mesh_parent != NULL && mesh_parent != this_body_parent)
+			{
+				transform = mesh_parent->EvaluateLocalTransform() * transform;
+			}
+			meshes.insert({ transform, it->second });
 		}
 		NiAVObjectRef ni_parent = DynamicCast<NiAVObject>(conversion_Map[rb->GetParent()]);
 		ni_parent->SetCollisionObject(build_physics(rb, meshes));
