@@ -32,41 +32,6 @@ namespace FBX {
 	using namespace ckcmd::NIF;
 	using namespace ckcmd::HKX;
 
-	class FBXShape {
-	public:
-		class FBXSkin {
-		private:
-			unordered_map<uint16_t, float> vertWeights;
-
-		public:
-			void SetWeight(uint16_t vert, float wt) {
-				vertWeights[vert] = wt;
-			}
-
-			float GetWeight(uint16_t vert) {
-				auto it = vertWeights.find(vert);
-				if (it == vertWeights.end())
-					return 0.0f;
-
-				return vertWeights[vert];
-			}
-
-			std::unordered_map<uint16_t, float>& GetWeights() {
-				return vertWeights;
-			}
-		};
-
-		string name;
-		vector<Vector3> verts;
-		vector<Triangle> tris;
-		vector<TexCoord> uvs;
-		vector<Vector3> normals;
-
-		unordered_map<std::string, FBXSkin> boneSkin;
-		set<string> boneNames;
-
-	};
-
 	class FBXWrangler {
 	private:
 		FbxManager * sdkManager = nullptr;
@@ -74,7 +39,6 @@ namespace FBX {
 		HKXWrapper hkxWrapper;
 
 		string comName;
-		map<string, FBXShape> shapes;
 		NiNodeRef FBXWrangler::importShapes(FbxNode* child, const FBXImportOptions& options);
 
 		map<NiAVObjectRef, NiAVObjectRef> conversion_parent_Map;
@@ -107,6 +71,7 @@ namespace FBX {
 		void checkAnimatedNodes();
 		void buildKF();
 		void buildCollisions();
+		bhkShapeRef FBXWrangler::convert_from_hk(hkRefPtr<hkpShape> shape);
 		NiCollisionObjectRef build_physics(FbxNode* rigid_body, set < FbxMesh*>& geometry_meshes);
 		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start);
 		void convertSkins(FbxMesh* m, NiTriShapeRef shape);

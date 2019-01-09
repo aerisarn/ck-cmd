@@ -53,12 +53,12 @@ using namespace  ckcmd::Geometry;
 using namespace ckcmd::nifscan;
 using namespace ckcmd::HKX;
 
-static inline Niflib::Vector3 TOVECTOR3(const hkVector4& v) {
-	return Niflib::Vector3(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2));
+static inline Niflib::Vector3 TOVECTOR3(const hkVector4& v, const float scale = 1.0f) {
+	return Niflib::Vector3((float)v.getSimdAt(0) * scale, (float)v.getSimdAt(1) * scale, (float)v.getSimdAt(2) * scale);
 }
 
-static inline Niflib::Vector4 TOVECTOR4(const hkVector4& v) {
-	return Niflib::Vector4(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
+static inline Niflib::Vector4 TOVECTOR4(const hkVector4& v, const float scale = 1.0f) {
+	return Niflib::Vector4((float)v.getSimdAt(0) * scale, (float)v.getSimdAt(1) * scale, (float)v.getSimdAt(2) * scale, (float)v.getSimdAt(3));
 }
 
 static inline hkVector4 TOVECTOR4(const Niflib::Vector4& v) {
@@ -3472,363 +3472,78 @@ set<FbxNode*> FBXWrangler::buildBonesList()
 	return move(bones);
 }
 
-//FbxNode* recursive_build(bhkShape* shape, FbxNode* parent, HavokFilter layer)
-//{
-//	//Containers
-//	hkGeometry geom;
-//	string parent_name = parent->GetName();
-//	vector<bhkCMSDMaterial> materials;
-//	//bhkConvexTransformShape, bhkTransformShape
-//	if (shape->IsDerivedType(bhkTransformShape::TYPE))
-//	{
-//		parent_name += "_transform";
-//		bhkTransformShapeRef transform_block = DynamicCast<bhkTransformShape>(shape);
-//		transform_block->GetTransform();
-//		FbxNode* transform_node = FbxNode::Create(&scene, parent_name.c_str());
-//		parent->AddChild(transform_node);
-//		setMatTransform(transform_block->GetTransform(), transform_node);
-//		recursive_build(transform_block->GetShape(), transform_node, layer);
-//	}
-//	//bhkListShape, /bhkConvexListShape
-//	else if (shape->IsDerivedType(bhkListShape::TYPE))
-//	{
-//		parent_name += "_list";
-//		bhkListShapeRef list_block = DynamicCast<bhkListShape>(shape);
-//		const vector<bhkShapeRef>& shapes = list_block->GetSubShapes();
-//		for (int i = 0; i < shapes.size(); i++) {
-//			string name_index = parent_name + "_" + to_string(i);
-//			FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
-//			parent->AddChild(child_shape_node);
-//			recursive_build(shapes[i], child_shape_node, layer);
-//		}
-//	}
-//	else if (shape->IsDerivedType(bhkConvexListShape::TYPE))
-//	{
-//		parent_name += "_convex_list";
-//		bhkConvexListShapeRef list_block = DynamicCast<bhkConvexListShape>(shape);
-//		const vector<bhkConvexShapeRef>& shapes = list_block->GetSubShapes();
-//		for (int i = 0; i < shapes.size(); i++) {
-//			string name_index = parent_name + "_" + to_string(i);
-//			FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
-//			parent->AddChild(child_shape_node);
-//			recursive_build(shapes[i], child_shape_node, layer);
-//		}
-//	}
-//	//bhkMoppBvTree
-//	else if (shape->IsDerivedType(bhkMoppBvTreeShape::TYPE))
-//	{
-//		parent_name += "_mopp";
-//		bhkMoppBvTreeShapeRef moppbv = DynamicCast<bhkMoppBvTreeShape>(shape);
-//		if (moppbv->GetShape() != NULL)
-//		{
-//			alreadyVisitedNodes.insert(moppbv);
-//			FbxNode* mopp_node = FbxNode::Create(&scene, parent_name.c_str());
-//			parent->AddChild(mopp_node);
-//			recursive_build(moppbv->GetShape(), mopp_node, layer);
-//		}
-//	}
-//	//shapes
-//	//bhkSphereShape
-//	else if (shape->IsDerivedType(bhkSphereShape::TYPE))
-//	{
-//		parent_name += "_sphere";
-//		bhkSphereShapeRef sphere = DynamicCast<bhkSphereShape>(shape);
-//		hkpSphereShape hkSphere(sphere->GetRadius());
-//		hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkSphere));
-//		bhkCMSDMaterial material;
-//		material.material = sphere->GetMaterial().material_sk;
-//		material.filter = layer;
-//		int index = find_material_index(materials, material);
-//		if (index == -1)
-//		{
-//			index = materials.size();
-//			materials.push_back(material);
-//		}
-//		for (int i = 0; i < geom.m_triangles.getSize(); i++)
-//		{
-//			geom.m_triangles[i].m_material = index;
-//		}
-//
-//	}
-//	//bhkBoxShape
-//	else if (shape->IsDerivedType(bhkBoxShape::TYPE))
-//	{
-//		parent_name += "_box";
-//		bhkBoxShapeRef box = DynamicCast<bhkBoxShape>(shape);
-//		hkpBoxShape hkBox(TOVECTOR4(box->GetDimensions()), box->GetRadius());
-//		hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkBox));
-//		bhkCMSDMaterial material;
-//		material.material = box->GetMaterial().material_sk;
-//		material.filter = layer;
-//		int index = find_material_index(materials, material);
-//		if (index == -1)
-//		{
-//			index = materials.size();
-//			materials.push_back(material);
-//		}
-//		for (int i = 0; i < geom.m_triangles.getSize(); i++)
-//		{
-//			geom.m_triangles[i].m_material = index;
-//		}
-//
-//	}
-//	//bhkCapsuleShape
-//	else if (shape->IsDerivedType(bhkCapsuleShape::TYPE))
-//	{
-//		parent_name += "_capsule";
-//		bhkCapsuleShapeRef capsule = DynamicCast<bhkCapsuleShape>(shape);
-//		hkpCapsuleShape hkCapsule(TOVECTOR4(capsule->GetFirstPoint()), TOVECTOR4(capsule->GetSecondPoint()), capsule->GetRadius());
-//		hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkCapsule));
-//		bhkCMSDMaterial material;
-//		material.material = capsule->GetMaterial().material_sk;
-//		material.filter = layer;
-//		int index = find_material_index(materials, material);
-//		if (index == -1)
-//		{
-//			index = materials.size();
-//			materials.push_back(material);
-//		}
-//		for (int i = 0; i < geom.m_triangles.getSize(); i++)
-//		{
-//			geom.m_triangles[i].m_material = index;
-//		}
-//	}
-//	//bhkConvexVerticesShape
-//	else if (shape->IsDerivedType(bhkConvexVerticesShape::TYPE))
-//	{
-//		parent_name += "_convex";
-//		bhkConvexVerticesShapeRef convex = DynamicCast<bhkConvexVerticesShape>(shape);
-//		hkArray<hkVector4> vertices;
-//		for (const auto& vert : convex->GetVertices())
-//			vertices.pushBack(TOVECTOR4(vert));
-//		hkStridedVertices strided_vertices(vertices);
-//		hkpConvexVerticesShape hkConvex(strided_vertices);
-//		hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkConvex));
-//		bhkCMSDMaterial material;
-//		material.material = convex->GetMaterial().material_sk;
-//		material.filter = layer;
-//		int index = find_material_index(materials, material);
-//		if (index == -1)
-//		{
-//			index = materials.size();
-//			materials.push_back(material);
-//		}
-//		for (int i = 0; i < geom.m_triangles.getSize(); i++)
-//		{
-//			geom.m_triangles[i].m_material = index;
-//		}
-//	}
-//	//bhkCompressedMeshShape
-//	else if (shape->IsDerivedType(bhkCompressedMeshShape::TYPE))
-//	{
-//		parent_name += "_mesh";
-//		bhkCompressedMeshShapeRef cmesh = DynamicCast<bhkCompressedMeshShape>(shape);
-//		alreadyVisitedNodes.insert(cmesh);
-//		alreadyVisitedNodes.insert(cmesh->GetData());
-//		Accessor<bhkCompressedMeshShapeData> converter(DynamicCast<bhkCompressedMeshShape>(cmesh), geom, materials);
-//	}
-//}
-
-
-
-
-bhkShapeRef build_shape(FbxNode* shape_root, set < FbxMesh*>& geometry_meshes)
+bhkShapeRef FBXWrangler::convert_from_hk(hkRefPtr<hkpShape> shape)
 {
-	bhkShapeRef shape = NULL;
-	string name = shape_root->GetName();
-	//	//Containers
-	if (ends_with(name, "_transform"))
+	double bhkScaleFactorInverse = 1 / 69.99124908;
+	if (shape == NULL)
 	{
-
+		throw runtime_error("Trying to convert unexistant shape! Abort");
+		return NULL;
 	}
-	if (ends_with(name, "_list"))
+
+	//Containers
+	/// hkpListShape type.
+	if (HK_SHAPE_LIST == shape->getType())
 	{
-
+		bhkListShapeRef list = new bhkListShape();
+		return StaticCast<bhkShape>(list);
 	}
-	if (ends_with(name, "_convex_list"))
+	/// hkpConvexTransformShape type.
+	if (HK_SHAPE_CONVEX_TRANSFORM == shape->getType())
 	{
-
+		bhkConvexTransformShapeRef convex_transform = new bhkConvexTransformShape();
+		return StaticCast<bhkShape>(convex_transform);
 	}
-	if (ends_with(name, "_mopp"))
+	/// hkpTransformShape type.
+	if (HK_SHAPE_TRANSFORM == shape->getType())
 	{
-
+		bhkTransformShapeRef transform = new bhkTransformShape();
+		return StaticCast<bhkShape>(transform);
 	}
-	//shapes
-	if (ends_with(name, "_sphere"))
+	/// hkpMoppBvTreeShape type.
+	if (HK_SHAPE_MOPP == shape->getType())
 	{
-
+		bhkMoppBvTreeShapeRef sphere = new bhkMoppBvTreeShape();
+		return StaticCast<bhkShape>(sphere);
 	}
-	if (ends_with(name, "_box"))
+
+	//Shapes
+	/// hkpSphereShape type.
+	if (HK_SHAPE_SPHERE == shape->getType())
 	{
-
+		bhkSphereShapeRef sphere = new bhkSphereShape();
+		return StaticCast<bhkShape>(sphere);
 	}
-	if (ends_with(name, "_capsule"))
+	/// hkpBoxShape type.
+	if (HK_SHAPE_BOX == shape->getType())
 	{
-
+		bhkBoxShapeRef box = new bhkBoxShape();
+		hkpBoxShape* hk_box = (hkpBoxShape*)&*shape;
+		box->SetDimensions(TOVECTOR3(hk_box->getHalfExtents(), bhkScaleFactorInverse));
+		box->SetRadius(hk_box->getRadius());
+		return StaticCast<bhkShape>(box);
 	}
-	if (ends_with(name, "_convex"))
+	/// hkpCapsuleShape type.
+	if (HK_SHAPE_CAPSULE == shape->getType())
 	{
-
+		bhkCapsuleShapeRef capsule = new bhkCapsuleShape();
+		return StaticCast<bhkShape>(capsule);
 	}
-	if (ends_with(name, "_mesh"))
+	/// hkpConvexVerticesShape type.
+	if (HK_SHAPE_CONVEX_VERTICES == shape->getType())
 	{
-
+		bhkConvexVerticesShapeRef convex = new bhkConvexVerticesShape();
+		return StaticCast<bhkShape>(convex);
 	}
-	
-	
-	//	hkGeometry geom;
-	//	string parent_name = parent->GetName();
-	//	vector<bhkCMSDMaterial> materials;
-	//	//bhkConvexTransformShape, bhkTransformShape
-	//	if (shape->IsDerivedType(bhkTransformShape::TYPE))
-	//	{
-	//		parent_name += "_transform";
-	//		bhkTransformShapeRef transform_block = DynamicCast<bhkTransformShape>(shape);
-	//		transform_block->GetTransform();
-	//		FbxNode* transform_node = FbxNode::Create(&scene, parent_name.c_str());
-	//		parent->AddChild(transform_node);
-	//		setMatTransform(transform_block->GetTransform(), transform_node);
-	//		recursive_build(transform_block->GetShape(), transform_node, layer);
-	//	}
-	//	//bhkListShape, /bhkConvexListShape
-	//	else if (shape->IsDerivedType(bhkListShape::TYPE))
-	//	{
-	//		parent_name += "_list";
-	//		bhkListShapeRef list_block = DynamicCast<bhkListShape>(shape);
-	//		const vector<bhkShapeRef>& shapes = list_block->GetSubShapes();
-	//		for (int i = 0; i < shapes.size(); i++) {
-	//			string name_index = parent_name + "_" + to_string(i);
-	//			FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
-	//			parent->AddChild(child_shape_node);
-	//			recursive_build(shapes[i], child_shape_node, layer);
-	//		}
-	//	}
-	//	else if (shape->IsDerivedType(bhkConvexListShape::TYPE))
-	//	{
-	//		parent_name += "_convex_list";
-	//		bhkConvexListShapeRef list_block = DynamicCast<bhkConvexListShape>(shape);
-	//		const vector<bhkConvexShapeRef>& shapes = list_block->GetSubShapes();
-	//		for (int i = 0; i < shapes.size(); i++) {
-	//			string name_index = parent_name + "_" + to_string(i);
-	//			FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
-	//			parent->AddChild(child_shape_node);
-	//			recursive_build(shapes[i], child_shape_node, layer);
-	//		}
-	//	}
-	//	//bhkMoppBvTree
-	//	else if (shape->IsDerivedType(bhkMoppBvTreeShape::TYPE))
-	//	{
-	//		parent_name += "_mopp";
-	//		bhkMoppBvTreeShapeRef moppbv = DynamicCast<bhkMoppBvTreeShape>(shape);
-	//		if (moppbv->GetShape() != NULL)
-	//		{
-	//			alreadyVisitedNodes.insert(moppbv);
-	//			FbxNode* mopp_node = FbxNode::Create(&scene, parent_name.c_str());
-	//			parent->AddChild(mopp_node);
-	//			recursive_build(moppbv->GetShape(), mopp_node, layer);
-	//		}
-	//	}
-	//	//shapes
-	//	//bhkSphereShape
-	//	else if (shape->IsDerivedType(bhkSphereShape::TYPE))
-	//	{
-	//		parent_name += "_sphere";
-	//		bhkSphereShapeRef sphere = DynamicCast<bhkSphereShape>(shape);
-	//		hkpSphereShape hkSphere(sphere->GetRadius());
-	//		hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkSphere));
-	//		bhkCMSDMaterial material;
-	//		material.material = sphere->GetMaterial().material_sk;
-	//		material.filter = layer;
-	//		int index = find_material_index(materials, material);
-	//		if (index == -1)
-	//		{
-	//			index = materials.size();
-	//			materials.push_back(material);
-	//		}
-	//		for (int i = 0; i < geom.m_triangles.getSize(); i++)
-	//		{
-	//			geom.m_triangles[i].m_material = index;
-	//		}
-	//
-	//	}
-	//	//bhkBoxShape
-	//	else if (shape->IsDerivedType(bhkBoxShape::TYPE))
-	//	{
-	//		parent_name += "_box";
-	//		bhkBoxShapeRef box = DynamicCast<bhkBoxShape>(shape);
-	//		hkpBoxShape hkBox(TOVECTOR4(box->GetDimensions()), box->GetRadius());
-	//		hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkBox));
-	//		bhkCMSDMaterial material;
-	//		material.material = box->GetMaterial().material_sk;
-	//		material.filter = layer;
-	//		int index = find_material_index(materials, material);
-	//		if (index == -1)
-	//		{
-	//			index = materials.size();
-	//			materials.push_back(material);
-	//		}
-	//		for (int i = 0; i < geom.m_triangles.getSize(); i++)
-	//		{
-	//			geom.m_triangles[i].m_material = index;
-	//		}
-	//
-	//	}
-	//	//bhkCapsuleShape
-	//	else if (shape->IsDerivedType(bhkCapsuleShape::TYPE))
-	//	{
-	//		parent_name += "_capsule";
-	//		bhkCapsuleShapeRef capsule = DynamicCast<bhkCapsuleShape>(shape);
-	//		hkpCapsuleShape hkCapsule(TOVECTOR4(capsule->GetFirstPoint()), TOVECTOR4(capsule->GetSecondPoint()), capsule->GetRadius());
-	//		hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkCapsule));
-	//		bhkCMSDMaterial material;
-	//		material.material = capsule->GetMaterial().material_sk;
-	//		material.filter = layer;
-	//		int index = find_material_index(materials, material);
-	//		if (index == -1)
-	//		{
-	//			index = materials.size();
-	//			materials.push_back(material);
-	//		}
-	//		for (int i = 0; i < geom.m_triangles.getSize(); i++)
-	//		{
-	//			geom.m_triangles[i].m_material = index;
-	//		}
-	//	}
-	//	//bhkConvexVerticesShape
-	//	else if (shape->IsDerivedType(bhkConvexVerticesShape::TYPE))
-	//	{
-	//		parent_name += "_convex";
-	//		bhkConvexVerticesShapeRef convex = DynamicCast<bhkConvexVerticesShape>(shape);
-	//		hkArray<hkVector4> vertices;
-	//		for (const auto& vert : convex->GetVertices())
-	//			vertices.pushBack(TOVECTOR4(vert));
-	//		hkStridedVertices strided_vertices(vertices);
-	//		hkpConvexVerticesShape hkConvex(strided_vertices);
-	//		hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkConvex));
-	//		bhkCMSDMaterial material;
-	//		material.material = convex->GetMaterial().material_sk;
-	//		material.filter = layer;
-	//		int index = find_material_index(materials, material);
-	//		if (index == -1)
-	//		{
-	//			index = materials.size();
-	//			materials.push_back(material);
-	//		}
-	//		for (int i = 0; i < geom.m_triangles.getSize(); i++)
-	//		{
-	//			geom.m_triangles[i].m_material = index;
-	//		}
-	//	}
-	//	//bhkCompressedMeshShape
-	//	else if (shape->IsDerivedType(bhkCompressedMeshShape::TYPE))
-	//	{
-	//		parent_name += "_mesh";
-	//		bhkCompressedMeshShapeRef cmesh = DynamicCast<bhkCompressedMeshShape>(shape);
-	//		alreadyVisitedNodes.insert(cmesh);
-	//		alreadyVisitedNodes.insert(cmesh->GetData());
-	//		Accessor<bhkCompressedMeshShapeData> converter(DynamicCast<bhkCompressedMeshShape>(cmesh), geom, materials);
-	//	}
-	return shape;
+	/// hkpCompressedMeshShape type.
+	if (HK_SHAPE_COMPRESSED_MESH == shape->getType())
+	{
+		bhkCompressedMeshShapeRef mesh = new bhkCompressedMeshShape();
+		return StaticCast<bhkShape>(mesh);
+	}
+
+	throw runtime_error("Trying to convert unsupported shape type! Abort");
+	return NULL;
 }
 
 
@@ -3840,14 +3555,14 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set < FbxMe
 	{
 		bhkCollisionObjectRef collision = new bhkCollisionObject();
 		bhkRigidBodyRef body = new bhkRigidBody();
-		body->SetShape(build_shape(rigid_body->GetChild(0), geometry_meshes));
+		body->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes)));
 		collision->SetBody(StaticCast<bhkWorldObject>(body));
 		return_collision = StaticCast<NiCollisionObject>(collision);
 	}
 	else if (name.find("_sp") != string::npos) {
 		bhkSPCollisionObjectRef phantom_collision = new bhkSPCollisionObject();
 		bhkSimpleShapePhantomRef phantom = new bhkSimpleShapePhantom();
-		phantom->SetShape(build_shape(rigid_body->GetChild(0), geometry_meshes));
+		phantom->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes)));
 		phantom_collision->SetBody(StaticCast<bhkWorldObject>(phantom));
 		return_collision = StaticCast<NiCollisionObject>(phantom_collision);
 	}
@@ -3904,212 +3619,6 @@ void FBXWrangler::buildCollisions()
 		NiAVObjectRef ni_parent = DynamicCast<NiAVObject>(conversion_Map[rb->GetParent()]);
 		ni_parent->SetCollisionObject(build_physics(rb, meshes));
 	}
-
-
-	
-	map<FbxMesh*, NiObjectRef> simplified_meshes_parent_map;
-
-	////group gemoetries by parent ninode
-	//for (const auto& m : meshes) {
-	//	FbxNode* parent = m->GetNode();
-	//	while (hasNoTransform(parent) && unskinned_bones.find(parent) == unskinned_bones.end())
-	//		parent = parent->GetParent();
-	//	NiObjectRef ni_parent = conversion_Map[parent];
-	//	if (ni_parent != NULL)
-	//		meshes_parent_map[m] = ni_parent;
-	//}
-
-	//map<NiObjectRef, shared_ptr<bmeshinfo>> collision_map;
-
-	////TODO: can we do a ragdoll for skinned meshes?
-	//for (const auto& pair : meshes_parent_map)
-	//{
-	//	NiObjectRef parent = pair.second;
-	//	FbxMesh* mesh = pair.first;
-
-	//	shared_ptr<bmeshinfo> bmesh;
-	//	if (collision_map.find(parent) == collision_map.end())
-	//	{
-	//		bool found_other_parent = false;
-	//		for (const auto& pair : collision_map)
-	//		{
-	//			NiNodeRef other_parent = DynamicCast<NiNode>(pair.first);
-	//			NiNodeRef node_parent = DynamicCast<NiNode>(parent);
-	//			if (other_parent != node_parent && other_parent->GetTranslation() == node_parent->GetTranslation() &&
-	//				other_parent->GetRotation() == node_parent->GetRotation() &&
-	//				other_parent->GetScale() == node_parent->GetScale())
-	//			{
-	//				bmesh = collision_map[pair.first];
-	//				found_other_parent = true;
-	//				break;
-	//			}
-	//		}
-	//		if (!found_other_parent)
-	//		{
-	//			bmesh = make_shared<bmeshinfo>();
-	//			collision_map[parent] = bmesh;
-	//		}
-	//	}
-	//	else {
-	//		bmesh = collision_map[parent];
-	//	}
-
-	//	size_t vertices_count = mesh->GetControlPointsCount();
-	//	size_t map_offset = bmesh->points.size() / 3;
-	//	for (int i = 0; i < vertices_count; i++) {
-	//		FbxVector4 vertex = mesh->GetControlPointAt(i);
-	//		//bmesh->addVertex({ vertex[0], vertex[1], vertex[2] });
-	//		bmesh->points.push_back(vertex[0]);
-	//		bmesh->points.push_back(vertex[1]);
-	//		bmesh->points.push_back(vertex[2]);
-	//	}
-
-
-	//	size_t tris_count = mesh->GetPolygonCount();
-
-	//	for (int i = 0; i < tris_count; i++) {
-	//		int v1 = mesh->GetPolygonVertex(i, 0);
-	//		int v2 = mesh->GetPolygonVertex(i, 1);
-	//		int v3 = mesh->GetPolygonVertex(i, 2);
-
-	//		bmesh->triangles.push_back(v1 + map_offset);
-	//		bmesh->triangles.push_back(v2 + map_offset);
-	//		bmesh->triangles.push_back(v3 + map_offset);
-
-	//	}
-	//}
-
-	//VHACD::IVHACD* interfaceVHACD = VHACD::CreateVHACD();
-
-	//for (const auto& pair : collision_map)
-	//{
-	//	NiNodeRef parent = DynamicCast<NiNode>(pair.first);
-
-	//	shared_ptr<bmeshinfo> bmesh = pair.second;
-
-	//	VHACD::IVHACD::Parameters params;
-	//	bool res = interfaceVHACD->Compute(&bmesh->points[0], (unsigned int)bmesh->points.size() / 3,
-	//		(const uint32_t *)&bmesh->triangles[0], (unsigned int)bmesh->triangles.size() / 3, params);
-
-	//	bool convex = false;
-
-	//	if (res) {
-	//		unsigned int nConvexHulls = interfaceVHACD->GetNConvexHulls();
-
-	//		if (nConvexHulls <= 4000)
-	//		{
-	//			convex = true;
-	//			for (unsigned int p = 0; p < nConvexHulls; ++p) {
-	//				VHACD::IVHACD::ConvexHull ch;
-
-	//				interfaceVHACD->GetConvexHull(p, ch);
-
-	//				NiTriShapeRef out = new NiTriShape();
-	//				NiTriShapeDataRef data = new NiTriShapeData();
-	//				vector<Vector3> vertices;
-	//				vector<Triangle> tris;
-
-	//				for (int i = 0; i < ch.m_nPoints; i++) {
-	//					vertices.push_back(Vector3(ch.m_points[3 * i], ch.m_points[3 * i + 1], ch.m_points[3 * i + 2]));
-	//				}
-
-	//				for (int i = 0; i < ch.m_nTriangles; i++) {
-	//					tris.push_back(Triangle(ch.m_triangles[3 * i], ch.m_triangles[3 * i + 1], ch.m_triangles[3 * i + 2]));
-	//				}
-
-
-	//				data->SetHasVertices(true);
-	//				data->SetVertices(vertices);
-	//				data->SetHasTriangles(true);
-	//				data->SetNumTriangles(tris.size());
-	//				data->SetNumTrianglePoints(tris.size() * 3);
-	//				data->SetTriangles(tris);
-
-	//				BSLightingShaderPropertyRef lightingProperty = new BSLightingShaderProperty();
-	//				BSShaderTextureSetRef textureSet = new BSShaderTextureSet();
-	//				lightingProperty->SetTextureSet(textureSet);
-	//				out->SetShaderProperty(StaticCast<BSShaderProperty>(lightingProperty));
-	//				IndexString s;
-	//				s = parent->GetName() + "_BB_segment_" + to_string(p);
-	//				out->SetName(s);
-
-	//				out->SetData(StaticCast<NiGeometryData>(data));
-	//				vector<NiAVObjectRef> children = parent->GetChildren();
-	//				children.push_back(DynamicCast<NiAVObject>(out));
-	//				parent->SetChildren(children);
-	//			}
-	//		}
-	//	}
-
-	//	if (!convex)
-	//	{
-	//		//convex optimization failed, we need a bounding mesh
-	//		boundingmesh::Mesh bmesh;
-	//		shared_ptr<bmeshinfo> bbmesh = pair.second;
-
-	//		NiNodeRef parent = DynamicCast<NiNode>(pair.first);
-
-	//		for (int i = 0; i < bbmesh->points.size() / 3; i++)
-	//		{
-	//			bmesh.addVertex({ bbmesh->points[i * 3], bbmesh->points[i * 3 + 1], bbmesh->points[i * 3 + 2] });
-	//		}
-
-	//		for (int i = 0; i < bbmesh->triangles.size() / 3; i++)
-	//		{
-	//			bmesh.addTriangle(bbmesh->triangles[i * 3], bbmesh->triangles[i * 3 + 1], bbmesh->triangles[i * 3 + 2]);
-	//		}
-
-	//		//shared_ptr<boundingmesh::Mesh> bmesh = make_shared<boundingmesh::Mesh>();
-
-	//		//bmesh.closeHoles();
-	//		boundingmesh::Decimator decimator;
-	//		decimator.setMesh(bmesh);
-	//		decimator.setMetric(boundingmesh::Average);
-	//		double error = 0.5;
-	//		decimator.setMaximumError(error);
-
-	//		std::shared_ptr<boundingmesh::Mesh> result = decimator.compute();
-
-	//		NiTriShapeRef out = new NiTriShape();
-	//		NiTriShapeDataRef data = new NiTriShapeData();
-	//		vector<Vector3> vertices;
-	//		vector<Triangle> tris;
-
-	//		for (int i = 0; i < result->nVertices(); i++)
-	//		{
-	//			boundingmesh::Vector3 v = result->vertex(i).position();
-	//			vertices.push_back({ (float)v[0], (float)v[1], (float)v[2] });
-	//		}
-
-	//		for (int i = 0; i < result->nTriangles(); i++)
-	//		{
-	//			boundingmesh::Triangle v = result->triangle(i);
-	//			tris.push_back({ (unsigned short)v.vertex(0), (unsigned short)v.vertex(1), (unsigned short)v.vertex(2) });
-	//		}
-
-	//		data->SetHasVertices(true);
-	//		data->SetVertices(vertices);
-	//		data->SetHasTriangles(true);
-	//		data->SetNumTriangles(tris.size());
-	//		data->SetNumTrianglePoints(tris.size() * 3);
-	//		data->SetTriangles(tris);
-
-	//		BSLightingShaderPropertyRef lightingProperty = new BSLightingShaderProperty();
-	//		BSShaderTextureSetRef textureSet = new BSShaderTextureSet();
-	//		lightingProperty->SetTextureSet(textureSet);
-	//		out->SetShaderProperty(StaticCast<BSShaderProperty>(lightingProperty));
-	//		IndexString s;
-	//		s = parent->GetName() + "_BB_mesh";
-	//		out->SetName(s);
-
-	//		out->SetData(StaticCast<NiGeometryData>(data));
-	//		vector<NiAVObjectRef> children = parent->GetChildren();
-	//		children.push_back(DynamicCast<NiAVObject>(out));
-	//		parent->SetChildren(children);
-	//	}
-
-	//}
-
 }
 
 bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
@@ -4335,7 +3844,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	}
 
 	//collisions
-	//buildCollisions();
+	buildCollisions();
 
 	return true;
 }

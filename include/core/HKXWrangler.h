@@ -135,7 +135,7 @@ namespace ckcmd {
 			string write_project(const string& out_name, const string& out_path, const string& out_path_abs,
 				const string& prefix, const set<string>& kf_sequences_names, const set<string>& havok_sequences_names);
 
-			hkRefPtr<hkpShape> build_shape(FbxNode* shape_root, set < FbxMesh*>& geometry_meshes);
+			static hkRefPtr<hkpShape> build_shape(FbxNode* shape_root, set < FbxMesh*>& geometry_meshes);
 
 		};
 
