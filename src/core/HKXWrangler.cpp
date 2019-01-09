@@ -68,8 +68,11 @@
 #include "Physics/Collide/Util/Welding/hkpMeshWeldingUtility.h"
 #include "Physics/Collide/Shape/Compound/Collection/ExtendedMeshShape/hkpExtendedMeshShape.h"
 #include <Physics\Collide\Shape\Compound\Collection\CompressedMesh\hkpCompressedMeshShape.h>
+#include <Physics\Collide\Shape\Convex\ConvexVertices\hkpConvexVerticesShape.h>
 
 #include <Physics\Utilities\Collide\ShapeUtils\CreateShape\hkpCreateShapeUtility.h>
+#include <Common\Base\Types\Geometry\hkStridedVertices.h>
+#include <Common\Internal\ConvexHull\hkGeometryUtility.h>
 
 #include <core/EulerAngles.h>
 #include <core/MathHelper.h>
@@ -1143,12 +1146,13 @@ struct bmeshinfo
 	vector<int> triangles;
 };
 
-void convert_geometry(shared_ptr<bmeshinfo> bmesh, FbxMesh* mesh)
+void convert_geometry(shared_ptr<bmeshinfo> bmesh, pair<FbxAMatrix, FbxMesh*> translated_mesh)
 {
+	FbxMesh* mesh = translated_mesh.second;
 	size_t vertices_count = mesh->GetControlPointsCount();
 	size_t map_offset = bmesh->points.size() / 3;
 	for (int i = 0; i < vertices_count; i++) {
-		FbxVector4 vertex = mesh->GetControlPointAt(i);
+		FbxVector4 vertex = translated_mesh.first.MultT(mesh->GetControlPointAt(i));
 		//bmesh->addVertex({ vertex[0], vertex[1], vertex[2] });
 		bmesh->points.push_back(vertex[0]);
 		bmesh->points.push_back(vertex[1]);
@@ -1208,83 +1212,18 @@ hkGeometry extract_bounding_geometry(FbxNode* shape_root, set<pair<FbxAMatrix, F
 		}
 	}
 	return out;
-		//calculate geometry
-		//VHACD::IVHACD* interfaceVHACD = VHACD::CreateVHACD();
-		//shared_ptr<bmeshinfo> cmesh;
-		//for (const auto& mesh : geometry_meshes)
-		//{
-		//	convert_geometry(cmesh, mesh);
-		//}
-		//VHACD::IVHACD::Parameters params;
-		//bool res = interfaceVHACD->Compute(&cmesh->points[0], (unsigned int)cmesh->points.size() / 3,
-		//	(const uint32_t *)&cmesh->triangles[0], (unsigned int)cmesh->triangles.size() / 3, params);
-
-		//bool convex = false;
-
-		//if (res) {
-		//	unsigned int nConvexHulls = interfaceVHACD->GetNConvexHulls();
-
-		//	if (nConvexHulls <= 8)
-		//	{
-		//		convex = true;
-		//		for (unsigned int p = 0; p < nConvexHulls; ++p) {
-		//			VHACD::IVHACD::ConvexHull ch;
-
-		//			interfaceVHACD->GetConvexHull(p, ch);
-
-		//			vector<Vector3> vertices;
-		//			vector<Triangle> tris;
-
-		//			for (int i = 0; i < ch.m_nPoints; i++) {
-		//				vertices.push_back(Vector3(ch.m_points[3 * i], ch.m_points[3 * i + 1], ch.m_points[3 * i + 2]));
-		//			}
-
-		//			for (int i = 0; i < ch.m_nTriangles; i++) {
-		//				tris.push_back(Triangle(ch.m_triangles[3 * i], ch.m_triangles[3 * i + 1], ch.m_triangles[3 * i + 2]));
-		//			}
-		//		}
-		//	}
-		//}
-
-		//if (!convex)
-		//{
-		//	//convex optimization failed, we need a bounding mesh
-		//	boundingmesh::Mesh bmesh;
-		//	shared_ptr<bmeshinfo> bbmesh = cmesh;
-
-		//	for (int i = 0; i < bbmesh->points.size() / 3; i++)
-		//	{
-		//		bmesh.addVertex({ bbmesh->points[i * 3], bbmesh->points[i * 3 + 1], bbmesh->points[i * 3 + 2] });
-		//	}
-
-		//	for (int i = 0; i < bbmesh->triangles.size() / 3; i++)
-		//	{
-		//		bmesh.addTriangle(bbmesh->triangles[i * 3], bbmesh->triangles[i * 3 + 1], bbmesh->triangles[i * 3 + 2]);
-		//	}
-
-		//	//bmesh.closeHoles();
-		//	boundingmesh::Decimator decimator;
-		//	decimator.setMesh(bmesh);
-		//	decimator.setMetric(boundingmesh::Average);
-		//	double error = 0.5;
-		//	decimator.setMaximumError(error);
-
-		//	std::shared_ptr<boundingmesh::Mesh> result = decimator.compute();
-
-			//		for (int i = 0; i < result->nVertices(); i++)
-			//		{
-			//			boundingmesh::Vector3 v = result->vertex(i).position();
-			//			vertices.push_back({ (float)v[0], (float)v[1], (float)v[2] });
-			//		}
-
-			//		for (int i = 0; i < result->nTriangles(); i++)
-			//		{
-			//			boundingmesh::Triangle v = result->triangle(i);
-			//			tris.push_back({ (unsigned short)v.vertex(0), (unsigned short)v.vertex(1), (unsigned short)v.vertex(2) });
-			//		}
-		//}
+		
 	//}
 	
+}
+
+hkpShape* handle_output_transform(hkpCreateShapeUtility::ShapeInfoOutput& output)
+{
+	if (!output.m_decomposedWorldT.isApproximatelyEqual(hkTransform::getIdentity()))
+	{
+		//add a transform
+		return new hkpTransformShape(output.m_shape, output.m_extraShapeTransform);
+	}
 }
 
 hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
@@ -1293,9 +1232,82 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 	//If shape_root is null, no hints were given on how to handle the collisions
 	if (shape_root == NULL)
 	{
-		return NULL;
-	}
+		//we'll create a fbxnode hierachy to handle this and then recurse
 
+		//calculate geometry
+		VHACD::IVHACD* interfaceVHACD = VHACD::CreateVHACD();
+		shared_ptr<bmeshinfo> cmesh = make_shared<bmeshinfo>();
+		for (const auto& mesh : geometry_meshes)
+		{
+			convert_geometry(cmesh, mesh);
+		}
+		VHACD::IVHACD::Parameters params;
+		bool res = interfaceVHACD->Compute(&cmesh->points[0], (unsigned int)cmesh->points.size() / 3,
+			(const uint32_t *)&cmesh->triangles[0], (unsigned int)cmesh->triangles.size() / 3, params);
+
+		if (res) {
+			unsigned int nConvexHulls = interfaceVHACD->GetNConvexHulls();
+
+			if (nConvexHulls <= 8)
+			{
+				for (unsigned int p = 0; p < nConvexHulls; ++p) {
+					VHACD::IVHACD::ConvexHull ch;
+
+					interfaceVHACD->GetConvexHull(p, ch);
+
+					vector<Vector3> vertices;
+					vector<Triangle> tris;
+
+					for (int i = 0; i < ch.m_nPoints; i++) {
+						vertices.push_back(Vector3(ch.m_points[3 * i], ch.m_points[3 * i + 1], ch.m_points[3 * i + 2]));
+					}
+
+					for (int i = 0; i < ch.m_nTriangles; i++) {
+						tris.push_back(Triangle(ch.m_triangles[3 * i], ch.m_triangles[3 * i + 1], ch.m_triangles[3 * i + 2]));
+					}
+				}
+			}
+
+			//TODO;
+			return NULL;
+		}
+
+		//convex optimization failed, we need a bounding mesh
+		boundingmesh::Mesh bmesh;
+		shared_ptr<bmeshinfo> bbmesh = cmesh;
+
+		for (int i = 0; i < bbmesh->points.size() / 3; i++)
+		{
+			bmesh.addVertex({ bbmesh->points[i * 3], bbmesh->points[i * 3 + 1], bbmesh->points[i * 3 + 2] });
+		}
+
+		for (int i = 0; i < bbmesh->triangles.size() / 3; i++)
+		{
+			bmesh.addTriangle(bbmesh->triangles[i * 3], bbmesh->triangles[i * 3 + 1], bbmesh->triangles[i * 3 + 2]);
+		}
+
+		//bmesh.closeHoles();
+		boundingmesh::Decimator decimator;
+		decimator.setMesh(bmesh);
+		decimator.setMetric(boundingmesh::Average);
+		double error = 0.5;
+		decimator.setMaximumError(error);
+
+		std::shared_ptr<boundingmesh::Mesh> result = decimator.compute();
+
+		for (int i = 0; i < result->nVertices(); i++)
+		{
+			boundingmesh::Vector3 v = result->vertex(i).position();
+			//vertices.push_back({ (float)v[0], (float)v[1], (float)v[2] });
+		}
+
+		for (int i = 0; i < result->nTriangles(); i++)
+		{
+			boundingmesh::Triangle v = result->triangle(i);
+			//tris.push_back({ (unsigned short)v.vertex(0), (unsigned short)v.vertex(1), (unsigned short)v.vertex(2) });
+		}
+
+	}
 	string name = shape_root->GetName();
 	//	//Containers
 	if (ends_with(name, "_transform"))
@@ -1349,36 +1361,39 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		return pMoppBvTree;
 	}
 	//shapes
+	hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes);
 	if (ends_with(name, "_sphere"))
-	{
-		hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes);
+	{		
 		hkpCreateShapeUtility::CreateShapeInput input;
 		hkpCreateShapeUtility::ShapeInfoOutput output;
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createSphereShape(input, output);
-		return output.m_shape;
+		return handle_output_transform(output);
 	}
 	if (ends_with(name, "_box"))
 	{
-		hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes);
 		hkpCreateShapeUtility::CreateShapeInput input;
 		hkpCreateShapeUtility::ShapeInfoOutput output;
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createBoxShape(input, output);
-		return output.m_shape;
+		return handle_output_transform(output);
 	}
 	if (ends_with(name, "_capsule"))
 	{
-		hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes);
 		hkpCreateShapeUtility::CreateShapeInput input;
 		hkpCreateShapeUtility::ShapeInfoOutput output;
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createCapsuleShape(input, output);
-		return output.m_shape;
+		return handle_output_transform(output);;
 	}
 	if (ends_with(name, "_convex"))
 	{
 		hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes);
+		hkStridedVertices stridedVertsIn(to_bound.m_vertices);
+		hkGeometry convex;
+		hkArray<hkVector4> planeEquationsOut;
+		hkGeometryUtility::createConvexGeometry(stridedVertsIn, convex, planeEquationsOut);
+		return new hkpConvexVerticesShape(convex.m_vertices, planeEquationsOut);
 	}
 	if (ends_with(name, "_mesh"))
 	{

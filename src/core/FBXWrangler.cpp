@@ -41,6 +41,10 @@ See the included LICENSE file
 #include <Physics\Dynamics\World\hkpPhysicsSystem.h>
 #include <Physics\Utilities\Serialize\hkpPhysicsData.h>
 
+#include <Physics\Collide\Shape\Misc\Transform\hkpTransformShape.h>
+#include <Physics\Collide\Shape\Compound\Collection\List\hkpListShape.h>
+#include <Physics\Collide\Shape\Deprecated\ConvexList\hkpConvexListShape.h>
+
 #include <algorithm>
 
 #include <VHACD.h>
@@ -99,6 +103,21 @@ static inline Vector4 HKMATRIXROW(const hkTransform& q, const unsigned int row) 
 static inline FbxVector4 TOFBXVECTOR4(const hkVector4& v)
 {
 	return FbxVector4(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
+}
+
+static inline Matrix44 TOMATRIX44(const hkTransform& q, const float scale = 1.0f, bool inverse = false) {
+
+	hkVector4 c0 = q.getColumn(0);
+	hkVector4 c1 = q.getColumn(1);
+	hkVector4 c2 = q.getColumn(2);
+	hkVector4 c3 = q.getColumn(3);
+
+	return Matrix44(
+		c0.getSimdAt(0), c1.getSimdAt(0), c2.getSimdAt(0), (float)c3.getSimdAt(0)*scale,
+		c0.getSimdAt(1), c1.getSimdAt(1), c2.getSimdAt(1), (float)c3.getSimdAt(1)*scale,
+		c0.getSimdAt(2), c1.getSimdAt(2), c2.getSimdAt(2), (float)c3.getSimdAt(2)*scale,
+		c0.getSimdAt(3), c1.getSimdAt(3), c2.getSimdAt(3), c3.getSimdAt(3)
+	);
 }
 
 FbxNode* setMatTransform(const Matrix44& av, FbxNode* node, double bake_scale = 1.0) {
@@ -3472,7 +3491,7 @@ set<FbxNode*> FBXWrangler::buildBonesList()
 	return move(bones);
 }
 
-bhkShapeRef FBXWrangler::convert_from_hk(hkRefPtr<hkpShape> shape)
+bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape)
 {
 	double bhkScaleFactorInverse = 1 / 69.99124908;
 	if (shape == NULL)
@@ -3498,6 +3517,9 @@ bhkShapeRef FBXWrangler::convert_from_hk(hkRefPtr<hkpShape> shape)
 	if (HK_SHAPE_TRANSFORM == shape->getType())
 	{
 		bhkTransformShapeRef transform = new bhkTransformShape();
+		hkpTransformShape* hk_transform = (hkpTransformShape*)&*shape;
+		transform->SetShape(convert_from_hk(hk_transform->getChildShape()));
+		transform->SetTransform(TOMATRIX44(hk_transform->getTransform(), bhkScaleFactorInverse));
 		return StaticCast<bhkShape>(transform);
 	}
 	/// hkpMoppBvTreeShape type.
@@ -3527,12 +3549,35 @@ bhkShapeRef FBXWrangler::convert_from_hk(hkRefPtr<hkpShape> shape)
 	if (HK_SHAPE_CAPSULE == shape->getType())
 	{
 		bhkCapsuleShapeRef capsule = new bhkCapsuleShape();
+		hkpCapsuleShape* hk_capsule = (hkpCapsuleShape*)&*shape;
+		capsule->SetFirstPoint(TOVECTOR3(hk_capsule->getVertices()[0], bhkScaleFactorInverse));
+		capsule->SetSecondPoint(TOVECTOR3(hk_capsule->getVertices()[1], bhkScaleFactorInverse));
+		hkVector4 direction; direction.setSub4(hk_capsule->getVertices()[1], hk_capsule->getVertices()[0]);
+		capsule->SetRadius(hk_capsule->getRadius());
+		capsule->SetRadius1(hk_capsule->getRadius());
+		capsule->SetRadius2(hk_capsule->getRadius());
 		return StaticCast<bhkShape>(capsule);
 	}
 	/// hkpConvexVerticesShape type.
 	if (HK_SHAPE_CONVEX_VERTICES == shape->getType())
 	{
 		bhkConvexVerticesShapeRef convex = new bhkConvexVerticesShape();
+		hkpConvexVerticesShape* hk_convex = (hkpConvexVerticesShape*)&*shape;
+		hkArray<hkVector4> hk_vertices;
+		vector<Vector4> vertices;
+		hk_convex->getOriginalVertices(hk_vertices);
+		for (const auto& v : hk_vertices)
+		{
+			vertices.push_back(TOVECTOR4(v, bhkScaleFactorInverse));
+		}
+		convex->SetVertices(vertices);
+		const hkArray<hkVector4>& hk_planes = hk_convex->getPlaneEquations();
+		vector<Vector4> planes;
+		for (const auto& n : hk_planes)
+		{
+			planes.push_back(TOVECTOR4(n));
+		}
+		convex->SetNormals(planes);
 		return StaticCast<bhkShape>(convex);
 	}
 	/// hkpCompressedMeshShape type.
@@ -3620,6 +3665,7 @@ void FBXWrangler::buildCollisions()
 			while (mesh_parent != NULL && mesh_parent != this_body_parent)
 			{
 				transform = mesh_parent->EvaluateLocalTransform() * transform;
+				mesh_parent = mesh_parent->GetParent();
 			}
 			meshes.insert({ transform, it->second });
 		}
