@@ -1226,14 +1226,88 @@ hkpShape* handle_output_transform(hkpCreateShapeUtility::ShapeInfoOutput& output
 	}
 }
 
+FbxNode* create_hulls(FbxManager* manager, VHACD::IVHACD* interfaceVHACD)
+{
+	unsigned int nConvexHulls = interfaceVHACD->GetNConvexHulls();
+	FbxNode* list = NULL;
+	if (nConvexHulls > 1)
+	{
+		list = FbxNode::Create(manager, "_list");
+	}
+	for (unsigned int p = 0; p < nConvexHulls; ++p) 
+	{
+		VHACD::IVHACD::ConvexHull ch;
+
+		interfaceVHACD->GetConvexHull(p, ch);
+
+		FbxNode* temp_convex = FbxNode::Create(manager, "_convex");
+		if (list != NULL)
+			list->AddChild(temp_convex);
+		else
+			list = temp_convex;
+		
+
+		FbxMesh* m = FbxMesh::Create(manager, "_convex_mesh");
+		m->InitControlPoints(ch.m_nPoints);
+		FbxVector4* points = m->GetControlPoints();
+
+		for (int i = 0; i < ch.m_nPoints; i++) {
+			points[i] = FbxVector4(ch.m_points[3 * i], ch.m_points[3 * i + 1], ch.m_points[3 * i + 2]);
+		}
+		temp_convex->AddNodeAttribute(m);
+	}
+	return list;
+}
+
+FbxNode* create_mesh(FbxManager* manager, VHACD::IVHACD* interfaceVHACD)
+{
+
+	FbxNode* root = FbxNode::Create(manager, "_mesh");
+	FbxMesh* m = FbxMesh::Create(manager, "_mesh_tris");
+	size_t current_points = 0;
+	unsigned int nConvexHulls = interfaceVHACD->GetNConvexHulls();
+	for (unsigned int p = 0; p < nConvexHulls; ++p)
+	{
+		VHACD::IVHACD::ConvexHull ch;
+		interfaceVHACD->GetConvexHull(p, ch);
+		current_points += ch.m_nPoints;
+	}
+
+	m->InitControlPoints(current_points);
+
+	current_points = 0;
+	FbxVector4* points = m->GetControlPoints();
+
+	for (unsigned int p = 0; p < nConvexHulls; ++p)
+	{
+		VHACD::IVHACD::ConvexHull ch;
+		interfaceVHACD->GetConvexHull(p, ch);
+		for (int i = 0; i < ch.m_nPoints; i++) {
+			points[current_points + i] = FbxVector4(ch.m_points[3 * i], ch.m_points[3 * i + 1], ch.m_points[3 * i + 2]);
+		}
+		
+		for (int i = 0; i < ch.m_nTriangles; i++) {
+			m->BeginPolygon(0);
+			m->AddPolygon(ch.m_triangles[3 * i] + current_points);
+			m->AddPolygon(ch.m_triangles[3 * i + 1] + current_points);
+			m->AddPolygon(ch.m_triangles[3 * i + 2] + current_points);
+			m->EndPolygon();
+		}
+		current_points += ch.m_nPoints;
+	}
+
+	root->AddNodeAttribute(m);
+	return root;
+}
+
 hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
-	hkRefPtr<hkpShape> shape = NULL;
 	//If shape_root is null, no hints were given on how to handle the collisions
 	if (shape_root == NULL)
 	{
-		//we'll create a fbxnode hierachy to handle this and then recurse
+		
 
+		//we'll create a fbxnode hierachy to handle this and then recurse
 		//calculate geometry
 		VHACD::IVHACD* interfaceVHACD = VHACD::CreateVHACD();
 		shared_ptr<bmeshinfo> cmesh = make_shared<bmeshinfo>();
@@ -1247,29 +1321,27 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 
 		if (res) {
 			unsigned int nConvexHulls = interfaceVHACD->GetNConvexHulls();
-
 			if (nConvexHulls <= 8)
 			{
-				for (unsigned int p = 0; p < nConvexHulls; ++p) {
-					VHACD::IVHACD::ConvexHull ch;
+				FbxManager* temp_manager = FbxManager::Create();
+				FbxNode* temp_root = NULL;
 
-					interfaceVHACD->GetConvexHull(p, ch);
+				if (nConvexHulls <= 8)
+					temp_root = create_hulls(temp_manager, interfaceVHACD);
+				else
+					temp_root = create_mesh(temp_manager, interfaceVHACD);
 
-					vector<Vector3> vertices;
-					vector<Triangle> tris;
-
-					for (int i = 0; i < ch.m_nPoints; i++) {
-						vertices.push_back(Vector3(ch.m_points[3 * i], ch.m_points[3 * i + 1], ch.m_points[3 * i + 2]));
-					}
-
-					for (int i = 0; i < ch.m_nTriangles; i++) {
-						tris.push_back(Triangle(ch.m_triangles[3 * i], ch.m_triangles[3 * i + 1], ch.m_triangles[3 * i + 2]));
-					}
+				if (nConvexHulls >= 4)
+				{
+					FbxNode* mopp = FbxNode::Create(temp_manager, "_mopp");
+					mopp->AddChild(temp_root);
+					temp_root = mopp;
 				}
-			}
 
-			//TODO;
-			return NULL;
+				hkpShape* shape = build_shape(temp_root, geometry_meshes);
+				temp_manager->Destroy();
+				return shape;
+			}
 		}
 
 		//convex optimization failed, we need a bounding mesh
@@ -1290,23 +1362,36 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		boundingmesh::Decimator decimator;
 		decimator.setMesh(bmesh);
 		decimator.setMetric(boundingmesh::Average);
-		double error = 0.5;
-		decimator.setMaximumError(error);
+		decimator.setMaximumError(10);
 
 		std::shared_ptr<boundingmesh::Mesh> result = decimator.compute();
-
+		FbxManager* temp_manager = FbxManager::Create();
+		FbxNode* root = FbxNode::Create(temp_manager, "_mesh");
+		FbxMesh* m = FbxMesh::Create(temp_manager, "_mesh_tris");
+		m->InitControlPoints(result->nVertices());
+		FbxVector4* points = m->GetControlPoints();
 		for (int i = 0; i < result->nVertices(); i++)
 		{
 			boundingmesh::Vector3 v = result->vertex(i).position();
-			//vertices.push_back({ (float)v[0], (float)v[1], (float)v[2] });
+			points[i] = FbxVector4(v[0], v[1], v[2]);
 		}
 
 		for (int i = 0; i < result->nTriangles(); i++)
 		{
 			boundingmesh::Triangle v = result->triangle(i);
+			m->BeginPolygon(0);
+			m->AddPolygon(v.vertex(0));
+			m->AddPolygon(v.vertex(1));
+			m->AddPolygon(v.vertex(2));
+			m->EndPolygon();
 			//tris.push_back({ (unsigned short)v.vertex(0), (unsigned short)v.vertex(1), (unsigned short)v.vertex(2) });
 		}
-
+		root->AddNodeAttribute(m);
+		FbxNode* mopp = FbxNode::Create(temp_manager, "_mopp");
+		mopp->AddChild(root);
+		hkpShape* shape = build_shape(mopp, geometry_meshes);
+		temp_manager->Destroy();
+		return shape;
 	}
 	string name = shape_root->GetName();
 	//	//Containers
@@ -1398,8 +1483,35 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 	if (ends_with(name, "_mesh"))
 	{
 		hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes);
+		//todo, fix
+		hkSimdReal bhkScaleFactorInverse = 1 / 69.99124908;
+		for (auto& v : to_bound.m_vertices)
+		{
+			v.set(v.getSimdAt(0) * bhkScaleFactorInverse, v.getSimdAt(1) * bhkScaleFactorInverse, v.getSimdAt(2) * bhkScaleFactorInverse, v.getSimdAt(3));
+		}
+
+		hkpCompressedMeshShapeBuilder			shapeBuilder;
+		shapeBuilder.m_stripperPasses = 5000;
+		hkpCompressedMeshShape* pCompMesh = shapeBuilder.createMeshShape(0.001f, hkpCompressedMeshShape::MATERIAL_SINGLE_VALUE_PER_CHUNK);
+		try {
+			//  add geometry to shape
+			int										subPartId(0);
+			subPartId = shapeBuilder.beginSubpart(pCompMesh);
+			shapeBuilder.addGeometry(to_bound, hkMatrix4::getIdentity(), pCompMesh);
+			shapeBuilder.endSubpart(pCompMesh);
+			shapeBuilder.addInstance(subPartId, hkMatrix4::getIdentity(), pCompMesh);
+
+			//add materials to shape
+			//for (int i = 0; i < materials.size(); i++) {
+			//	pCompMesh->m_materials.pushBack(i);
+			//}
+			return pCompMesh;
+		}
+		catch (...) {
+			throw runtime_error("Unable to calculate MOPP code!");
+		}
 	}
-	return shape;
+	return NULL;
 }
 
 string HKXWrapperCollection::wrap(const string& out_name, const string& out_path, const string& out_path_root, const string& prefix, const set<string>& sequences_names)

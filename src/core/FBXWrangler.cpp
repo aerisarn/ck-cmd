@@ -44,6 +44,8 @@ See the included LICENSE file
 #include <Physics\Collide\Shape\Misc\Transform\hkpTransformShape.h>
 #include <Physics\Collide\Shape\Compound\Collection\List\hkpListShape.h>
 #include <Physics\Collide\Shape\Deprecated\ConvexList\hkpConvexListShape.h>
+#include "Physics/Collide/Shape/Compound/Tree/Mopp/hkpMoppBvTreeShape.h"
+#include <Physics\Collide\Shape\Compound\Collection\CompressedMesh\hkpCompressedMeshShape.h>
 
 #include <algorithm>
 
@@ -3491,6 +3493,144 @@ set<FbxNode*> FBXWrangler::buildBonesList()
 	return move(bones);
 }
 
+struct KeySetter {};
+
+template<>
+struct Accessor<KeySetter> {
+	Accessor(bhkListShapeRef list, const vector<unsigned int>& keys)
+	{
+		list->unknownInts = keys;
+	}
+};
+
+class BCMSPacker {};
+
+template<>
+class Accessor<BCMSPacker> {
+public:
+	Accessor(hkpCompressedMeshShape* pCompMesh, bhkCompressedMeshShapeDataRef pData, const vector<SkyrimHavokMaterial>& materials)
+	{
+		short                                   chunkIdxNif(0);
+
+		pData->SetBoundsMin(Vector4(pCompMesh->m_bounds.m_min(0), pCompMesh->m_bounds.m_min(1), pCompMesh->m_bounds.m_min(2), pCompMesh->m_bounds.m_min(3)));
+		pData->SetBoundsMax(Vector4(pCompMesh->m_bounds.m_max(0), pCompMesh->m_bounds.m_max(1), pCompMesh->m_bounds.m_max(2), pCompMesh->m_bounds.m_max(3)));
+
+		pData->SetBitsPerIndex(pCompMesh->m_bitsPerIndex);
+		pData->SetBitsPerWIndex(pCompMesh->m_bitsPerWIndex);
+		pData->SetMaskIndex(pCompMesh->m_indexMask);
+		pData->SetMaskWIndex(pCompMesh->m_wIndexMask);
+		pData->SetWeldingType(0); //seems to be fixed for skyrim pData->SetWeldingType(pCompMesh->m_weldingType);
+		pData->SetMaterialType(1); //seems to be fixed for skyrim pData->SetMaterialType(pCompMesh->m_materialType);
+		pData->SetError(pCompMesh->m_error);
+
+		//  resize and copy bigVerts
+		vector<Vector4 > tVec4Vec(pCompMesh->m_bigVertices.getSize());
+		for (unsigned int idx(0); idx < pCompMesh->m_bigVertices.getSize(); ++idx)
+		{
+			tVec4Vec[idx].x = pCompMesh->m_bigVertices[idx](0);
+			tVec4Vec[idx].y = pCompMesh->m_bigVertices[idx](1);
+			tVec4Vec[idx].z = pCompMesh->m_bigVertices[idx](2);
+			tVec4Vec[idx].w = pCompMesh->m_bigVertices[idx](3);
+		}
+		pData->SetBigVerts(tVec4Vec);
+
+		//  resize and copy bigTris
+		vector<bhkCMSDBigTris > tBTriVec(pCompMesh->m_bigTriangles.getSize());
+		for (unsigned int idx(0); idx < pCompMesh->m_bigTriangles.getSize(); ++idx)
+		{
+			tBTriVec[idx].triangle1 = pCompMesh->m_bigTriangles[idx].m_a;
+			tBTriVec[idx].triangle2 = pCompMesh->m_bigTriangles[idx].m_b;
+			tBTriVec[idx].triangle3 = pCompMesh->m_bigTriangles[idx].m_c;
+			tBTriVec[idx].material = pCompMesh->m_bigTriangles[idx].m_material;
+			tBTriVec[idx].weldingInfo = pCompMesh->m_bigTriangles[idx].m_weldingInfo;
+		}
+		pData->SetBigTris(tBTriVec);
+
+		//  resize and copy transform data
+		vector<bhkCMSDTransform > tTranVec(pCompMesh->m_transforms.getSize());
+		for (unsigned int idx(0); idx < pCompMesh->m_transforms.getSize(); ++idx)
+		{
+			tTranVec[idx].translation.x = pCompMesh->m_transforms[idx].m_translation(0);
+			tTranVec[idx].translation.y = pCompMesh->m_transforms[idx].m_translation(1);
+			tTranVec[idx].translation.z = pCompMesh->m_transforms[idx].m_translation(2);
+			tTranVec[idx].translation.w = pCompMesh->m_transforms[idx].m_translation(3);
+			tTranVec[idx].rotation.x = pCompMesh->m_transforms[idx].m_rotation(0);
+			tTranVec[idx].rotation.y = pCompMesh->m_transforms[idx].m_rotation(1);
+			tTranVec[idx].rotation.z = pCompMesh->m_transforms[idx].m_rotation(2);
+			tTranVec[idx].rotation.w = pCompMesh->m_transforms[idx].m_rotation(3);
+		}
+		pData->chunkTransforms = tTranVec;
+
+		vector<bhkCMSDMaterial > tMtrlVec(pCompMesh->m_materials.getSize());
+
+		for (unsigned int idx(0); idx < pCompMesh->m_materials.getSize(); ++idx)
+		{
+			bhkCMSDMaterial& material = tMtrlVec[idx];
+			material.material = materials[pCompMesh->m_materials[idx]];
+			material.filter.layer_sk = SKYL_STATIC;
+		}
+
+		//  set material list
+		pData->chunkMaterials = tMtrlVec;
+
+		vector<bhkCMSDChunk> chunkListNif(pCompMesh->m_chunks.getSize());
+
+		//  for each chunk
+		for (hkArray<hkpCompressedMeshShape::Chunk>::iterator pCIterHvk = pCompMesh->m_chunks.begin(); pCIterHvk != pCompMesh->m_chunks.end(); pCIterHvk++)
+		{
+			//  get nif chunk
+			bhkCMSDChunk&	chunkNif = chunkListNif[chunkIdxNif];
+
+			//  set offset => translation
+			chunkNif.translation.x = pCIterHvk->m_offset(0);
+			chunkNif.translation.y = pCIterHvk->m_offset(1);
+			chunkNif.translation.z = pCIterHvk->m_offset(2);
+			chunkNif.translation.w = pCIterHvk->m_offset(3);
+
+			//  force flags to fixed values
+			chunkNif.materialIndex = pCIterHvk->m_materialInfo;
+			chunkNif.reference = 65535;
+			chunkNif.transformIndex = pCIterHvk->m_transformIndex;
+
+			//  vertices
+			chunkNif.numVertices = pCIterHvk->m_vertices.getSize();
+			chunkNif.vertices.resize(chunkNif.numVertices);
+			for (unsigned int i(0); i < chunkNif.numVertices; ++i)
+			{
+				chunkNif.vertices[i] = pCIterHvk->m_vertices[i];
+			}
+
+			//  indices
+			chunkNif.numIndices = pCIterHvk->m_indices.getSize();
+			chunkNif.indices.resize(chunkNif.numIndices);
+			for (unsigned int i(0); i < chunkNif.numIndices; ++i)
+			{
+				chunkNif.indices[i] = pCIterHvk->m_indices[i];
+			}
+
+			//  strips
+			chunkNif.numStrips = pCIterHvk->m_stripLengths.getSize();
+			chunkNif.strips.resize(chunkNif.numStrips);
+			for (unsigned int i(0); i < chunkNif.numStrips; ++i)
+			{
+				chunkNif.strips[i] = pCIterHvk->m_stripLengths[i];
+			}
+
+			chunkNif.weldingInfo.resize(pCIterHvk->m_weldingInfo.getSize());
+			for (int k = 0; k < pCIterHvk->m_weldingInfo.getSize(); k++) {
+				chunkNif.weldingInfo[k] = pCIterHvk->m_weldingInfo[k];
+			}
+
+			++chunkIdxNif;
+
+		}
+
+		//  set modified chunk list to compressed mesh shape data
+		pData->chunks = chunkListNif;
+		//----  Merge  ----  END
+	}
+};
+
 bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape)
 {
 	double bhkScaleFactorInverse = 1 / 69.99124908;
@@ -3505,6 +3645,22 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape)
 	if (HK_SHAPE_LIST == shape->getType())
 	{
 		bhkListShapeRef list = new bhkListShape();
+		hkpListShape* hk_list = (hkpListShape*)&*shape;
+		size_t num_shapes = hk_list->getNumChildShapes();
+		
+		vector<unsigned int > keys;
+		vector<bhkShapeRef> shapes;
+		for (int i=0; i< num_shapes; i++)
+			shapes.push_back(convert_from_hk(hk_list->getChildShapeInl(i)));
+
+		hkpShapeKey key = hk_list->getFirstKey();
+		while (key != HK_INVALID_SHAPE_KEY)
+		{
+			keys.push_back(key);
+			key = hk_list->getNextKey(key);
+		}
+		list->SetSubShapes(shapes);
+		Accessor<KeySetter>(list, keys);
 		return StaticCast<bhkShape>(list);
 	}
 	/// hkpConvexTransformShape type.
@@ -3525,8 +3681,16 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape)
 	/// hkpMoppBvTreeShape type.
 	if (HK_SHAPE_MOPP == shape->getType())
 	{
-		bhkMoppBvTreeShapeRef sphere = new bhkMoppBvTreeShape();
-		return StaticCast<bhkShape>(sphere);
+		bhkMoppBvTreeShapeRef pMoppShape = new bhkMoppBvTreeShape();
+		hkpMoppBvTreeShape* pMoppBvTree = (hkpMoppBvTreeShape*)&*shape;
+
+		pMoppShape->SetShape(convert_from_hk(pMoppBvTree->getShapeCollection()));
+		pMoppShape->SetOrigin(Vector3(pMoppBvTree->getMoppCode()->m_info.m_offset(0), pMoppBvTree->getMoppCode()->m_info.m_offset(1), pMoppBvTree->getMoppCode()->m_info.m_offset(2)));
+		pMoppShape->SetScale(pMoppBvTree->getMoppCode()->m_info.getScale());
+		pMoppShape->SetBuildType(MoppDataBuildType((Niflib::byte) pMoppBvTree->getMoppCode()->m_buildType));
+		pMoppShape->SetMoppData(vector<Niflib::byte>(pMoppBvTree->m_moppData, pMoppBvTree->m_moppData + pMoppBvTree->m_moppDataSize));
+
+		return StaticCast<bhkShape>(pMoppShape);
 	}
 
 	//Shapes
@@ -3584,6 +3748,13 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape)
 	if (HK_SHAPE_COMPRESSED_MESH == shape->getType())
 	{
 		bhkCompressedMeshShapeRef mesh = new bhkCompressedMeshShape();
+		bhkCompressedMeshShapeDataRef data = new bhkCompressedMeshShapeData();
+		hkpCompressedMeshShape* hk_mesh = (hkpCompressedMeshShape*)&*shape;
+		vector<SkyrimHavokMaterial> materials;
+		Accessor<BCMSPacker> go(hk_mesh, data, materials);
+		mesh->SetRadius(hk_mesh->m_radius);
+		mesh->SetRadiusCopy(hk_mesh->m_radius);
+		mesh->SetData(data);
 		return StaticCast<bhkShape>(mesh);
 	}
 
