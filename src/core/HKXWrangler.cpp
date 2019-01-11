@@ -1305,8 +1305,6 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 	//If shape_root is null, no hints were given on how to handle the collisions
 	if (shape_root == NULL)
 	{
-		
-
 		//we'll create a fbxnode hierachy to handle this and then recurse
 		//calculate geometry
 		VHACD::IVHACD* interfaceVHACD = VHACD::CreateVHACD();
@@ -1321,15 +1319,13 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 
 		if (res) {
 			unsigned int nConvexHulls = interfaceVHACD->GetNConvexHulls();
-			if (nConvexHulls <= 8)
+			if (nConvexHulls <= 10)
 			{
 				FbxManager* temp_manager = FbxManager::Create();
 				FbxNode* temp_root = NULL;
 
-				if (nConvexHulls <= 8)
-					temp_root = create_hulls(temp_manager, interfaceVHACD);
-				else
-					temp_root = create_mesh(temp_manager, interfaceVHACD);
+	
+				temp_root = create_hulls(temp_manager, interfaceVHACD);
 
 				if (nConvexHulls >= 4)
 				{
@@ -1358,11 +1354,10 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 			bmesh.addTriangle(bbmesh->triangles[i * 3], bbmesh->triangles[i * 3 + 1], bbmesh->triangles[i * 3 + 2]);
 		}
 
-		//bmesh.closeHoles();
 		boundingmesh::Decimator decimator;
 		decimator.setMesh(bmesh);
 		decimator.setMetric(boundingmesh::Average);
-		decimator.setMaximumError(10);
+		decimator.setMaximumError(0.1);
 
 		std::shared_ptr<boundingmesh::Mesh> result = decimator.compute();
 		FbxManager* temp_manager = FbxManager::Create();

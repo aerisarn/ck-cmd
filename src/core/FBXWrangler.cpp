@@ -1319,7 +1319,7 @@ public:
 			transform_block->GetTransform();
 			FbxNode* transform_node = FbxNode::Create(&scene, parent_name.c_str());
 			parent->AddChild(transform_node);
-			setMatTransform(transform_block->GetTransform(), transform_node);
+			//setMatTransform(transform_block->GetTransform(), transform_node);
 			recursive_convert(transform_block->GetShape(), transform_node, layer);
 		}
 		//bhkListShape, /bhkConvexListShape
@@ -1327,24 +1327,28 @@ public:
 		{
 			parent_name += "_list";
 			bhkListShapeRef list_block = DynamicCast<bhkListShape>(shape);
+			FbxNode* list_node = FbxNode::Create(&scene, parent_name.c_str());
+			parent->AddChild(list_node);
 			const vector<bhkShapeRef>& shapes = list_block->GetSubShapes();
 			for (int i = 0; i < shapes.size(); i++) {
 				string name_index = parent_name + "_" + to_string(i);
-				FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
-				parent->AddChild(child_shape_node);
-				recursive_convert(shapes[i], child_shape_node, layer);
+				//FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
+				//parent->AddChild(child_shape_node);
+				recursive_convert(shapes[i], list_node, layer);
 			}
 		}
 		else if (shape->IsDerivedType(bhkConvexListShape::TYPE))
 		{
 			parent_name += "_convex_list";
 			bhkConvexListShapeRef list_block = DynamicCast<bhkConvexListShape>(shape);
+			FbxNode* convex_list = FbxNode::Create(&scene, parent_name.c_str());
+			parent->AddChild(convex_list);
 			const vector<bhkConvexShapeRef>& shapes = list_block->GetSubShapes();
 			for (int i = 0; i < shapes.size(); i++) {
 				string name_index = parent_name + "_" + to_string(i);
-				FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
-				parent->AddChild(child_shape_node);
-				recursive_convert(shapes[i], child_shape_node, layer);
+				//FbxNode* child_shape_node = FbxNode::Create(&scene, name_index.c_str());
+				//parent->AddChild(child_shape_node);
+				recursive_convert(shapes[i], convex_list, layer);
 			}
 		}
 		//bhkMoppBvTree
@@ -1515,7 +1519,8 @@ public:
 		//pack
 		if (geom.m_vertices.getSize() > 0)
 		{
-			parent_name += "_mesh";
+			FbxNode* shape_node = FbxNode::Create(&scene, parent_name.c_str());
+			parent_name += "_geometry";
 			FbxMesh* m = FbxMesh::Create(&scene, parent_name.c_str());
 			m->InitControlPoints(geom.m_vertices.getSize());
 			FbxVector4* points = m->GetControlPoints();
@@ -1538,7 +1543,8 @@ public:
 				m->EndPolygon();
 			}
 			
-			parent->SetNodeAttribute(m);
+			shape_node->SetNodeAttribute(m);
+			parent->AddChild(shape_node);
 		}
 		alreadyVisitedNodes.insert(shape);
 		return parent;
@@ -2632,19 +2638,61 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 		""
 		});
 
+
+
 	if (node->GetNodeCount() > 0)
 	{
 		if (node->GetNodeCount() > 1)
 			Log::Info("node->NodeCount() is above 1. Is this normal?");
 
 		FbxNode* tempN = node->GetNode();
+		vector<string> vTextures = textures->GetTextures();
+		FbxProperty prop = nullptr;
+
+		prop = tempN->GetFirstProperty();
+		while (prop.IsValid())
+		{
+			string name = prop.GetNameAsCStr();
+			string slot_prefix = "slot";
+			if (prop.GetFlag(FbxPropertyFlags::eUserDefined))
+			{
+				auto it = search(
+					name.begin(), name.end(),
+					slot_prefix.begin(), slot_prefix.end(),
+					[](char ch1, char ch2) { return toupper(ch1) == toupper(ch2); }
+				);
+				if (it != name.end())
+				{
+					name.erase(name.begin(), name.begin() + 4);
+					int slot = atoi(name.c_str());
+					if (slot > 2 && slot < 9)
+					{
+						FbxString path = prop.Get<FbxString>();
+						string tempString = path.Buffer();
+						size_t idx = tempString.find("textures", 0);
+						if (idx != string::npos)
+						{
+							tempString.erase(tempString.begin(), tempString.begin() + idx);
+						}
+						else {
+							idx = tempString.find("cube", 0);
+							if (idx != string::npos)
+							{
+								tempString.erase(tempString.begin(), tempString.begin() + idx);
+							}
+						}
+						vTextures[slot-1] = tempString;
+					}
+				}
+			}
+			prop = tempN->GetNextProperty(prop);
+		}
 
 		FbxSurfaceMaterial * material = tempN->GetMaterial(0);
-		FbxProperty prop = nullptr;
+		
 		FbxPropertyT<FbxDouble3> colour;
 		FbxPropertyT<FbxDouble> factor;
 		FbxFileTexture *texture;
-		vector<string> vTextures = textures->GetTextures();
 
 		//diffuse:
 		prop = material->FindProperty(FbxSurfaceMaterial::sDiffuse, true);
@@ -2701,6 +2749,19 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 			}
 		}
 
+		//Specular
+		prop = material->FindProperty("Roughness", true);
+		if (prop.IsValid())
+		{
+			texture = prop.GetSrcObject<FbxFileTexture>(0);
+			if (texture)
+			{
+				std::string tempString = string(texture->GetFileName());
+				size_t idx = tempString.find_first_of("textures", 0);
+				tempString.erase(tempString.begin(), tempString.begin() + idx);
+				vTextures[1] = tempString;
+			}
+		}
 		//if this isn't found, then we could go down the alternate route and do 1f-transparency?
 		factor = material->FindProperty("Opacity", true);
 
@@ -3770,7 +3831,18 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 	if (name.find("_rb") != string::npos)
 	{
 		bhkCollisionObjectRef collision = new bhkCollisionObject();
-		bhkRigidBodyRef body = new bhkRigidBody();
+		bhkRigidBodyRef body = new bhkRigidBodyT();
+		FbxAMatrix transform = rigid_body->EvaluateGlobalTransform();
+		FbxVector4 T = transform.GetT();
+		FbxQuaternion Q = transform.GetQ();
+		Niflib::hkQuaternion q;
+		q.x = (float)Q[0];
+		q.y = (float)Q[1];
+		q.z = (float)Q[2];
+		q.w = (float)Q[3];
+		float bhkScaleFactorInverse = 1.f / 69.99124908f;
+		body->SetTranslation({ (float)T[0]*bhkScaleFactorInverse,(float)T[1] * bhkScaleFactorInverse, (float)T[2] * bhkScaleFactorInverse });
+		body->SetRotation(q);
 		body->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes)));
 		collision->SetBody(StaticCast<bhkWorldObject>(body));
 		return_collision = StaticCast<NiCollisionObject>(collision);
@@ -3809,7 +3881,7 @@ void FBXWrangler::buildCollisions()
 			FbxNode* child = root->GetChild(i);
 			string child_name = child->GetName();
 			if (child != body &&
-				(child_name.find("_rb") != string::npos || child_name.find("_sp") != string::npos))
+				(ends_with(child_name,"_rb") || ends_with(child_name, "_sp")))
 			{
 				findShapesToBeCollisioned(root, child);
 				break;
