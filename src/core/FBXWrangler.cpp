@@ -2977,6 +2977,12 @@ void addRotationKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAn
 	}
 }
 
+NiTransformInterpolatorRef convert(FbxAnimLayer* pAnimLayer, FbxNode* animated_node)
+{
+	//collect all the original keys
+	return NULL;
+}
+
 double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_root_name, double last_start)
 {
 	// Display general curves.
@@ -3865,35 +3871,47 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 void FBXWrangler::buildCollisions()
 {
 	multimap<FbxNode*, FbxMesh*> bodies_meshes_map;
-	
-	//for any rigid body, we must find all children shapes of the parent node which don't specify another rigid body
-	std::function<void(FbxNode*, FbxNode*)> findShapesToBeCollisioned = [&](FbxNode* root, FbxNode* body) {
-		//collision meshes will be handled separately
-		if (root == body)
+
+	std::function<void(FbxNode*)> findShapesToBeCollisioned = [&](FbxNode* root) {
+		//recurse until we find a shape, avoiding rb as their mesh will be taken into account later
+		string name = root->GetName();
+		if (ends_with(name, "_rb") || ends_with(name, "_sp"))
 			return;
+		for (int i = 0; i < root->GetChildCount(); i++) {
+			FbxNode* child = root->GetChild(i);
+
+			findShapesToBeCollisioned(root->GetChild(i));
+		}
 		if (root->GetNodeAttribute() != NULL &&
 			root->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh)
 		{
+			//I'm a mesh, find my nearest parent RB, if any
+			FbxNode* parent = root->GetParent();
+			FbxNode* body = NULL;
+			while (parent != NULL)
+			{
+				for (int i = 0; i < parent->GetChildCount(); i++) {
+					FbxNode* child = parent->GetChild(i);
+					string child_name = child->GetName();
+					if (ends_with(child_name, "_rb") || ends_with(child_name, "_sp"))
+					{
+						body = child;
+						break;
+					}
+				}
+				if (body != NULL)
+					break;
+				parent = parent->GetParent();
+			}
+
+
 			bodies_meshes_map.insert({ body,
 				(FbxMesh*)root->GetNodeAttribute() });
 		}
-		for (int i = 0; i < root->GetChildCount(); i++) {
-			FbxNode* child = root->GetChild(i);
-			string child_name = child->GetName();
-			if (child != body &&
-				(ends_with(child_name,"_rb") || ends_with(child_name, "_sp")))
-			{
-				findShapesToBeCollisioned(root, child);
-				break;
-			}
-			findShapesToBeCollisioned(child, body);
-		}
+
 	};
-		
-	for (const auto& rb : physic_entities)
-	{
-		findShapesToBeCollisioned(rb->GetParent(), rb);
-	}
+
+	findShapesToBeCollisioned(scene->GetRootNode());
 
 	for (const auto& rb : physic_entities)
 	{
@@ -3954,7 +3972,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			{
 				//collisions are leaves, defer them and return
 				physic_entities.insert(child);
-				return;
+				continue;
 			}
 			if (nif_child == NULL) {
 				nif_child = new NiNode();
