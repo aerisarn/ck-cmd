@@ -2689,118 +2689,120 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 		}
 
 		FbxSurfaceMaterial * material = tempN->GetMaterial(0);
-		
-		FbxPropertyT<FbxDouble3> colour;
-		FbxPropertyT<FbxDouble> factor;
-		FbxFileTexture *texture;
-
-		//diffuse:
-		prop = material->FindProperty(FbxSurfaceMaterial::sDiffuse, true);
-		if (prop.IsValid())
+		if (material != NULL)
 		{
-			texture = prop.GetSrcObject<FbxFileTexture>(0);
-			if (texture)
+			FbxPropertyT<FbxDouble3> colour;
+			FbxPropertyT<FbxDouble> factor;
+			FbxFileTexture *texture;
+
+			//diffuse:
+			prop = material->FindProperty(FbxSurfaceMaterial::sDiffuse, true);
+			if (prop.IsValid())
 			{
-				std::string tempString = string(texture->GetFileName());
-				size_t idx = tempString.find("textures", 0);
-				if (idx != string::npos)
+				texture = prop.GetSrcObject<FbxFileTexture>(0);
+				if (texture)
 				{
+					std::string tempString = string(texture->GetFileName());
+					size_t idx = tempString.find("textures", 0);
+					if (idx != string::npos)
+					{
+						tempString.erase(tempString.begin(), tempString.begin() + idx);
+					}
+					else {
+						Log::Warn("Unable to find a relative path to texture, using full FBX path: %s", tempString.c_str());
+					}
+					vTextures[0] = tempString;
+					if (texture->Alpha > 0.0)
+						hasAlpha = true;
+					if (texture->GetBlendMode() != FbxFileTexture::EBlendMode::eOver)
+						hasAlpha = true;
+				}
+
+			}
+
+			//normal:
+			prop = material->FindProperty(FbxSurfaceMaterial::sBump, true);
+
+			if (prop.IsValid())
+			{
+				texture = prop.GetSrcObject<FbxFileTexture>(0);
+
+				if (texture)
+				{
+					std::string tempString = string(texture->GetFileName());
+					size_t idx = tempString.find_first_of("textures", 0);
 					tempString.erase(tempString.begin(), tempString.begin() + idx);
+					vTextures[1] = tempString;
 				}
 				else {
-					Log::Warn("Unable to find a relative path to texture, using full FBX path: %s", tempString.c_str());
-				}
-				vTextures[0] = tempString;
-				if (texture->Alpha > 0.0)
-					hasAlpha = true;
-				if (texture->GetBlendMode() != FbxFileTexture::EBlendMode::eOver)
-					hasAlpha = true;
-			}
-
-		}
-
-		//normal:
-		prop = material->FindProperty(FbxSurfaceMaterial::sBump, true);
-
-		if (prop.IsValid())
-		{
-			texture = prop.GetSrcObject<FbxFileTexture>(0);
-
-			if (texture)
-			{
-				std::string tempString = string(texture->GetFileName());
-				size_t idx = tempString.find_first_of("textures", 0);
-				tempString.erase(tempString.begin(), tempString.begin() + idx);
-				vTextures[1] = tempString;
-			}
-			else {
-				prop = material->FindProperty(FbxSurfaceMaterial::sNormalMap, true);
-				if (prop.IsValid())
-				{
-					texture = prop.GetSrcObject<FbxFileTexture>(0);
-					if (texture)
+					prop = material->FindProperty(FbxSurfaceMaterial::sNormalMap, true);
+					if (prop.IsValid())
 					{
-						std::string tempString = string(texture->GetFileName());
-						size_t idx = tempString.find_first_of("textures", 0);
-						tempString.erase(tempString.begin(), tempString.begin() + idx);
-						vTextures[1] = tempString;
+						texture = prop.GetSrcObject<FbxFileTexture>(0);
+						if (texture)
+						{
+							std::string tempString = string(texture->GetFileName());
+							size_t idx = tempString.find_first_of("textures", 0);
+							tempString.erase(tempString.begin(), tempString.begin() + idx);
+							vTextures[1] = tempString;
+						}
 					}
 				}
 			}
-		}
 
-		//Specular
-		prop = material->FindProperty("Roughness", true);
-		if (prop.IsValid())
-		{
-			texture = prop.GetSrcObject<FbxFileTexture>(0);
-			if (texture)
+			//Specular
+			prop = material->FindProperty("Roughness", true);
+			if (prop.IsValid())
 			{
-				std::string tempString = string(texture->GetFileName());
-				size_t idx = tempString.find_first_of("textures", 0);
-				tempString.erase(tempString.begin(), tempString.begin() + idx);
-				vTextures[1] = tempString;
+				texture = prop.GetSrcObject<FbxFileTexture>(0);
+				if (texture)
+				{
+					std::string tempString = string(texture->GetFileName());
+					size_t idx = tempString.find_first_of("textures", 0);
+					tempString.erase(tempString.begin(), tempString.begin() + idx);
+					vTextures[1] = tempString;
+				}
 			}
-		}
-		//if this isn't found, then we could go down the alternate route and do 1f-transparency?
-		factor = material->FindProperty("Opacity", true);
+			//if this isn't found, then we could go down the alternate route and do 1f-transparency?
+			factor = material->FindProperty("Opacity", true);
 
-		if (factor.IsValid())
-		{
-			printf("%f", factor.Get());
-			shader->SetAlpha(factor.Get());
-		}
+			if (factor.IsValid())
+			{
+				printf("%f", factor.Get());
+				shader->SetAlpha(factor.Get());
+			}
 
-		//spec:
-		colour = material->FindProperty(material->sSpecular, true);
-		factor = material->FindProperty(material->sSpecularFactor, true);
-		if (colour.IsValid() && factor.IsValid())
-		{
-			//correct set this flag or my ocd will throw fits.
-			factor.Get() > 0.0 ? shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() | SLSF1_SPECULAR)) : shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() & ~SLSF1_SPECULAR));
-			FbxDouble3 colourvec = colour.Get();
-			shader->SetSpecularStrength(factor.Get());
-			shader->SetSpecularColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
-		}
+			//spec:
+			colour = material->FindProperty(material->sSpecular, true);
+			factor = material->FindProperty(material->sSpecularFactor, true);
+			if (colour.IsValid() && factor.IsValid())
+			{
+				//correct set this flag or my ocd will throw fits.
+				factor.Get() > 0.0 ? shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() | SLSF1_SPECULAR)) : shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() & ~SLSF1_SPECULAR));
+				FbxDouble3 colourvec = colour.Get();
+				shader->SetSpecularStrength(factor.Get());
+				shader->SetSpecularColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
+			}
 
-		//emissive
-		colour = material->FindProperty(material->sEmissive, true);
-		factor = material->FindProperty(material->sEmissiveFactor, true);
-		if (colour.IsValid() && factor.IsValid())
-		{
-			FbxDouble3 colourvec = colour.Get();
-			shader->SetEmissiveMultiple(factor.Get());
-			shader->SetEmissiveColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
-		}
+			//emissive
+			colour = material->FindProperty(material->sEmissive, true);
+			factor = material->FindProperty(material->sEmissiveFactor, true);
+			if (colour.IsValid() && factor.IsValid())
+			{
+				FbxDouble3 colourvec = colour.Get();
+				shader->SetEmissiveMultiple(factor.Get());
+				shader->SetEmissiveColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
+			}
 
-		//	//shiny/gloss
-		factor = material->FindProperty(material->sShininess, true);
-		if (factor.IsValid())
-		{
-			shader->SetGlossiness(factor.Get());
-		}
+			//	//shiny/gloss
+			factor = material->FindProperty(material->sShininess, true);
+			if (factor.IsValid())
+			{
+				shader->SetGlossiness(factor.Get());
+			}
 
-		textures->SetTextures(vTextures);
+			textures->SetTextures(vTextures);
+		}
 	}
 
 	if (hasAlpha) {
@@ -2837,6 +2839,35 @@ NiNodeRef FBXWrangler::importShapes(FbxNode* child, const FBXImportOptions& opti
 	return dummy;
 }
 
+KeyType collect_times(FbxAnimCurve* curveX, set<double>& times, KeyType fixed_type)
+{
+	KeyType type = CONST_KEY;
+	if (curveX != NULL)
+	{
+		for (int i = 0; i < curveX->KeyGetCount(); i++)
+		{
+			FbxAnimCurveKey& key = curveX->KeyGet(i);
+			times.insert(key.GetTime().GetSecondDouble());
+			KeyType new_type = CONST_KEY;
+			switch (key.GetInterpolation())
+			{
+			case FbxAnimCurveDef::EInterpolationType::eInterpolationConstant:
+				break;
+			case FbxAnimCurveDef::EInterpolationType::eInterpolationLinear:
+				new_type = LINEAR_KEY;
+			case FbxAnimCurveDef::EInterpolationType::eInterpolationCubic:
+				new_type = QUADRATIC_KEY;
+			}
+			if (i > 0 && type != new_type)
+			{
+				Log::Warn("Found an FbxAnimCurve with mixed types of interpolation, NIF doesn't support that for translations!");
+			}
+			type = new_type;
+		}
+	}
+	return type;
+}
+
 void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAnimCurve* curveX, FbxAnimCurve* curveY, FbxAnimCurve* curveZ, double time_offset) {
 	map<double, int> timeMapX;
 	map<double, int> timeMapY;
@@ -2844,35 +2875,16 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 
 	FbxDouble3 position = node->LclTranslation.Get();
 
-
+	KeyType interp = CONST_KEY;
 	set<double> times;
-	if (curveX != NULL)
-	{
-		for (int i = 0; i < curveX->KeyGetCount(); i++)
-		{
-			FbxAnimCurveKey& key = curveX->KeyGet(i);
-			times.insert(key.GetTime().GetSecondDouble());
-		}
-	}
-	if (curveY != NULL)
-	{
-		for (int i = 0; i < curveY->KeyGetCount(); i++)
-		{
-			FbxAnimCurveKey& key = curveY->KeyGet(i);
-			times.insert(key.GetTime().GetSecondDouble());
-		}
-	}
-	if (curveZ != NULL)
-	{
-		for (int i = 0; i < curveZ->KeyGetCount(); i++)
-		{
-			FbxAnimCurveKey& key = curveZ->KeyGet(i);
-			times.insert(key.GetTime().GetSecondDouble());
-		}
-	}
-	
+	interp = collect_times(curveX, times, interp);
+	interp = collect_times(curveY, times, interp);
+	interp = collect_times(curveZ, times, interp);
+
 	if (times.size() > 0)
 	{
+		times.insert(time_offset);
+
 		NiTransformDataRef data = interpolator->GetData();
 		if (data == NULL) data = new NiTransformData();
 		KeyGroup<Vector3 > tkeys = data->GetTranslations();
@@ -2886,13 +2898,26 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 
 			Key<Vector3 > temp;
 			temp.data = Vector3(trans[0], trans[1], trans[2]);
-			temp.time = time;
+			if (interp == QUADRATIC_KEY)
+			{
+				temp.forward_tangent = {
+					curveX != NULL ? curveX->EvaluateRightDerivative(lTime) : 0.0f,
+					curveY != NULL ? curveY->EvaluateRightDerivative(lTime) : 0.0f,
+					curveZ != NULL ? curveZ->EvaluateRightDerivative(lTime) : 0.0f,
+				};
+				temp.backward_tangent = {
+					curveX != NULL ? curveX->EvaluateLeftDerivative(lTime) : 0.0f,
+					curveY != NULL ? curveY->EvaluateLeftDerivative(lTime) : 0.0f,
+					curveZ != NULL ? curveZ->EvaluateLeftDerivative(lTime) : 0.0f,
+				};
+
+			}
+			temp.time = time - time_offset;
 			keyvalues.push_back(temp);
 		}
 		tkeys.numKeys = keyvalues.size();
 		tkeys.keys = keyvalues;
-		//TODO
-		tkeys.interpolation = LINEAR_KEY;
+		tkeys.interpolation = interp;
 		data->SetTranslations(tkeys);
 		interpolator->SetData(data);
 	}
@@ -2906,69 +2931,69 @@ public:
 	}
 };
 
+int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offset, bool deg_to_rad)
+{
+	int IkeySize = 0;
+	bool has_key_in_time_offset = false;
+	if (curveI != NULL)
+	{
+		IkeySize = curveI->KeyGetCount();
+		if (IkeySize > 0) {
+			//KeyGroup<float>& keys = tkeys[0];
+			for (int i = 0; i < IkeySize; i++) {
+				FbxAnimCurveKey fbx_key = curveI->KeyGet(i);
+				Key<float> new_key;
+				if (fbx_key.GetTime().GetSecondDouble() == time_offset)
+					has_key_in_time_offset = true;
+				new_key.time = fbx_key.GetTime().GetSecondDouble() - time_offset;
+				new_key.data = fbx_key.GetValue();
+				new_key.forward_tangent = curveI->KeyGetRightTangentVelocity(i);
+				new_key.backward_tangent = curveI->KeyGetLeftTangentVelocity(i);
+				if (deg_to_rad)
+				{
+					new_key.data = deg2rad(new_key.data);
+					new_key.forward_tangent = deg2rad(new_key.forward_tangent);
+					new_key.backward_tangent = deg2rad(new_key.backward_tangent);
+				}
+				keys.keys.push_back(new_key);
+			}
+			if (!has_key_in_time_offset)
+			{
+				IkeySize += 1;
+				Key<float> new_key;
+				new_key.time = time_offset;
+				FbxTime ttime; ttime.SetSecondDouble(time_offset);
+				new_key.data = curveI->Evaluate(time_offset);
+				new_key.forward_tangent = curveI->EvaluateRightDerivative(ttime);
+				new_key.backward_tangent = curveI->EvaluateLeftDerivative(ttime);
+				if (deg_to_rad)
+				{
+					new_key.data = deg2rad(new_key.data);
+					new_key.forward_tangent = deg2rad(new_key.forward_tangent);
+					new_key.backward_tangent = deg2rad(new_key.backward_tangent);
+				}
+				keys.keys.insert(keys.keys.begin(), new_key);
+			}
+
+			keys.numKeys = keys.keys.size();
+			keys.interpolation = QUADRATIC_KEY;
+
+		}
+	}
+	return IkeySize;
+}
+
+
 void addRotationKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAnimCurve* curveI, FbxAnimCurve* curveJ, FbxAnimCurve* curveK, double time_offset) {
 	//this is simpler because curves can be evaluated one at a time
 	NiTransformDataRef data = interpolator->GetData();
 	if (data == NULL) data = new NiTransformData();
 	Niflib::array<3, KeyGroup<float > > tkeys = data->GetXyzRotations();
 
-	int IkeySize = 0;
-	if (curveI != NULL)
-	{
-		IkeySize = curveI->KeyGetCount();
-		if (IkeySize > 0) {
-			KeyGroup<float>& keys = tkeys[0];
-			for (int i = 0; i < IkeySize; i++) {
-				FbxAnimCurveKey fbx_key = curveI->KeyGet(i);
-				Key<float> new_key;
-				new_key.time = fbx_key.GetTime().GetSecondDouble() - time_offset;
-				new_key.data = deg2rad(fbx_key.GetValue());
-				new_key.forward_tangent = deg2rad(curveI->KeyGetRightTangentVelocity(i));
-				new_key.backward_tangent = deg2rad(curveI->KeyGetLeftTangentVelocity(i));
-				keys.keys.push_back(new_key);
-			}
-			keys.numKeys = keys.keys.size();
-			keys.interpolation = QUADRATIC_KEY;
-		}
-	}
-	int JkeySize = 0;
-	if (curveJ != NULL)
-	{
-		JkeySize = curveJ->KeyGetCount();
-		if (JkeySize > 0) {
-			KeyGroup<float>& keys = tkeys[1];
-			for (int i = 0; i < JkeySize; i++) {
-				FbxAnimCurveKey fbx_key = curveJ->KeyGet(i);
-				Key<float> new_key;
-				new_key.time = fbx_key.GetTime().GetSecondDouble() - time_offset;
-				new_key.data = deg2rad(fbx_key.GetValue());
-				new_key.forward_tangent = deg2rad(curveJ->KeyGetRightTangentVelocity(i));
-				new_key.backward_tangent = deg2rad(curveJ->KeyGetLeftTangentVelocity(i));
-				keys.keys.push_back(new_key);
-			}
-			keys.numKeys = keys.keys.size();
-			keys.interpolation = QUADRATIC_KEY;
-		}
-	}
-	int KkeySize = 0;
-	if (curveK != NULL)
-	{
-		KkeySize = curveK->KeyGetCount();
-		if (KkeySize > 0) {
-			KeyGroup<float>& keys = tkeys[2];
-			for (int i = 0; i < KkeySize; i++) {
-				FbxAnimCurveKey fbx_key = curveK->KeyGet(i);
-				Key<float> new_key;
-				new_key.time = fbx_key.GetTime().GetSecondDouble() - time_offset;
-				new_key.data = deg2rad(fbx_key.GetValue());
-				new_key.forward_tangent = deg2rad(curveK->KeyGetRightTangentVelocity(i));
-				new_key.backward_tangent = deg2rad(curveK->KeyGetLeftTangentVelocity(i));
-				keys.keys.push_back(new_key);
-			}
-			keys.numKeys = keys.keys.size();
-			keys.interpolation = QUADRATIC_KEY;
-		}
-	}
+	int IkeySize = pack_float_key(curveI, tkeys[0], time_offset, true);
+	int JkeySize = pack_float_key(curveI, tkeys[1], time_offset, true);
+	int KkeySize = pack_float_key(curveI, tkeys[2], time_offset, true);
+
 	if (IkeySize > 0 || JkeySize > 0 || KkeySize > 0) {
 		Accessor<NiTransformData> fix_rot(data);
 		data->SetXyzRotations(tkeys);
@@ -2977,10 +3002,18 @@ void addRotationKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAn
 	}
 }
 
-NiTransformInterpolatorRef convert(FbxAnimLayer* pAnimLayer, FbxNode* animated_node)
-{
-	//collect all the original keys
-	return NULL;
+void addScaleKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAnimCurve* curveI, FbxAnimCurve* curveJ, FbxAnimCurve* curveK, double time_offset) {
+	//this is simpler because curves can be evaluated one at a time
+	NiTransformDataRef data = interpolator->GetData();
+	if (data == NULL) data = new NiTransformData();
+	KeyGroup<float >  tkeys = data->GetScales();
+
+	int IkeySize = pack_float_key(curveI, tkeys, time_offset, false);
+	if (IkeySize > 0) {
+		Accessor<NiTransformData> fix_rot(data);
+		data->SetScales(tkeys);
+		interpolator->SetData(data);
+	}
 }
 
 double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_root_name, double last_start)
@@ -2996,9 +3029,13 @@ double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef se
 		FbxAnimCurve* lIAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
 		FbxAnimCurve* lJAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
 		FbxAnimCurve* lKAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+		FbxAnimCurve* lsXAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
+		FbxAnimCurve* lsYAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
+		FbxAnimCurve* lsZAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
 
 		if (lXAnimCurve != NULL || lYAnimCurve != NULL || lZAnimCurve != NULL ||
-			lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL) 
+			lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL ||
+			lsXAnimCurve != NULL || lsYAnimCurve != NULL || lsZAnimCurve != NULL)
 		{
 
 			NiObjectRef target = conversion_Map[pNode];
@@ -3006,9 +3043,11 @@ double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef se
 
 			NiTransformInterpolatorRef interpolator = new NiTransformInterpolator();
 			NiQuatTransform trans;
-			trans.translation = Vector3(0, 0, 0);
-			trans.rotation = Quaternion(1, 0, 0, 0);
-			trans.scale = 1;
+			unsigned int float_min = 0xFF7FFFFF;
+			float* lol = (float*)&float_min;
+			trans.translation = Vector3(*lol, *lol, *lol);
+			trans.rotation = Quaternion(*lol, *lol, *lol, *lol);
+			trans.scale = *lol;
 			interpolator->SetTransform(trans);
 
 			if (lXAnimCurve != NULL || lYAnimCurve != NULL || lZAnimCurve != NULL) {
@@ -3019,15 +3058,9 @@ double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef se
 				addRotationKeys(interpolator, pNode, lIAnimCurve, lJAnimCurve, lKAnimCurve, last_start);
 			}
 
-			NiTransformDataRef data = interpolator->GetData();
-			if (data != NULL) {
-				KeyGroup<float> scales;
-				scales.numKeys = 0;
-				scales.keys = {};
-				data->SetScales(scales);
+			if (lsXAnimCurve != NULL ) {
+				addScaleKeys(interpolator, pNode, lsXAnimCurve, lsYAnimCurve, lsZAnimCurve, last_start);
 			}
-
-			//interpolator->SetData(new NiTransformData());
 
 			ControlledBlock block;
 			block.interpolator = interpolator;
@@ -3037,7 +3070,7 @@ double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef se
 		
 			blocks.push_back(block);
 
-			vector<FbxTimeSpan> spans(6);
+			vector<FbxTimeSpan> spans(9);
 		
 			if (lXAnimCurve != NULL)
 				lXAnimCurve->GetTimeInterval(spans[0]);
@@ -3051,6 +3084,12 @@ double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef se
 				lJAnimCurve->GetTimeInterval(spans[4]);
 			if (lKAnimCurve != NULL)
 				lKAnimCurve->GetTimeInterval(spans[5]);
+			if (lsXAnimCurve != NULL)
+				lsXAnimCurve->GetTimeInterval(spans[6]);
+			if (lsYAnimCurve != NULL)
+				lsYAnimCurve->GetTimeInterval(spans[7]);
+			if (lsZAnimCurve != NULL)
+				lsZAnimCurve->GetTimeInterval(spans[8]);
 			
 			double start = 1e10;
 			double end = -1e10;
