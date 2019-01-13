@@ -1021,15 +1021,9 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 	void addKeys(KeyGroup<Vector3>& translations, FbxNode* node, FbxAnimLayer *lAnimLayer) {
 		if (translations.numKeys > 0) {
-			FbxAnimCurve* lCurve_Trans_X = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
-			if (lCurve_Trans_X == NULL)
-				lCurve_Trans_X = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
-			FbxAnimCurve* lCurve_Trans_Y = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, false);
-			if (lCurve_Trans_Y == NULL)
-				lCurve_Trans_Y = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
-			FbxAnimCurve* lCurve_Trans_Z = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, false);
-			if (lCurve_Trans_Z == NULL)
-				lCurve_Trans_Z = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+			FbxAnimCurve* lCurve_Trans_X = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+			FbxAnimCurve* lCurve_Trans_Y = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+			FbxAnimCurve* lCurve_Trans_Z = node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
 
 			FbxAnimCurveDef::EInterpolationType translation_interpolation_type = FbxAnimCurveDef::eInterpolationLinear;
 
@@ -1051,7 +1045,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 				FbxTime lTime;
 				//key.time
-				lTime.SetTime(0, 0, key.time, 0, 0, 0, lTime.eFrames30);
+				lTime.SetSecondDouble(key.time);
 
 				lCurve_Trans_X->KeyModifyBegin();
 				int lKeyIndex = lCurve_Trans_X->KeyAdd(lTime);
@@ -1075,15 +1069,9 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	}
 	void addKeys(const Niflib::array<3, KeyGroup<float > >& rotations, FbxNode* node, FbxAnimLayer *lAnimLayer) {
 		if (!rotations.empty()) {
-			FbxAnimCurve* lCurve_Rot_X = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
-			if (lCurve_Rot_X == NULL)
-				lCurve_Rot_X = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
-			FbxAnimCurve* lCurve_Rot_Y = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, false);
-			if (lCurve_Rot_Y == NULL)
-				lCurve_Rot_Y = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
-			FbxAnimCurve* lCurve_Rot_Z = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, false);
-			if (lCurve_Rot_Z == NULL)
-				lCurve_Rot_Z = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+			FbxAnimCurve* lCurve_Rot_X = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+			FbxAnimCurve* lCurve_Rot_Y = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+			FbxAnimCurve* lCurve_Rot_Z = node->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
 
 			Niflib::array<3, FbxAnimCurve* > curves;
 			curves[0] = lCurve_Rot_X;
@@ -1095,7 +1083,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 					FbxTime lTime;
 					//key.time
-					lTime.SetTime(0, 0, key.time, 0, 0, 0, lTime.eFrames30);
+					lTime.SetSecondDouble(key.time);
 
 					curves[i]->KeyModifyBegin();
 					int lKeyIndex = curves[i]->KeyAdd(lTime);
@@ -1123,7 +1111,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			for (const Key<Quaternion>& key : rotations) {
 				FbxTime lTime;
 				//key.time
-				lTime.SetTime(0, 0, key.time, 0, 0, 0, lTime.eFrames30);
+				lTime.SetSecondDouble(key.time);
 
 				FbxQuaternion fbx_quat(key.data.x, key.data.y, key.data.z, key.data.w);
 				FbxVector4 xyz = fbx_quat.DecomposeSphericalXYZ();
@@ -1148,7 +1136,65 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			}
 		}
 	}
+	void addKeys(const KeyGroup<float >& scales, FbxNode* node, FbxAnimLayer *lAnimLayer) {
+		if (!scales.keys.empty()) {
+			FbxAnimCurve* lCurve_Scale_X = node->LclScaling.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+			FbxAnimCurve* lCurve_Scale_Y = node->LclScaling.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+			FbxAnimCurve* lCurve_Scale_Z = node->LclScaling.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
 
+			Niflib::array<3, FbxAnimCurve* > curves;
+			curves[0] = lCurve_Scale_X;
+			curves[1] = lCurve_Scale_Y;
+			curves[2] = lCurve_Scale_Z;
+
+			FbxAnimCurveDef::EInterpolationType translation_interpolation_type = FbxAnimCurveDef::eInterpolationLinear;
+
+			if (getFieldIsValid(&scales, KeyGroup<Vector3>::FIELDS::interpolation)) {
+				switch (scales.interpolation) {
+				case CONST_KEY:
+					translation_interpolation_type = FbxAnimCurveDef::eInterpolationConstant;
+					break;
+				case LINEAR_KEY:
+					translation_interpolation_type = FbxAnimCurveDef::eInterpolationLinear;
+					break;
+				case QUADRATIC_KEY:
+					translation_interpolation_type = FbxAnimCurveDef::eInterpolationCubic;
+					break;
+				}
+			}
+
+			for (const Key<float>& key : scales.keys) {
+				FbxTime lTime;
+				//key.time
+				lTime.SetSecondDouble(key.time);
+
+				for (int i = 0; i < 3; i++) {
+					curves[i]->KeyModifyBegin();
+					FbxAnimCurveKey lol(lTime, float(key.data));
+					lol.SetInterpolation(translation_interpolation_type);
+					if (translation_interpolation_type == FbxAnimCurveDef::eInterpolationCubic)
+					{
+						lol.SetTangentMode(FbxAnimCurveDef::ETangentMode::eTangentBreak);
+						lol.SetTangentVelocityMode(FbxAnimCurveDef::EVelocityMode::eVelocityAll);
+						lol.SetDataFloat(FbxAnimCurveDef::EDataIndex::eRightVelocity, key.backward_tangent);
+						lol.SetDataFloat(FbxAnimCurveDef::EDataIndex::eNextLeftVelocity, key.forward_tangent);
+					}
+					int lKeyIndex = curves[i]->KeyAdd(lTime, lol);
+
+					//curves[i]->KeySetValue(lKeyIndex, float(key.data));
+					//curves[i]->KeySetInterpolation(lKeyIndex, translation_interpolation_type);
+					//if (translation_interpolation_type == FbxAnimCurveDef::eInterpolationCubic)
+					//{
+					//	//curves[i]->KeySetTangentVelocityMode();
+					//	curves[i]->KeySetTangentMode(lKeyIndex, FbxAnimCurveDef::ETangentMode::eTangentBreak);
+					//	curves[i]->KeySetLeftDerivative(lKeyIndex, key.backward_tangent);
+					//	curves[i]->KeySetRightDerivative(lKeyIndex, key.forward_tangent);
+					//}
+					curves[i]->KeyModifyEnd();
+				}
+			}
+		}
+	}
 	template<>
 	void addTrack(NiTransformInterpolator& interpolator, FbxNode* node, FbxAnimLayer *lAnimLayer) {
 		//here we have an initial transform to be applied and a set of keys
@@ -1176,8 +1222,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			else {
 				addKeys(data->GetQuaternionKeys(), node, lAnimLayer);
 			}
-			//TODO: scale
-			//data->getS
+			addKeys(data->GetScales(), node, lAnimLayer);
 		}
 
 	}
@@ -2329,7 +2374,8 @@ void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape) {
 	Accessor<AccessSkin> do_it(m, shape, conversion_Map, conversion_root, export_skin);
 	int bones = 60;
 	int weights = 4;
-	remake_partitions(StaticCast<NiTriBasedGeom>(shape), bones, weights, false, false);
+	if (shape->GetSkinInstance()->GetBones().size() > 60)
+		remake_partitions(StaticCast<NiTriBasedGeom>(shape), bones, weights, false, false);
 }
 
 template <class Type, typename T> 
@@ -2947,8 +2993,9 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 					has_key_in_time_offset = true;
 				new_key.time = fbx_key.GetTime().GetSecondDouble() - time_offset;
 				new_key.data = fbx_key.GetValue();
-				new_key.forward_tangent = curveI->KeyGetRightTangentVelocity(i);
-				new_key.backward_tangent = curveI->KeyGetLeftTangentVelocity(i);
+				FbxAnimCurveDef::ETangentMode mode = fbx_key.GetTangentMode();
+				new_key.forward_tangent = curveI->KeyGetRightDerivative(i);
+				new_key.backward_tangent = curveI->KeyGetLeftDerivative(i);
 				if (deg_to_rad)
 				{
 					new_key.data = deg2rad(new_key.data);
@@ -2991,8 +3038,8 @@ void addRotationKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAn
 	Niflib::array<3, KeyGroup<float > > tkeys = data->GetXyzRotations();
 
 	int IkeySize = pack_float_key(curveI, tkeys[0], time_offset, true);
-	int JkeySize = pack_float_key(curveI, tkeys[1], time_offset, true);
-	int KkeySize = pack_float_key(curveI, tkeys[2], time_offset, true);
+	int JkeySize = pack_float_key(curveJ, tkeys[1], time_offset, true);
+	int KkeySize = pack_float_key(curveK, tkeys[2], time_offset, true);
 
 	if (IkeySize > 0 || JkeySize > 0 || KkeySize > 0) {
 		Accessor<NiTransformData> fix_rot(data);
@@ -3010,7 +3057,6 @@ void addScaleKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAnimC
 
 	int IkeySize = pack_float_key(curveI, tkeys, time_offset, false);
 	if (IkeySize > 0) {
-		Accessor<NiTransformData> fix_rot(data);
 		data->SetScales(tkeys);
 		interpolator->SetData(data);
 	}
