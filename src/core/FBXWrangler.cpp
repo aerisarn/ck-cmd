@@ -1510,6 +1510,7 @@ public:
 			Accessor<bhkCompressedMeshShapeData> converter(DynamicCast<bhkCompressedMeshShape>(cmesh), geom, materials);
 		}
 		//create collision materials
+		vector<FbxSurfaceMaterial*> to_be_added;
 		for (const auto& material : materials)
 		{
 			string lMaterialName = NifFile::material_name(material.material);
@@ -1558,13 +1559,15 @@ public:
 				layer.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
 				m = gMaterial;
 			}
-			parent->AddMaterial(m);
+			to_be_added.push_back(m);
 		}
 
 		//pack
 		if (geom.m_vertices.getSize() > 0)
 		{
 			FbxNode* shape_node = FbxNode::Create(&scene, parent_name.c_str());
+			for (const auto& mm : to_be_added)
+				shape_node->AddMaterial(mm);
 			parent_name += "_geometry";
 			FbxMesh* m = FbxMesh::Create(&scene, parent_name.c_str());
 			m->InitControlPoints(geom.m_vertices.getSize());
@@ -3660,7 +3663,7 @@ class BCMSPacker {};
 template<>
 class Accessor<BCMSPacker> {
 public:
-	Accessor(hkpCompressedMeshShape* pCompMesh, bhkCompressedMeshShapeDataRef pData, const vector<SkyrimHavokMaterial>& materials)
+	Accessor(hkpCompressedMeshShape* pCompMesh, bhkCompressedMeshShapeDataRef pData)
 	{
 		short                                   chunkIdxNif(0);
 
@@ -3717,9 +3720,9 @@ public:
 
 		for (unsigned int idx(0); idx < pCompMesh->m_materials.getSize(); ++idx)
 		{
-			bhkCMSDMaterial& material = tMtrlVec[idx];
-			material.material = materials[pCompMesh->m_materials[idx]];
-			material.filter.layer_sk = SKYL_STATIC;
+			//bhkCMSDMaterial& material = tMtrlVec[idx];
+			//material.material = materials[pCompMesh->m_materials[idx]];
+			//material.filter.layer_sk = SKYL_STATIC;
 		}
 
 		//  set material list
@@ -3783,7 +3786,17 @@ public:
 	}
 };
 
-bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape)
+bhkCMSDMaterial consume_material_from_shape(hkpShape* shape)
+{
+	hkpNamedMeshMaterial* material = (hkpNamedMeshMaterial *)shape->getUserData();
+	string name = material->m_name;
+	bhkCMSDMaterial m; m.material = NifFile::material_value(name);
+	m.filter.layer_sk = (SkyrimLayer)material->m_filterInfo;
+	delete material;
+	return m;
+}
+
+bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_layer)
 {
 	double bhkScaleFactorInverse = 1 / 69.99124908;
 	if (shape == NULL)
@@ -3802,8 +3815,21 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape)
 		
 		vector<unsigned int > keys;
 		vector<bhkShapeRef> shapes;
-		for (int i=0; i< num_shapes; i++)
-			shapes.push_back(convert_from_hk(hk_list->getChildShapeInl(i)));
+		bhkCMSDMaterial last_layer;
+		for (int i = 0; i < num_shapes; i++)
+		{
+			bhkCMSDMaterial shape_layer;
+			shapes.push_back(convert_from_hk(hk_list->getChildShapeInl(i), shape_layer));
+			if (i > 0 && 
+				(last_layer.filter.layer_sk != shape_layer.filter.layer_sk ||
+					last_layer.material != shape_layer.material)
+			)
+			{
+				Log::Warn("Multiple Collision layers or materials detected on a list!");
+				continue;
+			}
+			last_layer = shape_layer;
+		}
 
 		hkpShapeKey key = hk_list->getFirstKey();
 		while (key != HK_INVALID_SHAPE_KEY)
@@ -3813,6 +3839,9 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape)
 		}
 		list->SetSubShapes(shapes);
 		Accessor<KeySetter>(list, keys);
+		aggregate_layer = last_layer;
+		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
+		list->SetMaterial(temp);
 		return StaticCast<bhkShape>(list);
 	}
 	/// hkpConvexTransformShape type.
@@ -3826,7 +3855,8 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape)
 	{
 		bhkTransformShapeRef transform = new bhkTransformShape();
 		hkpTransformShape* hk_transform = (hkpTransformShape*)&*shape;
-		transform->SetShape(convert_from_hk(hk_transform->getChildShape()));
+		bhkCMSDMaterial material;
+		transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material));
 		transform->SetTransform(TOMATRIX44(hk_transform->getTransform(), bhkScaleFactorInverse));
 		return StaticCast<bhkShape>(transform);
 	}
@@ -3835,8 +3865,8 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape)
 	{
 		bhkMoppBvTreeShapeRef pMoppShape = new bhkMoppBvTreeShape();
 		hkpMoppBvTreeShape* pMoppBvTree = (hkpMoppBvTreeShape*)&*shape;
-
-		pMoppShape->SetShape(convert_from_hk(pMoppBvTree->getShapeCollection()));
+		bhkCMSDMaterial material;
+		pMoppShape->SetShape(convert_from_hk(pMoppBvTree->getShapeCollection(), material));
 		pMoppShape->SetOrigin(Vector3(pMoppBvTree->getMoppCode()->m_info.m_offset(0), pMoppBvTree->getMoppCode()->m_info.m_offset(1), pMoppBvTree->getMoppCode()->m_info.m_offset(2)));
 		pMoppShape->SetScale(pMoppBvTree->getMoppCode()->m_info.getScale());
 		pMoppShape->SetBuildType(MoppDataBuildType((Niflib::byte) pMoppBvTree->getMoppCode()->m_buildType));
@@ -3850,6 +3880,8 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape)
 	if (HK_SHAPE_SPHERE == shape->getType())
 	{
 		bhkSphereShapeRef sphere = new bhkSphereShape();
+		hkpSphereShape* hk_sphere = (hkpSphereShape*)&*shape;
+
 		return StaticCast<bhkShape>(sphere);
 	}
 	/// hkpBoxShape type.
@@ -3902,8 +3934,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape)
 		bhkCompressedMeshShapeRef mesh = new bhkCompressedMeshShape();
 		bhkCompressedMeshShapeDataRef data = new bhkCompressedMeshShapeData();
 		hkpCompressedMeshShape* hk_mesh = (hkpCompressedMeshShape*)&*shape;
-		vector<SkyrimHavokMaterial> materials;
-		Accessor<BCMSPacker> go(hk_mesh, data, materials);
+		Accessor<BCMSPacker> go(hk_mesh, data);
 		mesh->SetRadius(hk_mesh->m_radius);
 		mesh->SetRadiusCopy(hk_mesh->m_radius);
 		mesh->SetData(data);
@@ -3919,6 +3950,7 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 {
 	NiCollisionObjectRef return_collision = NULL;
 	string name = rigid_body->GetName();
+	vector<hkpNamedMeshMaterial> materials;
 	if (name.find("_rb") != string::npos)
 	{
 		bhkCollisionObjectRef collision = new bhkCollisionObject();
@@ -3934,14 +3966,16 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		float bhkScaleFactorInverse = 1.f / 69.99124908f;
 		body->SetTranslation({ (float)T[0]*bhkScaleFactorInverse,(float)T[1] * bhkScaleFactorInverse, (float)T[2] * bhkScaleFactorInverse });
 		body->SetRotation(q);
-		body->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes)));
+		bhkCMSDMaterial body_layer;
+		body->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes), body_layer));
 		collision->SetBody(StaticCast<bhkWorldObject>(body));
 		return_collision = StaticCast<NiCollisionObject>(collision);
 	}
 	else if (name.find("_sp") != string::npos) {
 		bhkSPCollisionObjectRef phantom_collision = new bhkSPCollisionObject();
 		bhkSimpleShapePhantomRef phantom = new bhkSimpleShapePhantom();
-		phantom->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes)));
+		bhkCMSDMaterial phantom_layer;
+		phantom->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes), phantom_layer));
 		phantom_collision->SetBody(StaticCast<bhkWorldObject>(phantom));
 		return_collision = StaticCast<NiCollisionObject>(phantom_collision);
 	}

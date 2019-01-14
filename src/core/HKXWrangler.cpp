@@ -69,10 +69,12 @@
 #include "Physics/Collide/Shape/Compound/Collection/ExtendedMeshShape/hkpExtendedMeshShape.h"
 #include <Physics\Collide\Shape\Compound\Collection\CompressedMesh\hkpCompressedMeshShape.h>
 #include <Physics\Collide\Shape\Convex\ConvexVertices\hkpConvexVerticesShape.h>
+#include <Physics\Collide\Shape\Convex\ConvexTransform\hkpConvexTransformShape.h>
 
 #include <Physics\Utilities\Collide\ShapeUtils\CreateShape\hkpCreateShapeUtility.h>
 #include <Common\Base\Types\Geometry\hkStridedVertices.h>
 #include <Common\Internal\ConvexHull\hkGeometryUtility.h>
+
 
 #include <core/EulerAngles.h>
 #include <core/MathHelper.h>
@@ -81,9 +83,11 @@
 
 #include <VHACD.h>
 #include <boundingmesh.h>
+#include <core/NifFile.h>
 
 
 using namespace ckcmd::HKX;
+using namespace ckcmd::NIF;
 
 void HKXWrapper::write(hkRootLevelContainer& rootCont, string subfolder, string name) {
 	hkPackFormat pkFormat = HKPF_DEFAULT;
@@ -878,7 +882,7 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 
 			hkQsTransform& transform = transformOut[i];
 			const hkVector4& anim_pos = transform.getTranslation();
-			const hkQuaternion& anim_rot = transform.getRotation();
+			const ::hkQuaternion& anim_rot = transform.getRotation();
 			const hkVector4& anim_scal = transform.getScale();
 
 			// Translation first
@@ -976,7 +980,7 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 
 		hkQsTransform localTransform = skeleton->m_referencePose[b];
 		const hkVector4& pos = localTransform.getTranslation();
-		const hkQuaternion& rot = localTransform.getRotation();
+		const ::hkQuaternion& rot = localTransform.getRotation();
 
 		FbxSkeleton* lSkeletonLimbNodeAttribute1 = FbxSkeleton::Create(scene_root->GetScene(), b_name.c_str());
 
@@ -1153,7 +1157,6 @@ void convert_geometry(shared_ptr<bmeshinfo> bmesh, pair<FbxAMatrix, FbxMesh*> tr
 	size_t map_offset = bmesh->points.size() / 3;
 	for (int i = 0; i < vertices_count; i++) {
 		FbxVector4 vertex = translated_mesh.first.MultT(mesh->GetControlPointAt(i));
-		//bmesh->addVertex({ vertex[0], vertex[1], vertex[2] });
 		bmesh->points.push_back(vertex[0]);
 		bmesh->points.push_back(vertex[1]);
 		bmesh->points.push_back(vertex[2]);
@@ -1172,7 +1175,7 @@ void convert_geometry(shared_ptr<bmeshinfo> bmesh, pair<FbxAMatrix, FbxMesh*> tr
 	}
 }
 
-void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> translated_mesh)
+void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> translated_mesh, vector<hkpNamedMeshMaterial>& materials)
 {
 	FbxMesh* mesh = translated_mesh.second;
 	size_t vertices_count = mesh->GetControlPointsCount();
@@ -1184,46 +1187,98 @@ void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> transla
 		);
 	}
 
-	size_t tris_count = mesh->GetPolygonCount();
+	vector<int> materials_map;
+	int materials_offset = materials.size();
+	FbxNode* parent = mesh->GetNode();
+	if (parent)
+	{
+		int materials_size = parent->GetMaterialCount();
+		if (materials_size == 0) materials_size = 1;
+		for (int i = 0; i < materials_size; i++)
+		{
+			FbxSurfaceMaterial* collision_material = parent->GetMaterial(i);
+			string name;
+			if (collision_material == NULL)
+				name = "SKY_HAV_MAT_STONE";
+			else
+			    name = collision_material->GetName();
+			FbxProperty layer = collision_material->FindProperty("CollisionLayer");
+			string collision_layer_name;
+			if (!layer.IsValid())
+				collision_layer_name = "SKYL_STATIC";
+			else
+				collision_layer_name = layer.Get<FbxString>().Buffer();
 
+			SkyrimLayer layer_value = NifFile::layer_value(collision_layer_name);
+			//find it on the materials vector
+			int material_index = -1;
+			for (int m = 0; m< materials.size(); m++)
+			{ 
+				string this_material_name = materials[m].m_name;
+				SkyrimLayer this_layer_value = (SkyrimLayer)materials[m].m_filterInfo;
+				if (name == this_material_name && layer_value == this_layer_value)
+				{
+					material_index = m;
+					materials_map.push_back(m);
+					break;
+				}
+			}
+			if (material_index == -1)
+			{
+				materials_map.push_back(materials.size());
+				hkpNamedMeshMaterial new_material;
+				new_material.m_name = name.c_str();
+				new_material.m_filterInfo = layer_value;
+				materials.push_back(new_material);
+			}		
+		}
+	}
+
+	size_t tris_count = mesh->GetPolygonCount();
+	const FbxLayerElementMaterial* pPolygonMaterials = mesh->GetElementMaterial();
 	for (int i = 0; i < tris_count; i++) {
 		int v1 = mesh->GetPolygonVertex(i, 0);
 		int v2 = mesh->GetPolygonVertex(i, 1);
 		int v3 = mesh->GetPolygonVertex(i, 2);
+		int material_index = 0;
+		if (pPolygonMaterials)
+			material_index = pPolygonMaterials->mIndexArray->GetAt(i);
 
 		geometry.m_triangles.pushBack(
-			{ v1 + map_offset, v2 + map_offset , v3 + map_offset }
+			{ v1 + map_offset, v2 + map_offset , v3 + map_offset, materials_map[material_index] }
 		);
 	}
 }
 
-hkGeometry extract_bounding_geometry(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
+hkGeometry extract_bounding_geometry(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, vector<hkpNamedMeshMaterial>& materials)
 {
 	hkGeometry out;
 	if (shape_root->GetNodeAttribute() != NULL &&
 		shape_root->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh)
 	{
-		convert_hkgeometry(out, {FbxAMatrix(), (FbxMesh*)shape_root->GetNodeAttribute() });
+		convert_hkgeometry(out, {FbxAMatrix(), (FbxMesh*)shape_root->GetNodeAttribute() }, materials);
 	}
 	else {
 		for (const auto& mesh : geometry_meshes)
 		{
-			convert_hkgeometry(out, mesh);
+			convert_hkgeometry(out, mesh, materials);
 		}
 	}
 	return out;
-		
-	//}
-	
 }
 
-hkpShape* handle_output_transform(hkpCreateShapeUtility::ShapeInfoOutput& output)
+hkpShape* handle_output_transform(hkpCreateShapeUtility::ShapeInfoOutput& output, hkpNamedMeshMaterial* material)
 {
+	output.m_shape->setUserData((hkUlong)material);
 	if (!output.m_decomposedWorldT.isApproximatelyEqual(hkTransform::getIdentity()))
 	{
 		//add a transform
-		return new hkpTransformShape(output.m_shape, output.m_extraShapeTransform);
+		if (output.m_isConvex)
+			return new hkpConvexTransformShape((hkpConvexShape*)output.m_shape, output.m_extraShapeTransform);
+		else
+			return new hkpTransformShape(output.m_shape, output.m_extraShapeTransform);
 	}
+	return output.m_shape;
 }
 
 FbxNode* create_hulls(FbxManager* manager, VHACD::IVHACD* interfaceVHACD)
@@ -1261,7 +1316,6 @@ FbxNode* create_hulls(FbxManager* manager, VHACD::IVHACD* interfaceVHACD)
 
 FbxNode* create_mesh(FbxManager* manager, VHACD::IVHACD* interfaceVHACD)
 {
-
 	FbxNode* root = FbxNode::Create(manager, "_mesh");
 	FbxMesh* m = FbxMesh::Create(manager, "_mesh_tris");
 	size_t current_points = 0;
@@ -1441,14 +1495,16 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		return pMoppBvTree;
 	}
 	//shapes
-	hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes);
+	vector<hkpNamedMeshMaterial> materials;
+	hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes, materials);
 	if (ends_with(name, "_sphere"))
 	{		
 		hkpCreateShapeUtility::CreateShapeInput input;
 		hkpCreateShapeUtility::ShapeInfoOutput output;
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createSphereShape(input, output);
-		return handle_output_transform(output);
+		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
+		return handle_output_transform(output, material);
 	}
 	if (ends_with(name, "_box"))
 	{
@@ -1456,7 +1512,8 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		hkpCreateShapeUtility::ShapeInfoOutput output;
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createBoxShape(input, output);
-		return handle_output_transform(output);
+		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
+		return handle_output_transform(output, material);
 	}
 	if (ends_with(name, "_capsule"))
 	{
@@ -1464,20 +1521,22 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		hkpCreateShapeUtility::ShapeInfoOutput output;
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createCapsuleShape(input, output);
-		return handle_output_transform(output);;
+		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
+		return handle_output_transform(output, material);
 	}
 	if (ends_with(name, "_convex"))
 	{
-		hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes);
 		hkStridedVertices stridedVertsIn(to_bound.m_vertices);
 		hkGeometry convex;
 		hkArray<hkVector4> planeEquationsOut;
 		hkGeometryUtility::createConvexGeometry(stridedVertsIn, convex, planeEquationsOut);
-		return new hkpConvexVerticesShape(convex.m_vertices, planeEquationsOut);
+		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
+		hkpShape* convex_shape = new hkpConvexVerticesShape(convex.m_vertices, planeEquationsOut);
+		convex_shape->setUserData((hkUlong)convex_shape);
+		return convex_shape;
 	}
 	if (ends_with(name, "_mesh"))
 	{
-		hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes);
 		//todo, fix
 		hkSimdReal bhkScaleFactorInverse = 1 / 69.99124908;
 		for (auto& v : to_bound.m_vertices)
@@ -1488,6 +1547,10 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		hkpCompressedMeshShapeBuilder			shapeBuilder;
 		shapeBuilder.m_stripperPasses = 5000;
 		hkpCompressedMeshShape* pCompMesh = shapeBuilder.createMeshShape(0.001f, hkpCompressedMeshShape::MATERIAL_SINGLE_VALUE_PER_CHUNK);
+		hkpNamedMeshMaterial* material_array = (hkpNamedMeshMaterial*)malloc(sizeof(hkpNamedMeshMaterial)*materials.size());
+		for (int i = 0; i < materials.size(); i++)
+			material_array[i] = materials[i];
+		pCompMesh->m_meshMaterials = material_array;
 		try {
 			//  add geometry to shape
 			int										subPartId(0);
@@ -1497,9 +1560,9 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 			shapeBuilder.addInstance(subPartId, hkMatrix4::getIdentity(), pCompMesh);
 
 			//add materials to shape
-			//for (int i = 0; i < materials.size(); i++) {
-			//	pCompMesh->m_materials.pushBack(i);
-			//}
+			for (int i = 0; i < materials.size(); i++) {
+				pCompMesh->m_materials.pushBack(i);
+			}
 			return pCompMesh;
 		}
 		catch (...) {
