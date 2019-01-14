@@ -46,6 +46,7 @@ See the included LICENSE file
 #include <Physics\Collide\Shape\Deprecated\ConvexList\hkpConvexListShape.h>
 #include "Physics/Collide/Shape/Compound/Tree/Mopp/hkpMoppBvTreeShape.h"
 #include <Physics\Collide\Shape\Compound\Collection\CompressedMesh\hkpCompressedMeshShape.h>
+#include <Physics\Collide\Shape\Convex\ConvexTransform\hkpConvexTransformShape.h>
 
 #include <algorithm>
 
@@ -2938,16 +2939,16 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 			temp.data = Vector3(trans[0], trans[1], trans[2]);
 			if (interp == QUADRATIC_KEY)
 			{
-				temp.forward_tangent = {
-					curveX != NULL ? curveX->EvaluateRightDerivative(lTime) : 0.0f,
-					curveY != NULL ? curveY->EvaluateRightDerivative(lTime) : 0.0f,
-					curveZ != NULL ? curveZ->EvaluateRightDerivative(lTime) : 0.0f,
-				};
-				temp.backward_tangent = {
-					curveX != NULL ? curveX->EvaluateLeftDerivative(lTime) : 0.0f,
-					curveY != NULL ? curveY->EvaluateLeftDerivative(lTime) : 0.0f,
-					curveZ != NULL ? curveZ->EvaluateLeftDerivative(lTime) : 0.0f,
-				};
+				//temp.forward_tangent = {
+				//	curveX != NULL ? curveX->EvaluateRightDerivative(lTime) : 0.0f,
+				//	curveY != NULL ? curveY->EvaluateRightDerivative(lTime) : 0.0f,
+				//	curveZ != NULL ? curveZ->EvaluateRightDerivative(lTime) : 0.0f,
+				//};
+				//temp.backward_tangent = {
+				//	curveX != NULL ? curveX->EvaluateLeftDerivative(lTime) : 0.0f,
+				//	curveY != NULL ? curveY->EvaluateLeftDerivative(lTime) : 0.0f,
+				//	curveZ != NULL ? curveZ->EvaluateLeftDerivative(lTime) : 0.0f,
+				//};
 
 			}
 			temp.time = time - time_offset;
@@ -2985,13 +2986,13 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 					has_key_in_time_offset = true;
 				new_key.time = fbx_key.GetTime().GetSecondDouble() - time_offset;
 				new_key.data = fbx_key.GetValue();
-				new_key.forward_tangent = curveI->KeyGetRightDerivative(i);
-				new_key.backward_tangent = curveI->KeyGetLeftDerivative(i);
+				new_key.forward_tangent = curveI->KeyGetRightDerivative(i)/2;
+				new_key.backward_tangent = curveI->KeyGetLeftDerivative(i)/2;
 				if (deg_to_rad)
 				{
 					new_key.data = deg2rad(new_key.data);
-					new_key.forward_tangent = deg2rad(new_key.forward_tangent);
-					new_key.backward_tangent = deg2rad(new_key.backward_tangent);
+					//new_key.forward_tangent = deg2rad(new_key.forward_tangent);
+					//new_key.backward_tangent = deg2rad(new_key.backward_tangent);
 				}
 				keys.keys.push_back(new_key);
 			}
@@ -3002,13 +3003,13 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 				new_key.time = time_offset;
 				FbxTime ttime; ttime.SetSecondDouble(time_offset);
 				new_key.data = curveI->Evaluate(time_offset);
-				new_key.forward_tangent = curveI->EvaluateRightDerivative(ttime);
-				new_key.backward_tangent = curveI->EvaluateLeftDerivative(ttime);
+				new_key.forward_tangent = curveI->EvaluateRightDerivative(ttime)/2;
+				new_key.backward_tangent = curveI->EvaluateLeftDerivative(ttime)/2;
 				if (deg_to_rad)
 				{
 					new_key.data = deg2rad(new_key.data);
-					new_key.forward_tangent = deg2rad(new_key.forward_tangent);
-					new_key.backward_tangent = deg2rad(new_key.backward_tangent);
+					//new_key.forward_tangent = deg2rad(new_key.forward_tangent);
+					//new_key.backward_tangent = deg2rad(new_key.backward_tangent);
 				}
 				keys.keys.insert(keys.keys.begin(), new_key);
 			}
@@ -3706,11 +3707,14 @@ public:
 
 		vector<bhkCMSDMaterial > tMtrlVec(pCompMesh->m_materials.getSize());
 
+		//hkpNamedMeshMaterial* material_array = pCompMesh->m_meshMaterials
 		for (unsigned int idx(0); idx < pCompMesh->m_materials.getSize(); ++idx)
 		{
-			//bhkCMSDMaterial& material = tMtrlVec[idx];
-			//material.material = materials[pCompMesh->m_materials[idx]];
-			//material.filter.layer_sk = SKYL_STATIC;
+			bhkCMSDMaterial& material = tMtrlVec[idx];
+			hkpNamedMeshMaterial& hk_material = pCompMesh->m_namedMaterials[idx];
+			material.material = NifFile::material_value(hk_material.m_name.cString());
+			HavokFilter filter; filter.layer_sk = (SkyrimLayer)hk_material.m_filterInfo;
+			material.filter = filter;
 		}
 
 		//  set material list
@@ -3836,6 +3840,14 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 	if (HK_SHAPE_CONVEX_TRANSFORM == shape->getType())
 	{
 		bhkConvexTransformShapeRef convex_transform = new bhkConvexTransformShape();
+		hkpConvexTransformShape* hk_transform = (hkpConvexTransformShape*)&*shape;
+		bhkCMSDMaterial material;
+		convex_transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material));
+		convex_transform->SetTransform(TOMATRIX44(hk_transform->getTransform(), bhkScaleFactorInverse));
+		HavokMaterial temp; temp.material_sk = material.material;
+		convex_transform->SetMaterial(temp);
+		convex_transform->SetRadius(hk_transform->getChildShape()->getRadius());
+		aggregate_layer = material;
 		return StaticCast<bhkShape>(convex_transform);
 	}
 	/// hkpTransformShape type.
@@ -3846,6 +3858,9 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		bhkCMSDMaterial material;
 		transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material));
 		transform->SetTransform(TOMATRIX44(hk_transform->getTransform(), bhkScaleFactorInverse));
+		HavokMaterial temp; temp.material_sk = material.material;
+		transform->SetMaterial(temp);
+		aggregate_layer = material;
 		return StaticCast<bhkShape>(transform);
 	}
 	/// hkpMoppBvTreeShape type.
@@ -3859,7 +3874,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		pMoppShape->SetScale(pMoppBvTree->getMoppCode()->m_info.getScale());
 		pMoppShape->SetBuildType(MoppDataBuildType((Niflib::byte) pMoppBvTree->getMoppCode()->m_buildType));
 		pMoppShape->SetMoppData(vector<Niflib::byte>(pMoppBvTree->m_moppData, pMoppBvTree->m_moppData + pMoppBvTree->m_moppDataSize));
-
+		aggregate_layer = material;
 		return StaticCast<bhkShape>(pMoppShape);
 	}
 
@@ -3868,8 +3883,11 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 	if (HK_SHAPE_SPHERE == shape->getType())
 	{
 		bhkSphereShapeRef sphere = new bhkSphereShape();
-		hkpSphereShape* hk_sphere = (hkpSphereShape*)&*shape;
-
+		hkpSphereShape* hk_sphere = (hkpSphereShape*)&*shape;		
+		sphere->SetRadius(sphere->GetRadius());
+		aggregate_layer = consume_material_from_shape(hk_sphere);
+		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
+		sphere->SetMaterial(temp);
 		return StaticCast<bhkShape>(sphere);
 	}
 	/// hkpBoxShape type.
@@ -3879,6 +3897,9 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		hkpBoxShape* hk_box = (hkpBoxShape*)&*shape;
 		box->SetDimensions(TOVECTOR3(hk_box->getHalfExtents(), bhkScaleFactorInverse));
 		box->SetRadius(hk_box->getRadius());
+		aggregate_layer = consume_material_from_shape(hk_box);
+		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
+		box->SetMaterial(temp);
 		return StaticCast<bhkShape>(box);
 	}
 	/// hkpCapsuleShape type.
@@ -3892,6 +3913,9 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		capsule->SetRadius(hk_capsule->getRadius());
 		capsule->SetRadius1(hk_capsule->getRadius());
 		capsule->SetRadius2(hk_capsule->getRadius());
+		aggregate_layer = consume_material_from_shape(hk_capsule);
+		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
+		capsule->SetMaterial(temp);
 		return StaticCast<bhkShape>(capsule);
 	}
 	/// hkpConvexVerticesShape type.
@@ -3914,6 +3938,9 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 			planes.push_back(TOVECTOR4(n));
 		}
 		convex->SetNormals(planes);
+		aggregate_layer = consume_material_from_shape(hk_convex);
+		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
+		convex->SetMaterial(temp);
 		return StaticCast<bhkShape>(convex);
 	}
 	/// hkpCompressedMeshShape type.

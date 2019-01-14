@@ -1447,7 +1447,16 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 	if (ends_with(name, "_transform"))
 	{
 		hkpShape* childShape = build_shape(shape_root->GetChild(0), geometry_meshes);
-		hkTransform transform;
+		FbxAMatrix fbx_transform = shape_root->EvaluateLocalTransform();
+		FbxVector4 translation = fbx_transform.GetT();
+		FbxQuaternion rotation = fbx_transform.GetQ();
+		FbxVector4 scale = fbx_transform.GetS();
+		hkQsTransform stransform(
+			{ (hkReal)translation[0], (hkReal)translation[0] ,(hkReal)translation[0] },
+			{ (hkReal)rotation[0], (hkReal)rotation [1],(hkReal)rotation [2], (hkReal)rotation [3]},
+			{ (hkReal)scale [0], (hkReal)scale [1], (hkReal)scale [2]}
+		);
+		hkTransform transform; stransform.copyToTransform(transform);
 		return new hkpTransformShape(childShape, transform);
 	}
 	if (ends_with(name, "_list"))
@@ -1547,10 +1556,10 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		hkpCompressedMeshShapeBuilder			shapeBuilder;
 		shapeBuilder.m_stripperPasses = 5000;
 		hkpCompressedMeshShape* pCompMesh = shapeBuilder.createMeshShape(0.001f, hkpCompressedMeshShape::MATERIAL_SINGLE_VALUE_PER_CHUNK);
-		hkpNamedMeshMaterial* material_array = (hkpNamedMeshMaterial*)malloc(sizeof(hkpNamedMeshMaterial)*materials.size());
+		//hkpNamedMeshMaterial* material_array = (hkpNamedMeshMaterial*)malloc(sizeof(hkpNamedMeshMaterial)*materials.size());
+		pCompMesh->m_namedMaterials.setSize(materials.size());
 		for (int i = 0; i < materials.size(); i++)
-			material_array[i] = materials[i];
-		pCompMesh->m_meshMaterials = material_array;
+			pCompMesh->m_namedMaterials[i] = materials[i];
 		try {
 			//  add geometry to shape
 			int										subPartId(0);
