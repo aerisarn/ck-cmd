@@ -1089,8 +1089,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					int lKeyIndex = curves[i]->KeyAdd(lTime);
 					curves[i]->KeySetValue(lKeyIndex, float(rad2deg(key.data)));
 					curves[i]->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
-					curves[i]->KeySetLeftDerivative(lKeyIndex, key.backward_tangent);
-					curves[i]->KeySetRightDerivative(lKeyIndex, key.forward_tangent);
+					curves[i]->KeySetLeftDerivative(lKeyIndex, rad2deg(key.backward_tangent));
+					curves[i]->KeySetRightDerivative(lKeyIndex, rad2deg(key.forward_tangent));
 					curves[i]->KeyModifyEnd();
 				}
 			}
@@ -1170,26 +1170,15 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 				for (int i = 0; i < 3; i++) {
 					curves[i]->KeyModifyBegin();
-					FbxAnimCurveKey lol(lTime, float(key.data));
-					lol.SetInterpolation(translation_interpolation_type);
+					int lKeyIndex = curves[i]->KeyAdd(lTime);
+					curves[i]->KeySetValue(lKeyIndex, float(key.data));
+					curves[i]->KeySetInterpolation(lKeyIndex, translation_interpolation_type);
 					if (translation_interpolation_type == FbxAnimCurveDef::eInterpolationCubic)
 					{
-						lol.SetTangentMode(FbxAnimCurveDef::ETangentMode::eTangentBreak);
-						lol.SetTangentVelocityMode(FbxAnimCurveDef::EVelocityMode::eVelocityAll);
-						lol.SetDataFloat(FbxAnimCurveDef::EDataIndex::eRightVelocity, key.backward_tangent);
-						lol.SetDataFloat(FbxAnimCurveDef::EDataIndex::eNextLeftVelocity, key.forward_tangent);
+						curves[i]->KeySetTangentMode(lKeyIndex, FbxAnimCurveDef::ETangentMode::eTangentBreak);
+						curves[i]->KeySetLeftDerivative(lKeyIndex, key.backward_tangent);
+						curves[i]->KeySetRightDerivative(lKeyIndex, key.forward_tangent);
 					}
-					int lKeyIndex = curves[i]->KeyAdd(lTime, lol);
-
-					//curves[i]->KeySetValue(lKeyIndex, float(key.data));
-					//curves[i]->KeySetInterpolation(lKeyIndex, translation_interpolation_type);
-					//if (translation_interpolation_type == FbxAnimCurveDef::eInterpolationCubic)
-					//{
-					//	//curves[i]->KeySetTangentVelocityMode();
-					//	curves[i]->KeySetTangentMode(lKeyIndex, FbxAnimCurveDef::ETangentMode::eTangentBreak);
-					//	curves[i]->KeySetLeftDerivative(lKeyIndex, key.backward_tangent);
-					//	curves[i]->KeySetRightDerivative(lKeyIndex, key.forward_tangent);
-					//}
 					curves[i]->KeyModifyEnd();
 				}
 			}
@@ -2996,7 +2985,6 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 					has_key_in_time_offset = true;
 				new_key.time = fbx_key.GetTime().GetSecondDouble() - time_offset;
 				new_key.data = fbx_key.GetValue();
-				FbxAnimCurveDef::ETangentMode mode = fbx_key.GetTangentMode();
 				new_key.forward_tangent = curveI->KeyGetRightDerivative(i);
 				new_key.backward_tangent = curveI->KeyGetLeftDerivative(i);
 				if (deg_to_rad)
