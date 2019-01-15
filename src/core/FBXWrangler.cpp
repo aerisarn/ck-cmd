@@ -3992,7 +3992,7 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 	{
 		bhkCollisionObjectRef collision = new bhkCollisionObject();
 		bhkRigidBodyRef body = new bhkRigidBodyT();
-		FbxAMatrix transform = rigid_body->EvaluateGlobalTransform();
+		FbxAMatrix transform = rigid_body->EvaluateLocalTransform();
 		FbxVector4 T = transform.GetT();
 		FbxQuaternion Q = transform.GetQ();
 		Niflib::hkQuaternion q;
