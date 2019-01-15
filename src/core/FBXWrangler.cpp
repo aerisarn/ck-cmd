@@ -2890,8 +2890,10 @@ KeyType collect_times(FbxAnimCurve* curveX, set<double>& times, KeyType fixed_ty
 				break;
 			case FbxAnimCurveDef::EInterpolationType::eInterpolationLinear:
 				new_type = LINEAR_KEY;
+				break;
 			case FbxAnimCurveDef::EInterpolationType::eInterpolationCubic:
 				new_type = QUADRATIC_KEY;
+				break;
 			}
 			if (i > 0 && type != new_type)
 			{
@@ -2935,11 +2937,6 @@ void AdjustBezier(float fLastValue, float fLastTime,
 }
 
 void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAnimCurve* curveX, FbxAnimCurve* curveY, FbxAnimCurve* curveZ, double time_offset) {
-	map<double, int> timeMapX;
-	map<double, int> timeMapY;
-	map<double, int> timeMapZ;
-
-	FbxDouble3 position = node->LclTranslation.Get();
 
 	KeyType interp = CONST_KEY;
 	set<double> times;
@@ -2958,10 +2955,13 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 		
 		for (const auto& time : times) {
 			FbxTime lTime;
-
-			// Set the time at two seconds.
 			lTime.SetSecondDouble((float)time);
-			FbxVector4 trans = node->EvaluateLocalTransform(lTime).GetT();
+			FbxVector4 trans =
+			{
+				curveX->Evaluate(lTime),
+				curveY->Evaluate(lTime),
+				curveZ->Evaluate(lTime)
+			};
 
 			Key<Vector3 > temp;
 			temp.data = Vector3(trans[0], trans[1], trans[2]);
@@ -3044,9 +3044,11 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 			{
 				IkeySize += 1;
 				Key<float> new_key;
-				new_key.time = time_offset;
+				new_key.time = 0.0;
 				FbxTime ttime; ttime.SetSecondDouble(time_offset);
 				new_key.data = curveI->Evaluate(time_offset);
+				new_key.forward_tangent = 0;
+				new_key.backward_tangent = 0;
 				if (deg_to_rad)
 				{
 					new_key.data = deg2rad(new_key.data);
@@ -3107,16 +3109,16 @@ void addScaleKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAnimC
 	}
 }
 
-double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_root_name, double last_start)
+double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_root_name, double last_start, double last_stop)
 {
 	// Display general curves.
 	vector<ControlledBlock > blocks = sequence->GetControlledBlocks();
 	for (FbxNode* pNode : unskinned_bones)
 	{
 		//FbxNode* pNode = pair.first;
-		FbxAnimCurve* lXAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-		FbxAnimCurve* lYAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-		FbxAnimCurve* lZAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+		FbxAnimCurve* lXAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+		FbxAnimCurve* lYAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+		FbxAnimCurve* lZAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
 		FbxAnimCurve* lIAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
 		FbxAnimCurve* lJAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
 		FbxAnimCurve* lKAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
@@ -3161,43 +3163,10 @@ double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef se
 		
 			blocks.push_back(block);
 
-			vector<FbxTimeSpan> spans(9);
-		
-			if (lXAnimCurve != NULL)
-				lXAnimCurve->GetTimeInterval(spans[0]);
-			if (lYAnimCurve != NULL)
-				lYAnimCurve->GetTimeInterval(spans[1]);
-			if (lZAnimCurve != NULL)
-				lZAnimCurve->GetTimeInterval(spans[2]);
-			if (lIAnimCurve != NULL)
-				lIAnimCurve->GetTimeInterval(spans[3]);
-			if (lJAnimCurve != NULL)
-				lJAnimCurve->GetTimeInterval(spans[4]);
-			if (lKAnimCurve != NULL)
-				lKAnimCurve->GetTimeInterval(spans[5]);
-			if (lsXAnimCurve != NULL)
-				lsXAnimCurve->GetTimeInterval(spans[6]);
-			if (lsYAnimCurve != NULL)
-				lsYAnimCurve->GetTimeInterval(spans[7]);
-			if (lsZAnimCurve != NULL)
-				lsZAnimCurve->GetTimeInterval(spans[8]);
-			
-			double start = 1e10;
-			double end = -1e10;
-
-			for (const auto& span : spans) {
-				double span_start = span.GetStart().GetSecondDouble();
-				double span_stop = span.GetStop().GetSecondDouble();
-				if (span_start < start)
-					start = span_start;
-				if (span_stop > end)
-					end = span_stop;
-			}
-
 			sequence->SetControlledBlocks(blocks);
 
 			sequence->SetStartTime(0.0);
-			sequence->SetStopTime(end-start);
+			sequence->SetStopTime(last_stop - last_start);
 			sequence->SetManager(manager);
 			sequence->SetAccumRootName(accum_root_name);
 
@@ -3208,7 +3177,7 @@ double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef se
 			start_key.data = "start";
 
 			Key<IndexString> end_key;
-			end_key.time = end - last_start;
+			end_key.time = last_stop - last_start;
 			end_key.data = "end";
 
 			extra_data->SetTextKeys({ start_key,end_key });
@@ -3484,7 +3453,7 @@ void FBXWrangler::buildKF() {
 		FbxTimeSpan local = lAnimStack->GetLocalTimeSpan();
 		NiControllerSequenceRef sequence = new NiControllerSequence();
 		//Translate
-		convert(lAnimLayer, sequence, extra_targets, controller, transformController, string(conversion_root->GetName()), reference.GetStart().GetSecondDouble());
+		convert(lAnimLayer, sequence, extra_targets, controller, transformController, string(conversion_root->GetName()), local.GetStart().GetSecondDouble(), local.GetStop().GetSecondDouble());
 
 		sequence->SetName(string(lAnimStack->GetName()));
 		sequences_names.insert(string(lAnimStack->GetName()));
