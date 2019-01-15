@@ -1541,7 +1541,7 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		hkGeometryUtility::createConvexGeometry(stridedVertsIn, convex, planeEquationsOut);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
 		hkpShape* convex_shape = new hkpConvexVerticesShape(convex.m_vertices, planeEquationsOut);
-		convex_shape->setUserData((hkUlong)convex_shape);
+		convex_shape->setUserData((hkUlong)material);
 		return convex_shape;
 	}
 	if (ends_with(name, "_mesh"))

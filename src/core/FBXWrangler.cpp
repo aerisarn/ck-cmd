@@ -1090,8 +1090,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					int lKeyIndex = curves[i]->KeyAdd(lTime);
 					curves[i]->KeySetValue(lKeyIndex, float(rad2deg(key.data)));
 					curves[i]->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
-					curves[i]->KeySetLeftDerivative(lKeyIndex, rad2deg(key.backward_tangent));
-					curves[i]->KeySetRightDerivative(lKeyIndex, rad2deg(key.forward_tangent));
 					curves[i]->KeyModifyEnd();
 				}
 			}
@@ -1177,8 +1175,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					if (translation_interpolation_type == FbxAnimCurveDef::eInterpolationCubic)
 					{
 						curves[i]->KeySetTangentMode(lKeyIndex, FbxAnimCurveDef::ETangentMode::eTangentBreak);
-						curves[i]->KeySetLeftDerivative(lKeyIndex, key.backward_tangent);
-						curves[i]->KeySetRightDerivative(lKeyIndex, key.forward_tangent);
 					}
 					curves[i]->KeyModifyEnd();
 				}
@@ -2907,6 +2903,37 @@ KeyType collect_times(FbxAnimCurve* curveX, set<double>& times, KeyType fixed_ty
 	return type;
 }
 
+void AdjustBezier(float fLastValue, float fLastTime,
+	float& fLastOut, float fNextValue, float fNextTime, float& fNextIn,
+	float fNewTime, float fNewValue, float& fNewIn, float& fNewOut)
+{
+	// Find the coefficients of a cubic polynomial that fits the given 
+	// values and slopes.
+
+	float fOldDeltaX = fNextValue - fLastValue;
+	float fOldDeltaT = fNextTime - fLastTime;
+	float fNewDeltaTA = fNewTime - fLastTime;
+	float fNewDeltaTB = fNextTime - fNewTime;
+
+	// calculate normalized time
+	float t = fNewDeltaTA / fOldDeltaT;
+
+	float a = -2.0f * fOldDeltaX + fLastOut + fNextIn;
+	float b = 3.0f * fOldDeltaX - 2.0f * fLastOut - fNextIn;
+
+	// calculate tangent
+	fNewIn = (((3.0f * a * t + 2.0f * b) * t + fLastOut) / fOldDeltaT);
+
+	// normalize in and out
+	fNewOut = fNewIn * fNewDeltaTB;
+	fNewIn *= fNewDeltaTA;
+
+	// renormalize last and next tangents
+
+	fLastOut *= fNewDeltaTA / fOldDeltaT;
+	fNextIn *= fNewDeltaTB / fOldDeltaT;
+}
+
 void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAnimCurve* curveX, FbxAnimCurve* curveY, FbxAnimCurve* curveZ, double time_offset) {
 	map<double, int> timeMapX;
 	map<double, int> timeMapY;
@@ -2928,6 +2955,7 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 		if (data == NULL) data = new NiTransformData();
 		KeyGroup<Vector3 > tkeys = data->GetTranslations();
 		vector<Key<Vector3 > > keyvalues = tkeys.keys;
+		
 		for (const auto& time : times) {
 			FbxTime lTime;
 
@@ -2937,23 +2965,26 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 
 			Key<Vector3 > temp;
 			temp.data = Vector3(trans[0], trans[1], trans[2]);
-			if (interp == QUADRATIC_KEY)
-			{
-				//temp.forward_tangent = {
-				//	curveX != NULL ? curveX->EvaluateRightDerivative(lTime) : 0.0f,
-				//	curveY != NULL ? curveY->EvaluateRightDerivative(lTime) : 0.0f,
-				//	curveZ != NULL ? curveZ->EvaluateRightDerivative(lTime) : 0.0f,
-				//};
-				//temp.backward_tangent = {
-				//	curveX != NULL ? curveX->EvaluateLeftDerivative(lTime) : 0.0f,
-				//	curveY != NULL ? curveY->EvaluateLeftDerivative(lTime) : 0.0f,
-				//	curveZ != NULL ? curveZ->EvaluateLeftDerivative(lTime) : 0.0f,
-				//};
-
-			}
+			temp.forward_tangent = { 0, 0 ,0 };
+			temp.backward_tangent = { 0, 0, 0 };
 			temp.time = time - time_offset;
 			keyvalues.push_back(temp);
 		}
+		if (interp == QUADRATIC_KEY)
+		{
+			for (int i = 1; i < keyvalues.size() - 1; i++)
+			{
+				Key<Vector3 >& prev = keyvalues[i - 1];
+				Key<Vector3 >& current = keyvalues[i];
+				Key<Vector3 >& next = keyvalues[i + 1];
+
+				for (int j=0; j<3; j++)
+					AdjustBezier(prev.data[j], prev.time, prev.backward_tangent[j],
+						next.data[j], next.time, next.forward_tangent[j],
+						current.time, current.data[j], current.forward_tangent[j], current.backward_tangent[j]);
+			}
+		}
+
 		tkeys.numKeys = keyvalues.size();
 		tkeys.keys = keyvalues;
 		tkeys.interpolation = interp;
@@ -2973,26 +3004,39 @@ public:
 int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offset, bool deg_to_rad)
 {
 	int IkeySize = 0;
+	KeyType type = CONST_KEY;
 	bool has_key_in_time_offset = false;
 	if (curveI != NULL)
 	{
 		IkeySize = curveI->KeyGetCount();
 		if (IkeySize > 0) {
-			//KeyGroup<float>& keys = tkeys[0];
 			for (int i = 0; i < IkeySize; i++) {
 				FbxAnimCurveKey fbx_key = curveI->KeyGet(i);
+				KeyType new_type = CONST_KEY;
+				switch (fbx_key.GetInterpolation())
+				{
+				case FbxAnimCurveDef::EInterpolationType::eInterpolationConstant:
+					break;
+				case FbxAnimCurveDef::EInterpolationType::eInterpolationLinear:
+					new_type = LINEAR_KEY;
+				case FbxAnimCurveDef::EInterpolationType::eInterpolationCubic:
+					new_type = QUADRATIC_KEY;
+				}
+				if (i > 0 && type != new_type)
+				{
+					Log::Warn("Found an FbxAnimCurve with mixed types of interpolation, NIF doesn't support that for translations!");
+				}
+				type = new_type;
 				Key<float> new_key;
 				if (fbx_key.GetTime().GetSecondDouble() == time_offset)
 					has_key_in_time_offset = true;
 				new_key.time = fbx_key.GetTime().GetSecondDouble() - time_offset;
 				new_key.data = fbx_key.GetValue();
-				new_key.forward_tangent = curveI->KeyGetRightDerivative(i)/2;
-				new_key.backward_tangent = curveI->KeyGetLeftDerivative(i)/2;
+				new_key.forward_tangent = 0;
+				new_key.backward_tangent = 0;
 				if (deg_to_rad)
 				{
 					new_key.data = deg2rad(new_key.data);
-					//new_key.forward_tangent = deg2rad(new_key.forward_tangent);
-					//new_key.backward_tangent = deg2rad(new_key.backward_tangent);
 				}
 				keys.keys.push_back(new_key);
 			}
@@ -3003,20 +3047,29 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 				new_key.time = time_offset;
 				FbxTime ttime; ttime.SetSecondDouble(time_offset);
 				new_key.data = curveI->Evaluate(time_offset);
-				new_key.forward_tangent = curveI->EvaluateRightDerivative(ttime)/2;
-				new_key.backward_tangent = curveI->EvaluateLeftDerivative(ttime)/2;
 				if (deg_to_rad)
 				{
 					new_key.data = deg2rad(new_key.data);
-					//new_key.forward_tangent = deg2rad(new_key.forward_tangent);
-					//new_key.backward_tangent = deg2rad(new_key.backward_tangent);
 				}
 				keys.keys.insert(keys.keys.begin(), new_key);
 			}
 
 			keys.numKeys = keys.keys.size();
-			keys.interpolation = QUADRATIC_KEY;
+			keys.interpolation = type;
+		}
+		if (type == QUADRATIC_KEY)
+		{
+			vector<Key<float > >& keyvalues = keys.keys;
+			for (int i = 1; i < keyvalues.size() - 1; i++)
+			{
+				Key<float >& prev = keyvalues[i - 1];
+				Key<float >& current = keyvalues[i];
+				Key<float >& next = keyvalues[i + 1];
 
+				AdjustBezier(prev.data, prev.time, prev.backward_tangent,
+					next.data, next.time, next.forward_tangent,
+					current.time, current.data, current.forward_tangent, current.backward_tangent);
+			}
 		}
 	}
 	return IkeySize;
