@@ -1980,6 +1980,20 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 	}
 	iImporter->Destroy();
 
+	if (scene->GetSceneInfo() != NULL)
+	{
+		FbxProperty p = scene->GetSceneInfo()->GetFirstProperty();
+		while (p.IsValid())
+		{
+			string p_name = p.GetNameAsCStr();
+			if (p_name == "ApplicationName")
+				exporter_name = p.Get<FbxString>().Buffer();
+			if (p_name == "ApplicationVersion")
+				exporter_version = p.Get<FbxString>().Buffer();
+			p = scene->GetSceneInfo()->GetNextProperty(p);
+		}
+	}
+
 	return LoadMeshes(options);
 }
 
@@ -2419,6 +2433,17 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 
 	FbxAMatrix node_trans; node_trans = m->GetPivot(node_trans);
 
+	bool max_wa = false;
+
+
+	//string exporter_name = "";
+	//string exporter_version = "";
+
+	//Max has a wrong value into the vertex color mappings in 2016/2017/2018 
+	if (exporter_name == "3ds Max" &&
+		(exporter_version == "2017" || exporter_version == "2018"))
+		max_wa = true;
+
 	for (int v = 0; v < numVerts; v++) {
 		FbxVector4 vert = m->GetControlPointAt(v);
 
@@ -2443,7 +2468,9 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 				(float)normal->GetDirectArray().GetAt(v).mData[2]);
 		}
 
-		if (vc && vc->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
+
+
+		if (vc && (vc->GetMappingMode() == FbxGeometryElement::eByControlPoint || max_wa)) {
 			vcs.emplace_back(
 				Color4
 				(
@@ -2509,7 +2536,7 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 				nif_uv = TexCoord(v_uv.mData[0], v_uv.mData[1]);
 				has_uv = true;
 			}
-			if (vc && vc->GetMappingMode() == FbxGeometryElement::eByPolygonVertex)
+			if (vc && vc->GetMappingMode() == FbxGeometryElement::eByPolygonVertex && !max_wa)
 			{
 				switch (vc->GetReferenceMode())
 				{

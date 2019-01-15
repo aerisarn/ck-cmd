@@ -36,6 +36,8 @@ namespace FBX {
 	private:
 		FbxManager * sdkManager = nullptr;
 		FbxScene* scene = nullptr;
+		string exporter_name = "";
+		string exporter_version = "";
 		HKXWrapper hkxWrapper;
 
 		string comName;
