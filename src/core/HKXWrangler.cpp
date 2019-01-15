@@ -1202,7 +1202,10 @@ void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> transla
 				name = "SKY_HAV_MAT_STONE";
 			else
 			    name = collision_material->GetName();
-			FbxProperty layer = collision_material->FindProperty("CollisionLayer");
+			
+			FbxProperty layer; 
+			if (collision_material != NULL)
+				layer = collision_material->FindProperty("CollisionLayer");
 			string collision_layer_name;
 			if (!layer.IsValid())
 				collision_layer_name = "SKYL_STATIC";
