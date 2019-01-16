@@ -77,6 +77,7 @@ namespace FBX {
 		NiCollisionObjectRef build_physics(FbxNode* rigid_body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
 		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start, double last_stop);
 		void convertSkins(FbxMesh* m, NiTriShapeRef shape);
+		FbxNode* find_animated_parent(FbxNode* rigid_body);
 	public:
 		FBXWrangler();
 		~FBXWrangler();

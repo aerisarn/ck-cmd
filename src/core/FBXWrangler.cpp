@@ -3977,6 +3977,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		aggregate_layer = consume_material_from_shape(hk_convex);
 		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
 		convex->SetMaterial(temp);
+		convex->SetRadius(hk_convex->getRadius());
 		return StaticCast<bhkShape>(convex);
 	}
 	/// hkpCompressedMeshShape type.
@@ -3996,6 +3997,18 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 	return NULL;
 }
 
+FbxNode* FBXWrangler::find_animated_parent(FbxNode* rigid_body)
+{
+	FbxNode* result = rigid_body;
+	while (result != NULL)
+	{
+		if (unskinned_bones.find(result) != unskinned_bones.end() ||
+			skinned_bones.find(result) != skinned_bones.end())
+			return result;
+		result = result->GetParent();
+	}
+	return NULL;
+}
 
 NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
@@ -4019,6 +4032,34 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		body->SetRotation(q);
 		bhkCMSDMaterial body_layer;
 		body->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes), body_layer));
+		if (find_animated_parent(rigid_body) != NULL)
+		{
+			//the fix is in
+			body_layer.filter.layer_sk = SKYL_ANIMSTATIC;
+		}
+		if (body_layer.filter.layer_sk == SKYL_ANIMSTATIC)
+		{
+			body->SetMotionSystem(MO_SYS_BOX_INERTIA);
+			body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
+			body->SetQualityType(MO_QUAL_FIXED);
+			collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL | BHKCO_SYNC_ON_UPDATE));
+		}
+		else if (body_layer.filter.layer_sk == SKYL_CLUTTER)
+		{
+			body->SetMotionSystem(MO_SYS_BOX_INERTIA);
+			body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
+			body->SetQualityType(MO_QUAL_MOVING);
+			collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SYNC_ON_UPDATE));
+		}
+		//Static
+		else {		
+			body->SetMotionSystem(MO_SYS_BOX_STABILIZED);
+			body->SetSolverDeactivation(SOLVER_DEACTIVATION_OFF);
+			body->SetQualityType(MO_QUAL_INVALID);
+			collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL));
+		}
+		body->SetHavokFilter(body_layer.filter);
+		body->SetHavokFilterCopy(body->GetHavokFilter());
 		collision->SetBody(StaticCast<bhkWorldObject>(body));
 		return_collision = StaticCast<NiCollisionObject>(collision);
 	}
