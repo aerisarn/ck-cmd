@@ -2748,20 +2748,6 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 					int slot = atoi(name.c_str());
 					if (slot > 2 && slot < 9)
 					{
-						/*FbxString path = prop.Get<FbxString>();
-						string tempString = path.Buffer();
-						size_t idx = tempString.find("textures", 0);
-						if (idx != string::npos)
-						{
-							tempString.erase(tempString.begin(), tempString.begin() + idx);
-						}
-						else {
-							idx = tempString.find("cube", 0);
-							if (idx != string::npos)
-							{
-								tempString.erase(tempString.begin(), tempString.begin() + idx);
-							}
-						}*/
 						vTextures[slot-1] = format_texture(prop.Get<FbxString>().Buffer());
 					}
 				}
@@ -2783,16 +2769,6 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 				texture = prop.GetSrcObject<FbxFileTexture>(0);
 				if (texture)
 				{
-					//std::string tempString = string(texture->GetFileName());
-					//size_t idx = tempString.find("textures", 0);
-					//if (idx != string::npos)
-					//{
-					//	tempString.erase(tempString.begin(), tempString.begin() + idx);
-					//}
-					//else {
-					//	Log::Warn("Unable to find a relative path to texture, using full FBX path: %s", tempString.c_str());
-					//}
-					//vTextures[0] = tempString;
 					vTextures[0] = format_texture(texture->GetFileName());
 					if (texture->Alpha > 0.0)
 						hasAlpha = true;
@@ -2811,10 +2787,6 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 
 				if (texture)
 				{
-					//std::string tempString = string(texture->GetFileName());
-					//size_t idx = tempString.find("textures", 0);
-					//tempString.erase(tempString.begin(), tempString.begin() + idx);
-					//vTextures[1] = tempString;
 					vTextures[1] = format_texture(texture->GetFileName());
 				}
 				else {
@@ -2825,10 +2797,6 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 						if (texture)
 						{
 							vTextures[1] = format_texture(texture->GetFileName());
-							//std::string tempString = string(texture->GetFileName());
-							//size_t idx = tempString.find("textures", 0);
-							//tempString.erase(tempString.begin(), tempString.begin() + idx);
-							//vTextures[1] = tempString;
 						}
 					}
 				}
@@ -2842,10 +2810,6 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 				if (texture)
 				{
 					vTextures[1] = format_texture(texture->GetFileName());
-					//std::string tempString = string(texture->GetFileName());
-					//size_t idx = tempString.find("textures", 0);
-					//tempString.erase(tempString.begin(), tempString.begin() + idx);
-					//vTextures[1] = tempString;
 				}
 			}
 			//if this isn't found, then we could go down the alternate route and do 1f-transparency?
