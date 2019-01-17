@@ -474,25 +474,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	}
 
 
-	union alpha_flags_modes
-	{
-		struct {
-			// Bit 0 : color blending enable
-			unsigned color_blending_enable : 1;
-			// Bits 1-4 : source blend mode
-			unsigned source_blend_mode : 4;
-			// Bits 5-8 : destination blend mode
-			unsigned destination_blend_mode : 4;
-			// Bit 9 : alpha test enable
-			unsigned alpha_test_enable : 1;
-			// Bit 10-12 : alpha test mode
-			unsigned alpha_test_mode : 3;
-			// Bit 13 : no sorter flag ( disables triangle sorting )
-			unsigned no_sorter_flag : 1;
-		} bits;
-		unsigned int value;	
-	};
-
 	enum gl_blend_modes {
 		GL_ONE = 0,
 		GL_ZERO = 1,
@@ -518,6 +499,127 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		GL_NEVER = 7
 	};
 
+	union alpha_flags_modes
+	{
+		struct {
+			// Bit 0 : color blending enable
+			unsigned color_blending_enable : 1;
+			// Bits 1-4 : source blend mode
+			unsigned source_blend_mode : 4;
+			// Bits 5-8 : destination blend mode
+			unsigned destination_blend_mode : 4;
+			// Bit 9 : alpha test enable
+			unsigned alpha_test_enable : 1;
+			// Bit 10-12 : alpha test mode
+			unsigned alpha_test_mode : 3;
+			// Bit 13 : no sorter flag ( disables triangle sorting )
+			unsigned no_sorter_flag : 1;
+		} bits;
+		unsigned int value;
+	};
+
+	class AlphaFlagsHandler
+	{
+		const char* gl_blend_modes_to_string(gl_blend_modes mode)
+		{
+			switch (mode)
+			{
+			case GL_ONE: return "ONE";
+			case GL_ZERO: return "ZERO";
+			case GL_SRC_COLOR: return "SRC_COLOR";
+			case GL_ONE_MINUS_SRC_COLOR: return "ONE_MINUS_SRC_COLOR";
+			case GL_DST_COLOR: return "DST_COLOR";
+			case GL_ONE_MINUS_DST_COLOR: return "ONE_MINUS_DST_COLOR";
+			case GL_SRC_ALPHA: return "SRC_ALPHA";
+			case GL_ONE_MINUS_SRC_ALPHA: return "ONE_MINUS_SRC_ALPHA";
+			case GL_DST_ALPHA: return "DST_ALPHA";
+			case GL_ONE_MINUS_DST_ALPHA: return "ONE_MINUS_DST_ALPHA";
+			case GL_SRC_ALPHA_SATURATE: return "SRC_ALPHA_SATURATE";
+			default: return "ONE";
+			}
+			return "ONE";
+		}
+
+		gl_blend_modes gl_blend_modes_to_value(const string& mode)
+		{
+			if (mode == "GL_ONE") return GL_ONE;
+			if (mode == "ZERO") return GL_ZERO;
+			if (mode == "SRC_COLOR") return GL_SRC_COLOR;
+			if (mode == "ONE_MINUS_SRC_COLOR") return GL_ONE_MINUS_SRC_COLOR;
+			if (mode == "DST_COLOR") return GL_DST_COLOR;
+			if (mode == "ONE_MINUS_DST_COLOR") return GL_ONE_MINUS_DST_COLOR;
+			if (mode == "SRC_ALPHA") return GL_SRC_ALPHA;
+			if (mode == "ONE_MINUS_SRC_ALPHA") return GL_ONE_MINUS_SRC_ALPHA;
+			if (mode == "DST_ALPHA") return GL_DST_ALPHA;
+			if (mode == "ONE_MINUS_DST_ALPHA") return GL_ONE_MINUS_DST_ALPHA;
+			if (mode == "SRC_ALPHA_SATURATE") return GL_SRC_ALPHA_SATURATE;
+			return GL_ONE;
+		}
+
+		const char* gl_test_modes_to_string(gl_test_modes mode)
+		{
+			switch (mode)
+			{
+			case GL_ALWAYS: return "ALWAYS";
+			case GL_LESS: return "LESS";
+			case GL_EQUAL: return "EQUAL";
+			case GL_LEQUAL: return "LEQUAL";
+			case GL_GREATER: return "GREATER";
+			case GL_NOTEQUAL: return "NOTEQUAL";
+			case GL_GEQUAL: return "GEQUAL";
+			case GL_NEVER: return "NEVER";
+			default: return "ALWAYS";
+			}
+			return "ALWAYS";
+		}
+
+		gl_test_modes gl_test_modes_to_string(const string& mode)
+		{
+			if (mode == "ALWAYS") return GL_ALWAYS;
+			if (mode == "LESS") return GL_LESS;
+			if (mode == "EQUAL") return GL_EQUAL;
+			if (mode == "LEQUAL") return GL_LEQUAL;
+			if (mode == "GREATER") return GL_GREATER;
+			if (mode == "NOTEQUAL") return GL_NOTEQUAL;
+			if (mode == "GEQUAL") return GL_GEQUAL;
+			if (mode == "NEVER") return GL_NEVER;
+			return GL_ALWAYS;
+		}
+
+		template<typename PropertyType, typename input>
+		void set_property(FbxSurfaceMaterial* material, const char* name, input& value, PropertyType T)
+		{
+			FbxProperty p = material->FindProperty(name);
+			if (!p.IsValid())
+			{
+				p = FbxProperty::Create(material, T, name);
+				p.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+			}
+			shader_type.Set(PropertyType(value));
+		};
+
+	public:
+		alpha_flags_modes modes;
+		byte threshold;
+
+		AlphaFlagsHandler(NiAlphaPropertyRef alpha)
+		{
+			modes.value = alpha->GetFlags();
+			threshold = alpha->GetThreshold();
+		}
+
+		void add_to_node(FbxNode* node)
+		{
+
+		}
+
+		AlphaFlagsHandler(FbxNode* node)
+		{
+			//modes.value = alpha->GetFlags();
+			//threshold = alpha->GetThreshold();
+		}
+
+	};
 
 	FbxSurfaceMaterial* create_material(const string& name, BSLightingShaderPropertyRef material_property, NiAlphaPropertyRef alpha)
 	{
@@ -673,7 +775,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					//			Alpha Test Threshold: Value from 0 to 255 (black to white)
 					//			*/
 
-					//		}
+							}
 						}
 					}
 					if (!texture_set[1].empty())
@@ -686,15 +788,15 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					{
 						if (!texture_set[i].empty())
 						{
-							string slot_name = "slot" + to_string(i);
-							FbxFileTexture* additional_texture = create_texture(slot_name.c_str(), texture_set[i]);
+							string slot_name = "slot" + to_string(i+1);
+							FbxFileTexture* additional_texture = create_texture(slot_name.c_str(), texture_set[i+1]);
 							FbxProperty texture_slot = gMaterial->FindProperty(slot_name.c_str());
 							if (!texture_slot.IsValid())
 							{
 								texture_slot = FbxProperty::Create(gMaterial, FbxStringDT, slot_name.c_str());
 								texture_slot.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
 							}
-							texture_slot.Set(additional_texture->GetFileName());
+							texture_slot.Set(FbxString(additional_texture->GetFileName()));
 						}
 					}
 				}
