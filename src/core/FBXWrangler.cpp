@@ -530,9 +530,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			//Specular
 			Color3 nif_specular_color = material_property->GetSpecularColor();
 			gMaterial->Specular = { nif_specular_color.r, nif_specular_color.g, nif_specular_color.b };
-			FbxDouble3 scolor = gMaterial->Specular.Get();
-			
-			//gMaterial->SpecularFactor.Set(material_property->GetSpecularStrength());
+			gMaterial->SpecularFactor.Set(material_property->GetSpecularStrength());
 
 			//Diffuse
 			gMaterial->Diffuse = lDiffuse;
@@ -544,6 +542,14 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 			gMaterial->Shininess = material_property->GetGlossiness();
 			gMaterial->ShadingModel.Set(lShadingName.c_str());
+
+			FbxProperty shader_type = gMaterial->FindProperty("shader_type");
+			if (!shader_type.IsValid())
+				shader_type = FbxProperty::Create(gMaterial, FbxStringDT, "shader_type");
+			//shader_type.Set(FbxString(material_property->GetSkyrimShaderType()));
+
+
+
 
 			if (material_property->GetTextureSet() != NULL)
 			{
@@ -1319,10 +1325,48 @@ public:
 		return current;
 	}
 
-	//Deferred
+	//Deferred Already handled nodes
 	template<>
 	FbxNode* visit_new_object(NiControllerManager& obj) {
+		alreadyVisitedNodes.insert(&obj);
 		managers.insert(&obj);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiMultiTargetTransformController& obj) {
+		alreadyVisitedNodes.insert(&obj);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiControllerSequence& obj) {
+		alreadyVisitedNodes.insert(&obj);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiTransformInterpolator& obj) {
+		alreadyVisitedNodes.insert(&obj);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiTransformData& obj) {
+		alreadyVisitedNodes.insert(&obj);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiDefaultAVObjectPalette& obj) {
+		alreadyVisitedNodes.insert(&obj);
+		return NULL;
+	}
+
+	//TODO: add them to build KF
+	template<>
+	FbxNode* visit_new_object(NiTextKeyExtraData& obj) {
+		alreadyVisitedNodes.insert(&obj);
 		return NULL;
 	}
 
