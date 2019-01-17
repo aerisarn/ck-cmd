@@ -18,6 +18,61 @@ Ref<T> NifFile::FindBlockByName(const std::string& name) {
 	return NULL;
 }
 
+/*! Values for configuring the shader type in a BSLightingShaderProperty */
+const char* NifFile::shader_type_name(const BSLightingShaderPropertyShaderType& shader_type) {
+	switch (shader_type)
+	{
+	case ST_DEFAULT: return "DEFAULT";/*!< ST_Default */
+	case ST_ENVIRONMENT_MAP: return "ENVIRONMENT_MAP";/*!< Enables EnvMap Mask(TS6), EnvMap Scale */
+	case ST_GLOW_SHADER: return "GLOW_SHADER";/*!< Enables Glow(TS3) */
+	case ST_PARALLAX: return "PARALLAX"; /*!< Enables Height(TS4) */
+	case ST_FACE_TINT: return "FACE_TINT"; /*!< Enables Detail(TS4), Tint(TS7) */
+	case ST_SKIN_TINT: return "SKIN_TINT"; /*!< Enables Skin Tint Color */
+	case ST_HAIR_TINT: return "HAIR_TINT"; /*!< Enables Hair Tint Color */
+	case ST_PARALLAX_OCC: return "PARALLAX_OCC"; /*!< Enables Height(TS4), Max Passes, Scale. Unimplemented. */
+	case ST_MULTITEXTURE_LANDSCAPE: return "MULTITEXTURE_LANDSCAPE"; /*!< ST_Multitexture Landscape */
+	case ST_LOD_LANDSCAPE: return "LOD_LANDSCAPE"; /*!< ST_LOD Landscape */
+	case ST_SNOW: return "SNOW"; /*!< ST_Snow */
+	case ST_MULTILAYER_PARALLAX: return "MULTILAYER_PARALLAX"; /*!< Enables EnvMap Mask(TS6), Layer(TS7), Parallax Layer Thickness, Parallax Refraction Scale, Parallax Inner Layer U Scale, Parallax Inner Layer V Scale, EnvMap Scale */
+	case ST_TREE_ANIM: return "TREE_ANIM"; /*!< ST_Tree Anim */
+	case ST_LOD_OBJECTS: return "LOD_OBJECTS"; /*!< ST_LOD Objects */
+	case ST_SPARKLE_SNOW: return "SPARKLE_SNOW"; /*!< Enables SparkleParams */
+	case ST_LOD_OBJECTS_HD: return "LOD_OBJECTS_HD"; /*!< ST_LOD Objects HD */
+	case ST_EYE_ENVMAP: return "EYE_ENVMAP"; /*!< Enables EnvMap Mask(TS6), Eye EnvMap Scale */
+	case ST_CLOUD: return "CLOUD"; /*!< ST_Cloud */
+	case ST_LOD_LANDSCAPE_NOISE: return "LOD_LANDSCAPE_NOISE"; /*!< ST_LOD Landscape Noise */
+	case ST_MULTITEXTURE_LANDSCAPE_LOD_BLEND: return "MULTITEXTURE_LANDSCAPE_LOD_BLEND"; /*!< ST_Multitexture Landscape LOD Blend */
+	case ST_FO4_DISMEMBERMENT: return "FO4_DISMEMBERMENT"; /*!< ST_FO4 Dismemberment */
+	default: return "DEFAULT";
+	}
+	return "DEFAULT";
+}
+
+BSLightingShaderPropertyShaderType NifFile::shader_type_value(const string& shader_type) {
+	if (shader_type == "DEFAULT") return ST_DEFAULT;
+	if (shader_type == "ENVIRONMENT_MAP") return ST_ENVIRONMENT_MAP;
+	if (shader_type == "GLOW_SHADER") return ST_GLOW_SHADER;
+	if (shader_type == "PARALLAX") return ST_PARALLAX;
+	if (shader_type == "FACE_TINT") return ST_FACE_TINT;
+	if (shader_type == "SKIN_TINT") return ST_SKIN_TINT;
+	if (shader_type == "HAIR_TINT") return ST_HAIR_TINT;
+	if (shader_type == "PARALLAX_OCC") return ST_PARALLAX_OCC;
+	if (shader_type == "MULTITEXTURE_LANDSCAPE") return ST_MULTITEXTURE_LANDSCAPE;
+	if (shader_type == "LOD_LANDSCAPE") return ST_LOD_LANDSCAPE;
+	if (shader_type == "SNOW") return ST_SNOW;
+	if (shader_type == "MULTILAYER_PARALLAX") return ST_MULTILAYER_PARALLAX;
+	if (shader_type == "TREE_ANIM") return ST_TREE_ANIM;
+	if (shader_type == "LOD_OBJECTS") return ST_LOD_OBJECTS;
+	if (shader_type == "SPARKLE_SNOW") return ST_SPARKLE_SNOW;
+	if (shader_type == "LOD_OBJECTS_HD") return ST_LOD_OBJECTS_HD;
+	if (shader_type == "EYE_ENVMAP") return ST_EYE_ENVMAP;
+	if (shader_type == "CLOUD") return ST_CLOUD;
+	if (shader_type == "LOD_LANDSCAPE_NOISE") return ST_LOD_LANDSCAPE_NOISE;
+	if (shader_type == "MULTITEXTURE_LANDSCAPE_LOD_BLEND") return ST_MULTITEXTURE_LANDSCAPE_LOD_BLEND;
+	if (shader_type == "FO4_DISMEMBERMENT") return ST_FO4_DISMEMBERMENT;
+	return ST_DEFAULT;
+}
+
 std::array<double, 3> NifFile::material_color(const SkyrimHavokMaterial& material) {
 	switch (material) {
 	//#declare Aquamarine = color red 0.439216 green 0.858824 blue 0.576471

@@ -83,6 +83,8 @@ using namespace Niflib;
 			bool hasAnimation() { return hasNiSequence; }
 			double GetBhkScaleFactor() { return bhkScaleFactor; }
 	
+			static const char* shader_type_name(const BSLightingShaderPropertyShaderType& shader_type);
+			static BSLightingShaderPropertyShaderType shader_type_value(const string& shader_type);
 			static const char* material_name(const SkyrimHavokMaterial& material);
 			static SkyrimHavokMaterial material_value(const string& name);
 			static std::array<double, 3> material_color(const SkyrimHavokMaterial& material);

@@ -477,8 +477,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	union alpha_flags_modes
 	{
 		struct {
-			// Bit 0 : alpha blending enable
-			unsigned alpha_blending_enable : 1;
+			// Bit 0 : color blending enable
+			unsigned color_blending_enable : 1;
 			// Bits 1-4 : source blend mode
 			unsigned source_blend_mode : 4;
 			// Bits 5-8 : destination blend mode
@@ -507,6 +507,18 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		GL_SRC_ALPHA_SATURATE = 10
 	};
 
+	enum gl_test_modes {
+		GL_ALWAYS = 0,
+		GL_LESS = 1,
+		GL_EQUAL = 2,
+		GL_LEQUAL = 3,
+		GL_GREATER = 4,
+		GL_NOTEQUAL = 5,
+		GL_GEQUAL = 6,
+		GL_NEVER = 7
+	};
+
+
 	FbxSurfaceMaterial* create_material(const string& name, BSLightingShaderPropertyRef material_property, NiAlphaPropertyRef alpha)
 	{
 		if (material_property != NULL)
@@ -534,7 +546,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 			//Diffuse
 			gMaterial->Diffuse = lDiffuse;
-			//gMaterial->DiffuseFactor = material_property->GetSpecularStrength();
 
 			//Ambient
 			gMaterial->Ambient = lBlack;
@@ -545,17 +556,16 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 			FbxProperty shader_type = gMaterial->FindProperty("shader_type");
 			if (!shader_type.IsValid())
+			{
 				shader_type = FbxProperty::Create(gMaterial, FbxStringDT, "shader_type");
-			//shader_type.Set(FbxString(material_property->GetSkyrimShaderType()));
-
-
-
+				shader_type.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+			}
+			shader_type.Set(FbxString(NifFile::shader_type_name(material_property->GetSkyrimShaderType())));
 
 			if (material_property->GetTextureSet() != NULL)
 			{
 				alreadyVisitedNodes.insert(material_property->GetTextureSet());
 				vector<string>& texture_set = material_property->GetTextureSet()->GetTextures();
-				//TODO: support more 
 				if (!texture_set.empty())
 				{
 					if (!texture_set[0].empty())
@@ -590,8 +600,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 						if (diffuse && gMaterial)
 						{
 							gMaterial->Diffuse.ConnectSrcObject(diffuse);
-					//		if (alpha != NULL)
-					//		{
+							if (alpha != NULL)
+							{
 					//			alreadyVisitedNodes.insert(alpha);
 					//			alpha_flags_modes alpha_flags;
 					//			alpha_flags.value = alpha->GetFlags();
@@ -672,10 +682,23 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 						if (normal && gMaterial)
 							gMaterial->NormalMap.ConnectSrcObject(normal);
 					}
+					for (int i = 2; i < 9; i++)
+					{
+						if (!texture_set[i].empty())
+						{
+							string slot_name = "slot" + to_string(i);
+							FbxFileTexture* additional_texture = create_texture(slot_name.c_str(), texture_set[i]);
+							FbxProperty texture_slot = gMaterial->FindProperty(slot_name.c_str());
+							if (!texture_slot.IsValid())
+							{
+								texture_slot = FbxProperty::Create(gMaterial, FbxStringDT, slot_name.c_str());
+								texture_slot.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+							}
+							texture_slot.Set(additional_texture->GetFileName());
+						}
+					}
 				}
 			}
-
-
 
 			return gMaterial;
 		}
