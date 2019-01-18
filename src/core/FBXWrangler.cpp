@@ -443,6 +443,32 @@ public:
 //	ConstraintBuilder(vector<bhkBlendCollisionObjectRef>& nbodies, hkArray<hkpRigidBody*>& hkbodies) : ConstraintVisitor(nbodies,hkbodies) {}
 //};
 
+template<typename PropertyType, typename input>
+void set_property(FbxSurfaceMaterial* material, const char* name, input value, PropertyType T)
+{
+	FbxProperty p = material->FindProperty(name);
+	if (!p.IsValid())
+	{
+		p = FbxProperty::Create(material, T, name);
+		p.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+	}
+	p.Set(value);
+};
+
+bool valid = false;
+
+template<typename Output>
+Output get_property(FbxSurfaceMaterial* material, const char* name)
+{
+	FbxProperty p = material->FindProperty(name);
+	if (p.IsValid())
+	{
+		valid = true;
+		return p.Get<Output>();
+	}
+	return Output();
+};
+
 enum gl_blend_modes {
 	GL_ONE = 0,
 	GL_ZERO = 1,
@@ -555,32 +581,6 @@ class AlphaFlagsHandler
 		return GL_ALWAYS;
 	}
 
-	template<typename PropertyType, typename input>
-	void set_property(FbxSurfaceMaterial* material, const char* name, input value, PropertyType T)
-	{
-		FbxProperty p = material->FindProperty(name);
-		if (!p.IsValid())
-		{
-			p = FbxProperty::Create(material, T, name);
-			p.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
-		}
-		p.Set(value);
-	};
-
-	bool valid = false;
-
-	template<typename Output>
-	Output get_property(FbxSurfaceMaterial* material, const char* name)
-	{
-		FbxProperty p = material->FindProperty(name);
-		if (p.IsValid())
-		{
-			valid = true;
-			return p.Get<Output>();
-		}
-		return Output();
-	};
-
 	alpha_flags_modes modes;
 	byte threshold;
 
@@ -618,7 +618,7 @@ public:
 
 	NiAlphaPropertyRef to_property()
 	{
-		if (valid)
+		if (valid && modes.value != 0)
 		{
 			NiAlphaPropertyRef alpha = new NiAlphaProperty();
 			alpha->SetFlags(modes.value);
@@ -744,6 +744,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 							gMaterial->Diffuse.ConnectSrcObject(diffuse);
 							if (alpha != NULL)
 							{
+								alreadyVisitedNodes.insert(&*alpha);
 								//TODO: also find a way in fbx to make them look right in 3d suites
 								AlphaFlagsHandler(alpha).add_to_node(gMaterial);
 							}
@@ -772,6 +773,14 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					}
 				}
 			}
+
+			//shader flags save
+			int pack_flags_1 = 0; pack_flags_1 |= material_property->GetShaderFlags1_sk();
+			int pack_flags_2 = 0; pack_flags_2 |= material_property->GetShaderFlags2_sk();
+
+			set_property(gMaterial, "shader_flags_1", FbxInt(material_property->GetShaderFlags1_sk()), FbxIntDT);
+			set_property(gMaterial, "shader_flags_2", FbxInt(material_property->GetShaderFlags2_sk()), FbxIntDT);
+
 
 			return gMaterial;
 		}
@@ -2991,6 +3000,16 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 			}
 
 			textures->SetTextures(vTextures);
+
+			//unpack forced shader flags if any
+			int pack_flags_1 = get_property<FbxInt>(material, "shader_flags_1");
+			int pack_flags_2 = get_property<FbxInt>(material, "shader_flags_2");
+			unsigned int f1; f1 |= pack_flags_1;
+			unsigned int f2; f2 |= pack_flags_2;
+
+			shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(pack_flags_1)); // = get_property<FbxBool>(material, "color_blending_enable");
+			shader->SetShaderFlags2_sk(SkyrimShaderPropertyFlags2(pack_flags_2));
+
 		}
 	}
 
@@ -3004,6 +3023,7 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 	//}
 
 	shader->SetTextureSet(textures);
+
 
 	out->SetFlags(524302);
 	out->SetShaderProperty(shader);
@@ -3099,16 +3119,18 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 	interp = collect_times(curveX, times, interp);
 	interp = collect_times(curveY, times, interp);
 	interp = collect_times(curveZ, times, interp);
-
+	bool inserted_initial_position = false;
 	if (times.size() > 0)
 	{
-		times.insert(time_offset);
+		inserted_initial_position = times.insert(time_offset).second;
 
 		NiTransformDataRef data = interpolator->GetData();
 		if (data == NULL) data = new NiTransformData();
 		KeyGroup<Vector3 > tkeys = data->GetTranslations();
 		vector<Key<Vector3 > > keyvalues = tkeys.keys;
 		
+		int index = 0;
+
 		for (const auto& time : times) {
 			FbxTime lTime;
 			lTime.SetSecondDouble((float)time);
@@ -3125,14 +3147,17 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 			temp.backward_tangent = { 0, 0, 0 };
 			temp.time = time - time_offset;
 			keyvalues.push_back(temp);
+
+			index++;
 		}
 		if (interp == QUADRATIC_KEY)
 		{
-			for (int i = 1; i < keyvalues.size() - 1; i++)
+			int i = inserted_initial_position == false ? 1 : 2;
+			for (i; i < keyvalues.size() - 1; i++)
 			{
 				Key<Vector3 >& prev = keyvalues[i - 1];
 				Key<Vector3 >& current = keyvalues[i];
-				Key<Vector3 >& next = keyvalues[i + 1];
+				Key<Vector3 >& next = *keyvalues.rbegin();
 
 				for (int j=0; j<3; j++)
 					AdjustBezier(prev.data[j], prev.time, prev.backward_tangent[j],
@@ -3218,11 +3243,12 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 		if (type == QUADRATIC_KEY)
 		{
 			vector<Key<float > >& keyvalues = keys.keys;
-			for (int i = 1; i < keyvalues.size() - 1; i++)
+			int i = has_key_in_time_offset == false ? 1 : 2;
+			for (i; i < keyvalues.size() - 1; i++)
 			{
 				Key<float >& prev = keyvalues[i - 1];
 				Key<float >& current = keyvalues[i];
-				Key<float >& next = keyvalues[i + 1];
+				Key<float >& next = *keyvalues.rbegin();
 
 				AdjustBezier(prev.data, prev.time, prev.backward_tangent,
 					next.data, next.time, next.forward_tangent,
@@ -3282,7 +3308,7 @@ double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef se
 		FbxAnimCurve* lsYAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
 		FbxAnimCurve* lsZAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
 
-		if (lXAnimCurve != NULL || lYAnimCurve != NULL || lZAnimCurve != NULL ||
+		if (lXAnimCurve->KeyGetCount()>0 || lYAnimCurve->KeyGetCount()>0 || lZAnimCurve->KeyGetCount()>0 ||
 			lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL ||
 			lsXAnimCurve != NULL || lsYAnimCurve != NULL || lsZAnimCurve != NULL)
 		{
@@ -3299,7 +3325,7 @@ double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef se
 			trans.scale = *lol;
 			interpolator->SetTransform(trans);
 
-			if (lXAnimCurve != NULL || lYAnimCurve != NULL || lZAnimCurve != NULL) {
+			if (lXAnimCurve->KeyGetCount()>0 || lYAnimCurve->KeyGetCount()>0 || lZAnimCurve->KeyGetCount()>0) {
 				addTranslationKeys(interpolator, pNode, lXAnimCurve, lYAnimCurve, lZAnimCurve, last_start);
 			}
 
