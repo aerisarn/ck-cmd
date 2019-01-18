@@ -2764,6 +2764,10 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 				);
 				has_vc = true;
 			}
+			else if (max_wa && vc)
+			{
+				has_vc = true;
+			}
 
 			triangle[i] = vertex_index;
 
