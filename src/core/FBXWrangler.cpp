@@ -805,11 +805,11 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		return create_material(shape.GetName(), DynamicCast<BSLightingShaderProperty>(shape.GetShaderProperty()), shape.GetAlphaProperty());
 	}
 
-	FbxNode* AddGeometry(NiTriStrips& node) {
+	FbxNode* AddGeometry(FbxNode* parent, NiTriStrips& node) {
 		string shapeName = node.GetName();
 		sanitizeString(shapeName);
 
-		if (node.GetData() == NULL) return FbxNode::Create(&scene, shapeName.c_str());
+		if (node.GetData() == NULL) return parent;
 
 		const vector<Vector3>& verts = node.GetData()->GetVertices();
 		const vector<Vector3>& norms = node.GetData()->GetNormals();
@@ -842,15 +842,15 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 		FbxSurfaceMaterial* material = extract_Material<NiTriStrips, VER_20_2_0_7>(node);
 
-		return AddGeometry(shapeName, verts, norms, tris, uvs, vcs, material);
+		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material);
 	}
 
-	FbxNode* AddGeometry(NiTriShape& node) {
+	FbxNode* AddGeometry(FbxNode* parent, NiTriShape& node) {
 
 		string shapeName = node.GetName();
 		sanitizeString(shapeName);
 
-		if (node.GetData() == NULL) return FbxNode::Create(&scene, shapeName.c_str());
+		if (node.GetData() == NULL) return parent;
 
 		const vector<Vector3>& verts = node.GetData()->GetVertices();
 		const vector<Vector3>& norms = node.GetData()->GetNormals();
@@ -885,10 +885,10 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 		FbxSurfaceMaterial* material = extract_Material<NiTriShape, VER_20_2_0_7>(node);
 
-		return AddGeometry(shapeName, verts, norms, tris, uvs, vcs, material);
+		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material);
 	}
 
-	FbxNode* AddGeometry(const string& shapeName, 
+	FbxNode* AddGeometry(FbxNode* parent, const string& shapeName, 
 							const vector<Vector3>& verts,
 							const vector<Vector3>& norms,
 							const vector<Triangle>& tris,
@@ -949,15 +949,17 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			}
 		}
 
-		FbxNode* mNode = FbxNode::Create(&scene, shapeName.c_str());
-		mNode->SetNodeAttribute(m);
+		//FbxNode* mNode = FbxNode::Create(&scene, shapeName.c_str());
+		//mNode->SetNodeAttribute(m);
+
+		parent->AddNodeAttribute(m);
 
 		//handle material
 		if (material != NULL)
-			mNode->AddMaterial(material);
+			parent->AddMaterial(material);
 
 
-		return mNode;
+		return parent;
 	}
 
 	FbxNode* setNullTransform(FbxNode* node) {
@@ -1381,16 +1383,17 @@ public:
 		{
 
 			build_stack.push_front(&sceneNode);
-			root_name = rootNode->GetName();
-			for (NiObjectRef child : rootNode->GetChildren())
-				child->accept(*this, info);
-			//visit managers too
-			if (rootNode->GetController())
-				rootNode->GetController()->accept(*this, info);
-			if (rootNode->GetCollisionObject())
-				rootNode->GetCollisionObject()->accept(*this, info);
-			//TODO: handle different root types
-			//Sort out skinning now
+			//root_name = rootNode->GetName();
+			rootNode->accept(*this, info);
+			//for (NiObjectRef child : rootNode->GetChildren())
+			//	child->accept(*this, info);
+			////visit managers too
+			//if (rootNode->GetController())
+			//	rootNode->GetController()->accept(*this, info);
+			//if (rootNode->GetCollisionObject())
+			//	rootNode->GetCollisionObject()->accept(*this, info);
+			////TODO: handle different root types
+			////Sort out skinning now
 			processSkins();
 			buildManagers();
 		}
@@ -2031,10 +2034,36 @@ public:
 	template<class T>
 	FbxNode* build(T& obj, FbxNode* parent) {
 		NiObject* pobj = (NiObject*)&obj;
+		//Geometry is actually an attribute and not really a node
 		if (pobj->IsDerivedType(NiAVObject::TYPE)) {
 			NiAVObjectRef av = DynamicCast<NiAVObject>(pobj);
 			string name = av->GetName().c_str(); sanitizeString(name);
 			FbxNode* node = FbxNode::Create(&scene, name.c_str());
+			if (av->IsDerivedType(NiNode::TYPE))
+			{
+				NiNodeRef ninode = DynamicCast<NiNode>(av);
+				vector<NiAVObjectRef> children = ninode->GetChildren();
+				for (const auto& child : children)
+				{
+					if (child != NULL)
+					{
+						if (child->IsDerivedType(NiTriShape::TYPE))
+						{
+							NiTriShapeRef shape = DynamicCast<NiTriShape>(child);
+							if (shape->GetSkinInstance() != NULL)
+								skins[shape->GetSkinInstance()] = &*shape;
+							AddGeometry(node, *shape);
+						}
+						if (child->IsDerivedType(NiTriStrips::TYPE))
+						{
+							NiTriStripsRef shape = DynamicCast<NiTriStrips>(child);
+							if (shape->GetSkinInstance() != NULL)
+								skins[shape->GetSkinInstance()] = &*shape;
+							AddGeometry(node, *shape);
+						}
+					}
+				}
+			}
 			return setTransform(av, node);
 		}
 		return setNullTransform(
@@ -2042,21 +2071,21 @@ public:
 		);
 	}
 
-	template<>
-	FbxNode* build(NiTriShape& obj, FbxNode* parent) {
-		//need to import the whole tree structure before skinning, so defer into a list
-		if (obj.GetSkinInstance() != NULL)
-			skins[obj.GetSkinInstance()] = &obj;
-		return setTransform(&obj, AddGeometry(obj));
-	}
+	//template<>
+	//FbxNode* build(NiTriShape& obj, FbxNode* parent) {
+	//	//need to import the whole tree structure before skinning, so defer into a list
+	//	if (obj.GetSkinInstance() != NULL)
+	//		skins[obj.GetSkinInstance()] = &obj;
+	//	return setTransform(&obj, AddGeometry(obj));
+	//}
 
-	template<>
-	FbxNode* build(NiTriStrips& obj, FbxNode* parent) {
-		//need to import the whole tree structure before skinning, so defer into a list
-		if (obj.GetSkinInstance() != NULL)
-			skins[obj.GetSkinInstance()] = &obj;
-		return setTransform(&obj, AddGeometry(obj));
-	}
+	//template<>
+	//FbxNode* build(NiTriStrips& obj, FbxNode* parent) {
+	//	//need to import the whole tree structure before skinning, so defer into a list
+	//	if (obj.GetSkinInstance() != NULL)
+	//		skins[obj.GetSkinInstance()] = &obj;
+	//	return setTransform(&obj, AddGeometry(obj));
+	//}
 };
 
 void FBXWrangler::AddNif(NifFile& nif) {
@@ -2574,7 +2603,7 @@ string format_texture(string tempString)
 	return p.string();
 }
 
-NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* node, const FBXImportOptions& options) {
+NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOptions& options) {
 	NiTriShapeRef out = new NiTriShape();
 	NiTriShapeDataRef data = new NiTriShapeData();
 
@@ -2585,7 +2614,7 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 	FbxGeometryElementNormal* normal = m->GetElementNormal(0);
 	FbxGeometryElementVertexColor* vc = m->GetElementVertexColor(0);
 
-	string orig_name = name;
+	string orig_name = m->GetName();
 	out->SetName(unsanitizeString(orig_name));
 	int numVerts = m->GetControlPointsCount();
 	int numTris = m->GetPolygonCount();
@@ -2595,7 +2624,7 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 	vector<Color4 > vcs;
 
 	if (normal == NULL) {
-		Log::Info("Warning: cannot find normals, I'll recalculate them for %s", name.c_str());
+		Log::Info("Warning: cannot find normals, I'll recalculate them for %s", m->GetName());
 	}
 	vector<TexCoord> uvs;
 
@@ -3033,21 +3062,19 @@ NiTriShapeRef FBXWrangler::importShape(const string& name, FbxNodeAttribute* nod
 	return out;
 }
 
-NiNodeRef FBXWrangler::importShapes(FbxNode* child, const FBXImportOptions& options) {
-	NiNodeRef dummy = new NiNode();
-	string name = child->GetName();
-	dummy->SetName(unsanitizeString(name));
-	vector<NiAVObjectRef> children;
+void FBXWrangler::importShapes(NiNodeRef parent, FbxNode* child, const FBXImportOptions& options) {
+	//NiNodeRef dummy = new NiNode();
+	//string name = child->GetName();
+	//dummy->SetName(unsanitizeString(name));
+	vector<NiAVObjectRef> children= parent->GetChildren();
 	size_t attributes_size = child->GetNodeAttributeCount();
 	for (int i = 0; i < attributes_size; i++) {
 		if (FbxNodeAttribute::eMesh == child->GetNodeAttributeByIndex(i)->GetAttributeType())
 		{		
-			string sub_name = name + "_mesh_" + to_string(i);
-			children.push_back(StaticCast<NiAVObject>(importShape(sub_name, child->GetNodeAttributeByIndex(i), options)));
+			children.push_back(StaticCast<NiAVObject>(importShape(child->GetNodeAttributeByIndex(i), options)));
 		}
 	}
-	dummy->SetChildren(children);
-	return dummy;
+	parent->SetChildren(children);
 }
 
 KeyType collect_times(FbxAnimCurve* curveX, set<double>& times, KeyType fixed_type)
@@ -3152,12 +3179,11 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 		}
 		if (interp == QUADRATIC_KEY)
 		{
-			int i = inserted_initial_position == false ? 1 : 2;
-			for (i; i < keyvalues.size() - 1; i++)
+			for (int i=1; i < keyvalues.size()-1; i++)
 			{
 				Key<Vector3 >& prev = keyvalues[i - 1];
 				Key<Vector3 >& current = keyvalues[i];
-				Key<Vector3 >& next = *keyvalues.rbegin();
+				Key<Vector3 >& next = keyvalues[i + 1];
 
 				for (int j=0; j<3; j++)
 					AdjustBezier(prev.data[j], prev.time, prev.backward_tangent[j],
@@ -3187,6 +3213,7 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 	int IkeySize = 0;
 	KeyType type = CONST_KEY;
 	bool has_key_in_time_offset = false;
+	bool key_in_time_offset_added = false;
 	if (curveI != NULL)
 	{
 		IkeySize = curveI->KeyGetCount();
@@ -3223,6 +3250,7 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 			}
 			if (!has_key_in_time_offset)
 			{
+				key_in_time_offset_added = true;
 				IkeySize += 1;
 				Key<float> new_key;
 				new_key.time = 0.0;
@@ -3243,12 +3271,12 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 		if (type == QUADRATIC_KEY)
 		{
 			vector<Key<float > >& keyvalues = keys.keys;
-			int i = has_key_in_time_offset == false ? 1 : 2;
-			for (i; i < keyvalues.size() - 1; i++)
+			//int i = key_in_time_offset_added == false ? 1 : 2;
+			for (int i=1; i < keyvalues.size() - 1; i++)
 			{
 				Key<float >& prev = keyvalues[i - 1];
 				Key<float >& current = keyvalues[i];
-				Key<float >& next = *keyvalues.rbegin();
+				Key<float >& next = keyvalues[i + 1];
 
 				AdjustBezier(prev.data, prev.time, prev.backward_tangent,
 					next.data, next.time, next.forward_tangent,
@@ -4330,22 +4358,43 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		bones = buildBonesList();
 
 	FbxNode* root = scene->GetRootNode();
-	if (export_skin)
-		conversion_root = new NiNode();
-	else
-		conversion_root = new BSFadeNode();
-	conversion_root->SetName(string("Scene"));
+	//if (export_skin)
+	//	conversion_root = new NiNode();
+	//else
+	//	conversion_root = new BSFadeNode();
+	//conversion_root->SetName(string("Scene"));
 	
 	//nodes
 	std::function<void(FbxNode*)> loadNodeChildren = [&](FbxNode* root) {
 		NiNodeRef parent = DynamicCast<NiNode>(conversion_Map[root]);
+		if (parent == NULL) {
+			if (export_skin)
+				parent = new NiNode();
+			else
+				parent = new BSFadeNode();
+
+			conversion_root = parent;
+			conversion_root->SetName(string("Scene"));
+
+			if (!hasNoTransform(root)) {
+				NiNodeRef proxyNiNode = new NiNode();
+				setAvTransform(root, parent);
+				proxyNiNode->SetName(string("rootTransformProxy"));
+				conversion_root->SetChildren({ StaticCast<NiAVObject>(proxyNiNode) });
+				conversion_Map[root] = proxyNiNode;
+			}
+			else {
+				conversion_Map[root] = conversion_root;
+			}
+		}
+
 		for (int i = 0; i < root->GetChildCount(); i++) {
 			FbxNode* child = root->GetChild(i);
 			NiAVObjectRef nif_child = NULL;
-			if (child->GetNodeAttribute() != NULL && child->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh) {
-				nif_child = StaticCast<NiAVObject>(importShapes(child, options));
-				setAvTransform(child, nif_child);
-			}
+			//if (child->GetNodeAttribute() != NULL && child->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh) {
+			//	nif_child = StaticCast<NiAVObject>(importShapes(child, options));
+			//	setAvTransform(child, nif_child);
+			//}
 			string child_name = child->GetName();
 			if (ends_with(child_name,"_rb") || ends_with(child_name, "_sp"))
 			{
@@ -4392,18 +4441,25 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 
 			loadNodeChildren(child);
 		}
+		for (int i = 0; i < root->GetNodeAttributeCount(); i++)
+		{
+			if (root->GetNodeAttributeByIndex(i) != NULL && root->GetNodeAttributeByIndex(i)->GetAttributeType() == FbxNodeAttribute::eMesh) {
+				importShapes(parent, root, options);
+				break;
+			}
+		}
 	};
 
-	if (!hasNoTransform(root)) {
-		NiNodeRef proxyNiNode = new NiNode();
-		setAvTransform(root, proxyNiNode);
-		proxyNiNode->SetName(string("rootTransformProxy"));
-		conversion_root->SetChildren({ StaticCast<NiAVObject>(proxyNiNode) });
-		conversion_Map[root] = proxyNiNode;
-	}
-	else {
-		conversion_Map[root] = conversion_root;
-	}
+	//if (!hasNoTransform(root)) {
+	//	NiNodeRef proxyNiNode = new NiNode();
+	//	setAvTransform(root, proxyNiNode);
+	//	proxyNiNode->SetName(string("rootTransformProxy"));
+	//	conversion_root->SetChildren({ StaticCast<NiAVObject>(proxyNiNode) });
+	//	conversion_Map[root] = proxyNiNode;
+	//}
+	//else {
+	//	conversion_Map[root] = conversion_root;
+	//}
 	loadNodeChildren(root);
 
 	//skins

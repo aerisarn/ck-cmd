@@ -41,7 +41,7 @@ namespace FBX {
 		HKXWrapper hkxWrapper;
 
 		string comName;
-		NiNodeRef FBXWrangler::importShapes(FbxNode* child, const FBXImportOptions& options);
+		void importShapes(NiNodeRef parent, FbxNode* child, const FBXImportOptions& options);
 
 		map<NiAVObjectRef, NiAVObjectRef> conversion_parent_Map;
 		map<FbxNode*, NiObjectRef> conversion_Map;
@@ -67,7 +67,7 @@ namespace FBX {
 
 		string external_skeleton_path = "";
 
-		NiTriShapeRef importShape(const string& name, FbxNodeAttribute* node, const FBXImportOptions& options);
+		NiTriShapeRef importShape(FbxNodeAttribute* node, const FBXImportOptions& options);
 		
 		set<FbxNode*> FBXWrangler::buildBonesList();
 		void checkAnimatedNodes();
