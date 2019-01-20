@@ -2241,6 +2241,48 @@ FbxAMatrix getNodeTransform(FbxNode* pNode, bool absolute = false) {
 	return localMatrix * matrixGeo;
 }
 
+FbxAMatrix getLocalNodeTransformFromProperties(FbxNode* pNode, FbxTime time = FBXSDK_TIME_INFINITE) {
+	//T * Roff * Rp * Rpre * R * Rpost * Rp-1 * Soff * Sp * S * Sp-1 * OT * OR * OS
+	
+	FbxAMatrix M_OUT; M_OUT.SetIdentity();
+	FbxAMatrix M_TEMP; M_TEMP.SetIdentity();
+	M_OUT.SetT(pNode->EvaluateLocalTranslation(time)); //T
+	M_TEMP.SetT(pNode->GetRotationOffset(FbxNode::eSourcePivot));
+	M_OUT = M_OUT * M_TEMP; // T * Roff
+	M_TEMP.SetIdentity(); M_TEMP.SetT(pNode->GetRotationPivot(FbxNode::eSourcePivot));
+	M_OUT = M_OUT * M_TEMP; // T * Roff * Rp
+	M_TEMP.SetIdentity(); M_TEMP.SetR(pNode->GetPreRotation(FbxNode::eSourcePivot));
+	M_OUT = M_OUT * M_TEMP; // T * Roff * Rp * Rpre 
+	M_TEMP.SetIdentity(); M_TEMP.SetR(pNode->EvaluateLocalRotation(time));
+	M_OUT = M_OUT * M_TEMP; // T * Roff * Rp * Rpre * R
+	M_TEMP.SetIdentity(); M_TEMP.SetR(pNode->GetPostRotation(FbxNode::eSourcePivot));
+	M_OUT = M_OUT * M_TEMP; // T * Roff * Rp * Rpre * R * Rpost
+	M_TEMP.SetIdentity(); M_TEMP.SetT(pNode->GetRotationPivot(FbxNode::eSourcePivot));
+	M_TEMP = M_TEMP.Inverse();
+	M_OUT = M_OUT * M_TEMP; // T * Roff * Rp * Rpre * R * Rpost * Rp-1
+	M_TEMP.SetIdentity(); M_TEMP.SetT(pNode->GetScalingOffset(FbxNode::eSourcePivot));
+	M_OUT = M_OUT * M_TEMP; // T * Roff * Rp * Rpre * R * Rpost * Rp-1 * Soff
+	M_TEMP.SetIdentity(); M_TEMP.SetT(pNode->GetScalingPivot(FbxNode::eSourcePivot));
+	M_OUT = M_OUT * M_TEMP; // T * Roff * Rp * Rpre * R * Rpost * Rp-1 * Soff * Sp
+	M_TEMP.SetIdentity(); M_TEMP.SetS(pNode->EvaluateLocalScaling(time));
+	M_OUT = M_OUT * M_TEMP; // T * Roff * Rp * Rpre * R * Rpost * Rp-1 * Soff * Sp * S
+	M_TEMP.SetIdentity(); M_TEMP.SetT(pNode->GetScalingPivot(FbxNode::eSourcePivot));
+	M_TEMP = M_TEMP.Inverse();
+	M_OUT = M_OUT * M_TEMP; // T * Roff * Rp * Rpre * R * Rpost * Rp-1 * Soff * Sp * S * Sp-1
+
+	FbxAMatrix matrixGeo;
+	matrixGeo.SetIdentity();
+
+	const FbxVector4 lT = pNode->GetGeometricTranslation(FbxNode::eSourcePivot);
+	const FbxVector4 lR = pNode->GetGeometricRotation(FbxNode::eSourcePivot);
+	const FbxVector4 lS = pNode->GetGeometricScaling(FbxNode::eSourcePivot);
+	matrixGeo.SetT(lT);
+	matrixGeo.SetR(lR);
+	matrixGeo.SetS(lS);
+
+	return M_OUT * matrixGeo;
+}
+
 FbxAMatrix getWorldTransform(FbxNode* pNode) {
 	FbxAMatrix matrixGeo;
 	matrixGeo.SetIdentity();
@@ -2767,6 +2809,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			else if (max_wa && vc)
 			{
 				has_vc = true;
+				nif_color = vcs[vertex_index];
 			}
 
 			triangle[i] = vertex_index;
@@ -2999,7 +3042,6 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 
 			if (factor.IsValid())
 			{
-				printf("%f", factor.Get());
 				shader->SetAlpha(factor.Get());
 			}
 
@@ -3039,10 +3081,11 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			int pack_flags_2 = get_property<FbxInt>(material, "shader_flags_2");
 			unsigned int f1; f1 |= pack_flags_1;
 			unsigned int f2; f2 |= pack_flags_2;
-
-			shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(pack_flags_1)); // = get_property<FbxBool>(material, "color_blending_enable");
-			shader->SetShaderFlags2_sk(SkyrimShaderPropertyFlags2(pack_flags_2));
-
+			if (material->FindProperty("shader_flags_1").IsValid())
+			{
+				shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(pack_flags_1)); // = get_property<FbxBool>(material, "color_blending_enable");
+				shader->SetShaderFlags2_sk(SkyrimShaderPropertyFlags2(pack_flags_2));
+			}
 		}
 	}
 
@@ -3165,11 +3208,16 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 		for (const auto& time : times) {
 			FbxTime lTime;
 			lTime.SetSecondDouble((float)time);
+			FbxVector4 pos = node->EvaluateGlobalTransform(lTime).GetT();
 			FbxVector4 trans =
 			{
-				curveX->Evaluate(lTime),
-				curveY->Evaluate(lTime),
-				curveZ->Evaluate(lTime)
+				pos[0],
+				pos[1],
+				pos[2]
+				//curveX->Evaluate(lTime),
+				//curveY->Evaluate(lTime),
+				//curveZ->Evaluate(lTime)
+				
 			};
 
 			Key<Vector3 > temp;
@@ -3209,6 +3257,10 @@ class Accessor<NiTransformData> {
 public:
 	Accessor(NiTransformDataRef ref) {
 		ref->numRotationKeys = 1;
+	}
+
+	Accessor(NiTransformDataRef ref, int size) {
+		ref->numRotationKeys = size;
 	}
 };
 
@@ -3323,330 +3375,280 @@ void addScaleKeys(NiTransformInterpolator* interpolator, FbxNode* node, FbxAnimC
 	}
 }
 
+void fix_interpolation(vector<Key<float >>& keyvalues)
+{
+	for (int i = 1; i < keyvalues.size() - 1; i++)
+	{
+		Key<float >& prev = keyvalues[i - 1];
+		Key<float >& current = keyvalues[i];
+		Key<float >& next = keyvalues[i + 1];
+
+		AdjustBezier(prev.data, prev.time, prev.backward_tangent,
+			next.data, next.time, next.forward_tangent,
+			current.time, current.data, current.forward_tangent, current.backward_tangent);
+	}
+}
+
+void fix_interpolation(vector<Key<Vector3 >>& keyvalues)
+{
+	for (int i = 1; i < keyvalues.size() - 1; i++)
+	{
+		Key<Vector3 >& prev = keyvalues[i - 1];
+		Key<Vector3 >& current = keyvalues[i];
+		Key<Vector3 >& next = keyvalues[i + 1];
+
+		for (int j = 0; j<3; j++)
+			AdjustBezier(prev.data[j], prev.time, prev.backward_tangent[j],
+				next.data[j], next.time, next.forward_tangent[j],
+				current.time, current.data[j], current.forward_tangent[j], current.backward_tangent[j]);
+	}
+}
+
+inline hkTransform to_havok_matrix(const FbxAMatrix& m)
+{
+	hkTransform out;
+	out(0, 0) = m.Get(0, 0); out(0, 1) = m.Get(0, 1); out(0, 2) = m.Get(0, 2); out(0, 3) = m.Get(3, 0);
+	out(1, 0) = m.Get(1, 0); out(1, 1) = m.Get(1, 1); out(1, 2) = m.Get(1, 2); out(1, 3) = m.Get(3, 1);
+	out(2, 0) = m.Get(2, 0); out(2, 1) = m.Get(2, 1); out(2, 2) = m.Get(2, 2); out(2, 3) = m.Get(3, 2);
+	out(3, 0) = m.Get(0, 3); out(3, 1) = m.Get(1, 3); out(3, 2) = m.Get(2, 3); out(3, 3) = m.Get(3, 3);
+	return out;
+}
+
+inline FbxAMatrix to_havok_matrix(const hkTransform& m)
+{
+	FbxAMatrix out;
+	out[0][0] = m(0, 0); out[0][1] = m(0, 1); out[0][2] = m(0, 2); out[0][3] = m(3, 0);
+	out[1][0] = m(1, 0); out[1][1] = m(1, 1); out[1][2] = m(1, 2); out[1][3] = m(3, 1);
+	out[2][0] = m(2, 0); out[2][1] = m(2, 1); out[2][2] = m(2, 2); out[2][3] = m(3, 2);
+	out[3][0] = m(0, 3); out[3][1] = m(1, 3); out[3][2] = m(2, 3); out[3][3] = m(3, 3);
+	return out;
+}
+
+set<float> convert_rigid_animation(NiTransformInterpolatorRef interpolator, FbxAnimLayer* pAnimLayer, FbxNode* animated_node, float offset = 0.0f)
+{
+	//collect all the original keys
+	vector<FbxAnimCurve*> curves = {
+		animated_node->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X),
+		animated_node->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y),
+		animated_node->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z),
+		animated_node->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X),
+		animated_node->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y),
+		animated_node->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z),
+		animated_node->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X),
+		animated_node->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y),
+		animated_node->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z)
+	};
+
+	KeyType translation_interp = LINEAR_KEY;
+	KeyType rotation_I_interp = LINEAR_KEY;
+	KeyType rotation_J_interp = LINEAR_KEY;
+	KeyType rotation_K_interp = LINEAR_KEY;
+	KeyType scale_interp = LINEAR_KEY;
+
+	set<float> key_times;
+
+	for (int k = 0; k<curves.size(); k++)
+	{
+		FbxAnimCurve* curve = curves[k];
+		if (curve != NULL)
+		{
+			int IkeySize = curve->KeyGetCount();
+			for (int i = 0; i < IkeySize; i++) {
+				FbxAnimCurveKey fbx_key = curve->KeyGet(i);
+				key_times.insert(fbx_key.GetTime().GetSecondDouble());
+				FbxAnimCurveDef::EInterpolationType type = fbx_key.GetInterpolation();
+				KeyType nif_type;
+				switch (type)
+				{
+				case FbxAnimCurveDef::EInterpolationType::eInterpolationLinear:
+					nif_type = LINEAR_KEY;
+					break;
+				case FbxAnimCurveDef::EInterpolationType::eInterpolationConstant:
+					nif_type = CONST_KEY;
+					break;
+				case FbxAnimCurveDef::EInterpolationType::eInterpolationCubic:
+					nif_type = QUADRATIC_KEY;
+					break;
+				default:
+					break;
+				}
+
+				if (k < 3 && nif_type > translation_interp) translation_interp = nif_type;
+				if (k == 3 && nif_type > rotation_I_interp) rotation_I_interp = nif_type;
+				if (k == 4 && nif_type > rotation_J_interp) rotation_J_interp = nif_type;
+				if (k == 5 && nif_type > rotation_K_interp) rotation_K_interp = nif_type;
+				if (k > 5 && nif_type > scale_interp) scale_interp = nif_type;
+
+			}
+		}
+		else {
+			if (k < 3 && curves[0] == NULL && curves[1] == NULL && curves[2] == NULL) translation_interp = CONST_KEY;
+			if (k == 3) rotation_I_interp = CONST_KEY;
+			if (k == 4) rotation_J_interp = CONST_KEY;
+			if (k == 5) rotation_K_interp = CONST_KEY;
+			if (k > 5) scale_interp = CONST_KEY;
+		}
+	}
+
+	if (!key_times.empty()) key_times.insert(offset);
+
+	NiTransformDataRef data = new NiTransformData();
+
+	vector<Key<Vector3 > > translation_key_values;
+	vector<Key<float > > rotation_key_I_values;
+	vector<Key<float > > rotation_key_J_values;
+	vector<Key<float > > rotation_key_K_values;
+	vector<Key<Quaternion>> quat_values;
+	vector<Key<float > > scale_key_values;
+
+	FbxTime fbx_Time;
+	for (const auto& time : key_times)
+	{
+		fbx_Time.SetSecondDouble((float)time);
+		FbxAMatrix transform = getLocalNodeTransformFromProperties(animated_node, fbx_Time);
+		FbxVector4 translation = transform.GetT();
+		FbxVector4 rotation = transform.GetR();
+		FbxVector4 scale = transform.GetS();
+
+		Key<Vector3> translation_key;
+		Key<float > rotation_key_I;
+		Key<float > rotation_key_J;
+		Key<float > rotation_key_K;
+		Key<Quaternion> quat_rotation_key;
+		Key<float> scale_key;
+
+		translation_key.time = time - offset;
+		translation_key.data = { (float)translation[0], (float)translation[1], (float)translation[2] };
+		translation_key.forward_tangent = { 0, 0, 0 };
+		translation_key.backward_tangent = { 0, 0, 0 };
+		translation_key_values.push_back(translation_key);
+
+		rotation_key_I.time = time - offset;
+		rotation_key_J.time = time - offset;
+		rotation_key_K.time = time - offset;
+		rotation_key_I.data = deg2rad(rotation[0]);
+		rotation_key_J.data = deg2rad(rotation[1]);
+		rotation_key_K.data = deg2rad(rotation[2]);
+		rotation_key_I.forward_tangent = 0;
+		rotation_key_I.backward_tangent = 0;
+		rotation_key_J.forward_tangent = 0;
+		rotation_key_J.backward_tangent = 0;
+		rotation_key_K.forward_tangent = 0;
+		rotation_key_K.backward_tangent = 0;
+		rotation_key_I_values.push_back(rotation_key_I);
+		rotation_key_J_values.push_back(rotation_key_J);
+		rotation_key_K_values.push_back(rotation_key_K);
+
+		scale_key.time = time - offset;
+		scale_key.data = scale[0];
+		scale_key.forward_tangent = 0;
+		scale_key.backward_tangent = 0;
+		scale_key_values.push_back(scale_key);
+	}
+
+	//Fix interpolation
+	if (translation_interp == QUADRATIC_KEY)
+		fix_interpolation(translation_key_values);
+	if (rotation_I_interp == QUADRATIC_KEY)
+		fix_interpolation(rotation_key_I_values);
+	if (rotation_J_interp == QUADRATIC_KEY)
+		fix_interpolation(rotation_key_J_values);
+	if (rotation_K_interp == QUADRATIC_KEY)
+		fix_interpolation(rotation_key_K_values);
+	if (scale_interp == QUADRATIC_KEY)
+		fix_interpolation(scale_key_values);
+
+	KeyGroup<Vector3 > translation_keys;
+	translation_keys.interpolation = translation_interp;
+	translation_keys.numKeys = translation_key_values.size();
+	translation_keys.keys = translation_key_values;
+	data->SetTranslations(translation_keys);
+
+	Niflib::array<3, KeyGroup<float > > rotation_keys;
+	rotation_keys[0].interpolation = rotation_I_interp;
+	rotation_keys[0].numKeys = rotation_key_I_values.size();
+	rotation_keys[0].keys = rotation_key_I_values;
+	rotation_keys[1].interpolation = rotation_J_interp;
+	rotation_keys[1].numKeys = rotation_key_J_values.size();
+	rotation_keys[1].keys = rotation_key_J_values;
+	rotation_keys[2].interpolation = rotation_K_interp;
+	rotation_keys[2].numKeys = rotation_key_K_values.size();
+	rotation_keys[2].keys = rotation_key_K_values;
+
+	Accessor<NiTransformData> fix_rot(data);
+	data->SetXyzRotations(rotation_keys);
+	data->SetRotationType(XYZ_ROTATION_KEY);
+
+	KeyGroup<float > scale_keys;
+	scale_keys.interpolation = scale_interp;
+	scale_keys.numKeys = scale_key_values.size();
+	scale_keys.keys = scale_key_values;
+	data->SetScales(scale_keys);
+
+	interpolator->SetData(data);
+
+	return key_times;
+}
+
 double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_root_name, double last_start, double last_stop)
 {
 	// Display general curves.
 	vector<ControlledBlock > blocks = sequence->GetControlledBlocks();
 	for (FbxNode* pNode : unskinned_bones)
 	{
-		//FbxNode* pNode = pair.first;
-		FbxAnimCurve* lXAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
-		FbxAnimCurve* lYAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
-		FbxAnimCurve* lZAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
-		FbxAnimCurve* lIAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-		FbxAnimCurve* lJAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-		FbxAnimCurve* lKAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-		FbxAnimCurve* lsXAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-		FbxAnimCurve* lsYAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-		FbxAnimCurve* lsZAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+		NiTransformInterpolatorRef interpolator = new NiTransformInterpolator();
+		NiQuatTransform trans;
+		unsigned int float_min = 0xFF7FFFFF;
+		float* lol = (float*)&float_min;
 
-		if (lXAnimCurve->KeyGetCount()>0 || lYAnimCurve->KeyGetCount()>0 || lZAnimCurve->KeyGetCount()>0 ||
-			lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL ||
-			lsXAnimCurve != NULL || lsYAnimCurve != NULL || lsZAnimCurve != NULL)
+		trans.translation = Vector3(*lol, *lol, *lol);
+		trans.rotation = Quaternion(*lol, *lol, *lol, *lol);
+		trans.scale = *lol;
+		interpolator->SetTransform(trans);
+
+		set<float> keys = convert_rigid_animation(interpolator, pAnimLayer, pNode, last_start);
+		if (keys.empty())
+			continue;
+
+		NiObjectRef target = conversion_Map[pNode];
+		targets.insert(target);
+		if (target->IsDerivedType(NiNode::TYPE))
 		{
-
-			NiObjectRef target = conversion_Map[pNode];
-			targets.insert(target);
-
-			NiTransformInterpolatorRef interpolator = new NiTransformInterpolator();
-			NiQuatTransform trans;
-			unsigned int float_min = 0xFF7FFFFF;
-			float* lol = (float*)&float_min;
-			trans.translation = Vector3(*lol, *lol, *lol);
-			trans.rotation = Quaternion(*lol, *lol, *lol, *lol);
-			trans.scale = *lol;
-			interpolator->SetTransform(trans);
-
-			if (lXAnimCurve->KeyGetCount()>0 || lYAnimCurve->KeyGetCount()>0 || lZAnimCurve->KeyGetCount()>0) {
-				addTranslationKeys(interpolator, pNode, lXAnimCurve, lYAnimCurve, lZAnimCurve, last_start);
-			}
-
-			if (lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL) {
-				addRotationKeys(interpolator, pNode, lIAnimCurve, lJAnimCurve, lKAnimCurve, last_start);
-			}
-
-			if (lsXAnimCurve != NULL ) {
-				addScaleKeys(interpolator, pNode, lsXAnimCurve, lsYAnimCurve, lsZAnimCurve, last_start);
-			}
-
-			ControlledBlock block;
-			block.interpolator = interpolator;
-			block.nodeName = DynamicCast<NiAVObject>(conversion_Map[pNode])->GetName();
-			block.controllerType = "NiTransformController";
-			block.controller = multiController;
-		
-			blocks.push_back(block);
-
-			sequence->SetControlledBlocks(blocks);
-
-			sequence->SetStartTime(0.0);
-			sequence->SetStopTime(last_stop - last_start);
-			sequence->SetManager(manager);
-			sequence->SetAccumRootName(accum_root_name);
-
-			NiTextKeyExtraDataRef extra_data = new NiTextKeyExtraData();
-			extra_data->SetName(string(""));
-			Key<IndexString> start_key;
-			start_key.time = 0;
-			start_key.data = "start";
-
-			Key<IndexString> end_key;
-			end_key.time = last_stop - last_start;
-			end_key.data = "end";
-
-			extra_data->SetTextKeys({ start_key,end_key });
-			extra_data->SetNextExtraData(NULL);
-
-			sequence->SetTextKeys(extra_data);
-
-			sequence->SetFrequency(1.0);
-			sequence->SetCycleType(CYCLE_CLAMP);
-
+			DynamicCast<NiNode>(target)->SetFlags(142);
 		}
 
-		
+		ControlledBlock block;
+		block.interpolator = interpolator;
+		block.nodeName = DynamicCast<NiAVObject>(conversion_Map[pNode])->GetName();
+		block.controllerType = "NiTransformController";
+		block.controller = multiController;
 
-		//cannot support the rest right now
-#if 0
-	//	if (lAnimCurve)
-	//	{
-	//		FBXSDK_printf("        TX\n");
-	//	}
-	//	
-	//	if (lAnimCurve)
-	//	{
-	//		FBXSDK_printf("        TY\n");
-	//	}
-	//	
-	//	if (lAnimCurve)
-	//	{
-	//		FBXSDK_printf("        TZ\n");
-	//	}
-	//	
-	//	if (lAnimCurve)
-	//	{
-	//		FBXSDK_printf("        RX\n");
-	//	}
-	//	
-	//	if (lAnimCurve)
-	//	{
-	//		FBXSDK_printf("        RY\n");
-	//	}
-	//	lAnimCurve = ;
-	//	if (lAnimCurve)
-	//	{
-	//		FBXSDK_printf("        RZ\n");
-	//	}
-	//	lAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
-	//	if (lAnimCurve)
-	//	{
-	//		FBXSDK_printf("        SX\n");
-	//	}
-	//	lAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-	//	if (lAnimCurve)
-	//	{
-	//		FBXSDK_printf("        SY\n");
-	//	}
-	//	lAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-	//	if (lAnimCurve)
-	//	{
-	//		FBXSDK_printf("        SZ\n");
-	//	}
-	//
-	//// Display curves specific to a light or marker.
-	//FbxNodeAttribute* lNodeAttribute = pNode->GetNodeAttribute();
-	//if (lNodeAttribute)
-	//{
-	//	lAnimCurve = lNodeAttribute->Color.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COLOR_RED);
-	//	if (lAnimCurve)
-	//	{
-	//		FBXSDK_printf("        Red\n");
-	//	}
-	//	lAnimCurve = lNodeAttribute->Color.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COLOR_GREEN);
-	//	if (lAnimCurve)
-	//	{
-	//		FBXSDK_printf("        Green\n");
-	//	}
-	//	lAnimCurve = lNodeAttribute->Color.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COLOR_BLUE);
-	//	if (lAnimCurve)
-	//	{
-	//		FBXSDK_printf("        Blue\n");
-	//	}
-	//	// Display curves specific to a light.
-	//	FbxLight* light = pNode->GetLight();
-	//	if (light)
-	//	{
-	//		lAnimCurve = light->Intensity.GetCurve(pAnimLayer);
-	//		if (lAnimCurve)
-	//		{
-	//			FBXSDK_printf("        Intensity\n");
-	//		}
-	//		lAnimCurve = light->OuterAngle.GetCurve(pAnimLayer);
-	//		if (lAnimCurve)
-	//		{
-	//			FBXSDK_printf("        Outer Angle\n");
-	//		}
-	//		lAnimCurve = light->Fog.GetCurve(pAnimLayer);
-	//		if (lAnimCurve)
-	//		{
-	//			FBXSDK_printf("        Fog\n");
-	//		}
-	//	}
-	//	// Display curves specific to a camera.
-	//	FbxCamera* camera = pNode->GetCamera();
-	//	if (camera)
-	//	{
-	//		lAnimCurve = camera->FieldOfView.GetCurve(pAnimLayer);
-	//		if (lAnimCurve)
-	//		{
-	//			FBXSDK_printf("        Field of View\n");
-	//		}
-	//		lAnimCurve = camera->FieldOfViewX.GetCurve(pAnimLayer);
-	//		if (lAnimCurve)
-	//		{
-	//			FBXSDK_printf("        Field of View X\n");
-	//		}
-	//		lAnimCurve = camera->FieldOfViewY.GetCurve(pAnimLayer);
-	//		if (lAnimCurve)
-	//		{
-	//			FBXSDK_printf("        Field of View Y\n");
-	//		}
-	//		lAnimCurve = camera->OpticalCenterX.GetCurve(pAnimLayer);
-	//		if (lAnimCurve)
-	//		{
-	//			FBXSDK_printf("        Optical Center X\n");
-	//		}
-	//		lAnimCurve = camera->OpticalCenterY.GetCurve(pAnimLayer);
-	//		if (lAnimCurve)
-	//		{
-	//			FBXSDK_printf("        Optical Center Y\n");
-	//		}
-	//		lAnimCurve = camera->Roll.GetCurve(pAnimLayer);
-	//		if (lAnimCurve)
-	//		{
-	//			FBXSDK_printf("        Roll\n");
-	//		}
-	//	}
-	//	// Display curves specific to a geometry.
-	//	if (lNodeAttribute->GetAttributeType() == FbxNodeAttribute::eMesh ||
-	//		lNodeAttribute->GetAttributeType() == FbxNodeAttribute::eNurbs ||
-	//		lNodeAttribute->GetAttributeType() == FbxNodeAttribute::ePatch)
-	//	{
-	//		FbxGeometry* lGeometry = (FbxGeometry*)lNodeAttribute;
-	//		int lBlendShapeDeformerCount = lGeometry->GetDeformerCount(FbxDeformer::eBlendShape);
-	//		for (int lBlendShapeIndex = 0; lBlendShapeIndex<lBlendShapeDeformerCount; ++lBlendShapeIndex)
-	//		{
-	//			FbxBlendShape* lBlendShape = (FbxBlendShape*)lGeometry->GetDeformer(lBlendShapeIndex, FbxDeformer::eBlendShape);
-	//			int lBlendShapeChannelCount = lBlendShape->GetBlendShapeChannelCount();
-	//			for (int lChannelIndex = 0; lChannelIndex<lBlendShapeChannelCount; ++lChannelIndex)
-	//			{
-	//				FbxBlendShapeChannel* lChannel = lBlendShape->GetBlendShapeChannel(lChannelIndex);
-	//				const char* lChannelName = lChannel->GetName();
-	//				lAnimCurve = lGeometry->GetShapeChannel(lBlendShapeIndex, lChannelIndex, pAnimLayer, true);
-	//				if (lAnimCurve)
-	//				{
-	//					FBXSDK_printf("        Shape %s\n", lChannelName);
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
-	//// Display curves specific to properties
-	//FbxProperty lProperty = pNode->GetFirstProperty();
-	//while (lProperty.IsValid())
-	//{
-	//	if (lProperty.GetFlag(FbxPropertyFlags::eUserDefined))
-	//	{
-	//		FbxString lFbxFCurveNodeName = lProperty.GetName();
-	//		FbxAnimCurveNode* lCurveNode = lProperty.GetCurveNode(pAnimLayer);
-	//		if (!lCurveNode) {
-	//			lProperty = pNode->GetNextProperty(lProperty);
-	//			continue;
-	//		}
-	//		FbxDataType lDataType = lProperty.GetPropertyDataType();
-	//		if (lDataType.GetType() == eFbxBool || lDataType.GetType() == eFbxDouble || lDataType.GetType() == eFbxFloat || lDataType.GetType() == eFbxInt)
-	//		{
-	//			FbxString lMessage;
-	//			lMessage = "        Property ";
-	//			lMessage += lProperty.GetName();
-	//			if (lProperty.GetLabel().GetLen() > 0)
-	//			{
-	//				lMessage += " (Label: ";
-	//				lMessage += lProperty.GetLabel();
-	//				lMessage += ")";
-	//			};
-	//			FBXSDK_printf(lMessage.Buffer());
-	//			for (int c = 0; c < lCurveNode->GetCurveCount(0U); c++)
-	//			{
-	//				lAnimCurve = lCurveNode->GetCurve(0U, c);
-	//				//if (lAnimCurve)
-	//				//	DisplayCurve(lAnimCurve);
-	//			}
-	//		}
-	//		else if (lDataType.GetType() == eFbxDouble3 || lDataType.GetType() == eFbxDouble4 || lDataType.Is(FbxColor3DT) || lDataType.Is(FbxColor4DT))
-	//		{
-	//			char* lComponentName1 = (lDataType.Is(FbxColor3DT) || lDataType.Is(FbxColor4DT)) ? (char*)FBXSDK_CURVENODE_COLOR_RED : (char*)"X";
-	//			char* lComponentName2 = (lDataType.Is(FbxColor3DT) || lDataType.Is(FbxColor4DT)) ? (char*)FBXSDK_CURVENODE_COLOR_GREEN : (char*)"Y";
-	//			char* lComponentName3 = (lDataType.Is(FbxColor3DT) || lDataType.Is(FbxColor4DT)) ? (char*)FBXSDK_CURVENODE_COLOR_BLUE : (char*)"Z";
-	//			FbxString      lMessage;
+		blocks.push_back(block);
 
-	//			lMessage = "        Property ";
-	//			lMessage += lProperty.GetName();
-	//			if (lProperty.GetLabel().GetLen() > 0)
-	//			{
-	//				lMessage += " (Label: ";
-	//				lMessage += lProperty.GetLabel();
-	//				lMessage += ")";
-	//			}
-	//			FBXSDK_printf(lMessage.Buffer());
-	//			for (int c = 0; c < lCurveNode->GetCurveCount(0U); c++)
-	//			{
-	//				lAnimCurve = lCurveNode->GetCurve(0U, c);
-	//				if (lAnimCurve)
-	//				{
-	//					FBXSDK_printf("        Component ", lComponentName1);
-	//				}
-	//			}
-	//			for (int c = 0; c < lCurveNode->GetCurveCount(1U); c++)
-	//			{
-	//				lAnimCurve = lCurveNode->GetCurve(1U, c);
-	//				if (lAnimCurve)
-	//				{
-	//					FBXSDK_printf("        Component ", lComponentName2);
-	//				}
-	//			}
-	//			for (int c = 0; c < lCurveNode->GetCurveCount(2U); c++)
-	//			{
-	//				lAnimCurve = lCurveNode->GetCurve(2U, c);
-	//				if (lAnimCurve)
-	//				{
-	//					FBXSDK_printf("        Component ", lComponentName3);
-	//				}
-	//			}
-	//		}
-	//		else if (lDataType.GetType() == eFbxEnum)
-	//		{
-	//			FbxString lMessage;
-	//			lMessage = "        Property ";
-	//			lMessage += lProperty.GetName();
-	//			if (lProperty.GetLabel().GetLen() > 0)
-	//			{
-	//				lMessage += " (Label: ";
-	//				lMessage += lProperty.GetLabel();
-	//				lMessage += ")";
-	//			};
-	//			FBXSDK_printf(lMessage.Buffer());
-	//			for (int c = 0; c < lCurveNode->GetCurveCount(0U); c++)
-	//			{
-	//				lAnimCurve = lCurveNode->GetCurve(0U, c);
-	//				//if (lAnimCurve)
-	//				//	DisplayListCurve(lAnimCurve, &lProperty);
-	//			}
-	//		}
-	//	}
-	//	lProperty = pNode->GetNextProperty(lProperty);
-	//} // while
-#endif
+		sequence->SetControlledBlocks(blocks);
+
+		sequence->SetStartTime(0.0);
+		sequence->SetStopTime(last_stop-last_start);
+		sequence->SetManager(manager);
+		sequence->SetAccumRootName(accum_root_name);
+
+		NiTextKeyExtraDataRef extra_data = new NiTextKeyExtraData();
+		extra_data->SetName(string(""));
+		Key<IndexString> start_key;
+		start_key.time = 0.0;
+		start_key.data = "start";
+
+		Key<IndexString> end_key;
+		end_key.time = last_stop - last_start;
+		end_key.data = "end";
+
+		extra_data->SetTextKeys({ start_key,end_key });
+		extra_data->SetNextExtraData(NULL);
+
+		sequence->SetTextKeys(extra_data);
+
+		sequence->SetFrequency(1.0);
+		sequence->SetCycleType(CYCLE_CLAMP);
 	}
 	return 0.0;
 }
@@ -3661,6 +3663,7 @@ void FBXWrangler::buildKF() {
 	for (int i = 0; i < unskinned_animations.size(); i++)
 	{
 		FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(i);
+		scene->SetCurrentAnimationStack(lAnimStack);
 		//could contain more than a layer, but by convention we wean just the first
 		FbxAnimLayer* lAnimLayer = lAnimStack->GetMember<FbxAnimLayer>(0);
 		FbxTimeSpan reference = lAnimStack->GetReferenceTimeSpan();
@@ -3673,6 +3676,9 @@ void FBXWrangler::buildKF() {
 		sequences_names.insert(string(lAnimStack->GetName()));
 		sequences.push_back(sequence);
 	}
+
+	//Reset stack
+	scene->SetCurrentAnimationStack(scene->GetSrcObject<FbxAnimStack>(0));
 
 	vector<NiAVObject * > etargets = transformController->GetExtraTargets();
 	NiDefaultAVObjectPaletteRef palette = new NiDefaultAVObjectPalette();
