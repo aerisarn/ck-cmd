@@ -697,6 +697,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			gMaterial->Shininess = material_property->GetGlossiness();
 			gMaterial->ShadingModel.Set(lShadingName.c_str());
 
+			//Environment
 			FbxProperty shader_type = gMaterial->FindProperty("shader_type");
 			if (!shader_type.IsValid())
 			{
@@ -704,6 +705,14 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				shader_type.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
 			}
 			shader_type.Set(FbxString(NifFile::shader_type_name(material_property->GetSkyrimShaderType())));
+
+			FbxProperty environment_map_scale = gMaterial->FindProperty("environment_map_scale");
+			if (!environment_map_scale.IsValid())
+			{
+				environment_map_scale = FbxProperty::Create(gMaterial, FbxDoubleDT, "environment_map_scale");
+				environment_map_scale.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+			}
+			environment_map_scale.Set(FbxDouble(material_property->GetEnvironmentMapScale()));
 
 			if (material_property->GetTextureSet() != NULL)
 			{
@@ -3078,6 +3087,16 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 				shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(pack_flags_1)); // = get_property<FbxBool>(material, "color_blending_enable");
 				shader->SetShaderFlags2_sk(SkyrimShaderPropertyFlags2(pack_flags_2));
 			}
+			FbxProperty shader_type = material->FindProperty("shader_type");
+			if (shader_type.IsValid())
+			{
+				shader->SetSkyrimShaderType(NifFile::shader_type_value(shader_type.Get<FbxString>().Buffer()));
+			}
+			FbxProperty environment_map_scale = material->FindProperty("environment_map_scale");
+			if (environment_map_scale.IsValid())
+			{
+				shader->SetEnvironmentMapScale((float)environment_map_scale.Get<FbxDouble>());
+			}
 		}
 	}
 
@@ -3416,6 +3435,32 @@ inline FbxAMatrix to_havok_matrix(const hkTransform& m)
 	return out;
 }
 
+template <typename T> int sgn(T val) {
+	return (T(0) < val) - (val < T(0));
+}
+
+void handle_singularities(vector<Key<float > >& keys, set<float>& times)
+{
+	bool crossed = false;
+	int sign = 0;
+	for (int i = 1; i < keys.size() - 1; i++)
+	{
+		Key<float >& prev_key = keys[i - 1];
+		Key<float >& current_key = keys[i];
+		Key<float >& next_key = keys[i + 1];
+		
+		
+		if (crossed)
+			current_key.data = sign * (2 * M_PI - current_key.data);
+		if (current_key.time - prev_key.time <= 0.3 && abs(current_key.data - prev_key.data) > M_PI_2)
+		{
+			sign = sgn(prev_key.data);
+			crossed = !crossed;
+			current_key.data = sign * (2 * M_PI - current_key.data);
+		}
+	}
+}
+
 set<float> convert_rigid_animation(NiTransformInterpolatorRef interpolator, FbxAnimLayer* pAnimLayer, FbxNode* animated_node, float offset = 0.0f)
 {
 	//collect all the original keys
@@ -3510,7 +3555,7 @@ set<float> convert_rigid_animation(NiTransformInterpolatorRef interpolator, FbxA
 		Key<float> scale_key;
 
 		translation_key.time = time - offset;
-		translation_key.data = { (float)translation[0], (float)translation[1], (float)translation[2] };
+		translation_key.data = { 0,0,0 };//{ (float)translation[0], (float)translation[1], (float)translation[2] };
 		translation_key.forward_tangent = { 0, 0, 0 };
 		translation_key.backward_tangent = { 0, 0, 0 };
 		translation_key_values.push_back(translation_key);
@@ -3537,6 +3582,10 @@ set<float> convert_rigid_animation(NiTransformInterpolatorRef interpolator, FbxA
 		scale_key.backward_tangent = 0;
 		scale_key_values.push_back(scale_key);
 	}
+
+	handle_singularities(rotation_key_I_values, key_times);
+	handle_singularities(rotation_key_J_values, key_times);
+	handle_singularities(rotation_key_K_values, key_times);
 
 	//Fix interpolation
 	if (translation_interp == QUADRATIC_KEY)
@@ -4332,9 +4381,12 @@ void FBXWrangler::buildCollisions()
 				parent = parent->GetParent();
 			}
 
-
-			bodies_meshes_map.insert({ body,
-				(FbxMesh*)root->GetNodeAttribute() });
+			for (int i = 0; i < root->GetNodeAttributeCount(); i++)
+			{
+				if (root->GetNodeAttributeByIndex(i)->GetAttributeType() == FbxNodeAttribute::eMesh)
+					bodies_meshes_map.insert({ body,
+						(FbxMesh*)root->GetNodeAttributeByIndex(i) });
+			}
 		}
 
 	};
