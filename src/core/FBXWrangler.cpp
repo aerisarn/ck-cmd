@@ -4238,7 +4238,7 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 			bhkTransformShapeRef transform = DynamicCast<bhkTransformShape>(body->GetShape());
 			Matrix44 t = transform->GetTransform();
 			body->SetTranslation(t.GetTrans());
-			Quaternion q = t.GetRot().AsQuaternion();
+			Quaternion q = t.Submatrix(3,3).AsQuaternion();
 			Niflib::hkQuaternion hkq;
 			hkq.x = q.x;
 			hkq.y = q.y;
