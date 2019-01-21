@@ -638,6 +638,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	deque<FbxNode*> build_stack;
 	set<void*>& alreadyVisitedNodes;
 	map<NiSkinInstance*, NiTriBasedGeom*> skins;
+	map<NiSkinInstance*, FbxNode*> fbx_meshes_skin_parent;
 	map<bhkRigidBodyRef, FbxNode*> bodies;
 	set<NiControllerManager*>& managers;
 	NifFile& nif_file;
@@ -775,9 +776,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			}
 
 			//shader flags save
-			int pack_flags_1 = 0; pack_flags_1 |= material_property->GetShaderFlags1_sk();
-			int pack_flags_2 = 0; pack_flags_2 |= material_property->GetShaderFlags2_sk();
-
 			set_property(gMaterial, "shader_flags_1", FbxInt(material_property->GetShaderFlags1_sk()), FbxIntDT);
 			set_property(gMaterial, "shader_flags_2", FbxInt(material_property->GetShaderFlags2_sk()), FbxIntDT);
 
@@ -832,6 +830,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		//defer skin
 		if (node.GetSkinInstance() != NULL)
 		{
+			fbx_meshes_skin_parent[node.GetSkinInstance()] = parent;
 			alreadyVisitedNodes.insert(node.GetSkinInstance());
 			if (node.GetSkinInstance()->GetData() != NULL)
 				alreadyVisitedNodes.insert(node.GetSkinInstance()->GetData());
@@ -841,8 +840,11 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 
 		FbxSurfaceMaterial* material = extract_Material<NiTriStrips, VER_20_2_0_7>(node);
+		int material_index = -1;
+		if (material != NULL)
+			material_index = parent->AddMaterial(material);
 
-		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material);
+		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material_index);
 	}
 
 	FbxNode* AddGeometry(FbxNode* parent, NiTriShape& node) {
@@ -873,6 +875,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		//defer skin
 		if (node.GetSkinInstance() != NULL)
 		{
+			fbx_meshes_skin_parent[node.GetSkinInstance()] = parent;
 			alreadyVisitedNodes.insert(node.GetSkinInstance());
 			if (node.GetSkinInstance()->GetData() != NULL)
 				alreadyVisitedNodes.insert(node.GetSkinInstance()->GetData());
@@ -884,8 +887,11 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			return FbxNode::Create(&scene, shapeName.c_str());
 
 		FbxSurfaceMaterial* material = extract_Material<NiTriShape, VER_20_2_0_7>(node);
+		int material_index = -1;
+		if (material != NULL)
+			material_index = parent->AddMaterial(material);
 
-		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material);
+		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material_index);
 	}
 
 	FbxNode* AddGeometry(FbxNode* parent, const string& shapeName, 
@@ -894,7 +900,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 							const vector<Triangle>& tris,
 							vector<TexCoord>& uvs, 
 							vector<Color4>& vcs, 
-							FbxSurfaceMaterial* material) {
+							int material_index) {
 
 		FbxMesh* m = FbxMesh::Create(&scene, shapeName.c_str());
 
@@ -932,16 +938,16 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			if (vcElement)
 				vcElement->GetDirectArray().Add(FbxColor(vcs[i].r, vcs[i].g, vcs[i].b, vcs[i].a));
 		}
-
+		if (material_index != -1)
+		{
+			m->InitMaterialIndices(FbxLayerElement::EMappingMode::eAllSame);
+			FbxLayerElementMaterial* layerElement = m->GetElementMaterial();
+			FbxLayerElementArrayTemplate<int>& iarray = layerElement->GetIndexArray();
+			iarray.SetAt(0, material_index);
+		}
 		if (!tris.empty()) {
 			for (auto &t : tris) {
-				if (material != NULL)
-				{
-					m->BeginPolygon(0);
-				}
-				else {
-					m->BeginPolygon(1);
-				}
+				m->BeginPolygon(-1);
 				m->AddPolygon(t.v1);
 				m->AddPolygon(t.v2);
 				m->AddPolygon(t.v3);
@@ -949,16 +955,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			}
 		}
 
-		//FbxNode* mNode = FbxNode::Create(&scene, shapeName.c_str());
-		//mNode->SetNodeAttribute(m);
-
 		parent->AddNodeAttribute(m);
-
-		//handle material
-		if (material != NULL)
-			parent->AddMaterial(material);
-
-
 		return parent;
 	}
 
@@ -1091,10 +1088,20 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				{
 					fbx_skin->AddCluster(cluster.second);
 				}
-
-				FbxMesh* shapeMesh = (FbxMesh*)getBuiltNode(mesh)->GetNodeAttribute();
-				if (shapeMesh)
-					shapeMesh->AddDeformer(fbx_skin);
+				FbxNode* skin_parent = fbx_meshes_skin_parent[skin.first];
+				for (int i = 0; i < skin_parent->GetNodeAttributeCount(); i++)
+				{
+					if (FbxNodeAttribute::eMesh == skin_parent->GetNodeAttributeByIndex(i)->GetAttributeType())
+					{
+						FbxMesh* m_i = (FbxMesh*)skin_parent->GetNodeAttributeByIndex(i);
+						string m_i_name = m_i->GetName();
+						if (m_i_name == mesh->GetName())
+						{
+							m_i->AddDeformer(fbx_skin);
+							break;
+						}
+					}
+				}
 			}
 		}
 	}
@@ -1383,17 +1390,9 @@ public:
 		{
 
 			build_stack.push_front(&sceneNode);
-			//root_name = rootNode->GetName();
+			root_name = rootNode->GetName();
+			scene.GetRootNode()->SetName(root_name.c_str());
 			rootNode->accept(*this, info);
-			//for (NiObjectRef child : rootNode->GetChildren())
-			//	child->accept(*this, info);
-			////visit managers too
-			//if (rootNode->GetController())
-			//	rootNode->GetController()->accept(*this, info);
-			//if (rootNode->GetCollisionObject())
-			//	rootNode->GetCollisionObject()->accept(*this, info);
-			////TODO: handle different root types
-			////Sort out skinning now
 			processSkins();
 			buildManagers();
 		}
@@ -1433,6 +1432,27 @@ public:
 		return current;
 	}
 
+	template<>
+	FbxNode* visit_new_object(BSLODTriShape& obj) {
+		FbxNode* parent = build_stack.front();
+		AddGeometry(parent, *(NiTriShape*)&obj);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiTriShape& obj) {
+		FbxNode* parent = build_stack.front();
+		AddGeometry(parent, obj);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiTriStrips& obj) {
+		FbxNode* parent = build_stack.front();
+		AddGeometry(parent, obj);
+		return NULL;
+	}
+
 	//Deferred Already handled nodes
 	template<>
 	FbxNode* visit_new_object(NiControllerManager& obj) {
@@ -1467,6 +1487,13 @@ public:
 
 	template<>
 	FbxNode* visit_new_object(NiDefaultAVObjectPalette& obj) {
+		alreadyVisitedNodes.insert(&obj);
+		return NULL;
+	}
+
+	//Unuseful, will be recalculated on export
+	template<>
+	FbxNode* visit_new_object(BSXFlags& obj) {
 		alreadyVisitedNodes.insert(&obj);
 		return NULL;
 	}
@@ -1653,9 +1680,6 @@ public:
 		{
 			string lMaterialName = NifFile::material_name(material.material);
 			string collision_layer_name = NifFile::layer_name(material.filter.layer_sk);
-
-			//FbxScene* scene = parent->GetScene();
-
 			size_t materials_count = scene.GetMaterialCount();
 			bool material_found = false;
 			FbxSurfaceMaterial* m = NULL;
@@ -2039,53 +2063,12 @@ public:
 			NiAVObjectRef av = DynamicCast<NiAVObject>(pobj);
 			string name = av->GetName().c_str(); sanitizeString(name);
 			FbxNode* node = FbxNode::Create(&scene, name.c_str());
-			if (av->IsDerivedType(NiNode::TYPE))
-			{
-				NiNodeRef ninode = DynamicCast<NiNode>(av);
-				vector<NiAVObjectRef> children = ninode->GetChildren();
-				for (const auto& child : children)
-				{
-					if (child != NULL)
-					{
-						if (child->IsDerivedType(NiTriShape::TYPE))
-						{
-							NiTriShapeRef shape = DynamicCast<NiTriShape>(child);
-							if (shape->GetSkinInstance() != NULL)
-								skins[shape->GetSkinInstance()] = &*shape;
-							AddGeometry(node, *shape);
-						}
-						if (child->IsDerivedType(NiTriStrips::TYPE))
-						{
-							NiTriStripsRef shape = DynamicCast<NiTriStrips>(child);
-							if (shape->GetSkinInstance() != NULL)
-								skins[shape->GetSkinInstance()] = &*shape;
-							AddGeometry(node, *shape);
-						}
-					}
-				}
-			}
 			return setTransform(av, node);
 		}
 		return setNullTransform(
 			FbxNode::Create(&scene, pobj->GetInternalType().GetTypeName().c_str())
 		);
 	}
-
-	//template<>
-	//FbxNode* build(NiTriShape& obj, FbxNode* parent) {
-	//	//need to import the whole tree structure before skinning, so defer into a list
-	//	if (obj.GetSkinInstance() != NULL)
-	//		skins[obj.GetSkinInstance()] = &obj;
-	//	return setTransform(&obj, AddGeometry(obj));
-	//}
-
-	//template<>
-	//FbxNode* build(NiTriStrips& obj, FbxNode* parent) {
-	//	//need to import the whole tree structure before skinning, so defer into a list
-	//	if (obj.GetSkinInstance() != NULL)
-	//		skins[obj.GetSkinInstance()] = &obj;
-	//	return setTransform(&obj, AddGeometry(obj));
-	//}
 };
 
 void FBXWrangler::AddNif(NifFile& nif) {
@@ -2979,8 +2962,17 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			}
 			prop = tempN->GetNextProperty(prop);
 		}
-
-		FbxSurfaceMaterial * material = tempN->GetMaterial(0);
+		FbxLayerElementMaterial* layerElement = m->GetElementMaterial();
+		int sizeb = m->GetElementMaterialCount();
+		int index = 0;
+		FbxLayerElement::EMappingMode mode = layerElement->GetMappingMode();
+		if (layerElement != NULL)
+		{
+			FbxLayerElementArrayTemplate<int>& iarray = layerElement->GetIndexArray();
+			index = iarray[0];
+		}
+		
+		FbxSurfaceMaterial * material = tempN->GetMaterial(index);
 		if (material != NULL)
 		{
 			FbxPropertyT<FbxDouble3> colour;
@@ -4030,8 +4022,9 @@ bhkCMSDMaterial consume_material_from_shape(hkpShape* shape)
 	return m;
 }
 
-bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_layer)
+bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_layer, size_t& depth)
 {
+	depth += 1;
 	double bhkScaleFactorInverse = 1 / 69.99124908;
 	if (shape == NULL)
 	{
@@ -4053,7 +4046,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		for (int i = 0; i < num_shapes; i++)
 		{
 			bhkCMSDMaterial shape_layer;
-			shapes.push_back(convert_from_hk(hk_list->getChildShapeInl(i), shape_layer));
+			shapes.push_back(convert_from_hk(hk_list->getChildShapeInl(i), shape_layer, depth));
 			if (i > 0 && 
 				(last_layer.filter.layer_sk != shape_layer.filter.layer_sk ||
 					last_layer.material != shape_layer.material)
@@ -4084,7 +4077,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		bhkConvexTransformShapeRef convex_transform = new bhkConvexTransformShape();
 		hkpConvexTransformShape* hk_transform = (hkpConvexTransformShape*)&*shape;
 		bhkCMSDMaterial material;
-		convex_transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material));
+		convex_transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material, depth));
 		convex_transform->SetTransform(TOMATRIX44(hk_transform->getTransform(), bhkScaleFactorInverse));
 		HavokMaterial temp; temp.material_sk = material.material;
 		convex_transform->SetMaterial(temp);
@@ -4098,7 +4091,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		bhkTransformShapeRef transform = new bhkTransformShape();
 		hkpTransformShape* hk_transform = (hkpTransformShape*)&*shape;
 		bhkCMSDMaterial material;
-		transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material));
+		transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material, depth));
 		transform->SetTransform(TOMATRIX44(hk_transform->getTransform(), bhkScaleFactorInverse));
 		HavokMaterial temp; temp.material_sk = material.material;
 		transform->SetMaterial(temp);
@@ -4111,7 +4104,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		bhkMoppBvTreeShapeRef pMoppShape = new bhkMoppBvTreeShape();
 		hkpMoppBvTreeShape* pMoppBvTree = (hkpMoppBvTreeShape*)&*shape;
 		bhkCMSDMaterial material;
-		pMoppShape->SetShape(convert_from_hk(pMoppBvTree->getShapeCollection(), material));
+		pMoppShape->SetShape(convert_from_hk(pMoppBvTree->getShapeCollection(), material, depth));
 		pMoppShape->SetOrigin(Vector3(pMoppBvTree->getMoppCode()->m_info.m_offset(0), pMoppBvTree->getMoppCode()->m_info.m_offset(1), pMoppBvTree->getMoppCode()->m_info.m_offset(2)));
 		pMoppShape->SetScale(pMoppBvTree->getMoppCode()->m_info.getScale());
 		pMoppShape->SetBuildType(MoppDataBuildType((Niflib::byte) pMoppBvTree->getMoppCode()->m_buildType));
@@ -4237,7 +4230,24 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		body->SetTranslation({ (float)T[0]*bhkScaleFactorInverse,(float)T[1] * bhkScaleFactorInverse, (float)T[2] * bhkScaleFactorInverse });
 		body->SetRotation(q);
 		bhkCMSDMaterial body_layer;
-		body->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes), body_layer));
+		size_t depth = 0;
+		body->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes), body_layer, depth));
+		if (depth == 2 && body->GetShape()->IsDerivedType(bhkTransformShape::TYPE))
+		{
+			//this can be simplified by using the rigid body transform
+			bhkTransformShapeRef transform = DynamicCast<bhkTransformShape>(body->GetShape());
+			Matrix44 t = transform->GetTransform();
+			body->SetTranslation(t.GetTrans());
+			Quaternion q = t.GetRot().AsQuaternion();
+			Niflib::hkQuaternion hkq;
+			hkq.x = q.x;
+			hkq.y = q.y;
+			hkq.z = q.z;
+			hkq.w = q.w;
+			body->SetRotation(hkq);
+			body->SetShape(transform->GetShape());
+		}
+		
 		if (find_animated_parent(rigid_body) != NULL)
 		{
 			//the fix is in
@@ -4273,7 +4283,8 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		bhkSPCollisionObjectRef phantom_collision = new bhkSPCollisionObject();
 		bhkSimpleShapePhantomRef phantom = new bhkSimpleShapePhantom();
 		bhkCMSDMaterial phantom_layer;
-		phantom->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes), phantom_layer));
+		size_t depth = 0;
+		phantom->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes), phantom_layer, depth));
 		phantom_collision->SetBody(StaticCast<bhkWorldObject>(phantom));
 		return_collision = StaticCast<NiCollisionObject>(phantom_collision);
 	}
