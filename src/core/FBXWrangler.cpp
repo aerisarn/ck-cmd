@@ -4314,7 +4314,7 @@ void FBXWrangler::buildCollisions()
 			root->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh)
 		{
 			//I'm a mesh, find my nearest parent RB, if any
-			FbxNode* parent = root->GetParent();
+			FbxNode* parent = root;
 			FbxNode* body = NULL;
 			while (parent != NULL)
 			{
