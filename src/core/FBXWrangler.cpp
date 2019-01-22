@@ -108,6 +108,16 @@ static inline FbxVector4 TOFBXVECTOR4(const hkVector4& v)
 	return FbxVector4(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
 }
 
+static inline FbxVector4 TOFBXVECTOR3(const Vector4& v)
+{
+	return FbxVector4(v[0], v[1], v[2]);
+}
+
+static inline FbxQuaternion TOFBXQUAT(const Quaternion& q)
+{
+	return FbxQuaternion(q.x, q.y, q.z, q.w);
+}
+
 static inline Matrix44 TOMATRIX44(const hkTransform& q, const float scale = 1.0f, bool inverse = false) {
 
 	hkVector4 c0 = q.getColumn(0);
@@ -121,6 +131,17 @@ static inline Matrix44 TOMATRIX44(const hkTransform& q, const float scale = 1.0f
 		c0.getSimdAt(2), c1.getSimdAt(2), c2.getSimdAt(2), (float)c3.getSimdAt(2)*scale,
 		c0.getSimdAt(3), c1.getSimdAt(3), c2.getSimdAt(3), c3.getSimdAt(3)
 	);
+}
+
+FbxAMatrix getTransform(const NiAVObjectRef av)
+{
+	FbxAMatrix avm;
+	avm.SetTQS(
+		TOFBXVECTOR3(av->GetTranslation()),
+		TOFBXQUAT(av->GetRotation().AsQuaternion()),
+		{ av->GetScale(), av->GetScale(), av->GetScale() }
+	);
+	return avm;
 }
 
 FbxNode* setMatTransform(const Matrix44& av, FbxNode* node, double bake_scale = 1.0) {
@@ -868,7 +889,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		if (material != NULL)
 			material_index = parent->AddMaterial(material);
 
-		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material_index);
+		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material_index, getTransform(&node));
 	}
 
 	FbxNode* AddGeometry(FbxNode* parent, NiTriShape& node) {
@@ -915,7 +936,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		if (material != NULL)
 			material_index = parent->AddMaterial(material);
 
-		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material_index);
+		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material_index, getTransform(&node));
 	}
 
 	FbxNode* AddGeometry(FbxNode* parent, const string& shapeName, 
@@ -924,7 +945,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 							const vector<Triangle>& tris,
 							vector<TexCoord>& uvs, 
 							vector<Color4>& vcs, 
-							int material_index) {
+							int material_index,
+							FbxAMatrix& geometry_transform) {
 
 		FbxMesh* m = FbxMesh::Create(&scene, shapeName.c_str());
 
@@ -954,7 +976,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		FbxVector4* points = m->GetControlPoints();
 
 		for (int i = 0; i < m->GetControlPointsCount(); i++) {
-			points[i] = FbxVector4(verts[i].x, verts[i].y, verts[i].z);
+			points[i] = geometry_transform.MultT(FbxVector4(verts[i].x, verts[i].y, verts[i].z));
+
 			if (normElement)
 				normElement->GetDirectArray().Add(FbxVector4(norms[i].x, norms[i].y, norms[i].z));
 			if (uvElement)
@@ -979,7 +1002,17 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			}
 		}
 
-		parent->AddNodeAttribute(m);
+		if (parent == parent->GetScene()->GetRootNode())
+		{
+			//seems like FBX doesn't like meshes added to root
+			string dummy_name = shapeName + "_support";
+			FbxNode* dummy = FbxNode::Create(&scene, dummy_name.c_str());
+			dummy->AddNodeAttribute(m);
+			parent->AddChild(dummy);
+		}
+		else {
+			parent->AddNodeAttribute(m);
+		}
 		return parent;
 	}
 
@@ -1328,7 +1361,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	template<>
 	void addTrack(NiTransformInterpolator& interpolator, FbxNode* node, FbxAnimLayer *lAnimLayer) {
 		//here we have an initial transform to be applied and a set of keys
-		FbxAMatrix local = node->EvaluateLocalTransform();
+		FbxAMatrix local = node->EvaluateLocalTransform(FBXSDK_TIME_ZERO);
 		NiQuatTransform interp_local = interpolator.GetTransform();
 		//TODO: check these;
 		NiTransformDataRef data = interpolator.GetData();
@@ -2241,7 +2274,7 @@ FbxAMatrix getNodeTransform(FbxNode* pNode, bool absolute = false) {
 		matrixGeo.SetR(lR);
 		matrixGeo.SetS(lS);
 	}
-	FbxAMatrix localMatrix = pNode->EvaluateLocalTransform();
+	FbxAMatrix localMatrix = pNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO);
 	if (absolute)
 		localMatrix = pNode->EvaluateGlobalTransform();
 
@@ -2302,20 +2335,20 @@ FbxAMatrix getWorldTransform(FbxNode* pNode) {
 		matrixGeo.SetR(lR);
 		matrixGeo.SetS(lS);
 	}
-	FbxAMatrix localMatrix = pNode->EvaluateLocalTransform();
+	FbxAMatrix localMatrix = pNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO);
 
 	FbxNode* pParentNode = pNode->GetParent();
-	FbxAMatrix parentMatrix = pParentNode->EvaluateLocalTransform();
+	FbxAMatrix parentMatrix = pParentNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO);
 	while ((pParentNode = pParentNode->GetParent()) != NULL)
 	{
-		parentMatrix = pParentNode->EvaluateLocalTransform() * parentMatrix;
+		parentMatrix = pParentNode->EvaluateLocalTransform(FBXSDK_TIME_ZERO) * parentMatrix;
 	}
 
 	return parentMatrix * localMatrix * matrixGeo;
 }
 
 void setAvTransform(FbxNode* node, NiAVObject* av, bool rotation_only = false, bool absolute = false) {
-	FbxAMatrix tr = getNodeTransform(node, absolute);
+	FbxAMatrix tr = node->EvaluateLocalTransform(FBXSDK_TIME_ZERO); //getNodeTransform(node, absolute);
 	FbxDouble3 trans = tr.GetT();
 	av->SetTranslation(Vector3(trans[0], trans[1], trans[2]));
 	av->SetRotation(
@@ -2326,7 +2359,7 @@ void setAvTransform(FbxNode* node, NiAVObject* av, bool rotation_only = false, b
 		)
 	);
 	FbxDouble3 scaling = tr.GetS(); // node->LclScaling.Get();
-	if (scaling[0] == scaling[1] && scaling[1] == scaling[2])
+	//if (scaling[0] == scaling[1] && scaling[1] == scaling[2])
 		av->SetScale(scaling[0]);
 }
 
@@ -3219,6 +3252,11 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 	interp = collect_times(curveX, times, interp);
 	interp = collect_times(curveY, times, interp);
 	interp = collect_times(curveZ, times, interp);
+
+	vector<FbxAnimCurve*> curves = {
+		curveX, curveY, curveZ
+	};
+
 	bool inserted_initial_position = false;
 	if (times.size() > 0)
 	{
@@ -3230,21 +3268,26 @@ void addTranslationKeys(NiTransformInterpolator* interpolator, FbxNode* node, Fb
 		vector<Key<Vector3 > > keyvalues = tkeys.keys;
 		
 		int index = 0;
-
+		double intpart;
 		for (const auto& time : times) {
 			FbxTime lTime;
 			lTime.SetSecondDouble((float)time);
-			FbxVector4 pos = node->EvaluateGlobalTransform(lTime).GetT();
-			FbxVector4 trans =
+			FbxVector4 pos = node->EvaluateLocalTransform(FBXSDK_TIME_ZERO).GetT();
+			FbxVector4 trans;
+			for (int i = 0; i < 3; i++)
 			{
-				pos[0],
-				pos[1],
-				pos[2]
-				//curveX->Evaluate(lTime),
-				//curveY->Evaluate(lTime),
-				//curveZ->Evaluate(lTime)
-				
-			};
+				double find = curves[i]->KeyFind(lTime);
+				double fractpart = modf(find, &intpart);
+				if (find == -1.0)
+					trans[i] = pos[i];
+				else if (intpart == 0.0)
+					trans[i] = curves[i]->KeyGetValue((int)fractpart);
+				else if (interp == CONST_KEY)
+					trans[i] = pos[i];
+				else
+					trans[i] = curves[i]->Evaluate(lTime);;
+			}
+
 
 			Key<Vector3 > temp;
 			temp.data = Vector3(trans[0], trans[1], trans[2]);
@@ -3476,13 +3519,97 @@ void handle_singularities(vector<Key<float > >& keys, set<float>& times)
 	}
 }
 
+double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_root_name, double last_start, double last_stop)
+{
+	// Display general curves.
+	vector<ControlledBlock > blocks = sequence->GetControlledBlocks();
+	for (FbxNode* pNode : unskinned_bones)
+	{
+		//FbxNode* pNode = pair.first;
+		FbxAnimCurve* lXAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+		FbxAnimCurve* lYAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+		FbxAnimCurve* lZAnimCurve = pNode->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+		FbxAnimCurve* lIAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
+		FbxAnimCurve* lJAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
+		FbxAnimCurve* lKAnimCurve = pNode->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+		FbxAnimCurve* lsXAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X);
+		FbxAnimCurve* lsYAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y);
+		FbxAnimCurve* lsZAnimCurve = pNode->LclScaling.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z);
+
+		if (lXAnimCurve->KeyGetCount()>0 || lYAnimCurve->KeyGetCount()>0 || lZAnimCurve->KeyGetCount()>0 ||
+			lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL ||
+			lsXAnimCurve != NULL || lsYAnimCurve != NULL || lsZAnimCurve != NULL)
+		{
+
+			NiObjectRef target = conversion_Map[pNode];
+			targets.insert(target);
+
+			NiTransformInterpolatorRef interpolator = new NiTransformInterpolator();
+			NiQuatTransform trans;
+			unsigned int float_min = 0xFF7FFFFF;
+			float* lol = (float*)&float_min;
+			trans.translation = Vector3(*lol, *lol, *lol);
+			trans.rotation = Quaternion(*lol, *lol, *lol, *lol);
+			trans.scale = *lol;
+			interpolator->SetTransform(trans);
+
+			if (lXAnimCurve->KeyGetCount()>0 || lYAnimCurve->KeyGetCount()>0 || lZAnimCurve->KeyGetCount()>0) {
+				addTranslationKeys(interpolator, pNode, lXAnimCurve, lYAnimCurve, lZAnimCurve, last_start);
+			}
+
+			if (lIAnimCurve != NULL || lJAnimCurve != NULL || lKAnimCurve != NULL) {
+				addRotationKeys(interpolator, pNode, lIAnimCurve, lJAnimCurve, lKAnimCurve, last_start);
+			}
+
+			if (lsXAnimCurve != NULL) {
+				addScaleKeys(interpolator, pNode, lsXAnimCurve, lsYAnimCurve, lsZAnimCurve, last_start);
+			}
+
+			ControlledBlock block;
+			block.interpolator = interpolator;
+			block.nodeName = DynamicCast<NiAVObject>(conversion_Map[pNode])->GetName();
+			block.controllerType = "NiTransformController";
+			block.controller = multiController;
+
+			blocks.push_back(block);
+
+			sequence->SetControlledBlocks(blocks);
+
+			sequence->SetStartTime(0.0);
+			sequence->SetStopTime(last_stop - last_start);
+			sequence->SetManager(manager);
+			sequence->SetAccumRootName(accum_root_name);
+
+			NiTextKeyExtraDataRef extra_data = new NiTextKeyExtraData();
+			extra_data->SetName(string(""));
+			Key<IndexString> start_key;
+			start_key.time = 0;
+			start_key.data = "start";
+
+			Key<IndexString> end_key;
+			end_key.time = last_stop - last_start;
+			end_key.data = "end";
+
+			extra_data->SetTextKeys({ start_key,end_key });
+			extra_data->SetNextExtraData(NULL);
+
+			sequence->SetTextKeys(extra_data);
+
+			sequence->SetFrequency(1.0);
+			sequence->SetCycleType(CYCLE_CLAMP);
+
+		}
+	}
+	return 0.0;
+}
+
 set<float> convert_rigid_animation(NiTransformInterpolatorRef interpolator, FbxAnimLayer* pAnimLayer, FbxNode* animated_node, float offset = 0.0f)
 {
 	//collect all the original keys
 	vector<FbxAnimCurve*> curves = {
-		animated_node->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X),
-		animated_node->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y),
-		animated_node->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z),
+		animated_node->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true),
+		animated_node->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true),
+		animated_node->LclTranslation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true),
 		animated_node->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_X),
 		animated_node->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y),
 		animated_node->LclRotation.GetCurve(pAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z),
@@ -3557,7 +3684,7 @@ set<float> convert_rigid_animation(NiTransformInterpolatorRef interpolator, FbxA
 	for (const auto& time : key_times)
 	{
 		fbx_Time.SetSecondDouble((float)time);
-		FbxAMatrix transform = getLocalNodeTransformFromProperties(animated_node, fbx_Time);
+		FbxAMatrix transform = animated_node->EvaluateLocalTransform(fbx_Time);//getLocalNodeTransformFromProperties(animated_node, fbx_Time);
 		FbxVector4 translation = transform.GetT();
 		FbxVector4 rotation = transform.GetR();
 		FbxVector4 scale = transform.GetS();
@@ -3570,7 +3697,7 @@ set<float> convert_rigid_animation(NiTransformInterpolatorRef interpolator, FbxA
 		Key<float> scale_key;
 
 		translation_key.time = time - offset;
-		translation_key.data = { 0,0,0 };//{ (float)translation[0], (float)translation[1], (float)translation[2] };
+		translation_key.data = { (float)translation[0], (float)translation[1], (float)translation[2] };
 		translation_key.forward_tangent = { 0, 0, 0 };
 		translation_key.backward_tangent = { 0, 0, 0 };
 		translation_key_values.push_back(translation_key);
@@ -3646,68 +3773,68 @@ set<float> convert_rigid_animation(NiTransformInterpolatorRef interpolator, FbxA
 	return key_times;
 }
 
-double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_root_name, double last_start, double last_stop)
-{
-	// Display general curves.
-	vector<ControlledBlock > blocks = sequence->GetControlledBlocks();
-	for (FbxNode* pNode : unskinned_bones)
-	{
-		NiTransformInterpolatorRef interpolator = new NiTransformInterpolator();
-		NiQuatTransform trans;
-		unsigned int float_min = 0xFF7FFFFF;
-		float* lol = (float*)&float_min;
-
-		trans.translation = Vector3(*lol, *lol, *lol);
-		trans.rotation = Quaternion(*lol, *lol, *lol, *lol);
-		trans.scale = *lol;
-		interpolator->SetTransform(trans);
-
-		set<float> keys = convert_rigid_animation(interpolator, pAnimLayer, pNode, last_start);
-		if (keys.empty())
-			continue;
-
-		NiObjectRef target = conversion_Map[pNode];
-		targets.insert(target);
-		if (target->IsDerivedType(NiNode::TYPE))
-		{
-			DynamicCast<NiNode>(target)->SetFlags(142);
-		}
-
-		ControlledBlock block;
-		block.interpolator = interpolator;
-		block.nodeName = DynamicCast<NiAVObject>(conversion_Map[pNode])->GetName();
-		block.controllerType = "NiTransformController";
-		block.controller = multiController;
-
-		blocks.push_back(block);
-
-		sequence->SetControlledBlocks(blocks);
-
-		sequence->SetStartTime(0.0);
-		sequence->SetStopTime(last_stop-last_start);
-		sequence->SetManager(manager);
-		sequence->SetAccumRootName(accum_root_name);
-
-		NiTextKeyExtraDataRef extra_data = new NiTextKeyExtraData();
-		extra_data->SetName(string(""));
-		Key<IndexString> start_key;
-		start_key.time = 0.0;
-		start_key.data = "start";
-
-		Key<IndexString> end_key;
-		end_key.time = last_stop - last_start;
-		end_key.data = "end";
-
-		extra_data->SetTextKeys({ start_key,end_key });
-		extra_data->SetNextExtraData(NULL);
-
-		sequence->SetTextKeys(extra_data);
-
-		sequence->SetFrequency(1.0);
-		sequence->SetCycleType(CYCLE_CLAMP);
-	}
-	return 0.0;
-}
+//double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_root_name, double last_start, double last_stop)
+//{
+//	// Display general curves.
+//	vector<ControlledBlock > blocks = sequence->GetControlledBlocks();
+//	for (FbxNode* pNode : unskinned_bones)
+//	{
+//		NiTransformInterpolatorRef interpolator = new NiTransformInterpolator();
+//		NiQuatTransform trans;
+//		unsigned int float_min = 0xFF7FFFFF;
+//		float* lol = (float*)&float_min;
+//
+//		trans.translation = Vector3(*lol, *lol, *lol);
+//		trans.rotation = Quaternion(*lol, *lol, *lol, *lol);
+//		trans.scale = *lol;
+//		interpolator->SetTransform(trans);
+//
+//		set<float> keys = convert_rigid(interpolator, pAnimLayer, pNode, last_start);
+//		if (keys.empty())
+//			continue;
+//
+//		NiObjectRef target = conversion_Map[pNode];
+//		targets.insert(target);
+//		if (target->IsDerivedType(NiNode::TYPE))
+//		{
+//			DynamicCast<NiNode>(target)->SetFlags(142);
+//		}
+//
+//		ControlledBlock block;
+//		block.interpolator = interpolator;
+//		block.nodeName = DynamicCast<NiAVObject>(conversion_Map[pNode])->GetName();
+//		block.controllerType = "NiTransformController";
+//		block.controller = multiController;
+//
+//		blocks.push_back(block);
+//
+//		sequence->SetControlledBlocks(blocks);
+//
+//		sequence->SetStartTime(0.0);
+//		sequence->SetStopTime(last_stop-last_start);
+//		sequence->SetManager(manager);
+//		sequence->SetAccumRootName(accum_root_name);
+//
+//		NiTextKeyExtraDataRef extra_data = new NiTextKeyExtraData();
+//		extra_data->SetName(string(""));
+//		Key<IndexString> start_key;
+//		start_key.time = 0.0;
+//		start_key.data = "start";
+//
+//		Key<IndexString> end_key;
+//		end_key.time = last_stop - last_start;
+//		end_key.data = "end";
+//
+//		extra_data->SetTextKeys({ start_key,end_key });
+//		extra_data->SetNextExtraData(NULL);
+//
+//		sequence->SetTextKeys(extra_data);
+//
+//		sequence->SetFrequency(1.0);
+//		sequence->SetCycleType(CYCLE_CLAMP);
+//	}
+//	return 0.0;
+//}
 
 //build embedded KF animations, for anything unskinned
 void FBXWrangler::buildKF() {
@@ -4282,7 +4409,7 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 	{
 		bhkCollisionObjectRef collision = new bhkCollisionObject();
 		bhkRigidBodyRef body = new bhkRigidBodyT();
-		FbxAMatrix transform = rigid_body->EvaluateLocalTransform();
+		FbxAMatrix transform = rigid_body->EvaluateLocalTransform(FBXSDK_TIME_ZERO);
 		FbxVector4 T = transform.GetT();
 		FbxQuaternion Q = transform.GetQ();
 		Niflib::hkQuaternion q;
@@ -4432,7 +4559,7 @@ void FBXWrangler::buildCollisions()
 			FbxNode* mesh_parent = it->second->GetNode();
 			while (mesh_parent != NULL && mesh_parent != this_body_parent)
 			{
-				transform = mesh_parent->EvaluateLocalTransform() * transform;
+				transform = mesh_parent->EvaluateLocalTransform(FBXSDK_TIME_ZERO) * transform;
 				mesh_parent = mesh_parent->GetParent();
 			}
 			meshes.insert({ transform, it->second });
