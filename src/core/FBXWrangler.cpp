@@ -310,6 +310,21 @@ public:
 	}
 };
 
+bool isShapeFbxNode(FbxNode* node)
+{
+	string node_name = node->GetName();
+	return (
+		ends_with(node_name, "_transform") ||
+		ends_with(node_name, "_list") ||
+		ends_with(node_name, "_convex_list") ||
+		ends_with(node_name, "_mopp") ||
+		ends_with(node_name, "_sphere") ||
+		ends_with(node_name, "_box") ||
+		ends_with(node_name, "_capsule") ||
+		ends_with(node_name, "_mesh")
+	);
+}
+
 //class ConstraintVisitor {
 //protected:
 //	vector<bhkBlendCollisionObjectRef>& nifBodies;
@@ -4130,7 +4145,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		convex_transform->SetTransform(TOMATRIX44(hk_transform->getTransform(), bhkScaleFactorInverse));
 		HavokMaterial temp; temp.material_sk = material.material;
 		convex_transform->SetMaterial(temp);
-		convex_transform->SetRadius(hk_transform->getChildShape()->getRadius());
+		convex_transform->SetRadius(hk_transform->getChildShape()->getRadius()*bhkScaleFactorInverse);
 		aggregate_layer = material;
 		return StaticCast<bhkShape>(convex_transform);
 	}
@@ -4168,7 +4183,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 	{
 		bhkSphereShapeRef sphere = new bhkSphereShape();
 		hkpSphereShape* hk_sphere = (hkpSphereShape*)&*shape;		
-		sphere->SetRadius(sphere->GetRadius());
+		sphere->SetRadius(sphere->GetRadius()*bhkScaleFactorInverse);
 		aggregate_layer = consume_material_from_shape(hk_sphere);
 		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
 		sphere->SetMaterial(temp);
@@ -4180,7 +4195,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		bhkBoxShapeRef box = new bhkBoxShape();
 		hkpBoxShape* hk_box = (hkpBoxShape*)&*shape;
 		box->SetDimensions(TOVECTOR3(hk_box->getHalfExtents(), bhkScaleFactorInverse));
-		box->SetRadius(hk_box->getRadius());
+		box->SetRadius(hk_box->getRadius()*bhkScaleFactorInverse);
 		aggregate_layer = consume_material_from_shape(hk_box);
 		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
 		box->SetMaterial(temp);
@@ -4194,9 +4209,9 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		capsule->SetFirstPoint(TOVECTOR3(hk_capsule->getVertices()[0], bhkScaleFactorInverse));
 		capsule->SetSecondPoint(TOVECTOR3(hk_capsule->getVertices()[1], bhkScaleFactorInverse));
 		hkVector4 direction; direction.setSub4(hk_capsule->getVertices()[1], hk_capsule->getVertices()[0]);
-		capsule->SetRadius(hk_capsule->getRadius());
-		capsule->SetRadius1(hk_capsule->getRadius());
-		capsule->SetRadius2(hk_capsule->getRadius());
+		capsule->SetRadius(hk_capsule->getRadius()*bhkScaleFactorInverse);
+		capsule->SetRadius1(hk_capsule->getRadius()*bhkScaleFactorInverse);
+		capsule->SetRadius2(hk_capsule->getRadius()*bhkScaleFactorInverse);
 		aggregate_layer = consume_material_from_shape(hk_capsule);
 		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
 		capsule->SetMaterial(temp);
@@ -4225,7 +4240,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		aggregate_layer = consume_material_from_shape(hk_convex);
 		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
 		convex->SetMaterial(temp);
-		convex->SetRadius(hk_convex->getRadius());
+		convex->SetRadius(hk_convex->getRadius()*bhkScaleFactorInverse);
 		return StaticCast<bhkShape>(convex);
 	}
 	/// hkpCompressedMeshShape type.
@@ -4280,7 +4295,19 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		body->SetRotation(q);
 		bhkCMSDMaterial body_layer;
 		size_t depth = 0;
-		body->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes), body_layer, depth));
+		//search for the mesh children
+		FbxNode* mesh_child = NULL;
+		for (int i = 0; i < rigid_body->GetChildCount(); i++)
+		{
+			FbxNode* temp_child = rigid_body->GetChild(i);
+			if (isShapeFbxNode(temp_child))
+			{
+				mesh_child = temp_child;
+				break;
+			}
+		}
+		if (mesh_child == NULL) mesh_child = rigid_body->GetChild(0);
+		body->SetShape(convert_from_hk(HKXWrapper::build_shape(mesh_child, geometry_meshes), body_layer, depth));
 		if (depth == 2 && body->GetShape()->IsDerivedType(bhkTransformShape::TYPE))
 		{
 			//this can be simplified by using the rigid body transform
@@ -4469,7 +4496,8 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			//	setAvTransform(child, nif_child);
 			//}
 			string child_name = child->GetName();
-			if (ends_with(child_name,"_rb") || ends_with(child_name, "_sp"))
+			if (child_name.find("_con_") == string::npos && 
+				(ends_with(child_name,"_rb") || ends_with(child_name, "_sp")))
 			{
 				//collisions are leaves, defer them and return
 				physic_entities.insert(child);

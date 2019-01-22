@@ -546,8 +546,10 @@ set<string> HKXWrapper::create_animations(
 {
 
 	set<string> sequences_names;
+	FbxAnimStack* starting_stack = (*animations.begin())->GetScene()->GetCurrentAnimationStack();
 	for (FbxAnimStack* stack : animations)
 	{
+		stack->GetScene()->SetCurrentAnimationStack(stack);
 		hkRefPtr<hkaAnimationContainer> anim_container = new hkaAnimationContainer();
 		hkRefPtr<hkMemoryResourceContainer> mem_container = new hkMemoryResourceContainer();
 		hkRefPtr<hkaAnimationBinding> binding = new hkaAnimationBinding();
@@ -678,6 +680,7 @@ set<string> HKXWrapper::create_animations(
 		out_data[fs::path(ANIMATIONS_SUBFOLDER) / stack->GetName()] = container;
 
 	}
+	starting_stack->GetScene()->SetCurrentAnimationStack(starting_stack);
 	return move(sequences_names);
 }
 
@@ -1436,7 +1439,6 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 			m->AddPolygon(v.vertex(1));
 			m->AddPolygon(v.vertex(2));
 			m->EndPolygon();
-			//tris.push_back({ (unsigned short)v.vertex(0), (unsigned short)v.vertex(1), (unsigned short)v.vertex(2) });
 		}
 		root->AddNodeAttribute(m);
 		FbxNode* mopp = FbxNode::Create(temp_manager, "_mopp");
@@ -1559,7 +1561,6 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		hkpCompressedMeshShapeBuilder			shapeBuilder;
 		shapeBuilder.m_stripperPasses = 5000;
 		hkpCompressedMeshShape* pCompMesh = shapeBuilder.createMeshShape(0.001f, hkpCompressedMeshShape::MATERIAL_SINGLE_VALUE_PER_CHUNK);
-		//hkpNamedMeshMaterial* material_array = (hkpNamedMeshMaterial*)malloc(sizeof(hkpNamedMeshMaterial)*materials.size());
 		pCompMesh->m_namedMaterials.setSize(materials.size());
 		for (int i = 0; i < materials.size(); i++)
 			pCompMesh->m_namedMaterials[i] = materials[i];
