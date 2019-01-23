@@ -39,6 +39,9 @@ namespace fs = std::experimental::filesystem;
 #include <Animation/Animation/Animation/hkaAnimation.h>
 #include <Animation/Animation/Animation/hkaAnimationBinding.h>
 #include <Physics/Collide/Shape\hkpShape.h>
+#include <Physics\Dynamics\Entity\hkpRigidBody.h>
+
+bool isShapeFbxNode(FbxNode* node);
 
 namespace ckcmd {
 	namespace HKX {
@@ -135,6 +138,7 @@ namespace ckcmd {
 			string write_project(const string& out_name, const string& out_path, const string& out_path_abs,
 				const string& prefix, const set<string>& kf_sequences_names, const set<string>& havok_sequences_names);
 
+			static hkRefPtr<hkpRigidBody> build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
 			static hkRefPtr<hkpShape> build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
 
 		};

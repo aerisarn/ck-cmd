@@ -89,6 +89,21 @@
 using namespace ckcmd::HKX;
 using namespace ckcmd::NIF;
 
+bool isShapeFbxNode(FbxNode* node)
+{
+	string node_name = node->GetName();
+	return (
+		ends_with(node_name, "_transform") ||
+		ends_with(node_name, "_list") ||
+		ends_with(node_name, "_convex_list") ||
+		ends_with(node_name, "_mopp") ||
+		ends_with(node_name, "_sphere") ||
+		ends_with(node_name, "_box") ||
+		ends_with(node_name, "_capsule") ||
+		ends_with(node_name, "_mesh")
+		);
+}
+
 void HKXWrapper::write(hkRootLevelContainer& rootCont, string subfolder, string name) {
 	hkPackFormat pkFormat = HKPF_DEFAULT;
 	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
@@ -1276,7 +1291,7 @@ hkGeometry extract_bounding_geometry(FbxNode* shape_root, set<pair<FbxAMatrix, F
 hkpShape* handle_output_transform(hkpCreateShapeUtility::ShapeInfoOutput& output, hkpNamedMeshMaterial* material)
 {
 	output.m_shape->setUserData((hkUlong)material);
-	if (!output.m_decomposedWorldT.isApproximatelyEqual(hkTransform::getIdentity()))
+	if (!output.m_extraShapeTransform.isApproximatelyEqual(hkTransform::getIdentity()))
 	{
 		//add a transform
 		if (output.m_isConvex)
@@ -1358,6 +1373,14 @@ FbxNode* create_mesh(FbxManager* manager, VHACD::IVHACD* interfaceVHACD)
 
 	root->AddNodeAttribute(m);
 	return root;
+}
+
+hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
+{
+	hkpRigidBodyCinfo body_cinfo;
+	hkRefPtr<hkpRigidBody> hk_body = new hkpRigidBody(body_cinfo);
+
+	return hk_body;
 }
 
 hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
