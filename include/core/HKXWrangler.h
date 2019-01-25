@@ -40,6 +40,7 @@ namespace fs = std::experimental::filesystem;
 #include <Animation/Animation/Animation/hkaAnimationBinding.h>
 #include <Physics/Collide/Shape\hkpShape.h>
 #include <Physics\Dynamics\Entity\hkpRigidBody.h>
+#include <Common\GeometryUtilities\Inertia\hkInertiaTensorComputer.h>
 
 bool isShapeFbxNode(FbxNode* node);
 
@@ -139,7 +140,7 @@ namespace ckcmd {
 				const string& prefix, const set<string>& kf_sequences_names, const set<string>& havok_sequences_names);
 
 			static hkRefPtr<hkpRigidBody> build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
-			static hkRefPtr<hkpShape> build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
+			static hkRefPtr<hkpShape> build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, FbxNode* body, hkpRigidBodyCinfo& hk_body);
 
 		};
 

@@ -4447,6 +4447,7 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		body->SetRotation(q);
 		bhkCMSDMaterial body_layer;
 		size_t depth = 0;
+		HKXWrapper::build_body(rigid_body, geometry_meshes);
 		//search for the mesh children
 		FbxNode* mesh_child = NULL;
 		for (int i = 0; i < rigid_body->GetChildCount(); i++)
@@ -4460,53 +4461,53 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		}
 		if (mesh_child == NULL) mesh_child = rigid_body->GetChild(0);
 		Vector3 center;
-		body->SetShape(convert_from_hk(HKXWrapper::build_shape(mesh_child, geometry_meshes), body_layer, depth, center));
-		if (depth == 2 && body->GetShape()->IsDerivedType(bhkTransformShape::TYPE))
-		{
-			//this can be simplified by using the rigid body transform
-			bhkTransformShapeRef transform = DynamicCast<bhkTransformShape>(body->GetShape());
-			Matrix44 t = transform->GetTransform();
-			body->SetTranslation(t.GetTrans());
-			Quaternion q = t.Submatrix(3,3).AsQuaternion();
-			Niflib::hkQuaternion hkq;
-			hkq.x = q.x;
-			hkq.y = q.y;
-			hkq.z = q.z;
-			hkq.w = q.w;
-			body->SetRotation(hkq);
-			body->SetShape(transform->GetShape());
-		}
-		body->SetCenter(center);
-		if (find_animated_parent(rigid_body) != NULL)
-		{
-			//the fix is in
-			body_layer.filter.layer_sk = SKYL_ANIMSTATIC;
-		}
-		if (body_layer.filter.layer_sk == SKYL_ANIMSTATIC)
-		{
-			body->SetMotionSystem(MO_SYS_BOX_INERTIA);
-			body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
-			body->SetQualityType(MO_QUAL_FIXED);
-			collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL | BHKCO_SYNC_ON_UPDATE));
-		}
-		else if (body_layer.filter.layer_sk == SKYL_CLUTTER)
-		{
-			body->SetMotionSystem(MO_SYS_BOX_INERTIA);
-			body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
-			body->SetQualityType(MO_QUAL_MOVING);
-			collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SYNC_ON_UPDATE));
-		}
-		//Static
-		else {		
-			body->SetMotionSystem(MO_SYS_BOX_STABILIZED);
-			body->SetSolverDeactivation(SOLVER_DEACTIVATION_OFF);
-			body->SetQualityType(MO_QUAL_INVALID);
-			collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL));
-		}
-		body->SetHavokFilter(body_layer.filter);
-		body->SetHavokFilterCopy(body->GetHavokFilter());
-		collision->SetBody(StaticCast<bhkWorldObject>(body));
-		return_collision = StaticCast<NiCollisionObject>(collision);
+		//body->SetShape(convert_from_hk(HKXWrapper::build_shape(mesh_child, geometry_meshes), body_layer, depth, center));
+		//if (depth == 2 && body->GetShape()->IsDerivedType(bhkTransformShape::TYPE))
+		//{
+		//	//this can be simplified by using the rigid body transform
+		//	bhkTransformShapeRef transform = DynamicCast<bhkTransformShape>(body->GetShape());
+		//	Matrix44 t = transform->GetTransform();
+		//	body->SetTranslation(t.GetTrans());
+		//	Quaternion q = t.Submatrix(3,3).AsQuaternion();
+		//	Niflib::hkQuaternion hkq;
+		//	hkq.x = q.x;
+		//	hkq.y = q.y;
+		//	hkq.z = q.z;
+		//	hkq.w = q.w;
+		//	body->SetRotation(hkq);
+		//	body->SetShape(transform->GetShape());
+		//}
+		//body->SetCenter(center);
+		//if (find_animated_parent(rigid_body) != NULL)
+		//{
+		//	//the fix is in
+		//	body_layer.filter.layer_sk = SKYL_ANIMSTATIC;
+		//}
+		//if (body_layer.filter.layer_sk == SKYL_ANIMSTATIC)
+		//{
+		//	body->SetMotionSystem(MO_SYS_BOX_INERTIA);
+		//	body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
+		//	body->SetQualityType(MO_QUAL_FIXED);
+		//	collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL | BHKCO_SYNC_ON_UPDATE));
+		//}
+		//else if (body_layer.filter.layer_sk == SKYL_CLUTTER)
+		//{
+		//	body->SetMotionSystem(MO_SYS_BOX_INERTIA);
+		//	body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
+		//	body->SetQualityType(MO_QUAL_MOVING);
+		//	collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SYNC_ON_UPDATE));
+		//}
+		////Static
+		//else {		
+		//	body->SetMotionSystem(MO_SYS_BOX_STABILIZED);
+		//	body->SetSolverDeactivation(SOLVER_DEACTIVATION_OFF);
+		//	body->SetQualityType(MO_QUAL_INVALID);
+		//	collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL));
+		//}
+		//body->SetHavokFilter(body_layer.filter);
+		//body->SetHavokFilterCopy(body->GetHavokFilter());
+		//collision->SetBody(StaticCast<bhkWorldObject>(body));
+		//return_collision = StaticCast<NiCollisionObject>(collision);
 	}
 	else if (name.find("_sp") != string::npos) {
 		bhkSPCollisionObjectRef phantom_collision = new bhkSPCollisionObject();
@@ -4514,14 +4515,14 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		bhkCMSDMaterial phantom_layer;
 		size_t depth = 0;
 		Vector3 center;
-		phantom->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes), phantom_layer, depth, center));
+		//phantom->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes), phantom_layer, depth, center));
 		phantom_collision->SetBody(StaticCast<bhkWorldObject>(phantom));
 		return_collision = StaticCast<NiCollisionObject>(phantom_collision);
 	}
 	else
 		throw runtime_error("Unknown rigid body syntax!");
 
-	return_collision->SetTarget(DynamicCast<NiAVObject>(conversion_Map[rigid_body->GetParent()]));
+	//return_collision->SetTarget(DynamicCast<NiAVObject>(conversion_Map[rigid_body->GetParent()]));
 
 	return return_collision;
 }

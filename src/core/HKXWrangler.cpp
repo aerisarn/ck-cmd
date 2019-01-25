@@ -75,6 +75,9 @@
 #include <Common\Base\Types\Geometry\hkStridedVertices.h>
 #include <Common\Internal\ConvexHull\hkGeometryUtility.h>
 
+#include <Common\GeometryUtilities\Misc\hkGeometryUtils.h>
+#include <Physics\Collide\Shape\Convex\ConvexVertices\hkpConvexVerticesConnectivity.h>
+
 
 #include <core/EulerAngles.h>
 #include <core/MathHelper.h>
@@ -1193,7 +1196,7 @@ void convert_geometry(shared_ptr<bmeshinfo> bmesh, pair<FbxAMatrix, FbxMesh*> tr
 	}
 }
 
-void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> translated_mesh, vector<hkpNamedMeshMaterial>& materials)
+void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> translated_mesh, vector<hkpNamedMeshMaterial>& materials, double scaling)
 {
 	FbxMesh* mesh = translated_mesh.second;
 	size_t vertices_count = mesh->GetControlPointsCount();
@@ -1201,7 +1204,7 @@ void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> transla
 	for (int i = 0; i < vertices_count; i++) {
 		FbxVector4 vertex = translated_mesh.first.MultT(mesh->GetControlPointAt(i));
 		geometry.m_vertices.pushBack(
-			{ (hkReal)vertex[0],  (hkReal)vertex[1], (hkReal)vertex[2], }
+			{ (hkReal)(vertex[0] * scaling),  (hkReal)(vertex[1] * scaling), (hkReal)(vertex[2] *scaling) }
 		);
 	}
 
@@ -1271,33 +1274,67 @@ void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> transla
 	}
 }
 
-hkGeometry extract_bounding_geometry(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, vector<hkpNamedMeshMaterial>& materials)
+hkGeometry extract_bounding_geometry(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, vector<hkpNamedMeshMaterial>& materials, hkpMassProperties& properties, double scaling)
 {
 	hkGeometry out;
 	if (shape_root->GetNodeAttribute() != NULL &&
 		shape_root->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh)
 	{
-		convert_hkgeometry(out, {FbxAMatrix(), (FbxMesh*)shape_root->GetNodeAttribute() }, materials);
+		convert_hkgeometry(out, {FbxAMatrix(), (FbxMesh*)shape_root->GetNodeAttribute() }, materials, scaling);
 	}
 	else {
 		for (const auto& mesh : geometry_meshes)
 		{
-			convert_hkgeometry(out, mesh, materials);
+			convert_hkgeometry(out, mesh, materials, scaling);
 		}
 	}
+	if (properties.m_mass == 0.0)
+	{
+		vector<hkGeometry> geometry_by_material(materials.size());
+		//calculate approximate mass, split the geometry by materials
+		for (int i = 0; i < out.m_triangles.getSize(); i++)
+		{
+			hkGeometry& this_geometry = geometry_by_material[out.m_triangles[i].m_material];
+			hkGeometry::Triangle t;
+			t.m_a = this_geometry.m_vertices.getSize(); this_geometry.m_vertices.pushBack(out.m_vertices[out.m_triangles[i].m_a]);
+			t.m_b = this_geometry.m_vertices.getSize(); this_geometry.m_vertices.pushBack(out.m_vertices[out.m_triangles[i].m_b]);
+			t.m_c = this_geometry.m_vertices.getSize(); this_geometry.m_vertices.pushBack(out.m_vertices[out.m_triangles[i].m_c]);
+			this_geometry.m_triangles.pushBack(t);
+		}
+		for (const auto& geom : geometry_by_material)
+		{
+			hkReal volume = hkGeometryUtils::computeVolume(geom);
+			double density = 1.0; //TODO;
+			properties.m_mass += volume * density;
+		}
+	}
+
 	return out;
 }
 
-hkpShape* handle_output_transform(hkpCreateShapeUtility::ShapeInfoOutput& output, hkpNamedMeshMaterial* material)
+/// You should avoid using a transform shape as the root shape of a rigid body.
+hkpShape* handle_output_transform(hkpCreateShapeUtility::ShapeInfoOutput& output, hkpNamedMeshMaterial* material, hkpMassProperties& properties, FbxNode* shape, FbxNode* body, hkpRigidBodyCinfo& hk_body)
 {
 	output.m_shape->setUserData((hkUlong)material);
 	if (!output.m_extraShapeTransform.isApproximatelyEqual(hkTransform::getIdentity()))
 	{
-		//add a transform
-		if (output.m_isConvex)
-			return new hkpConvexTransformShape((hkpConvexShape*)output.m_shape, output.m_extraShapeTransform);
-		else
-			return new hkpTransformShape(output.m_shape, output.m_extraShapeTransform);
+		//see if the transformed shape is a simple shape
+		if (shape->GetParent() == body)
+		{
+			//just use the body transform to avoid the transform shape
+			hk_body.setTransform(output.m_extraShapeTransform);
+		}
+		else {
+			hkArray<hkpMassElement> element(1);
+			element[0].m_properties = properties;
+			element[0].m_transform = output.m_extraShapeTransform;
+			hkInertiaTensorComputer::combineMassProperties(element, properties);
+			//add a transform
+			if (output.m_isConvex)
+				return new hkpConvexTransformShape((hkpConvexShape*)output.m_shape, output.m_extraShapeTransform);
+			else
+				return new hkpTransformShape(output.m_shape, output.m_extraShapeTransform);
+		}
 	}
 	return output.m_shape;
 }
@@ -1377,13 +1414,30 @@ FbxNode* create_mesh(FbxManager* manager, VHACD::IVHACD* interfaceVHACD)
 
 hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
+	double bhkScaleFactorInverse = 1 / 69.99124908;
 	hkpRigidBodyCinfo body_cinfo;
+	
+	//search for the mesh children
+	FbxNode* mesh_child = NULL;
+	for (int i = 0; i < body->GetChildCount(); i++)
+	{
+		FbxNode* temp_child = body->GetChild(i);
+		if (isShapeFbxNode(temp_child))
+		{
+			mesh_child = temp_child;
+			break;
+		}
+	}
+	if (mesh_child == NULL) mesh_child = body->GetChild(0);
+	hkpMassProperties properties;
+	body_cinfo.m_shape = HKXWrapper::build_shape(mesh_child, geometry_meshes, properties, bhkScaleFactorInverse, body, body_cinfo);
+	body_cinfo.setMassProperties(properties);
 	hkRefPtr<hkpRigidBody> hk_body = new hkpRigidBody(body_cinfo);
-
+	hk_body->setShape(body_cinfo.m_shape);
 	return hk_body;
 }
 
-hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
+hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, FbxNode* body, hkpRigidBodyCinfo& hk_body)
 {
 	//If shape_root is null, no hints were given on how to handle the collisions
 	if (shape_root == NULL)
@@ -1417,7 +1471,7 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 					temp_root = mopp;
 				}
 
-				hkpShape* shape = build_shape(temp_root, geometry_meshes);
+				hkpShape* shape = build_shape(temp_root, geometry_meshes, properties, scale_factor, body, hk_body);
 				temp_manager->Destroy();
 				return shape;
 			}
@@ -1466,7 +1520,7 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		root->AddNodeAttribute(m);
 		FbxNode* mopp = FbxNode::Create(temp_manager, "_mopp");
 		mopp->AddChild(root);
-		hkpShape* shape = build_shape(mopp, geometry_meshes);
+		hkpShape* shape = build_shape(mopp, geometry_meshes, properties, scale_factor, body, hk_body);
 		temp_manager->Destroy();
 		return shape;
 	}
@@ -1474,7 +1528,7 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 	//	//Containers
 	if (ends_with(name, "_transform"))
 	{
-		hkpShape* childShape = build_shape(shape_root->GetChild(0), geometry_meshes);
+		hkpShape* childShape = build_shape(shape_root->GetChild(0), geometry_meshes, properties, scale_factor, body, hk_body);
 		FbxAMatrix fbx_transform = shape_root->EvaluateLocalTransform();
 		FbxVector4 translation = fbx_transform.GetT();
 		FbxQuaternion rotation = fbx_transform.GetQ();
@@ -1491,12 +1545,25 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 	{
 		size_t num_children = shape_root->GetChildCount();
 		vector<hkRefPtr<hkpShape>> sub_shapes;
+		hkArray<hkpMassElement> sub_elements;
 		for (int i = 0; i < num_children; i++)
 		{
-			hkRefPtr<hkpShape> sub_shape = build_shape(shape_root->GetChild(i), geometry_meshes);
+			hkpMassProperties sub_properties;
+			hkpMassElement sub_element;
+			hkRefPtr<hkpShape> sub_shape = build_shape(shape_root->GetChild(i), geometry_meshes, sub_properties, scale_factor, body, hk_body);
 			if (sub_shape != NULL)
+			{
+				if (sub_shape->getType() == HK_SHAPE_CONVEX_TRANSFORM || sub_shape->getType() == HK_SHAPE_TRANSFORM)
+				{
+					hkpTransformShape* transform_shape = (hkpTransformShape *)&*sub_shape;
+					sub_element.m_transform = transform_shape->getTransform();
+				}
+				sub_element.m_properties = sub_properties;			
 				sub_shapes.push_back(sub_shape);
+				sub_elements.pushBack(sub_element);
+			}
 		}
+		hkInertiaTensorComputer::combineMassProperties(sub_elements, properties);
 		return new hkpListShape((const hkpShape*const*)sub_shapes.data(), sub_shapes.size());
 	}
 	if (ends_with(name, "_convex_list"))
@@ -1506,7 +1573,7 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		for (int i = 0; i < num_children; i++)
 		{
 			//GOSH!!!!, TODO: fix
-			hkRefPtr<hkpConvexShape> sub_shape = (hkpConvexShape*)&*build_shape(shape_root->GetChild(i), geometry_meshes);
+			hkRefPtr<hkpConvexShape> sub_shape = (hkpConvexShape*)&*build_shape(shape_root->GetChild(i), geometry_meshes, properties, scale_factor, body, hk_body);
 			if (sub_shape != NULL)
 				sub_shapes.push_back(sub_shape);
 		}
@@ -1517,7 +1584,7 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		hkpMoppCode*							pMoppCode(NULL);
 
 		hkpMoppCompilerInput					mci;
-		hkpShape* childShape = build_shape(shape_root->GetChild(0), geometry_meshes);
+		hkpShape* childShape = build_shape(shape_root->GetChild(0), geometry_meshes, properties, scale_factor, body, hk_body);
 		hkpShapeCollection* collection;
 		hkpShapeType result_type = childShape->getType();
 		if (result_type != HK_SHAPE_LIST && result_type != HK_SHAPE_COMPRESSED_MESH)
@@ -1533,7 +1600,8 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 	}
 	//shapes
 	vector<hkpNamedMeshMaterial> materials;
-	hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes, materials);
+	hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes, materials, properties, scale_factor);
+	hkReal mass = properties.m_mass;
 	if (ends_with(name, "_sphere"))
 	{		
 		hkpCreateShapeUtility::CreateShapeInput input;
@@ -1541,7 +1609,9 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createSphereShape(input, output);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
-		return handle_output_transform(output, material);
+		hkpSphereShape* shape = (hkpSphereShape*)output.m_shape;
+		hkInertiaTensorComputer::computeSphereVolumeMassProperties(shape->getRadius(), mass, properties);
+		return handle_output_transform(output, material, properties, shape_root, body, hk_body);
 	}
 	if (ends_with(name, "_box"))
 	{
@@ -1550,7 +1620,9 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createBoxShape(input, output);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
-		return handle_output_transform(output, material);
+		hkpBoxShape* shape = (hkpBoxShape*)output.m_shape;
+		hkInertiaTensorComputer::computeBoxVolumeMassProperties(shape->getHalfExtents(), mass, properties);
+		return handle_output_transform(output, material, properties, shape_root, body, hk_body);
 	}
 	if (ends_with(name, "_capsule"))
 	{
@@ -1559,7 +1631,9 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createCapsuleShape(input, output);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
-		return handle_output_transform(output, material);
+		hkpCapsuleShape* shape = (hkpCapsuleShape*)output.m_shape;
+		hkInertiaTensorComputer::computeCapsuleVolumeMassProperties(shape->getVertex(0), shape->getVertex(1), shape->getRadius(), mass, properties);
+		return handle_output_transform(output, material, properties, shape_root, body, hk_body);
 	}
 	if (ends_with(name, "_convex"))
 	{
@@ -1567,20 +1641,15 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		hkGeometry convex;
 		hkArray<hkVector4> planeEquationsOut;
 		hkGeometryUtility::createConvexGeometry(stridedVertsIn, convex, planeEquationsOut);
+		hkStridedVertices stridedVertsOut(convex.m_vertices);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
 		hkpShape* convex_shape = new hkpConvexVerticesShape(convex.m_vertices, planeEquationsOut);
+		hkInertiaTensorComputer::computeVertexHullVolumeMassProperties(stridedVertsOut.m_vertices, stridedVertsOut.m_striding, stridedVertsOut.m_numVertices, mass, properties);
 		convex_shape->setUserData((hkUlong)material);
 		return convex_shape;
 	}
 	if (ends_with(name, "_mesh"))
 	{
-		//todo, fix
-		hkSimdReal bhkScaleFactorInverse = 1 / 69.99124908;
-		for (auto& v : to_bound.m_vertices)
-		{
-			v.set(v.getSimdAt(0) * bhkScaleFactorInverse, v.getSimdAt(1) * bhkScaleFactorInverse, v.getSimdAt(2) * bhkScaleFactorInverse, v.getSimdAt(3));
-		}
-
 		hkpCompressedMeshShapeBuilder			shapeBuilder;
 		shapeBuilder.m_stripperPasses = 5000;
 		hkpCompressedMeshShape* pCompMesh = shapeBuilder.createMeshShape(0.001f, hkpCompressedMeshShape::MATERIAL_SINGLE_VALUE_PER_CHUNK);
@@ -1599,6 +1668,21 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 			for (int i = 0; i < materials.size(); i++) {
 				pCompMesh->m_materials.pushBack(i);
 			}
+			//check connectivity
+			hkpConvexVerticesConnectivity connector;
+			for (const auto& t : to_bound.m_triangles)
+			{
+				int tt[3]; tt[0] = t.m_a; tt[1] = t.m_b; tt[2] = t.m_c;
+				connector.addFace(tt, 3);
+			}
+			if (connector.isClosed())
+			{
+				hkInertiaTensorComputer::computeGeometryVolumeMassPropertiesChecked(&to_bound, mass, properties);
+			}
+			else {
+				hkInertiaTensorComputer::computeGeometrySurfaceMassProperties(&to_bound, 0.1, true, mass, properties);
+			}
+
 			return pCompMesh;
 		}
 		catch (...) {
