@@ -1642,7 +1642,7 @@ public:
 		{
 			parent_name += "_sphere";
 			bhkSphereShapeRef sphere = DynamicCast<bhkSphereShape>(shape);
-			hkpSphereShape hkSphere(sphere->GetRadius());
+			hkpSphereShape hkSphere(sphere->GetRadius()/*/10.0*/);
 			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkSphere));
 			bhkCMSDMaterial material;
 			material.material = sphere->GetMaterial().material_sk;
@@ -3025,130 +3025,131 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			prop = tempN->GetNextProperty(prop);
 		}
 		FbxLayerElementMaterial* layerElement = m->GetElementMaterial();
-		int sizeb = m->GetElementMaterialCount();
-		int index = 0;
-		FbxLayerElement::EMappingMode mode = layerElement->GetMappingMode();
 		if (layerElement != NULL)
 		{
+			int sizeb = m->GetElementMaterialCount();
+			int index = 0;
+			FbxLayerElement::EMappingMode mode = layerElement->GetMappingMode();
+		
 			FbxLayerElementArrayTemplate<int>& iarray = layerElement->GetIndexArray();
 			index = iarray[0];
-		}
-		
-		FbxSurfaceMaterial * material = tempN->GetMaterial(index);
-		if (material != NULL)
-		{
-			FbxPropertyT<FbxDouble3> colour;
-			FbxPropertyT<FbxDouble> factor;
-			FbxFileTexture *texture;
 
-			out->SetAlphaProperty(AlphaFlagsHandler(material).to_property());
-
-			//diffuse:
-			prop = material->FindProperty(FbxSurfaceMaterial::sDiffuse, true);
-			if (prop.IsValid())
+			FbxSurfaceMaterial * material = tempN->GetMaterial(index);
+			if (material != NULL)
 			{
-				texture = prop.GetSrcObject<FbxFileTexture>(0);
-				if (texture)
+				FbxPropertyT<FbxDouble3> colour;
+				FbxPropertyT<FbxDouble> factor;
+				FbxFileTexture *texture;
+
+				out->SetAlphaProperty(AlphaFlagsHandler(material).to_property());
+
+				//diffuse:
+				prop = material->FindProperty(FbxSurfaceMaterial::sDiffuse, true);
+				if (prop.IsValid())
 				{
-					vTextures[0] = format_texture(texture->GetFileName());
-					if (texture->Alpha > 0.0)
-						hasAlpha = true;
-				}
-
-			}
-
-			//normal:
-			prop = material->FindProperty(FbxSurfaceMaterial::sBump, true);
-
-			if (prop.IsValid())
-			{
-				texture = prop.GetSrcObject<FbxFileTexture>(0);
-
-				if (texture)
-				{
-					vTextures[1] = format_texture(texture->GetFileName());
-				}
-				else {
-					prop = material->FindProperty(FbxSurfaceMaterial::sNormalMap, true);
-					if (prop.IsValid())
+					texture = prop.GetSrcObject<FbxFileTexture>(0);
+					if (texture)
 					{
-						texture = prop.GetSrcObject<FbxFileTexture>(0);						
-						if (texture)
+						vTextures[0] = format_texture(texture->GetFileName());
+						if (texture->Alpha > 0.0)
+							hasAlpha = true;
+					}
+
+				}
+
+				//normal:
+				prop = material->FindProperty(FbxSurfaceMaterial::sBump, true);
+
+				if (prop.IsValid())
+				{
+					texture = prop.GetSrcObject<FbxFileTexture>(0);
+
+					if (texture)
+					{
+						vTextures[1] = format_texture(texture->GetFileName());
+					}
+					else {
+						prop = material->FindProperty(FbxSurfaceMaterial::sNormalMap, true);
+						if (prop.IsValid())
 						{
-							vTextures[1] = format_texture(texture->GetFileName());
+							texture = prop.GetSrcObject<FbxFileTexture>(0);
+							if (texture)
+							{
+								vTextures[1] = format_texture(texture->GetFileName());
+							}
 						}
 					}
 				}
-			}
 
-			//Specular
-			prop = material->FindProperty("Roughness", true);
-			if (prop.IsValid())
-			{
-				texture = prop.GetSrcObject<FbxFileTexture>(0);
-				if (texture)
+				//Specular
+				prop = material->FindProperty("Roughness", true);
+				if (prop.IsValid())
 				{
-					vTextures[1] = format_texture(texture->GetFileName());
+					texture = prop.GetSrcObject<FbxFileTexture>(0);
+					if (texture)
+					{
+						vTextures[1] = format_texture(texture->GetFileName());
+					}
 				}
-			}
-			//if this isn't found, then we could go down the alternate route and do 1f-transparency?
-			factor = material->FindProperty("Opacity", true);
+				//if this isn't found, then we could go down the alternate route and do 1f-transparency?
+				factor = material->FindProperty("Opacity", true);
 
-			if (factor.IsValid())
-			{
-				shader->SetAlpha(factor.Get());
-			}
+				if (factor.IsValid())
+				{
+					shader->SetAlpha(factor.Get());
+				}
 
-			//spec:
-			colour = material->FindProperty(material->sSpecular, true);
-			factor = material->FindProperty(material->sSpecularFactor, true);
-			if (colour.IsValid() && factor.IsValid())
-			{
-				//correct set this flag or my ocd will throw fits.
-				factor.Get() > 0.0 ? shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() | SLSF1_SPECULAR)) : shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() & ~SLSF1_SPECULAR));
-				FbxDouble3 colourvec = colour.Get();
-				shader->SetSpecularStrength(factor.Get());
-				shader->SetSpecularColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
-			}
+				//spec:
+				colour = material->FindProperty(material->sSpecular, true);
+				factor = material->FindProperty(material->sSpecularFactor, true);
+				if (colour.IsValid() && factor.IsValid())
+				{
+					//correct set this flag or my ocd will throw fits.
+					factor.Get() > 0.0 ? shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() | SLSF1_SPECULAR)) : shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() & ~SLSF1_SPECULAR));
+					FbxDouble3 colourvec = colour.Get();
+					shader->SetSpecularStrength(factor.Get());
+					shader->SetSpecularColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
+				}
 
-			//emissive
-			colour = material->FindProperty(material->sEmissive, true);
-			factor = material->FindProperty(material->sEmissiveFactor, true);
-			if (colour.IsValid() && factor.IsValid())
-			{
-				FbxDouble3 colourvec = colour.Get();
-				shader->SetEmissiveMultiple(factor.Get());
-				shader->SetEmissiveColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
-			}
+				//emissive
+				colour = material->FindProperty(material->sEmissive, true);
+				factor = material->FindProperty(material->sEmissiveFactor, true);
+				if (colour.IsValid() && factor.IsValid())
+				{
+					FbxDouble3 colourvec = colour.Get();
+					shader->SetEmissiveMultiple(factor.Get());
+					shader->SetEmissiveColor(Color3(colourvec[0], colourvec[1], colourvec[2]));
+				}
 
-			//	//shiny/gloss
-			factor = material->FindProperty(material->sShininess, true);
-			if (factor.IsValid())
-			{
-				shader->SetGlossiness(factor.Get());
-			}
+				//	//shiny/gloss
+				factor = material->FindProperty(material->sShininess, true);
+				if (factor.IsValid())
+				{
+					shader->SetGlossiness(factor.Get());
+				}
 
-			textures->SetTextures(vTextures);
+				textures->SetTextures(vTextures);
 
-			//unpack forced shader flags if any
-			int pack_flags_1 = get_property<FbxInt>(material, "shader_flags_1");
-			int pack_flags_2 = get_property<FbxInt>(material, "shader_flags_2");
-			unsigned int f1; f1 |= pack_flags_1;
-			unsigned int f2; f2 |= pack_flags_2;
-			if (material->FindProperty("shader_flags_1").IsValid())
-			{
-				shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(pack_flags_1)); // = get_property<FbxBool>(material, "color_blending_enable");
-				shader->SetShaderFlags2_sk(SkyrimShaderPropertyFlags2(pack_flags_2));
-			}
-			FbxProperty shader_type = material->FindProperty("shader_type");
-			if (shader_type.IsValid())
-			{
-				shader->SetSkyrimShaderType(NifFile::shader_type_value(shader_type.Get<FbxString>().Buffer()));
-			}
-			FbxProperty environment_map_scale = material->FindProperty("environment_map_scale");
-			if (environment_map_scale.IsValid())
-			{
-				shader->SetEnvironmentMapScale((float)environment_map_scale.Get<FbxDouble>());
+				//unpack forced shader flags if any
+				int pack_flags_1 = get_property<FbxInt>(material, "shader_flags_1");
+				int pack_flags_2 = get_property<FbxInt>(material, "shader_flags_2");
+				unsigned int f1; f1 |= pack_flags_1;
+				unsigned int f2; f2 |= pack_flags_2;
+				if (material->FindProperty("shader_flags_1").IsValid())
+				{
+					shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(pack_flags_1)); // = get_property<FbxBool>(material, "color_blending_enable");
+					shader->SetShaderFlags2_sk(SkyrimShaderPropertyFlags2(pack_flags_2));
+				}
+				FbxProperty shader_type = material->FindProperty("shader_type");
+				if (shader_type.IsValid())
+				{
+					shader->SetSkyrimShaderType(NifFile::shader_type_value(shader_type.Get<FbxString>().Buffer()));
+				}
+				FbxProperty environment_map_scale = material->FindProperty("environment_map_scale");
+				if (environment_map_scale.IsValid())
+				{
+					shader->SetEnvironmentMapScale((float)environment_map_scale.Get<FbxDouble>());
+				}
 			}
 		}
 	}
@@ -4314,7 +4315,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 	{
 		bhkSphereShapeRef sphere = new bhkSphereShape();
 		hkpSphereShape* hk_sphere = (hkpSphereShape*)&*shape;		
-		sphere->SetRadius(sphere->GetRadius());
+		sphere->SetRadius(hk_sphere->getRadius());
 		aggregate_layer = consume_material_from_shape(hk_sphere);
 		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
 		sphere->SetMaterial(temp);
@@ -4446,7 +4447,6 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		body->SetRotation(q);
 		bhkCMSDMaterial body_layer;
 		size_t depth = 0;
-		HKXWrapper::build_body(rigid_body, geometry_meshes);
 		hkRefPtr<hkpRigidBody> hk_body = HKXWrapper::build_body(rigid_body, geometry_meshes);
 		hkpRigidBodyCinfo body_cinfo; hk_body->getCinfo(body_cinfo);
 		body->SetShape(convert_from_hk(body_cinfo.m_shape, body_layer));
@@ -4497,8 +4497,7 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 	else
 		throw runtime_error("Unknown rigid body syntax!");
 
-	//return_collision->SetTarget(DynamicCast<NiAVObject>(conversion_Map[rigid_body->GetParent()]));
-
+	return_collision->SetTarget(DynamicCast<NiAVObject>(conversion_Map[rigid_body->GetParent()]));
 	return return_collision;
 }
 

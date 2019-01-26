@@ -1607,6 +1607,8 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		hkpCreateShapeUtility::CreateShapeInput input;
 		hkpCreateShapeUtility::ShapeInfoOutput output;
 		input.m_vertices = to_bound.m_vertices;
+		//for (int i = 0; i < input.m_vertices.getSize(); i++)
+		//	input.m_vertices[i] = hkVector4({ (float)input.m_vertices[i].getSimdAt(0) * 10.0f, (float)input.m_vertices[i].getSimdAt(2) * 10.0f, (float)input.m_vertices[i].getSimdAt(2) *10.0f });
 		hkpCreateShapeUtility::createSphereShape(input, output);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
 		hkpSphereShape* shape = (hkpSphereShape*)output.m_shape;
