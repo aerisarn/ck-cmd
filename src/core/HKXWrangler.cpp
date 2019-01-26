@@ -1367,6 +1367,14 @@ FbxNode* create_hulls(FbxManager* manager, VHACD::IVHACD* interfaceVHACD)
 		for (int i = 0; i < ch.m_nPoints; i++) {
 			points[i] = FbxVector4(ch.m_points[3 * i], ch.m_points[3 * i + 1], ch.m_points[3 * i + 2]);
 		}
+		for (int i = 0; i < ch.m_nTriangles; i++) {
+			m->BeginPolygon(0);
+			m->AddPolygon(ch.m_triangles[3 * i]);
+			m->AddPolygon(ch.m_triangles[3 * i + 1]);
+			m->AddPolygon(ch.m_triangles[3 * i + 2]);
+			m->EndPolygon();
+		}
+
 		temp_convex->AddNodeAttribute(m);
 	}
 	return list;
@@ -1607,8 +1615,6 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		hkpCreateShapeUtility::CreateShapeInput input;
 		hkpCreateShapeUtility::ShapeInfoOutput output;
 		input.m_vertices = to_bound.m_vertices;
-		//for (int i = 0; i < input.m_vertices.getSize(); i++)
-		//	input.m_vertices[i] = hkVector4({ (float)input.m_vertices[i].getSimdAt(0) * 10.0f, (float)input.m_vertices[i].getSimdAt(2) * 10.0f, (float)input.m_vertices[i].getSimdAt(2) *10.0f });
 		hkpCreateShapeUtility::createSphereShape(input, output);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
 		hkpSphereShape* shape = (hkpSphereShape*)output.m_shape;
