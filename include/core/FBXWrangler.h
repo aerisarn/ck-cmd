@@ -64,7 +64,7 @@ namespace FBX {
 		set<FbxNode*> physic_entities;
 
 		bool export_skin = false;
-		bool export_rig = true;
+		bool export_rig = false;
 
 		string external_skeleton_path = "";
 
@@ -74,7 +74,7 @@ namespace FBX {
 		void checkAnimatedNodes();
 		void buildKF();
 		void buildCollisions();
-		bhkShapeRef convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_layer, size_t& depth, Vector3& center);
+		bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_layer);
 		NiCollisionObjectRef build_physics(FbxNode* rigid_body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
 		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start, double last_stop);
 		void convertSkins(FbxMesh* m, NiTriShapeRef shape);

@@ -133,6 +133,19 @@ static inline Matrix44 TOMATRIX44(const hkTransform& q, const float scale = 1.0f
 	);
 }
 
+static inline InertiaMatrix TOINERTIAMATRIX(const hkMatrix3& q, const float scale = 1.0f, bool inverse = false) {
+
+	hkVector4 c0 = q.getColumn(0);
+	hkVector4 c1 = q.getColumn(1);
+	hkVector4 c2 = q.getColumn(2);
+
+	return InertiaMatrix(
+		c0.getSimdAt(0), c1.getSimdAt(0), c2.getSimdAt(0), 0.0f,
+		c0.getSimdAt(1), c1.getSimdAt(1), c2.getSimdAt(1), 0.0f,
+		c0.getSimdAt(2), c1.getSimdAt(2), c2.getSimdAt(2), 0.0f
+	);
+}
+
 FbxAMatrix getTransform(const NiAVObjectRef av)
 {
 	FbxAMatrix avm;
@@ -4205,10 +4218,8 @@ bhkCMSDMaterial consume_material_from_shape(hkpShape* shape)
 	return m;
 }
 
-bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_layer, size_t& depth, Vector3& center)
+bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_layer)
 {
-	depth += 1;
-	double bhkScaleFactorInverse = 1 / 69.99124908;
 	if (shape == NULL)
 	{
 		throw runtime_error("Trying to convert unexistant shape! Abort");
@@ -4226,13 +4237,10 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		vector<unsigned int > keys;
 		vector<bhkShapeRef> shapes;
 		bhkCMSDMaterial last_layer;
-		Vector3 local_center = {0,0,0};
 		for (int i = 0; i < num_shapes; i++)
 		{
-			Vector3 shape_center;
 			bhkCMSDMaterial shape_layer;
-			shapes.push_back(convert_from_hk(hk_list->getChildShapeInl(i), shape_layer, depth, shape_center));
-			local_center += shape_center;
+			shapes.push_back(convert_from_hk(hk_list->getChildShapeInl(i), shape_layer));
 			if (i > 0 && 
 				(last_layer.filter.layer_sk != shape_layer.filter.layer_sk ||
 					last_layer.material != shape_layer.material)
@@ -4243,8 +4251,6 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 			}
 			last_layer = shape_layer;
 		}
-		local_center /= num_shapes;
-		center = local_center;
 		hkpShapeKey key = hk_list->getFirstKey();
 		while (key != HK_INVALID_SHAPE_KEY)
 		{
@@ -4264,13 +4270,12 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		bhkConvexTransformShapeRef convex_transform = new bhkConvexTransformShape();
 		hkpConvexTransformShape* hk_transform = (hkpConvexTransformShape*)&*shape;
 		bhkCMSDMaterial material;
-		convex_transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material, depth, center));
-		Matrix44 mat = TOMATRIX44(hk_transform->getTransform(), bhkScaleFactorInverse);
-		center = mat * center;
+		convex_transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material));
+		Matrix44 mat = TOMATRIX44(hk_transform->getTransform());
 		convex_transform->SetTransform(mat);
 		HavokMaterial temp; temp.material_sk = material.material;
 		convex_transform->SetMaterial(temp);
-		convex_transform->SetRadius(hk_transform->getChildShape()->getRadius()*bhkScaleFactorInverse);
+		convex_transform->SetRadius(hk_transform->getChildShape()->getRadius());
 		aggregate_layer = material;
 		return StaticCast<bhkShape>(convex_transform);
 	}
@@ -4280,9 +4285,8 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		bhkTransformShapeRef transform = new bhkTransformShape();
 		hkpTransformShape* hk_transform = (hkpTransformShape*)&*shape;
 		bhkCMSDMaterial material;
-		transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material, depth, center));
-		Matrix44 mat = TOMATRIX44(hk_transform->getTransform(), bhkScaleFactorInverse);
-		center = mat * center;
+		transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material));
+		Matrix44 mat = TOMATRIX44(hk_transform->getTransform());
 		transform->SetTransform(mat);
 		HavokMaterial temp; temp.material_sk = material.material;
 		transform->SetMaterial(temp);
@@ -4295,7 +4299,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		bhkMoppBvTreeShapeRef pMoppShape = new bhkMoppBvTreeShape();
 		hkpMoppBvTreeShape* pMoppBvTree = (hkpMoppBvTreeShape*)&*shape;
 		bhkCMSDMaterial material;
-		pMoppShape->SetShape(convert_from_hk(pMoppBvTree->getShapeCollection(), material, depth, center));
+		pMoppShape->SetShape(convert_from_hk(pMoppBvTree->getShapeCollection(), material));
 		pMoppShape->SetOrigin(Vector3(pMoppBvTree->getMoppCode()->m_info.m_offset(0), pMoppBvTree->getMoppCode()->m_info.m_offset(1), pMoppBvTree->getMoppCode()->m_info.m_offset(2)));
 		pMoppShape->SetScale(pMoppBvTree->getMoppCode()->m_info.getScale());
 		pMoppShape->SetBuildType(MoppDataBuildType((Niflib::byte) pMoppBvTree->getMoppCode()->m_buildType));
@@ -4310,12 +4314,11 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 	{
 		bhkSphereShapeRef sphere = new bhkSphereShape();
 		hkpSphereShape* hk_sphere = (hkpSphereShape*)&*shape;		
-		sphere->SetRadius(sphere->GetRadius()*bhkScaleFactorInverse);
+		sphere->SetRadius(sphere->GetRadius());
 		aggregate_layer = consume_material_from_shape(hk_sphere);
 		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
 		sphere->SetMaterial(temp);
 		hkVector4 centre; hk_sphere->getCentre(centre);
-		center = TOVECTOR3(centre, bhkScaleFactorInverse);
 		return StaticCast<bhkShape>(sphere);
 	}
 	/// hkpBoxShape type.
@@ -4323,13 +4326,12 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 	{
 		bhkBoxShapeRef box = new bhkBoxShape();
 		hkpBoxShape* hk_box = (hkpBoxShape*)&*shape;
-		box->SetDimensions(TOVECTOR3(hk_box->getHalfExtents(), bhkScaleFactorInverse));
-		box->SetRadius(hk_box->getRadius()*bhkScaleFactorInverse);
+		box->SetDimensions(TOVECTOR3(hk_box->getHalfExtents()));
+		box->SetRadius(hk_box->getRadius());
 		aggregate_layer = consume_material_from_shape(hk_box);
 		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
 		box->SetMaterial(temp);
 		hkVector4 centre; hk_box->getCentre(centre);
-		center = TOVECTOR3(centre, bhkScaleFactorInverse);
 		return StaticCast<bhkShape>(box);
 	}
 	/// hkpCapsuleShape type.
@@ -4338,16 +4340,15 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		bhkCapsuleShapeRef capsule = new bhkCapsuleShape();
 		hkpCapsuleShape* hk_capsule = (hkpCapsuleShape*)&*shape;
 		//Inverted?
-		capsule->SetFirstPoint(TOVECTOR3(hk_capsule->getVertices()[1], bhkScaleFactorInverse));
-		capsule->SetSecondPoint(TOVECTOR3(hk_capsule->getVertices()[0], bhkScaleFactorInverse));
-		capsule->SetRadius(hk_capsule->getRadius()*bhkScaleFactorInverse);
-		capsule->SetRadius1(hk_capsule->getRadius()*bhkScaleFactorInverse);
-		capsule->SetRadius2(hk_capsule->getRadius()*bhkScaleFactorInverse);
+		capsule->SetFirstPoint(TOVECTOR3(hk_capsule->getVertices()[1]));
+		capsule->SetSecondPoint(TOVECTOR3(hk_capsule->getVertices()[0]));
+		capsule->SetRadius(hk_capsule->getRadius());
+		capsule->SetRadius1(hk_capsule->getRadius());
+		capsule->SetRadius2(hk_capsule->getRadius());
 		aggregate_layer = consume_material_from_shape(hk_capsule);
 		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
 		capsule->SetMaterial(temp);
 		hkVector4 centre; hk_capsule->getCentre(centre);
-		center = TOVECTOR3(centre, bhkScaleFactorInverse);
 		return StaticCast<bhkShape>(capsule);
 	}
 	/// hkpConvexVerticesShape type.
@@ -4360,7 +4361,7 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		hk_convex->getOriginalVertices(hk_vertices);
 		for (const auto& v : hk_vertices)
 		{
-			vertices.push_back(TOVECTOR4(v, bhkScaleFactorInverse));
+			vertices.push_back(TOVECTOR4(v));
 		}
 		convex->SetVertices(vertices);
 		const hkArray<hkVector4>& hk_planes = hk_convex->getPlaneEquations();
@@ -4373,9 +4374,8 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		aggregate_layer = consume_material_from_shape(hk_convex);
 		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
 		convex->SetMaterial(temp);
-		convex->SetRadius(hk_convex->getRadius()*bhkScaleFactorInverse);
+		convex->SetRadius(hk_convex->getRadius());
 		hkVector4 centre; hk_convex->getCentre(centre);
-		center = TOVECTOR3(centre, bhkScaleFactorInverse);
 		return StaticCast<bhkShape>(convex);
 	}
 	/// hkpCompressedMeshShape type.
@@ -4391,7 +4391,6 @@ bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial&
 		hkAabb out;
 		hk_mesh->getAabb(hkTransform::getIdentity(), 0.01, out);
 		hkVector4 centre; out.getCenter(centre);
-		center = TOVECTOR3(centre, bhkScaleFactorInverse);
 		return StaticCast<bhkShape>(mesh);
 	}
 
@@ -4448,66 +4447,42 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		bhkCMSDMaterial body_layer;
 		size_t depth = 0;
 		HKXWrapper::build_body(rigid_body, geometry_meshes);
-		//search for the mesh children
-		FbxNode* mesh_child = NULL;
-		for (int i = 0; i < rigid_body->GetChildCount(); i++)
+		hkRefPtr<hkpRigidBody> hk_body = HKXWrapper::build_body(rigid_body, geometry_meshes);
+		hkpRigidBodyCinfo body_cinfo; hk_body->getCinfo(body_cinfo);
+		body->SetShape(convert_from_hk(body_cinfo.m_shape, body_layer));
+		body->SetCenter(TOVECTOR4(body_cinfo.m_centerOfMass));
+		body->SetInertiaTensor(TOINERTIAMATRIX(body_cinfo.m_inertiaTensor));
+		body->SetMass(hk_body->getMass());
+		if (find_animated_parent(rigid_body) != NULL)
 		{
-			FbxNode* temp_child = rigid_body->GetChild(i);
-			if (isShapeFbxNode(temp_child))
-			{
-				mesh_child = temp_child;
-				break;
-			}
+			//the fix is in
+			body_layer.filter.layer_sk = SKYL_ANIMSTATIC;
 		}
-		if (mesh_child == NULL) mesh_child = rigid_body->GetChild(0);
-		Vector3 center;
-		//body->SetShape(convert_from_hk(HKXWrapper::build_shape(mesh_child, geometry_meshes), body_layer, depth, center));
-		//if (depth == 2 && body->GetShape()->IsDerivedType(bhkTransformShape::TYPE))
-		//{
-		//	//this can be simplified by using the rigid body transform
-		//	bhkTransformShapeRef transform = DynamicCast<bhkTransformShape>(body->GetShape());
-		//	Matrix44 t = transform->GetTransform();
-		//	body->SetTranslation(t.GetTrans());
-		//	Quaternion q = t.Submatrix(3,3).AsQuaternion();
-		//	Niflib::hkQuaternion hkq;
-		//	hkq.x = q.x;
-		//	hkq.y = q.y;
-		//	hkq.z = q.z;
-		//	hkq.w = q.w;
-		//	body->SetRotation(hkq);
-		//	body->SetShape(transform->GetShape());
-		//}
-		//body->SetCenter(center);
-		//if (find_animated_parent(rigid_body) != NULL)
-		//{
-		//	//the fix is in
-		//	body_layer.filter.layer_sk = SKYL_ANIMSTATIC;
-		//}
-		//if (body_layer.filter.layer_sk == SKYL_ANIMSTATIC)
-		//{
-		//	body->SetMotionSystem(MO_SYS_BOX_INERTIA);
-		//	body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
-		//	body->SetQualityType(MO_QUAL_FIXED);
-		//	collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL | BHKCO_SYNC_ON_UPDATE));
-		//}
-		//else if (body_layer.filter.layer_sk == SKYL_CLUTTER)
-		//{
-		//	body->SetMotionSystem(MO_SYS_BOX_INERTIA);
-		//	body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
-		//	body->SetQualityType(MO_QUAL_MOVING);
-		//	collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SYNC_ON_UPDATE));
-		//}
-		////Static
-		//else {		
-		//	body->SetMotionSystem(MO_SYS_BOX_STABILIZED);
-		//	body->SetSolverDeactivation(SOLVER_DEACTIVATION_OFF);
-		//	body->SetQualityType(MO_QUAL_INVALID);
-		//	collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL));
-		//}
-		//body->SetHavokFilter(body_layer.filter);
-		//body->SetHavokFilterCopy(body->GetHavokFilter());
-		//collision->SetBody(StaticCast<bhkWorldObject>(body));
-		//return_collision = StaticCast<NiCollisionObject>(collision);
+		if (body_layer.filter.layer_sk == SKYL_ANIMSTATIC)
+		{
+			body->SetMotionSystem(MO_SYS_BOX_INERTIA);
+			body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
+			body->SetQualityType(MO_QUAL_FIXED);
+			collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL | BHKCO_SYNC_ON_UPDATE));
+		}
+		else if (body_layer.filter.layer_sk == SKYL_CLUTTER)
+		{
+			body->SetMotionSystem(MO_SYS_DYNAMIC);
+			body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
+			body->SetQualityType(MO_QUAL_MOVING);
+			collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SYNC_ON_UPDATE));
+		}
+		//Static
+		else {		
+			body->SetMotionSystem(MO_SYS_BOX_STABILIZED);
+			body->SetSolverDeactivation(SOLVER_DEACTIVATION_OFF);
+			body->SetQualityType(MO_QUAL_INVALID);
+			collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL));
+		}
+		body->SetHavokFilter(body_layer.filter);
+		body->SetHavokFilterCopy(body->GetHavokFilter());
+		collision->SetBody(StaticCast<bhkWorldObject>(body));
+		return_collision = StaticCast<NiCollisionObject>(collision);
 	}
 	else if (name.find("_sp") != string::npos) {
 		bhkSPCollisionObjectRef phantom_collision = new bhkSPCollisionObject();
