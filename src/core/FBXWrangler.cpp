@@ -884,11 +884,11 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 
 		FbxSurfaceMaterial* material = extract_Material<NiTriStrips, VER_20_2_0_7>(node);
-		int material_index = -1;
-		if (material != NULL)
-			material_index = parent->AddMaterial(material);
+		//int material_index = -1;
+		//if (material != NULL)
+		//	material_index = parent->AddMaterial(material);
 
-		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material_index, getTransform(&node));
+		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material, getTransform(&node));
 	}
 
 	FbxNode* AddGeometry(FbxNode* parent, NiTriShape& node) {
@@ -931,11 +931,11 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			return FbxNode::Create(&scene, shapeName.c_str());
 
 		FbxSurfaceMaterial* material = extract_Material<NiTriShape, VER_20_2_0_7>(node);
-		int material_index = -1;
-		if (material != NULL)
-			material_index = parent->AddMaterial(material);
+		//int material_index = -1;
+		//if (material != NULL)
+		//	material_index = parent->AddMaterial(material);
 
-		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material_index, getTransform(&node));
+		return AddGeometry(parent, shapeName, verts, norms, tris, uvs, vcs, material, getTransform(&node));
 	}
 
 	FbxNode* AddGeometry(FbxNode* parent, const string& shapeName, 
@@ -944,7 +944,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 							const vector<Triangle>& tris,
 							vector<TexCoord>& uvs, 
 							vector<Color4>& vcs, 
-							int material_index,
+							FbxSurfaceMaterial* material,
 							FbxAMatrix& geometry_transform) {
 
 		FbxMesh* m = FbxMesh::Create(&scene, shapeName.c_str());
@@ -984,9 +984,26 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			if (vcElement)
 				vcElement->GetDirectArray().Add(FbxColor(vcs[i].r, vcs[i].g, vcs[i].b, vcs[i].a));
 		}
-		if (material_index != -1)
+
+		FbxNode* local_parent = NULL;
+		if (parent == parent->GetScene()->GetRootNode())
 		{
+			//seems like FBX doesn't like meshes added to root
+			string dummy_name = shapeName + "_support";
+			local_parent = FbxNode::Create(&scene, dummy_name.c_str());
+			parent->AddChild(local_parent);
+		}
+		else {
+			local_parent = parent;
+		}
+
+		int material_index = -1;  
+
+		if (material != NULL)
+		{
+			material_index = local_parent->AddMaterial(material);
 			m->InitMaterialIndices(FbxLayerElement::EMappingMode::eAllSame);
+			int count = m->GetElementMaterialCount();
 			FbxLayerElementMaterial* layerElement = m->GetElementMaterial();
 			FbxLayerElementArrayTemplate<int>& iarray = layerElement->GetIndexArray();
 			iarray.SetAt(0, material_index);
@@ -1001,17 +1018,18 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			}
 		}
 
-		if (parent == parent->GetScene()->GetRootNode())
-		{
-			//seems like FBX doesn't like meshes added to root
-			string dummy_name = shapeName + "_support";
-			FbxNode* dummy = FbxNode::Create(&scene, dummy_name.c_str());
-			dummy->AddNodeAttribute(m);
-			parent->AddChild(dummy);
-		}
-		else {
-			parent->AddNodeAttribute(m);
-		}
+		//if (parent == parent->GetScene()->GetRootNode())
+		//{
+		//	//seems like FBX doesn't like meshes added to root
+		//	string dummy_name = shapeName + "_support";
+		//	FbxNode* dummy = FbxNode::Create(&scene, dummy_name.c_str());
+		//	dummy->AddNodeAttribute(m);
+		//	parent->AddChild(dummy);
+		//}
+		//else {
+		//	parent->AddNodeAttribute(m);
+		//}
+		local_parent->AddNodeAttribute(m);
 		return parent;
 	}
 
