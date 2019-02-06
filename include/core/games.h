@@ -3,9 +3,8 @@
 #include "stdafx.h"
 
 #include <map>
-#include <filesystem>
-
-namespace fs = std::experimental::filesystem;
+#include <core/bsa.h>
+#include <fstream>
 
 #define MAX_KEY_LENGTH 255
 #define MAX_VALUE_NAME 16383
@@ -82,6 +81,10 @@ namespace ckcmd {
 				return data_files(game, ".esp");
 			}
 
+			const inline fs::path override(const Game& game) {
+				return data(game);
+			}
+
 			Game from_string(const TCHAR* keyName) {
 				if (!_tcscmp(keyName, _T("Fallout3")))
 					return FO3;
@@ -98,11 +101,54 @@ namespace ckcmd {
 				return INVALID;
 			}
 
+			const inline void loadBsas(const Game& game)
+			{
+				for (const auto& bsa_filename : bsas(game))
+				{
+					opened_bsas.push_back(ckcmd::BSA::BSAFile(bsa_filename));
+				}
+			}
+
+			void load(const fs::path& path, std::vector<uint8_t>& result) {
+				std::ifstream fss(path.c_str());
+				//allocate
+				fss.seekg(0, std::ios::end);
+				result.reserve(fss.tellg());
+				//reset and assign
+				fss.seekg(0, std::ios::beg);
+				result.assign(std::istreambuf_iterator<char>(fss),
+					std::istreambuf_iterator<char>());
+				fss.close();
+			}
+
+			bool load(const Games::Game& game, const std::string& path, std::vector<uint8_t>& result) {
+				//search in override
+				fs::path override_path = override(game) / path;
+				if (fs::exists(override_path) && fs::is_regular_file(override_path))
+				{
+					load(override_path, result);
+					return true;
+				}
+				for (ckcmd::BSA::BSAFile bsa_file : opened_bsas) {
+					if (bsa_file.find(path)) {
+						size_t size = -1;
+						const uint8_t* data = bsa_file.extract(path, size);
+						result.resize(size);
+						result.assign(data, data+size);
+						delete data;
+						return true;
+					}
+				}
+				return false;
+			}
+
 			typedef std::map<Game, fs::path> GamesPathMapT;
 
 		private:
 
 			GamesPathMapT pathMaps;
+
+			std::list<ckcmd::BSA::BSAFile> opened_bsas;
 
 			LONG GetStringRegKey(HKEY hKey, const std::wstring &strValueName, std::wstring &strValue)
 			{
@@ -248,7 +294,8 @@ namespace ckcmd {
 				}
 			}
 
-			~Games() {}
+			~Games() {
+			}
 
 		};
 
