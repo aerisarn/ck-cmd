@@ -1446,6 +1446,28 @@ BSFadeNode* convert_root(NiObject* root)
 	return (BSFadeNode*)root;
 }
 
+void update_tangentspace(NiTriShapeDataRef data)
+{
+	vector<Vector3> vertices = data->GetVertices();
+	Vector3 COM;
+	if (vertices.size() != 0)
+		COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
+	vector<Triangle> faces = data->GetTriangles();
+	vector<Vector3> normals = data->GetNormals();
+	if (vertices.size() != 0 && faces.size() != 0 && data->GetUvSets().size() != 0) {
+		vector<TexCoord> uvs = data->GetUvSets()[0];
+		TriGeometryContext g(vertices, COM, faces, uvs, normals);
+		data->SetHasNormals(1);
+		//recalculate
+		data->SetNormals(g.normals);
+		data->SetTangents(g.tangents);
+		data->SetBitangents(g.bitangents);
+		if (vertices.size() != g.normals.size() || vertices.size() != g.tangents.size() || vertices.size() != g.bitangents.size())
+			throw runtime_error("Geometry mismatch!");
+		data->SetBsVectorFlags(static_cast<BSVectorFlags>(data->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
+	}
+}
+
 IndexString getStringFromPalette(std::string palette, size_t offset)
 {
 	size_t findex = palette.find_first_of('\0', offset);
@@ -1499,17 +1521,8 @@ NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
 		COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
 	vector<Triangle> faces = shapeData->GetTriangles();
 	vector<Vector3> normals = shapeData->GetNormals();
-	if (vertices.size() != 0 && faces.size() != 0 && shapeData->GetUvSets().size() != 0) {
-		vector<TexCoord> uvs = shapeData->GetUvSets()[0];
-		TriGeometryContext g(vertices, COM, faces, uvs, normals);
-		shapeData->SetHasNormals(1);
-		//recalculate
-		shapeData->SetNormals(g.normals);
-		shapeData->SetTangents(g.tangents);
-		shapeData->SetBitangents(g.bitangents);
-		if (vertices.size() != g.normals.size() || vertices.size() != g.tangents.size() || vertices.size() != g.bitangents.size())
-			throw runtime_error("Geometry mismatch!");
-		shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(shapeData->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
+	if (shapeData->GetVertices().size() != 0 && shapeData->GetTriangles().size() != 0 && shapeData->GetUvSets().size() != 0) {
+		update_tangentspace(shapeData);
 	}
 	else {
 		shapeData->SetTangents(stripsData->GetTangents());
@@ -2132,6 +2145,10 @@ public:
 			skinPartition->SetSkinPartitionBlocks(partitionBlocks);
 			skinInstance->SetSkinPartition(skinPartition);
 			obj.SetSkinInstance(skinInstance);			
+		}
+
+		if (data->GetVertices().size() != 0 && data->GetTriangles().size() != 0 && data->GetUvSets().size() != 0) {
+			update_tangentspace(data);
 		}
 	}
 
@@ -3233,7 +3250,7 @@ bool BeginConversion(string importPath, string exportPath) {
 				else
 				{
 					NiNode* proxyRoot = new NiNode();
-
+					proxyRoot->SetName(IndexString("ProxyNode"));
 					proxyRoot->SetFlags(bsroot->GetFlags());
 					proxyRoot->SetChildren(bsroot->GetChildren());
 					proxyRoot->SetRotation(bsroot->GetRotation());
@@ -3295,7 +3312,10 @@ bool BeginConversion(string importPath, string exportPath) {
 				FixTargetsVisitor(root, info, blocks);
 			}
 
-			fs::path out_path = exportPath / nifs[i].filename();
+			size_t offset = nifs[i].parent_path().string().find("meshes", 0);
+			size_t end = nifs[i].parent_path().string().length();
+			std::string newPath = exportPath + nifs[i].parent_path().string().substr(offset, end);
+			fs::path out_path = newPath / nifs[i].filename();
 			fs::create_directories(out_path.parent_path());
 			WriteNifTree(out_path.string(), root, info);
 			NifFile check(out_path.string());

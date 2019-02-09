@@ -3,6 +3,7 @@
 #include <core/hkxcmd.h>
 #include <core/hkfutils.h>
 #include <core/log.h>
+#include <commands/Geometry.h>
 #include <commands/DDS.h>
 
 using namespace ckcmd;
@@ -11,9 +12,15 @@ using namespace ckcmd::nifscan;
 using namespace Niflib;
 using namespace std;
 
+class RebuildVisitor;
+class FixTargetsVisitor;
+
 static bool BeginScan(string scanPath);
 
 REGISTER_COMMAND_CPP(NifScan)
+
+Games& games = Games::Instance();
+const Games::GamesPathMapT& installations = games.getGames();
 
 NifScan::NifScan()
 {
@@ -50,16 +57,78 @@ string NifScan::GetHelpShort() const
     return "TODO: Short help message for ConvertNif";
 }
 
-bool NifScan::InternalRunCommand(map<string, docopt::value> parsedArgs)
-{
-	string scanPath;
+class RebuildVisitor : public RecursiveFieldVisitor<RebuildVisitor> {
+	set<NiObject*> objects;
+public:
+	vector<NiObjectRef> blocks;
 
-	scanPath = parsedArgs["<path_to_scan>"].asString();
+	RebuildVisitor(NiObject* root, const NifInfo& info) :
+		RecursiveFieldVisitor(*this, info) {
+		root->accept(*this, info);
 
-    bool result = BeginScan(scanPath);
-    Log::Info("NifScan Ended");
-    return result;
-}
+		for (NiObject* ptr : objects) {
+			blocks.push_back(ptr);
+		}
+	}
+
+
+	template<class T>
+	inline void visit_object(T& obj) {
+		objects.insert(&obj);
+	}
+
+
+	template<class T>
+	inline void visit_compound(T& obj) {
+	}
+
+	template<class T>
+	inline void visit_field(T& obj) {}
+};
+
+class FixTargetsVisitor : public RecursiveFieldVisitor<FixTargetsVisitor> {
+	vector<NiObjectRef>& blocks;
+public:
+
+
+	FixTargetsVisitor(NiObject* root, const NifInfo& info, vector<NiObjectRef>& blocks) :
+		RecursiveFieldVisitor(*this, info), blocks(blocks) {
+		root->accept(*this, info);
+	}
+
+
+	template<class T>
+	inline void visit_object(T& obj) {}
+
+	template<>
+	inline void visit_object(NiDefaultAVObjectPalette& obj) {
+		vector<AVObject > av_objects = obj.GetObjs();
+		for (AVObject& av_object : av_objects) {
+			for (NiObjectRef ref : blocks) {
+				if (ref->IsDerivedType(NiAVObject::TYPE)) {
+					NiAVObjectRef av_ref = DynamicCast<NiAVObject>(ref);
+					if (av_ref->GetName() == av_object.name) {
+						av_object.avObject = DynamicCast<NiAVObject>(av_ref);
+					}
+				}
+			}
+		}
+		obj.SetObjs(av_objects);
+	}
+
+	template<class T>
+	inline void visit_compound(T& obj) {
+	}
+
+	template<>
+	void visit_compound(AVObject& avlink) {
+		//relink av objects on converted nistrips;
+
+	}
+
+	template<class T>
+	inline void visit_field(T& obj) {}
+};
 
 //BSXFlags
 /*
@@ -237,7 +306,7 @@ void findFilesn(fs::path startingDir, string extension, vector<fs::path>& result
 	}
 }
 
-static void CheckDDS(fs::path filename, int slot, bool hasAlpha, bool isSpecular)
+static int CheckDDS(fs::path filename, int slot, bool hasAlpha, bool isSpecular)
 {
 	ifstream is;
 	int magic;
@@ -250,7 +319,7 @@ static void CheckDDS(fs::path filename, int slot, bool hasAlpha, bool isSpecular
 		is.read((char*)&magic, sizeof(int));
 
 		if (magic != DDS_MAGIC)
-			return;
+			return -1;
 
 		is.read((char*)&header.dwSize, sizeof(DWORD));
 		is.read((char*)&header.dwFlags, sizeof(DWORD));
@@ -263,6 +332,7 @@ static void CheckDDS(fs::path filename, int slot, bool hasAlpha, bool isSpecular
 		is.read((char*)&header.ddspf.dwSize, sizeof(DWORD));
 		is.read((char*)&header.ddspf.dwFlags, sizeof(DWORD));
 		is.read((char*)&header.ddspf.dwFourCC, sizeof(DWORD)); //DXT1, DXT3 or DXT5
+		is.close();
 
 		if (header.ddspf.dwFourCC == DDS_DXT3)
 			Log::Error("DXT3 is not used in Skyrim.");
@@ -279,7 +349,10 @@ static void CheckDDS(fs::path filename, int slot, bool hasAlpha, bool isSpecular
 			else if (header.ddspf.dwFourCC == DDS_DXT5)
 			{
 				if (!hasAlpha)
+				{
 					Log::Error("Block does not have alpha but diffuse texture is DXT5. Needs to be DXT1.");
+					return 1;
+				}
 			}
 		}
 		if (slot == 1) {
@@ -298,16 +371,84 @@ static void CheckDDS(fs::path filename, int slot, bool hasAlpha, bool isSpecular
 			if (header.ddspf.dwFourCC != DDS_DXT1)
 				Log::Error("Environment/Cube map is needs to be DXT1.");
 		}
-
-		is.close();
 	}
+	return 0;
 }
 
-void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
+NiTriShapeRef triangulate_strip(NiTriStripsRef& stripsRef)
 {
-	Games& games = Games::Instance();
-	const Games::GamesPathMapT& installations = games.getGames();
+	//Convert NiTriStrips to NiTriShapes first of all.
+	NiTriShapeRef shapeRef = new NiTriShape();
+	shapeRef->SetName(stripsRef->GetName());
+	shapeRef->SetExtraDataList(stripsRef->GetExtraDataList());
+	shapeRef->SetTranslation(stripsRef->GetTranslation());
+	shapeRef->SetRotation(stripsRef->GetRotation());
+	shapeRef->SetScale(stripsRef->GetScale());
+	shapeRef->SetFlags(524302);
+	shapeRef->SetData(stripsRef->GetData());
+	shapeRef->SetShaderProperty(stripsRef->GetShaderProperty());
+	shapeRef->SetProperties(stripsRef->GetProperties());
+	shapeRef->SetAlphaProperty(stripsRef->GetAlphaProperty());
 
+	NiTriStripsDataRef stripsData = DynamicCast<NiTriStripsData>(stripsRef->GetData());
+	NiTriShapeDataRef shapeData = new  NiTriShapeData();
+
+	shapeData->SetHasVertices(stripsData->GetHasVertices());
+	shapeData->SetVertices(stripsData->GetVertices());
+	shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(stripsData->GetVectorFlags()));
+	shapeData->SetUvSets(stripsData->GetUvSets());
+	if (!shapeData->GetUvSets().empty())
+		shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(shapeData->GetBsVectorFlags() | BSVF_HAS_UV));
+	shapeData->SetCenter(stripsData->GetCenter());
+	shapeData->SetRadius(stripsData->GetRadius());
+	shapeData->SetHasVertexColors(stripsData->GetHasVertexColors());
+	shapeData->SetVertexColors(stripsData->GetVertexColors());
+	shapeData->SetConsistencyFlags(stripsData->GetConsistencyFlags());
+	vector<Triangle> triangles = Geometry::triangulate(stripsData->GetPoints());
+	shapeData->SetNumTriangles(triangles.size());
+	shapeData->SetNumTrianglePoints(triangles.size() * 3);
+	shapeData->SetHasTriangles(1);
+	shapeData->SetTriangles(triangles);
+
+	shapeData->SetHasNormals(stripsData->GetHasNormals());
+	shapeData->SetNormals(stripsData->GetNormals());
+
+	vector<Vector3> vertices = shapeData->GetVertices();
+	Vector3 COM;
+	if (vertices.size() != 0)
+		COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
+	vector<Triangle> faces = shapeData->GetTriangles();
+	vector<Vector3> normals = shapeData->GetNormals();
+	if (vertices.size() != 0 && faces.size() != 0 && shapeData->GetUvSets().size() != 0) {
+		vector<TexCoord> uvs = shapeData->GetUvSets()[0];
+		ckcmd::Geometry::TriGeometryContext g(vertices, COM, faces, uvs, normals);
+		shapeData->SetHasNormals(1);
+		//recalculate
+		shapeData->SetNormals(g.normals);
+		shapeData->SetTangents(g.tangents);
+		shapeData->SetBitangents(g.bitangents);
+		if (vertices.size() != g.normals.size() || vertices.size() != g.tangents.size() || vertices.size() != g.bitangents.size())
+			throw runtime_error("Geometry mismatch!");
+		shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(shapeData->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
+	}
+	else {
+		shapeData->SetTangents(stripsData->GetTangents());
+		shapeData->SetBitangents(stripsData->GetBitangents());
+	}
+
+	shapeRef->SetData(DynamicCast<NiGeometryData>(shapeData));
+
+	//TODO: shared normals no more supported
+	shapeData->SetMatchGroups(vector<MatchGroup>{});
+
+	shapeRef->SetSkin(stripsRef->GetSkin());
+	shapeRef->SetSkinInstance(stripsRef->GetSkinInstance());
+
+	return shapeRef;
+}
+
+void ScanNif(vector<NiObjectRef>& blocks, NifInfo info)
+{
 	NiObjectRef root = GetFirstRoot(blocks);
 
 	bsx_flags_t calculated = calculateSkyrimBSXFlags(blocks, info);
@@ -318,54 +459,6 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 	vector<string> names = vector<string>();
 
 	for (int i = 0; i != blocks.size(); i++) {
-
-		if (blocks[i]->IsSameType(BSXFlags::TYPE)) {
-			BSXFlagsRef ref = DynamicCast<BSXFlags>(blocks[i]);
-			if (ref->GetName() != "BSX") {
-				Log::Error("Block[%i]: A 'BSXFlag' block needs to be named 'BSX'", i);
-			}
-			actual = ref->GetIntegerData();
-			//fxdragoncrashfurrow01 has bit 1 not set but I can't get why
-
-			if (ref->GetIntegerData() != calculated.to_ulong()) {
-				write = true;
-				Log::Info("Block[%d]: BSXFlag: value: [%d %s], estimate: [%d %s]", i, actual.to_ulong(), actual.to_string().c_str(), calculated.to_ulong(), calculated.to_string().c_str());
-			}
-		}
-
-		if (blocks[i]->IsSameType(BSInvMarker::TYPE)) {
-			if (DynamicCast<BSInvMarker>(blocks[i])->GetName() != "INV") {
-				Log::Error("Block[%i]: A 'BSInvMarker' block needs to be named 'INV'", i);
-			}
-		}
-
-		if (blocks[i]->IsSameType(BSFurnitureMarker::TYPE)) {
-			if (DynamicCast<BSFurnitureMarker>(blocks[i])->GetName() != "FRN") {
-				Log::Error("Block[%i]: A 'BSFurnitureMarker' block needs to be named 'FRN'", i);
-			}
-		}
-
-		if (blocks[i]->IsSameType(BSBound::TYPE)) {
-			if (DynamicCast<BSBound>(blocks[i])->GetName() != "BBX") {
-				Log::Error("Block[%i]: A 'BSBound' block needs to be named 'BBX'", i);
-			}
-		}
-
-		if (blocks[i]->IsSameType(Niflib::BSBehaviorGraphExtraData::TYPE)) {
-			if (DynamicCast<BSBehaviorGraphExtraData>(blocks[i])->GetName() != "BGED") {
-				Log::Error("Block[%i]: A 'BSBehaviorGraphExtraData' block needs to be named 'BGED'", i);
-			}
-		}
-
-		if (blocks[i]->IsSameType(BSBoneLODExtraData::TYPE)) {
-			if (DynamicCast<Niflib::BSBoneLODExtraData>(blocks[i])->GetName() != "BSBoneLOD") {
-				Log::Error("Block[%i]: A 'BSBoneLODExtraData' block needs to be named 'BSBoneLOD'", i);
-			}
-		}
-
-		if (blocks[i]->IsSameType(NiTriStrips::TYPE)) {
-			Log::Error("Block[%i]: NiTriStrips needs to be triangulated.", i);
-		}
 
 		if (blocks[i]->IsSameType(NiSkinPartition::TYPE)) {
 			for (SkinPartition partition : DynamicCast<NiSkinPartition>(blocks[i])->GetPartition()) {
@@ -404,10 +497,10 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 		if (blocks[i]->IsSameType(BSLightingShaderProperty::TYPE)) {
 			BSLightingShaderPropertyRef  shaderprop = DynamicCast<BSLightingShaderProperty>(blocks[i]);
 			if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) == SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS && !hasVFOnShader) {
-				Log::Error("Block[%i]: 'Has Vertex Colors' in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty flags", i);
+				//Log::Error("Block[%i]: 'Has Vertex Colors' in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty flags", i);
 			}
 			if ((shaderprop->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS) != SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS && hasVFOnShader) {
-				Log::Error("Block[%i]: 'Has Vertex Colors' in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty flags", i);
+				//Log::Error("Block[%i]: 'Has Vertex Colors' in NiTriShapeData must match 'Vertex Colors' in BSLightingShaderProperty flags", i);
 			}
 			hasVFOnShader = false; //Maybe this will fix issues
 			if (shaderprop->GetSkyrimShaderType() == BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP /*|| BSLightingShaderPropertyShaderType::ST_EYE_ENVMAP*/) {
@@ -480,7 +573,7 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 			if (data != NULL && shape != NULL && shaderprop != NULL) {
 				if (shape->GetAlphaProperty() != NULL)
 					hasAlpha = true;
-				
+
 				if (shaderprop->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_SPECULAR)
 					isSpecular = true;
 
@@ -497,7 +590,12 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 						}
 					}
 					if (allWhite)
-						Log::Error("Block[%i]: Redundant all white #FFFFFFFF vertex colors.", i);
+					{
+						//remove bloat.
+						data->SetHasVertexColors(false);
+						data->SetVertexColors(vector<Color4>());
+						shaderprop->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(shaderprop->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
+					}
 				}
 
 				vector<Vector3> tangents = data->GetTangents();
@@ -508,8 +606,6 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 						break;
 					}
 				}
-				if (allZero)
-					Log::Error("Block[%i]: Tangents are all zero. Recalculate tangents.", i);
 
 				vector<Vector3> bitangents = data->GetBitangents();
 				allZero = true;
@@ -519,8 +615,26 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 						break;
 					}
 				}
-				if (allZero)
-					Log::Error("Block[%i]: Bitangents are all zero. Recalculate bitangents.", i);
+
+				//if (allZero)
+				//{
+					//Log::Error("Block[%i]: Detected incorrect Tangents or Bitangents. Recalculating..", i);
+					vector<Vector3> vertices = data->GetVertices();
+					Vector3 COM;
+					if (vertices.size() != 0)
+						COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
+					vector<Triangle> faces = data->GetTriangles();
+					vector<Vector3> normals = data->GetNormals();
+					if (vertices.size() != 0 && faces.size() != 0 && data->GetUvSets().size() != 0) {
+						vector<TexCoord> uvs = data->GetUvSets()[0];
+
+						Geometry::TriGeometryContext g(vertices, COM, faces, uvs, normals);
+						data->SetHasNormals(1);
+						data->SetNormals(g.normals);
+						data->SetTangents(g.tangents);
+						data->SetBitangents(g.bitangents);
+					}
+				//}
 
 				//*beep boop* test
 				BSShaderTextureSetRef set = DynamicCast<BSShaderTextureSet>(shaderprop->GetTextureSet());
@@ -536,7 +650,8 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 							if (textures[i] != "") {
 								if ((fs::exists(games.data(Games::TES5) / textures[i])) || (fs::exists(games.data(Games::TES5) / "textures" / textures[i]))) { //this needs sorting out.
 									Log::Info("Checking texture data of %s", (textures[i]).c_str());
-									CheckDDS(games.data(Games::TES5) / textures[i], i, hasAlpha, isSpecular);
+									if (CheckDDS(games.data(Games::TES5) / textures[i], i, hasAlpha, isSpecular) == 1)
+										shape->SetAlphaProperty(new NiAlphaProperty());
 									doesExist = true;
 								}
 								if (!doesExist)
@@ -550,19 +665,200 @@ void ScanNif(vector<NiObjectRef> blocks, NifInfo info)
 	}
 }
 
+void visitNode(NiNodeRef obj)
+{
+	vector<Ref<NiAVObject>> children = obj->GetChildren();
+	vector<Ref<NiProperty>> properties = obj->GetProperties();
+	vector<Ref<NiExtraData>> extraDatas = obj->GetExtraDataList();
+	vector<Ref<NiAVObject>>::iterator eraser = children.begin();
+	while (eraser != children.end())
+	{
+		if (*eraser == NULL) {
+			eraser = children.erase(eraser);
+		}
+		else
+			eraser++;
+	}
+	vector<Ref<NiExtraData>>::iterator eraser2 = extraDatas.begin();
+	while (eraser2 != extraDatas.end())
+	{
+		if (*eraser2 == NULL) {
+			eraser2 = extraDatas.erase(eraser2);
+		}
+		else
+			eraser2++;
+	}
+
+	for (NiExtraDataRef& extra : extraDatas)
+	{
+		if (extra->IsSameType(BSInvMarker::TYPE)) {
+			if (DynamicCast<BSInvMarker>(extra)->GetName() != "INV") {
+				Log::Error("Detected BSInvMarker type but name was not \"INV\"");
+				DynamicCast<BSInvMarker>(extra)->SetName(IndexString("INV"));
+			}
+		}
+		else if (extra->IsSameType(BSFurnitureMarker::TYPE)) {
+			if (DynamicCast<BSFurnitureMarker>(extra)->GetName() != "FRN") {
+				Log::Error("Detected BSFurnitureMarker type but name was not \"FRN\"");
+				DynamicCast<BSFurnitureMarker>(extra)->SetName(IndexString("FRN"));
+			}
+		}
+		else if (extra->IsSameType(BSBound::TYPE)) {
+			if (DynamicCast<BSBound>(extra)->GetName() != "BBX") {
+				Log::Error("Detected BSBound type but name was not \"BBX\"");
+				DynamicCast<BSBound>(extra)->SetName(IndexString("BBX"));
+			}
+		}
+		else if (extra->IsSameType(BSBehaviorGraphExtraData::TYPE)) {
+			if (DynamicCast<BSBehaviorGraphExtraData>(extra)->GetName() != "BGED") {
+				Log::Error("Detected BSBehaviorGraphExtraData type but name was not \"BGED\"");
+				DynamicCast<BSBehaviorGraphExtraData>(extra)->SetName(IndexString("BGED"));
+			}
+		}
+		else if (extra->IsSameType(BSBoneLODExtraData::TYPE)) {
+			if (DynamicCast<BSBoneLODExtraData>(extra)->GetName() != "BSBoneLOD") {
+				Log::Error("Detected BSBoneLOD type but name was not \"BSBoneLOD\"");
+				DynamicCast<BSBoneLODExtraData>(extra)->SetName(IndexString("BSBoneLOD"));
+			}
+		}
+		else if (extra->IsSameType(BSXFlags::TYPE)) {
+			BSXFlagsRef ref = DynamicCast<BSXFlags>(extra);
+			if (ref->GetName() != "BSX") {
+				Log::Error("Detected BSXFlags type but name was not \"BSX\"");
+				ref->SetName(IndexString("BSX"));
+			}
+		}
+	}
+
+	int index = 0;
+	for (NiAVObjectRef& block : children)
+	{
+		if (block->IsSameType(NiTriStrips::TYPE)) {
+			NiTriStripsRef stripsRef = DynamicCast<NiTriStrips>(block);
+			NiTriShapeRef shape = triangulate_strip(stripsRef);
+			children[index] = shape;
+		}
+
+		index++;
+	}
+
+	for (NiAVObjectRef& block : children)
+	{
+		if (block->IsSameType(NiTriShape::TYPE)) {
+			bool hasStrips = false;
+			NiTriShapeRef shape = DynamicCast<NiTriShape>(block);
+			NiSkinInstanceRef skin = shape->GetSkinInstance();
+			if (skin != NULL) {
+				NiSkinDataRef iSkinData = skin->GetData();
+				NiSkinPartitionRef iSkinPart = skin->GetSkinPartition();
+
+				if (iSkinPart == NULL)
+					iSkinPart = iSkinData->GetSkinPartition();
+				if (iSkinPart != NULL)
+				{
+					vector<SkinPartition >& pblocks = iSkinPart->GetSkinPartitionBlocks();
+					for (const auto& pb : pblocks)
+					{
+						if (pb.strips.size() > 0)
+						{
+							hasStrips = true;
+							break;
+						}
+					}
+				}
+			}
+
+			if (hasStrips) {
+				//redo partitions destripping
+				NiTriBasedGeomRef geo = StaticCast<NiTriBasedGeom>(shape);
+				int bb = 60;
+				int bv = 4;
+				//repartitioner.cast(nif, iBlock, bb, bv, false, false);
+				remake_partitions(geo, bb, bv, false, false);
+			}
+
+			BSLightingShaderPropertyRef lp = DynamicCast<BSLightingShaderProperty>(shape->GetShaderProperty());
+
+			if (shape != NULL && lp != NULL)
+			{
+				bool hasAlpha = false, isSpecular = false;
+				if (shape->GetAlphaProperty() != NULL)
+					hasAlpha = true;
+
+				if (lp->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_SPECULAR)
+					isSpecular = true;
+
+				BSShaderTextureSetRef set = DynamicCast<BSShaderTextureSet>(lp->GetTextureSet());
+				if (set->GetTextures().size() != 0) {
+					stringvector textures = set->GetTextures();
+					for (int i = 0; i != textures.size(); i++) {
+						bool isTexture = (textures[i].substr(0, 7) != "textures"); //Possible issue: If the user has capitalized "textures"#
+						if (!isTexture) {
+							Log::Error("Block[%i]: TextureSet includes paths not relative to data.", i);
+						}
+						else {
+							bool doesExist = false;
+							if (textures[i] != "") {
+								if ((fs::exists(games.data(Games::TES5SE) / textures[i])) || (fs::exists(games.data(Games::TES5SE) / "textures" / textures[i]))) { //this needs sorting out.
+									Log::Info("Checking texture data of %s", (textures[i]).c_str());
+									if (CheckDDS(games.data(Games::TES5SE) / textures[i], i, hasAlpha, isSpecular) == 1)
+										shape->SetAlphaProperty(new NiAlphaProperty());
+									doesExist = true;
+								}
+								if (!doesExist)
+									Log::Error("Block[%i]: Texture: '%s' does not exist!", i, textures[i].c_str());
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	obj->SetChildren(children);
+}
+
+vector<NiObjectRef> checkNif(vector<NiObjectRef> blocks, NifInfo info) {
+
+	NiObjectRef root = GetFirstRoot(blocks);
+
+	for (auto& block : blocks) {
+		//if (block->IsSameType(BSXFlags::TYPE)) {
+		//	BSXFlagsRef ref = DynamicCast<BSXFlags>(block);
+		//	bsx_flags_t actual = ref->GetIntegerData();
+		//	bsx_flags_t calculated = calculateSkyrimBSXFlags(blocks, info);
+		//	if (actual != calculated.to_ulong()) {
+		//		Log::Info("BSXFlag: value: [%d %s], estimate: [%d %s]", actual.to_ulong(), actual.to_string().c_str(), calculated.to_ulong(), calculated.to_string().c_str());
+		//		ref->SetIntegerData(calculated.to_ulong());
+		//	}
+		//}
+		if (block->IsDerivedType(NiNode::TYPE))
+		{
+			visitNode(DynamicCast<NiNode>(block));
+		}
+	}
+
+	//to calculate the right flags, we need to rebuild the blocks
+	vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
+
+	//fix targets from nitrishapes substitution
+	FixTargetsVisitor(GetFirstRoot(new_blocks), info, new_blocks);
+
+	return move(new_blocks);
+}
+
 static bool BeginScan(string scanPath) {
 	Log::Info("Begin Scan");
-
-	Games& games = Games::Instance();
-	const Games::GamesPathMapT& installations = games.getGames();
 
 	NifInfo info;
 
 	vector<fs::path> nifs;
 
-	//findFilesn(games.data(Games::TES5) / "meshes", ".nif", nifs);
-	fs::path nif_in = "D:\\git\\ck-cmd\\resources\\in";
-	findFilesn(scanPath, ".nif", nifs);
+	findFilesn(games.data(Games::TES5SE) / "meshes/tes4", ".nif", nifs);
+	//fs::path nif_in = "D:\\git\\ck-cmd\\resources\\in";
+	//findFilesn(scanPath, ".nif", nifs);
+	bool write = true;
+	fs::path nif_path = "F:\\FIXED_NIFS";
 
 	if (nifs.empty())
 	{
@@ -595,22 +891,78 @@ static bool BeginScan(string scanPath) {
 	else 
 	{
 		for (size_t i = 0; i < nifs.size(); i++) {
-			Log::Info("Current File: %s", nifs[i].string().c_str());
+			fs::path out = nifs[i].parent_path() / fs::path("out") / nifs[i].filename();
+			fs::path parent_out = out.parent_path();
+			if (fs::exists(out))
+				continue;
 
+			if (nifs[i].string().find("\\out\\") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("meshes\\landscape\\lod") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("\\marker_") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("\\minotaurold") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("\\sky\\") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("\\menus\\") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("\\Creatures\\") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("\\armor\\") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("\\clothes\\") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("\\weapons\\") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("\\effects\\") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("\\sky\\") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("\\menus\\") != string::npos) {
+				continue;
+			}
+			if (nifs[i].string().find("\\creatures\\") != string::npos) {
+				continue;
+			}
+			Log::Info("Current File: %s", nifs[i].string().c_str());
+			NifInfo info;
 			try {
 				vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
-				ScanNif(blocks, info);
+				vector<NiObjectRef> new_blocks = checkNif(blocks, info);
+				Log::Info("Output File: %s", out.string().c_str());
+				if (!fs::exists(parent_out))
+					fs::create_directories(parent_out);
+				WriteNifTree(out.string(), GetFirstRoot(new_blocks), info);
 			}
-			catch(const std::exception& e) {
+			catch (const std::exception& e) {
 				Log::Info("ERROR: %s", e.what());
 			}
 		}
 		Log::Info("Done..");
 	}
-	
-	//if (write) {
-	//	fs::path out_path = nif_err / bsa.filename() / (actual ^ calculated).to_string() / fs::path(to_string(calculated.to_ulong())) / nif;
-	//	fs::create_directories(out_path.parent_path());
-	//	WriteNifTree(out_path.string(), root, info);
-	//}
+}
+
+bool NifScan::InternalRunCommand(map<string, docopt::value> parsedArgs)
+{
+	string scanPath;
+
+	scanPath = parsedArgs["<path_to_scan>"].asString();
+
+	bool result = BeginScan(scanPath);
+	Log::Info("NifScan Ended");
+	return result;
 }

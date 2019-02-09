@@ -968,9 +968,7 @@ NiTriShapeRef destrip(NiTriStripsRef& stripsRef)
 	shapeRef->SetData(stripsRef->GetData());
 	shapeRef->SetShaderProperty(stripsRef->GetShaderProperty());
 	shapeRef->SetProperties(stripsRef->GetProperties());
-
-	//Then do the data..
-	bool hasAlpha = false;
+	shapeRef->SetAlphaProperty(stripsRef->GetAlphaProperty());
 
 	NiTriStripsDataRef stripsData = DynamicCast<NiTriStripsData>(stripsRef->GetData());
 	NiTriShapeDataRef shapeData = new  NiTriShapeData();
