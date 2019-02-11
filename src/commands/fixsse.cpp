@@ -911,12 +911,12 @@ public:
 	inline void visit_field(T& obj) {}
 };
 
-class FixTargetsVisitor : public RecursiveFieldVisitor<FixTargetsVisitor> {
+class FixSSETargetsVisitor : public RecursiveFieldVisitor<FixSSETargetsVisitor> {
 	vector<NiObjectRef>& blocks;
 public:
 
 
-	FixTargetsVisitor(NiObject* root, const NifInfo& info, vector<NiObjectRef>& blocks) :
+	FixSSETargetsVisitor(NiObject* root, const NifInfo& info, vector<NiObjectRef>& blocks) :
 		RecursiveFieldVisitor(*this, info), blocks(blocks) {
 		root->accept(*this, info);
 	}
@@ -1106,7 +1106,7 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info) {
 	vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
 
 	//fix targets from nitrishapes substitution
-	FixTargetsVisitor(GetFirstRoot(new_blocks), info, new_blocks);
+	FixSSETargetsVisitor(GetFirstRoot(new_blocks), info, new_blocks);
 
 	return move(new_blocks);
 }
