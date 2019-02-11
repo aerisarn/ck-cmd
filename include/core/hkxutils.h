@@ -169,4 +169,4 @@ EXTERN_C
 string GetFileVersion(const char *fileName);
 
 void loadFileIntoString(const fs::path& path, string& content);
-void loadOverrideOrBSA(const string& path, string& content, const Games::Game& game, const vector<string>& preferredBsas);
+fs::path loadOverrideOrBSA(const string& path, string& content, const Games::Game& game, const vector<string>& preferredBsas);

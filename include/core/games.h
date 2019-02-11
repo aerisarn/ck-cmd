@@ -105,8 +105,13 @@ namespace ckcmd {
 			{
 				for (const auto& bsa_filename : bsas(game))
 				{
-					opened_bsas.push_back(ckcmd::BSA::BSAFile(bsa_filename));
+					opened_bsas.push_back(std::move(ckcmd::BSA::BSAFile(bsa_filename)));
 				}
+			}
+
+			const std::list<ckcmd::BSA::BSAFile>& bsa_files()
+			{
+				return opened_bsas;
 			}
 
 			void load(const fs::path& path, std::vector<uint8_t>& result) {
@@ -129,7 +134,7 @@ namespace ckcmd {
 					load(override_path, result);
 					return true;
 				}
-				for (ckcmd::BSA::BSAFile bsa_file : opened_bsas) {
+				for (auto& bsa_file : opened_bsas) {
 					if (bsa_file.find(path)) {
 						size_t size = -1;
 						const uint8_t* data = bsa_file.extract(path, size);

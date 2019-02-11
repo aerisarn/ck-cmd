@@ -48,6 +48,9 @@ See the included LICENSE file
 #include <Physics\Collide\Shape\Compound\Collection\CompressedMesh\hkpCompressedMeshShape.h>
 #include <Physics\Collide\Shape\Convex\ConvexTransform\hkpConvexTransformShape.h>
 
+#include <Common\Internal\ConvexHull\hkGeometryUtility.h>
+#include <Common\GeometryUtilities\Misc\hkGeometryUtils.h>
+
 #include <algorithm>
 
 #include <VHACD.h>
@@ -158,10 +161,9 @@ FbxAMatrix getTransform(const NiAVObjectRef av)
 }
 
 FbxNode* setMatTransform(const Matrix44& av, FbxNode* node, double bake_scale = 1.0) {
-	Vector3 translation = av.GetTranslation();
+	Vector3 translation = av.GetTrans();
 	//
 	node->LclTranslation.Set(FbxDouble3(translation.x * bake_scale, translation.y * bake_scale, translation.z *bake_scale));
-
 	Quaternion rotation = av.GetRotation().AsQuaternion();
 	Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
 	EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
@@ -1729,8 +1731,8 @@ public:
 			for (const auto& vert : convex->GetVertices())
 				vertices.pushBack(TOVECTOR4(vert));
 			hkStridedVertices strided_vertices(vertices);
-			hkpConvexVerticesShape hkConvex(strided_vertices);
-			hkpShapeConverter::append(&geom, hkpShapeConverter::toSingleGeometry(&hkConvex));
+			hkArray<hkVector4> planeEquationsOut;
+			hkGeometryUtility::createConvexGeometry(strided_vertices, geom, planeEquationsOut);
 			bhkCMSDMaterial material;
 			material.material = convex->GetMaterial().material_sk;
 			material.filter = layer;
@@ -1848,24 +1850,47 @@ public:
 		//TODO: pre 2010/660 import format!
 		FbxNode* visit(RagdollDescriptor& descriptor, FbxNode* parent, FbxNode* child)
 		{
-			Vector4 row1 = descriptor.twistB;
-			Vector4 row2 = descriptor.planeB;
-			Vector4 row3 = descriptor.motorB;
-			Vector4 row4 = descriptor.pivotB * bhkScaleFactor;
+			Vector4 row1 = descriptor.twistA;
+			Vector4 row2 = descriptor.planeA;
+			Vector4 row3 = descriptor.motorA;
+			Vector4 row4 = descriptor.pivotA * bhkScaleFactor;
+			row4.w = 1;
 
-			Matrix44 mat = Matrix44(
-				row1[0], row1[1], row1[2], row1[3],
-				row2[0], row2[1], row2[2], row2[3],
-				row3[0], row3[1], row3[2], row3[3],
-				row4[0], row4[1], row4[2], row4[3]
+			Matrix44 matA = Matrix44(
+				row1[0], row1[1], row1[2], row4[0],
+				row2[0], row2[1], row2[2], row4[1],
+				row3[0], row3[1], row3[2], row4[2],
+				0.0f, 0.0f, 0.0f, row4[3]
 			);
-			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
-			parent->AddChild(constraint_node);
-			setMatTransform(mat, constraint_node);
+
+			Vector4 row1b = descriptor.twistB;
+			Vector4 row2b = descriptor.planeB;
+			Vector4 row3b = descriptor.motorB;
+			Vector4 row4b = descriptor.pivotB * bhkScaleFactor;
+			row4b.w = 1;
+
+			Matrix44 matB = Matrix44(
+				row1b[0], row1b[1], row1b[2], row4b[0],
+				row2b[0], row2b[1], row2b[2], row4b[1],
+				row3b[0], row3b[1], row3b[2], row4b[2],
+				0.0f, 0.0f, 0.0f, row4b[3]
+			);
+
+			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName()) + "_attach_point").c_str());
+			parent->AddChild(setMatTransform(matB, constraint_node));
+
+
+			Quaternion rotation = matA.GetRotation().AsQuaternion();
+			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
+			EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+			FbxVector4 fbx_rotation = FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z));
 
 			FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_node, string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
 			fbx_constraint->SetConstrainedObject(child);
 			fbx_constraint->AddConstraintSource(constraint_node);
+			fbx_constraint->SetRotationOffset(constraint_node, fbx_rotation);
+			fbx_constraint->SetTranslationOffset(constraint_node, TOFBXVECTOR3(matA.GetTrans()));
+
 			fbx_constraint->AffectRotationX = false;
 			fbx_constraint->AffectRotationY = false;
 			fbx_constraint->AffectRotationZ = false;
@@ -1899,49 +1924,114 @@ public:
 		}
 		FbxNode* visit(HingeDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
 		{
-			Vector4 row1 = descriptor.axleB;
-			Vector4 row2 = descriptor.perp2AxleInB1;
-			Vector4 row3 = descriptor.perp2AxleInB2;
-			Vector4 row4 = descriptor.pivotB * bhkScaleFactor;
+			Vector4 row1 = descriptor.axleA;
+			Vector4 row2 = descriptor.perp2AxleInA1;
+			Vector4 row3 = descriptor.perp2AxleInA2;
+			Vector4 row4 = descriptor.pivotA * bhkScaleFactor;
+			row4.w = 1;
 
-			Matrix44 mat = Matrix44(
-				row1[0], row1[1], row1[2], row1[3],
-				row2[0], row2[1], row2[2], row2[3],
-				row3[0], row3[1], row3[2], row3[3],
-				row4[0], row4[1], row4[2], row4[3]
+			Matrix44 matA = Matrix44(
+				row1[0], row1[1], row1[2], row4[0],
+				row2[0], row2[1], row2[2], row4[1],
+				row3[0], row3[1], row3[2], row4[2],
+				0.0f, 0.0f, 0.0f, row4[3]
 			);
-			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
-			parent->AddChild(setMatTransform(mat, constraint_node));
+
+			Vector4 row1b = descriptor.axleB;
+			Vector4 row2b = descriptor.perp2AxleInB1;
+			Vector4 row3b = descriptor.perp2AxleInB2;
+			Vector4 row4b = descriptor.pivotB * bhkScaleFactor;
+			row4b.w = 1;
+
+			Matrix44 matB = Matrix44(
+				row1b[0], row1b[1], row1b[2], row4b[0],
+				row2b[0], row2b[1], row2b[2], row4b[1],
+				row3b[0], row3b[1], row3b[2], row4b[2],
+				0.0f, 0.0f, 0.0f, row4b[3]
+			);
+
+			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName()) + "_attach_point").c_str());
+			parent->AddChild(setMatTransform(matB, constraint_node));
+
+
+			Quaternion rotation = matA.GetRotation().AsQuaternion();
+			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
+			EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+			FbxVector4 fbx_rotation = FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z));
 
 			FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_node, string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
 			fbx_constraint->SetConstrainedObject(child);
 			fbx_constraint->AddConstraintSource(constraint_node);
+			//fbx_constraint->SetRotationOffset(constraint_node, fbx_rotation);
+			//fbx_constraint->SetTranslationOffset(constraint_node, TOFBXVECTOR3(matA.GetTrans()));
+
 			fbx_constraint->AffectRotationX = false;
 
-			return constraint_node;
+			return NULL;
 		}
 		FbxNode* visit(LimitedHingeDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
 		{
-			Vector4 row1 = descriptor.axleB;
-			Vector4 row2 = descriptor.perp2AxleInB1;
-			Vector4 row3 = descriptor.perp2AxleInB2;
-			Vector4 row4 = descriptor.pivotB * bhkScaleFactor;
+			Vector4 row1 = descriptor.axleA;
+			Vector4 row2 = descriptor.perp2AxleInA1;
+			Vector4 row3 = descriptor.perp2AxleInA2;
+			Vector4 row4 = descriptor.pivotA * bhkScaleFactor;
+			row4.w = 1;
 
-			Matrix44 mat = Matrix44(
-				row1[0], row1[1], row1[2], row1[3],
-				row2[0], row2[1], row2[2], row2[3],
-				row3[0], row3[1], row3[2], row3[3],
-				row4[0], row4[1], row4[2], row4[3]
+			Matrix44 matA = Matrix44(
+				row1[0], row1[1], row1[2], row4[0],
+				row2[0], row2[1], row2[2], row4[1],
+				row3[0], row3[1], row3[2], row4[2],
+				0.0f, 0.0f, 0.0f, row4[3]
 			);
-			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
-			parent->AddChild(setMatTransform(mat, constraint_node));
+
+			Vector4 row1b = descriptor.axleB;
+			Vector4 row2b = descriptor.perp2AxleInB1;
+			Vector4 row3b = descriptor.perp2AxleInB2;
+			Vector4 row4b = descriptor.pivotB * bhkScaleFactor;
+			row4b.w = 1;
+
+			Matrix44 matB = Matrix44(
+				row1b[0], row1b[1], row1b[2], row4b[0],
+				row2b[0], row2b[1], row2b[2], row4b[1],
+				row3b[0], row3b[1], row3b[2], row4b[2],
+				0.0f, 0.0f, 0.0f, row4b[3]
+			);
+	
+			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName())+ "_attach_point").c_str());
+			parent->AddChild(setMatTransform(matB, constraint_node));
+
+
+			Quaternion rotation = matA.GetRotation().AsQuaternion();
+			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
+			EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+			FbxVector4 fbx_rotation = FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z));
 
 			FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_node, string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
 			fbx_constraint->SetConstrainedObject(child);
 			fbx_constraint->AddConstraintSource(constraint_node);
-			fbx_constraint->AffectRotationX = false;
+			fbx_constraint->SetRotationOffset(constraint_node, fbx_rotation);
+			fbx_constraint->SetTranslationOffset(constraint_node, TOFBXVECTOR3(matA.GetTrans()));
 
-			return constraint_node;
+
+			int index = fabs(descriptor.axleB.x) > fabs(descriptor.axleB.y) ?
+				fabs(descriptor.axleB.x) > fabs(descriptor.axleB.z) ? 0 : 2 :
+				fabs(descriptor.axleB.y) > fabs(descriptor.axleB.z) ? 1 : 2;
+
+			//if (index == 1)
+			//	printf("lol");
+
+			//if (index == 0)
+				fbx_constraint->AffectRotationX = false;
+			//else if (index == 1)
+				fbx_constraint->AffectRotationY = false;
+			//else
+				//fbx_constraint->AffectRotationZ = false;
+
+			//fbx_constraint->AffectRotationX = false;
+			//fbx_constraint->AffectRotationY = false;
+			//fbx_constraint->AffectRotationZ = false;
+
+			return NULL;
 		}
 		FbxNode* visit(BallAndSocketDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
 		{
@@ -2016,7 +2106,7 @@ public:
 		
 	};
 
-	inline FbxNode* visit_rigid_body(bhkRigidBodyRef obj, const string& collision_name) {
+	inline FbxNode* visit_rigid_body(bhkRigidBodyRef obj, const string& collision_name, bool absolute = false) {
 		FbxNode* parent = build_stack.front();
 		string name = collision_name;
 		name += "_rb";
@@ -2049,7 +2139,10 @@ public:
 
 		FbxAMatrix rel = world_parent.Inverse() * world_child;
 
-		parent->AddChild(setMatATransform(rel, rb_node));
+		if (absolute)
+			parent->AddChild(setMatATransform(rel, rb_node));
+		else
+			parent->AddChild(rb_node);
 
 		//Constraints
 		for (const auto& constraint : obj->GetConstraints())
@@ -2111,7 +2204,7 @@ public:
 		if (obj.GetBody() && obj.GetBody()->IsDerivedType(bhkRigidBody::TYPE))
 		{
 			alreadyVisitedNodes.insert(obj.GetBody());
-			return visit_rigid_body(DynamicCast<bhkRigidBody>(obj.GetBody()), name);
+			return visit_rigid_body(DynamicCast<bhkRigidBody>(obj.GetBody()), name, true);
 		}
 		return NULL;
 	}
@@ -4460,7 +4553,7 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		q.y = (float)Q[1];
 		q.z = (float)Q[2];
 		q.w = (float)Q[3];
-		float bhkScaleFactorInverse = 1.f / 69.99124908f;
+		float bhkScaleFactorInverse = 0.01428f; // 1 skyrim unit = 0,01428m
 		body->SetTranslation({ (float)T[0]*bhkScaleFactorInverse,(float)T[1] * bhkScaleFactorInverse, (float)T[2] * bhkScaleFactorInverse });
 		body->SetRotation(q);
 		bhkCMSDMaterial body_layer;

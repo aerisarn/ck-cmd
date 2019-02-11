@@ -25,11 +25,19 @@
 #include <array>
 #include <unordered_map>
 
+#ifdef HAVE_SPEEDTREE
+	#include <Core/Core.h>
+#endif
+
+#include <DirectXTex.h>
+
 static bool BeginConversion(string importPath, string exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
 REGISTER_COMMAND_CPP(ConvertNif)
+
+Games& games = Games::Instance();
 
 ConvertNif::ConvertNif()
 {
@@ -1446,28 +1454,6 @@ BSFadeNode* convert_root(NiObject* root)
 	return (BSFadeNode*)root;
 }
 
-void update_tangentspace(NiTriShapeDataRef data)
-{
-	vector<Vector3> vertices = data->GetVertices();
-	Vector3 COM;
-	if (vertices.size() != 0)
-		COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
-	vector<Triangle> faces = data->GetTriangles();
-	vector<Vector3> normals = data->GetNormals();
-	if (vertices.size() != 0 && faces.size() != 0 && data->GetUvSets().size() != 0) {
-		vector<TexCoord> uvs = data->GetUvSets()[0];
-		TriGeometryContext g(vertices, COM, faces, uvs, normals);
-		data->SetHasNormals(1);
-		//recalculate
-		data->SetNormals(g.normals);
-		data->SetTangents(g.tangents);
-		data->SetBitangents(g.bitangents);
-		if (vertices.size() != g.normals.size() || vertices.size() != g.tangents.size() || vertices.size() != g.bitangents.size())
-			throw runtime_error("Geometry mismatch!");
-		data->SetBsVectorFlags(static_cast<BSVectorFlags>(data->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
-	}
-}
-
 IndexString getStringFromPalette(std::string palette, size_t offset)
 {
 	size_t findex = palette.find_first_of('\0', offset);
@@ -1521,8 +1507,29 @@ NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
 		COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
 	vector<Triangle> faces = shapeData->GetTriangles();
 	vector<Vector3> normals = shapeData->GetNormals();
-	if (shapeData->GetVertices().size() != 0 && shapeData->GetTriangles().size() != 0 && shapeData->GetUvSets().size() != 0) {
-		update_tangentspace(shapeData);
+	if (normals.size() != vertices.size() && (faces.empty() || shapeData->GetUvSets().empty()))
+	{
+		//normals are needed for sse, let's just fill the void here
+		normals.resize(vertices.size());
+		for (int i = 0; i< vertices.size(); i++)
+		{
+			normals[i] = COM - vertices[i];
+			normals[i] = normals[i].Normalized();
+		}
+		shapeData->SetHasNormals(true);
+		shapeData->SetNormals(normals);
+	}
+	if (vertices.size() != 0 && faces.size() != 0 && shapeData->GetUvSets().size() != 0) {
+		vector<TexCoord> uvs = shapeData->GetUvSets()[0];
+		TriGeometryContext g(vertices, COM, faces, uvs, normals);
+		shapeData->SetHasNormals(1);
+		//recalculate
+		shapeData->SetNormals(g.normals);
+		shapeData->SetTangents(g.tangents);
+		shapeData->SetBitangents(g.bitangents);
+		if (vertices.size() != g.normals.size() || vertices.size() != g.tangents.size() || vertices.size() != g.bitangents.size())
+			throw runtime_error("Geometry mismatch!");
+		shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(shapeData->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
 	}
 	else {
 		shapeData->SetTangents(stripsData->GetTangents());
@@ -1537,6 +1544,395 @@ NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
 	return shapeRef;
 }
 
+unsigned long upper_power_of_two(unsigned long v)
+{
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v++;
+	return v;
+}
+
+class BlendUnknownSet {};
+
+template<>
+class Accessor<BlendUnknownSet> {
+public:
+	Accessor(NiBlendFloatInterpolatorRef source, NiBlendFloatInterpolatorRef dest)
+	{
+		dest->unknownByte = source->unknownByte;
+	}
+};
+
+class FlipBookConverter
+{
+
+public:
+
+	vector<pair<float, float>> uv_atlas;
+
+	FlipBookConverter(NiFlipControllerRef controller, BSShaderPropertyRef property, bool& hasGlow)
+	{
+
+		if (controller->GetTextureSlot() != BASE_MAP)
+			throw runtime_error("Unsupported NiFlipControllerRef slot!");
+
+		vector<string> vector_preferred = {};
+		vector<DirectX::ScratchImage> images(controller->GetSources().size());
+		vector<DirectX::ScratchImage> g_images(controller->GetSources().size());
+		DirectX::TexMetadata original_info;
+		DirectX::TexMetadata g_original_info;
+		vector<DirectX::ScratchImage> timages(controller->GetSources().size());
+		vector<DirectX::ScratchImage> g_timages(controller->GetSources().size());
+		string first_name = "";
+		string path = "";
+		string glow_name = "";
+		const auto& tex_images = controller->GetSources();
+		for (int i=0; i<controller->GetSources().size(); i++) 
+		{
+			const auto& tex = tex_images[i];
+			string name = tex->GetFileName();
+			if (glow_name == "")
+			{
+				glow_name = name; 
+				glow_name.insert(glow_name.size() - 4, "_g");
+			}
+			if (first_name == "")
+				first_name = fs::path(name).filename().string();
+			if (path == "")
+				path = tex->GetFileName();
+
+			vector<uint8_t> dds_bin;
+			vector<uint8_t> dds_glow_bin;
+			games.load(Games::TES4, name, dds_bin);
+			games.load(Games::TES4, glow_name, dds_glow_bin);
+			if (!dds_glow_bin.empty())
+				hasGlow = true;
+
+			HRESULT result =  DirectX::LoadFromDDSMemory(dds_bin.data(), dds_bin.size(),
+				DirectX::DDS_FLAGS_NONE, &original_info, images[i]);
+
+			if (hasGlow)
+				result = DirectX::LoadFromDDSMemory(dds_glow_bin.data(), dds_glow_bin.size(),
+					DirectX::DDS_FLAGS_NONE, &g_original_info, g_images[i]);
+
+			if (FAILED(result))
+				throw runtime_error("Unable to load NiFlipController source " + name);
+			if (DirectX::IsCompressed(images[i].GetMetadata().format))
+			{
+				size_t nimg = images[i].GetImageCount();
+				result = DirectX::Decompress(images[i].GetImages(), nimg, original_info, DXGI_FORMAT_UNKNOWN /* picks good default */, timages[i]);
+			}
+			else {
+				timages[i] = move(images[i]);
+			}
+
+			if (hasGlow)
+			{
+				if (DirectX::IsCompressed(g_images[i].GetMetadata().format))
+				{
+					size_t nimg = g_images[i].GetImageCount();
+					result = DirectX::Decompress(g_images[i].GetImages(), nimg, g_original_info, DXGI_FORMAT_UNKNOWN /* picks good default */, g_timages[i]);
+				}
+				else {
+					g_timages[i] = move(g_images[i]);
+				}
+			}
+		}
+
+		const auto& meta = timages.begin()->GetMetadata();
+		const auto& g_meta = g_timages.begin()->GetMetadata();
+
+		//simple bin packing
+		size_t total_area = meta.width * meta.height * timages.size();
+
+		map<pair<int,int>, int> sizes;
+
+		for (int i = 1; i <= timages.size(); i++)
+		{
+			int rows = i;
+
+			for (int k = 1; k <= timages.size(); k++)
+			{
+
+				int colums = k;
+
+				int width = upper_power_of_two(meta.width* rows);
+				int height = upper_power_of_two(meta.height* colums);
+
+				int waste = width * height - total_area;
+				int c_size = rows * colums;
+				if (waste > 0 && c_size >= timages.size())
+					sizes[{rows, colums}] = width * height - total_area;
+			}
+		}
+
+		int rows = INT_MAX;
+		int columns = INT_MAX;
+		int size = INT_MAX;
+
+		for (const auto& entry : sizes)
+		{
+			if (entry.second == size)
+			{
+				if (abs(entry.first.first-entry.first.second) < abs(rows - columns))
+				{
+					rows = entry.first.first;
+					columns = entry.first.second;
+				}
+			}
+			if (entry.second < size)
+			{
+				rows = entry.first.first;
+				columns = entry.first.second;
+				size = entry.second;
+			}
+		}
+
+		DirectX::ScratchImage collage_img;
+		DirectX::ScratchImage g_collage_img;
+		int collage_width = upper_power_of_two(meta.width * columns);
+		int collage_height = upper_power_of_two(meta.height * rows);
+
+		float u_scale = float(meta.width) / float(collage_width);
+		float v_scale = float(meta.height) / float(collage_height);
+
+		collage_img.Initialize2D(meta.format, collage_width, collage_height, 1, 1);
+		memset(collage_img.GetPixels(), 0, collage_img.GetPixelsSize());
+
+		if (hasGlow)
+		{
+			g_collage_img.Initialize2D(g_meta.format, collage_width, collage_height, 1, 1);
+			memset(g_collage_img.GetPixels(), 0, g_collage_img.GetPixelsSize());
+		}
+
+		for (int i = 0; i < timages.size(); i++)
+		{
+			int row = (i / columns);
+			int column = i % (columns);
+
+			uv_atlas.push_back({ column * u_scale , row *v_scale });
+
+			DirectX::ScratchImage& this_image = timages[i];
+
+			HRESULT hr = DirectX::CopyRectangle(*this_image.GetImage(0, 0, 0), DirectX::Rect(0, 0, meta.width, meta.height),
+				*collage_img.GetImages(), DirectX::TEX_FILTER_DEFAULT, column*meta.width, row*meta.height);
+			if (hasGlow)
+			{
+
+				if (g_meta.width != meta.width || g_meta.height != meta.height)
+				{
+					DirectX::ScratchImage resized;
+					resized.Initialize2D(g_timages[i].GetMetadata().format, meta.width, meta.height, 1, 1);
+					HRESULT hr = DirectX::Resize(
+						*g_timages[i].GetImage(0,0,0), meta.width, meta.height, DirectX::TEX_FILTER_FORCE_NON_WIC | DirectX::TEX_FILTER_CUBIC, resized);
+
+					hr = DirectX::CopyRectangle(*resized.GetImage(0, 0, 0), DirectX::Rect(0, 0, meta.width, meta.height),
+						*g_collage_img.GetImages(), DirectX::TEX_FILTER_DEFAULT, column*meta.width, row*meta.height);
+				}
+				else {
+					HRESULT hr = DirectX::CopyRectangle(*g_timages[i].GetImage(0, 0, 0), DirectX::Rect(0, 0, meta.width, meta.height),
+						*g_collage_img.GetImages(), DirectX::TEX_FILTER_DEFAULT, column*meta.width, row*meta.height);
+				}
+
+				
+			}
+		}
+
+		auto img = collage_img.GetImage(0, 0, 0);
+		assert(img);
+		size_t nimg = collage_img.GetImageCount();
+		auto& info = collage_img.GetMetadata();
+
+		DirectX::ScratchImage compressed;
+		compressed.InitializeFromImage(*img);
+
+		HRESULT hr = DirectX::Compress(img, nimg, info, original_info.format, DirectX::TEX_COMPRESS_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT, compressed);
+
+		auto cimg = compressed.GetImage(0, 0, 0);
+		assert(cimg);
+		size_t cnimg = compressed.GetImageCount();
+		auto& cinfo = compressed.GetMetadata();
+	
+		path.insert(9, "tes4\\");
+		fs::path out_path = nif_out / path;
+		fs::create_directories(out_path.parent_path());
+
+		hr = DirectX::SaveToDDSFile(cimg, cnimg, cinfo,
+			DirectX::DDS_FLAGS_NONE,
+			out_path.wstring().c_str());
+
+		if (FAILED(hr))
+			throw runtime_error("Unable to save NiFlipController sources!");
+
+
+		if (hasGlow)
+		{
+			auto img = g_collage_img.GetImage(0, 0, 0);
+			assert(img);
+			size_t nimg = g_collage_img.GetImageCount();
+			auto& info = g_collage_img.GetMetadata();
+
+			glow_name.insert(9, "tes4\\");
+			fs::path out_path = nif_out / glow_name;
+			fs::create_directories(out_path.parent_path());
+
+			DirectX::ScratchImage converted;
+			converted.InitializeFromImage(*img);
+
+			HRESULT hr = DirectX::Convert(img, nimg, info, collage_img.GetMetadata().format, DirectX::TEX_FILTER_FORCE_NON_WIC | DirectX::TEX_FILTER_SRGB_OUT, DirectX::TEX_THRESHOLD_DEFAULT, converted);
+
+			auto convimg = converted.GetImage(0, 0, 0);
+			assert(convimg);
+			size_t nconvimg = converted.GetImageCount();
+			auto& convinfo = converted.GetMetadata();
+
+			//if (DirectX::IsCompressed(g_original_info.format) || )
+			//{
+				DirectX::ScratchImage compressed;
+				compressed.InitializeFromImage(*convimg);
+
+
+				hr = DirectX::Compress(convimg, nconvimg, convinfo, convinfo.format, DirectX::TEX_COMPRESS_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT, compressed);
+
+				auto cimg = compressed.GetImage(0, 0, 0);
+				assert(cimg);
+				size_t cnimg = compressed.GetImageCount();
+				auto& cinfo = compressed.GetMetadata();
+
+
+
+				hr = DirectX::SaveToDDSFile(cimg, cnimg, cinfo,
+					DirectX::DDS_FLAGS_NONE,
+					out_path.wstring().c_str());
+			//}
+
+			//else {
+			//	hr = DirectX::SaveToDDSFile(convimg, nconvimg, convinfo,
+			//		DirectX::DDS_FLAGS_NONE,
+			//		out_path.wstring().c_str());
+			//}
+		}
+
+		NiFloatInterpControllerRef u_controller;
+		NiFloatInterpControllerRef v_controller;
+		if (property->IsSameType(BSLightingShaderProperty::TYPE))
+		{
+			BSLightingShaderPropertyRef ref = DynamicCast<BSLightingShaderProperty>(property);
+			ref->SetUvScale({ u_scale , v_scale });
+			BSLightingShaderPropertyFloatControllerRef u_temp_controller = new BSLightingShaderPropertyFloatController();
+			u_temp_controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_OFFSET);
+			BSLightingShaderPropertyFloatControllerRef v_temp_controller = new BSLightingShaderPropertyFloatController();
+			v_temp_controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
+			u_controller = u_temp_controller;
+			v_controller = v_temp_controller;
+		}
+		else {
+			BSEffectShaderPropertyRef ref = DynamicCast<BSEffectShaderProperty>(property);
+			ref->SetUvScale({ u_scale , v_scale });
+			BSEffectShaderPropertyFloatControllerRef u_temp_controller = new BSEffectShaderPropertyFloatController();
+			u_temp_controller->SetTypeOfControlledVariable(EffectShaderControlledVariable::ESCV_U_OFFSET);
+			BSEffectShaderPropertyFloatControllerRef v_temp_controller = new BSEffectShaderPropertyFloatController();
+			v_temp_controller->SetTypeOfControlledVariable(EffectShaderControlledVariable::ESCV_V_OFFSET);
+			u_controller = u_temp_controller;
+			v_controller = v_temp_controller;
+		}
+		u_controller->SetFlags(controller->GetFlags());
+		u_controller->SetFrequency(controller->GetFrequency());
+		u_controller->SetPhase(controller->GetPhase());
+		u_controller->SetStartTime(controller->GetStartTime());
+		u_controller->SetStopTime(controller->GetStopTime());
+		u_controller->SetTarget(property);
+
+		v_controller->SetFlags(controller->GetFlags());
+		v_controller->SetFrequency(controller->GetFrequency());
+		v_controller->SetPhase(controller->GetPhase());
+		v_controller->SetStartTime(controller->GetStartTime());
+		v_controller->SetStopTime(controller->GetStopTime());
+		v_controller->SetTarget(property);
+
+		NiFloatDataRef u_data = new NiFloatData();
+		KeyGroup<float> u_keys;
+		u_keys.interpolation = CONST_KEY;
+		NiFloatDataRef v_data = new NiFloatData();
+		KeyGroup<float> v_keys;
+		v_keys.interpolation = CONST_KEY;
+
+		NiFloatInterpolatorRef f_ref = DynamicCast<NiFloatInterpolator>(controller->GetInterpolator());
+		if (f_ref == NULL)
+		{
+			NiBlendFloatInterpolatorRef f_ref = DynamicCast<NiBlendFloatInterpolator>(controller->GetInterpolator());
+			if (f_ref != NULL)
+			{
+				//this is blended and must be resolved later into the sequence.
+				u_controller->SetInterpolator(StaticCast<NiInterpolator>(controller->GetInterpolator()));
+				NiBlendFloatInterpolatorRef v_ref = new NiBlendFloatInterpolator();
+				v_ref->SetFlags(f_ref->GetFlags());
+				Accessor<BlendUnknownSet>(f_ref, v_ref);
+				v_ref->SetManagedControlled(f_ref->GetManagedControlled());
+				v_ref->SetValue(f_ref->GetValue());
+
+				v_controller->SetInterpolator(StaticCast<NiInterpolator>(v_ref));
+
+				u_controller->SetNextController(StaticCast<NiTimeController>(v_controller));
+
+				property->SetController(StaticCast<NiTimeController>(u_controller));
+
+				return;
+
+			}
+			else {
+				throw runtime_error("Unknown Interpolator Type into NiflipController");
+			}
+		}
+		NiFloatInterpolatorRef u_interpolator = new NiFloatInterpolator();
+		NiFloatInterpolatorRef v_interpolator = new NiFloatInterpolator();
+
+		if (f_ref->GetData() != NULL)
+		{
+			for (const auto& frame : f_ref->GetData()->GetData().keys)
+			{
+				Key<float> u_value;
+				Key<float> v_value;
+
+				u_value.time = frame.time;
+				v_value.time = frame.time;
+
+				int atlas_key = (int)frame.data;
+
+				pair<float, float> values = uv_atlas[atlas_key];
+
+				u_value.data = values.first;
+				v_value.data = values.second;
+
+				u_keys.keys.push_back(u_value);
+				v_keys.keys.push_back(v_value);
+			}
+			u_data->SetData(u_keys);
+			v_data->SetData(v_keys);
+			u_interpolator->SetData(u_data);
+			v_interpolator->SetData(v_data);
+		}
+
+		if (f_ref->GetValue() >= 0)
+		{
+			pair<float, float> values = uv_atlas[f_ref->GetValue()];
+			u_interpolator->SetValue(values.first);
+			v_interpolator->SetValue(values.second);
+		}
+
+		u_controller->SetInterpolator(StaticCast<NiInterpolator>(u_interpolator));
+		v_controller->SetInterpolator(StaticCast<NiInterpolator>(v_interpolator));
+
+		u_controller->SetNextController(StaticCast<NiTimeController>(v_controller));
+
+		property->SetController(StaticCast<NiTimeController>(u_controller));
+		uv_atlas.clear();
+	}
+};
 
 
 class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
@@ -1546,7 +1942,9 @@ class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
 
 	map<void*, void*> collision_target_map;
 
-	vector<NiTriShapeRef> particle_geometry;
+	//vector<NiTriShapeRef> particle_geometry;
+
+	int controller_id = 1;
 
 public:
 
@@ -1602,20 +2000,21 @@ public:
 
 	map<NiMaterialColorControllerRef, BSLightingShaderPropertyColorControllerRef> material_controllers_map;
 	map<NiAlphaControllerRef, BSLightingShaderPropertyFloatControllerRef> material_alpha_controllers_map;
-	map<NiFlipControllerRef, BSLightingShaderPropertyFloatControllerRef> material_flip_controllers_map;
+	map<NiFlipControllerRef, NiFloatInterpControllerRef> material_flip_controllers_map;
+	map<NiFlipControllerRef, vector<pair<float, float>>> deferred_blends;
 	map<NiTextureTransformControllerRef, BSLightingShaderPropertyFloatControllerRef> material_transform_controllers_map;
 
 	ConverterVisitor(const NifInfo& info, NiObjectRef root, const vector<NiObjectRef>& blocks) :
 		RecursiveFieldVisitor(*this, info), this_info(info), blocks(blocks)
 	{
 		root->accept(*this, info);
-		if (root->IsDerivedType(NiNode::TYPE)) {
-			NiNodeRef ninroot = DynamicCast<NiNode>(root);
-			vector<Ref<NiAVObject>> children = ninroot->GetChildren();
-			for (NiTriShapeRef pg : particle_geometry)
-				children.push_back(StaticCast<NiAVObject>(pg));
-			ninroot->SetChildren(children);
-		}
+		//if (root->IsDerivedType(NiNode::TYPE)) {
+		//	NiNodeRef ninroot = DynamicCast<NiNode>(root);
+		//	vector<Ref<NiAVObject>> children = ninroot->GetChildren();
+		//	for (NiTriShapeRef pg : particle_geometry)
+		//		children.push_back(StaticCast<NiAVObject>(pg));
+		//	ninroot->SetChildren(children);
+		//}
 		for (NiObjectRef obj : blocks) {
 			if (obj->IsDerivedType(NiControllerSequence::TYPE)) {
 				NiControllerSequenceRef nisblock = DynamicCast<NiControllerSequence>(obj);
@@ -1636,9 +2035,79 @@ public:
 							Log::Info("Not Found!");
 					}
 					if (blocks[i].controller->IsDerivedType(NiFlipController::TYPE)) {
-						map<NiFlipControllerRef, BSLightingShaderPropertyFloatControllerRef>::iterator cc = material_flip_controllers_map.find(DynamicCast<NiFlipController>(blocks[i].controller));
+						map<NiFlipControllerRef, NiFloatInterpControllerRef>::iterator cc = material_flip_controllers_map.find(DynamicCast<NiFlipController>(blocks[i].controller));
 						if (cc != material_flip_controllers_map.end())
-							blocks[i].controller = cc->second;
+						{
+							//check if it's a blend defer
+							map<NiFlipControllerRef, vector<pair<float, float>>>::iterator df = deferred_blends.find(DynamicCast<NiFlipController>(blocks[i].controller));
+							if (df != deferred_blends.end())
+							{
+								NiFloatInterpControllerRef u_controller = cc->second;
+								NiFloatInterpControllerRef v_controller = DynamicCast<NiFloatInterpController>(u_controller->GetNextController());
+
+								NiFloatInterpolatorRef f_ref = DynamicCast<NiFloatInterpolator>(blocks[i].interpolator);
+								if (f_ref == NULL)
+									throw runtime_error("NiFlipControllerRef Deferred interpolator without interpolator!");
+								vector<pair<float, float>>& uv_atlas = df->second;
+								NiFloatInterpolatorRef u_interpolator = new NiFloatInterpolator();
+								NiFloatInterpolatorRef v_interpolator = new NiFloatInterpolator();						
+								
+								if (f_ref->GetData() != NULL)
+								{
+									NiFloatDataRef u_data = new NiFloatData();
+									KeyGroup<float> u_keys;
+									u_keys.interpolation = CONST_KEY;
+									NiFloatDataRef v_data = new NiFloatData();
+									KeyGroup<float> v_keys;
+									v_keys.interpolation = CONST_KEY;
+
+									for (const auto& frame : f_ref->GetData()->GetData().keys)
+									{
+										Key<float> u_value;
+										Key<float> v_value;
+
+										u_value.time = frame.time;
+										v_value.time = frame.time;
+
+										int atlas_key = (int)frame.data;
+
+										pair<float, float> values = uv_atlas[atlas_key];
+
+										u_value.data = values.first;
+										v_value.data = values.second;
+
+										u_keys.keys.push_back(u_value);
+										v_keys.keys.push_back(v_value);
+									}
+
+									u_data->SetData(u_keys);
+									v_data->SetData(v_keys);
+									u_interpolator->SetData(u_data);
+									v_interpolator->SetData(v_data);
+								}
+								
+								if (f_ref->GetValue() >= 0)
+								{
+									pair<float, float> values = uv_atlas[f_ref->GetValue()];
+
+									u_interpolator->SetValue(values.first);
+									v_interpolator->SetValue(values.second);
+								}
+
+								ControlledBlock additional_v_block = blocks[i];
+								blocks[i].controller = u_controller;
+								blocks[i].interpolator = u_interpolator;
+								blocks[i].controllerId = to_string(controller_id++);
+								additional_v_block.controller = v_controller;
+								additional_v_block.interpolator = v_interpolator;
+								additional_v_block.controllerId = to_string(controller_id++);
+								blocks.insert(blocks.begin() + i + 1, additional_v_block);
+
+							}
+							else {
+								blocks[i].controller = cc->second;
+							}
+						}
 						else
 							Log::Info("Not Found!");
 					}
@@ -1925,6 +2394,8 @@ public:
 
 			index++;
 		}
+		if (obj.GetBillboardMode() == ROTATE_ABOUT_UP)
+			obj.SetBillboardMode(BSROTATE_ABOUT_UP);
 		obj.SetProperties(vector<NiPropertyRef>{});
 		obj.SetExtraDataList(vector<NiExtraDataRef>{});
 		obj.SetChildren(children);
@@ -1947,31 +2418,126 @@ public:
 			obj.SetBsVectorFlags(static_cast<BSVectorFlags>(obj.GetBsVectorFlags() | obj.GetVectorFlags()));
 		}
 
+		vector<Vector3>& vertices = obj.GetVertices();
+		vector<Triangle>& faces = obj.GetTriangles();
+		vector<Vector3>& normals = obj.GetNormals();
+		Vector3 COM;
+		if (vertices.size() != 0)
+			COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
+		if (normals.size() != vertices.size() && (faces.empty() || obj.GetUvSets().empty()))
+		{
+			//normals are needed for sse, let's just fill the void here
+			normals.resize(vertices.size());
+			for (int i = 0; i< vertices.size(); i++)
+			{
+				normals[i] = COM - vertices[i];
+				normals[i] = normals[i].Normalized();
+			}
+			obj.SetHasNormals(true);
+			obj.SetNormals(normals);
+		}
+		if (vertices.size() != 0 && faces.size() != 0 && obj.GetUvSets().size() != 0) {
+			vector<TexCoord> uvs = obj.GetUvSets()[0];
+			TriGeometryContext g(vertices, COM, faces, uvs, normals);
+			obj.SetHasNormals(1);
+			//recalculate
+			obj.SetNormals(g.normals);
+			obj.SetTangents(g.tangents);
+			obj.SetBitangents(g.bitangents);
+			if (vertices.size() != g.normals.size() || vertices.size() != g.tangents.size() || vertices.size() != g.bitangents.size())
+				throw runtime_error("Geometry mismatch!");
+			obj.SetBsVectorFlags(static_cast<BSVectorFlags>(obj.GetBsVectorFlags() | BSVF_HAS_TANGENTS));
+		}
+
 		//TODO: shared normals no more supported
 		obj.SetMatchGroups(vector<MatchGroup>{});
 	}
 
+	void setMaterialProperties(BSLightingShaderProperty& property, NiMaterialPropertyRef material, bool& hasOwnEmit)
+	{
+		property.SetEmissiveColor(material->GetEmissiveColor());
+		property.SetSpecularColor(material->GetSpecularColor());
+		property.SetEmissiveMultiple(material->GetEmissiveMult());
+		property.SetGlossiness(material->GetGlossiness());
+		property.SetAlpha(material->GetAlpha());
+
+		Color3 em = material->GetEmissiveColor();
+		if (em.r > 0.0 || em.g > 0.0 || em.b > 0)
+			hasOwnEmit = true;
+	}
+
+	void setMaterialProperties(BSEffectShaderProperty& property, NiMaterialPropertyRef material, bool& hasOwnEmit)
+	{
+		//TODO: maybe use vc for the rest?
+		Color3 emissive = material->GetEmissiveColor();
+		property.SetEmissiveColor({emissive.r, emissive.g, emissive.b, material->GetAlpha()});
+		property.SetEmissiveMultiple(material->GetEmissiveMult());
+
+		Color3 em = material->GetEmissiveColor();
+		if (em.r > 0.0 || em.g > 0.0 || em.b > 0)
+			hasOwnEmit = true;
+	}
 
 	template<>
 	inline void visit_object(NiTriShape& obj) {
 		bool hasSpecular = false;
 		bool hasZbuffer = false;
-		BSLightingShaderPropertyRef lightingProperty = new BSLightingShaderProperty();
+		bool hasGlow = false;
+		bool hasOwnEmit = false;
+		BSShaderPropertyRef lightingProperty; // = new BSLightingShaderProperty();
 		BSShaderTextureSetRef textureSet = new BSShaderTextureSet();
 		NiMaterialPropertyRef material = new NiMaterialProperty();
 		NiTexturingPropertyRef texturing = new NiTexturingProperty();
 		vector<Ref<NiProperty>> properties = obj.GetProperties();
 
+		SkyrimShaderPropertyFlags1 shader1;
+		SkyrimShaderPropertyFlags2 shader2;
+		bool hasAlpha = false;
+
+		//check vc
+		if (obj.GetData() != NULL)
+		{
+			const auto& vcs = obj.GetData()->GetVertexColors();
+			for (const auto & vc : vcs)
+			{
+				if (vc.a < 1.0)
+				{
+					hasAlpha = true;
+					break;
+				}
+			}
+		}
+
+		bool hasUV = obj.GetData() != NULL && obj.GetData()->GetUvSets().size() > 0;
+		if (hasUV)
+		{
+			BSLightingShaderProperty* temp = new BSLightingShaderProperty();			
+			shader1 = temp->GetShaderFlags1_sk();
+			shader2 = temp->GetShaderFlags2_sk();
+			lightingProperty = temp;
+		}
+		else
+		{
+			BSEffectShaderProperty* temp = new BSEffectShaderProperty();
+			shader1 = temp->GetShaderFlags1_sk();
+			shader2 = temp->GetShaderFlags2_sk();
+			lightingProperty = temp;
+		}
+
 		for (NiPropertyRef property : properties)
 		{
 			if (property->IsSameType(NiMaterialProperty::TYPE)) {
 				material = DynamicCast<NiMaterialProperty>(property);
-				lightingProperty->SetShaderType(BSShaderType::SHADER_DEFAULT);
-				lightingProperty->SetEmissiveColor(material->GetEmissiveColor());
-				lightingProperty->SetSpecularColor(material->GetSpecularColor());
-				lightingProperty->SetEmissiveMultiple(1);
-				lightingProperty->SetGlossiness(material->GetGlossiness());
-				lightingProperty->SetAlpha(material->GetAlpha());
+				//lightingProperty->SetShaderType(BSShaderType::SHADER_DEFAULT);
+				//lightingProperty->SetEmissiveColor(material->GetEmissiveColor());
+				//lightingProperty->SetSpecularColor(material->GetSpecularColor());
+				//lightingProperty->SetEmissiveMultiple(1);
+				//lightingProperty->SetGlossiness(material->GetGlossiness());
+				//lightingProperty->SetAlpha(material->GetAlpha());
+				if (lightingProperty->IsSameType(BSLightingShaderProperty::TYPE))
+					setMaterialProperties(*DynamicCast<BSLightingShaderProperty>(lightingProperty), material, hasOwnEmit);
+				else
+					setMaterialProperties(*DynamicCast<BSEffectShaderProperty>(lightingProperty), material, hasOwnEmit);
 
 				//TODO:: Create some kind of recursive method to modify GetNextControllers.
 				if (material->GetController() != NULL) {
@@ -2013,6 +2579,8 @@ public:
 			if (property->IsSameType(NiTexturingProperty::TYPE)) {
 				texturing = DynamicCast<NiTexturingProperty>(property);
 				string textureName;
+				if (texturing->GetHasGlowTexture() == true)
+					hasGlow = true;
 				if (texturing->GetBaseTexture().source != NULL) {
 					textureName += texturing->GetBaseTexture().source->GetFileName();
 					//fix for orconebraid
@@ -2044,8 +2612,13 @@ public:
 					continue;
 
 				if (texturing->GetController()->IsSameType(NiFlipController::TYPE)) {
+
+					//FlipController packs up sprites, but skyrim doesn't support that.
+					//instead, we have to load all the images into one and transform this into an UV animation.
 					NiFlipControllerRef oldController = DynamicCast<NiFlipController>(texturing->GetController());
-					BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
+					FlipBookConverter conv(oldController, lightingProperty, hasGlow);
+
+					/*BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
 					controller->SetFlags(oldController->GetFlags());
 					controller->SetFrequency(oldController->GetFrequency());
 					controller->SetPhase(oldController->GetPhase());
@@ -2055,8 +2628,14 @@ public:
 					controller->SetInterpolator(oldController->GetInterpolator());
 					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
 
-					lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
-					material_flip_controllers_map[oldController] = controller;
+					lightingProperty->SetController(DynamicCast<NiTimeController>(controller));*/
+					if (!conv.uv_atlas.empty())
+					{
+						if (deferred_blends.find(oldController) != deferred_blends.end())
+							printf("lol");
+						deferred_blends[oldController] = conv.uv_atlas;
+					}
+					material_flip_controllers_map[oldController] = DynamicCast<NiFloatInterpController>(lightingProperty->GetController());
 				}
 
 				if (texturing->GetController()->IsSameType(NiTextureTransformController::TYPE)) {
@@ -2081,7 +2660,7 @@ public:
 				}
 			}
 			if (property->IsSameType(NiStencilProperty::TYPE)) {
-				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() + SkyrimShaderPropertyFlags2::SLSF2_DOUBLE_SIDED));
+				shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 + SkyrimShaderPropertyFlags2::SLSF2_DOUBLE_SIDED);
 			}
 			if (property->IsSameType(NiAlphaProperty::TYPE)) {
 				NiAlphaPropertyRef alpha = new NiAlphaProperty();
@@ -2102,28 +2681,82 @@ public:
 
 			if (!data->GetVertexColors().empty()) {
 				data->SetHasVertexColors(true);
-				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() | SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
+				shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 | SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS);
+				if (hasAlpha)
+					shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_VERTEX_ALPHA);
 			}
 			else {
 				data->SetHasVertexColors(false);
-				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
+				shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS);
 			}
 		}
 		if (!hasSpecular)
-			lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_SPECULAR));
-
+			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 &  ~SkyrimShaderPropertyFlags1::SLSF1_SPECULAR);
+		else
+			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1  | SkyrimShaderPropertyFlags1::SLSF1_SPECULAR);
+		
 		if (hasZbuffer) {
-			lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_ZBUFFER_WRITE));
-			//lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_ZBUFFER_TEST));
+			shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 & ~SkyrimShaderPropertyFlags2::SLSF2_ZBUFFER_WRITE);
 		}
-		if(obj.GetSkinInstance() != NULL)
-			lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() | SkyrimShaderPropertyFlags1::SLSF1_SKINNED));
+		if (obj.GetSkinInstance() != NULL)
+		{
+			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_SKINNED);
+		}
 
-		if (textureSet->GetTextures().size() == 0)
-			obj.SetFlags(obj.GetFlags() + 1);
+		if (!hasGlow)
+		{
+			shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 & ~SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP);
+			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 & ~SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE);
+		}
+		else {
+			shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 | SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP);
+			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE);
+		}
 
-		lightingProperty->SetTextureSet(textureSet);
-		obj.SetShaderProperty(DynamicCast<BSShaderProperty>(lightingProperty));
+		if (!hasOwnEmit && !hasGlow)
+			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 & ~SkyrimShaderPropertyFlags1::SLSF1_OWN_EMIT);
+		else
+		{
+			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_OWN_EMIT);
+			if (hasOwnEmit && !hasGlow)
+			{
+				shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 | SkyrimShaderPropertyFlags2::SLSF2_RIM_LIGHTING);
+			}
+		}
+
+
+		if (lightingProperty->IsSameType(BSLightingShaderProperty::TYPE))
+		{
+			BSLightingShaderPropertyRef ls = DynamicCast<BSLightingShaderProperty>(lightingProperty);
+			if (textureSet->GetTextures().size() == 0)
+				obj.SetFlags(obj.GetFlags() + 1);
+
+			if (hasGlow && textureSet->GetTextures().size()>0)
+			{
+				vector<string>& textures = textureSet->GetTextures();
+				string texture_glow = textures[0];
+				texture_glow.erase(texture_glow.end() - 4, texture_glow.end());
+				texture_glow += "_g.dds";
+				textures[2] = texture_glow;
+				textureSet->SetTextures(textures);
+
+				ls->SetSkyrimShaderType(ST_GLOW_SHADER);
+			}
+
+			ls->SetTextureSet(textureSet);
+			ls->SetShaderFlags1_sk(shader1);
+			ls->SetShaderFlags2_sk(shader2);
+		}
+		else {
+			BSEffectShaderPropertyRef ls = DynamicCast<BSEffectShaderProperty>(lightingProperty);
+			if (textureSet!= NULL && textureSet->GetTextures().size()>0)
+				ls->SetSourceTexture(textureSet->GetTextures()[0]);
+			ls->SetShaderFlags1_sk(shader1);
+			ls->SetShaderFlags2_sk(shader2);
+			ls->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_ZBUFFER_TEST));
+
+		}
+		obj.SetShaderProperty(lightingProperty);
 		obj.SetExtraDataList(vector<Ref<NiExtraData>> {});
 		obj.SetProperties(vector<Ref<NiProperty>> {});
 
@@ -2157,6 +2790,8 @@ public:
 	inline void visit_object(NiParticleSystem& obj) {
 		bool hasSpecular = false;
 		bool hasZBuffer = false;
+		bool hasOwnEmit = false;
+		bool hasGlow = false;
 		BSEffectShaderPropertyRef lightingProperty = new BSEffectShaderProperty();
 		//BSShaderTextureSetRef textureSet = new BSShaderTextureSet();
 		NiMaterialPropertyRef material = new NiMaterialProperty();
@@ -2169,7 +2804,9 @@ public:
 				material = DynamicCast<NiMaterialProperty>(property);
 				lightingProperty->SetShaderType(BSShaderType::SHADER_DEFAULT);
 				Color3 em = material->GetEmissiveColor();
-				lightingProperty->SetEmissiveColor(Color4(em.r, em.g, em.b, 0.0));
+				lightingProperty->SetEmissiveColor(Color4(em.r, em.g, em.b, 1.0));
+				if (em.r > 0.0 || em.g > 0.0 || em.b > 0)
+					hasOwnEmit = true;
 				//lightingProperty->SetSpecularColor(material->GetSpecularColor());
 				lightingProperty->SetEmissiveMultiple(1);
 				//lightingProperty->SetGlossiness(material->GetGlossiness());
@@ -2233,7 +2870,9 @@ public:
 
 					if (texturing->GetController()->IsSameType(NiFlipController::TYPE)) {
 						NiFlipControllerRef oldController = DynamicCast<NiFlipController>(texturing->GetController());
-						BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
+						FlipBookConverter conv(oldController, StaticCast<BSShaderProperty>(lightingProperty), hasGlow);
+
+						/*BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
 						controller->SetFlags(oldController->GetFlags());
 						controller->SetFrequency(oldController->GetFrequency());
 						controller->SetPhase(oldController->GetPhase());
@@ -2241,10 +2880,12 @@ public:
 						controller->SetStopTime(oldController->GetStopTime());
 						controller->SetTarget(lightingProperty);
 						controller->SetInterpolator(oldController->GetInterpolator());
-						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_SCALE);
+						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
 
-						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
-						material_flip_controllers_map[oldController] = controller;
+						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));*/
+						if (!conv.uv_atlas.empty())
+							deferred_blends[oldController] = conv.uv_atlas;
+						material_flip_controllers_map[oldController] = DynamicCast<NiFloatInterpController>(lightingProperty->GetController());
 					}
 
 					if (texturing->GetController()->IsSameType(NiTextureTransformController::TYPE)) {
@@ -2300,35 +2941,6 @@ public:
 			//}
 			//data->SetRotationAngles(vector<float>{});
 			//data->SetHasTextureIndices(!data->GetSubtextureOffsets().empty());
-
-			NiTriShapeDataRef geom_data = new NiTriShapeData();
-			geom_data->SetHasVertices(data->GetHasVertices());
-			geom_data->SetVertices(data->GetVertices());
-			//data->SetHasVertices(true);
-			data->SetBsMaxVertices(data->GetVertices().size());
-			data->NiGeometryData::SetVertices(vector<Vector3>());
-			data->SetVertices(vector<Vector3>());
-			geom_data->SetVertexColors(data->GetVertexColors());
-			data->SetVertexColors(vector<Color4>{});
-			geom_data->SetHasVertexColors(data->GetHasVertexColors());
-			data->SetHasVertexColors(false);
-
-			NiTriShapeRef particle_geom = new NiTriShape();
-			particle_geom->SetData(StaticCast<NiGeometryData>(geom_data));
-
-			particle_geom->SetName(obj.GetName() + "Emitter");
-
-			particle_geometry.push_back(particle_geom);
-
-			NiPSysMeshEmitterRef emitter = new NiPSysMeshEmitter();
-			vector<NiAVObject * > emittee = emitter->GetEmitterMeshes();
-			emittee.push_back(StaticCast<NiAVObject>(particle_geom));
-			emitter->SetEmitterMeshes(emittee);
-
-			vector<Ref<NiPSysModifier > > mods = obj.GetModifiers();
-			mods.push_back(StaticCast<NiPSysModifier>(emitter));
-			obj.SetModifiers(mods);
-
 			if (!data->GetVertexColors().empty()) {
 				data->SetHasVertexColors(true);
 				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() | SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
@@ -2337,14 +2949,142 @@ public:
 				data->SetHasVertexColors(false);
 				lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
 			}
+			//NiTriShapeDataRef geom_data = new NiTriShapeData();
+			//geom_data->SetHasVertices(data->GetHasVertices());
+			//geom_data->SetVertices(data->GetVertices());
+			//data->SetHasVertices(true);
+			data->SetBsMaxVertices(data->GetVertices().size());
+			data->NiGeometryData::SetVertices(vector<Vector3>());
+			data->SetVertices(vector<Vector3>());
+			//geom_data->SetVertexColors(data->GetVertexColors());
+			data->SetVertexColors(vector<Color4>{});
+			//geom_data->SetHasVertexColors(data->GetHasVertexColors());
+			/*data->SetHasVertexColors(true);*/
+			data->SetHasRadii(true);
+			data->SetRadii(vector<float>{});
+			data->SetSizes(vector<float>{});
+			data->SetAspectRatio(1.0f);
+
+			//vector<Vector3>& vertices = geom_data->GetVertices();
+
+			//Vector3 COM = { 0,0,0 };
+			//if (vertices.size() != 0)
+			//	COM = ckcmd::Geometry::centeroid(vertices);
+			//
+			//vector<Vector3>& normals = data->GetNormals();
+			//if (normals.size() != vertices.size())
+			//{
+			//	//normals are needed for sse, let's just fill the void here
+			//	normals.resize(vertices.size());
+			//	for (int i=0; i< vertices.size(); i++)
+			//	{
+			//		normals[i] = COM - vertices[i];
+			//		normals[i] = normals[i].Normalized();
+			//	}
+			//}
+			//geom_data->SetHasNormals(true);
+			//geom_data->SetNormals(normals);
+			
+
+			//NiTriShapeRef particle_geom = new NiTriShape();
+			//particle_geom->SetData(StaticCast<NiGeometryData>(geom_data));
+
+			//particle_geom->SetName(obj.GetName() + "Emitter");
+
+			//particle_geometry.push_back(particle_geom);
+
+			//NiPSysMeshEmitterRef emitter = new NiPSysMeshEmitter();
+			//vector<NiAVObject * > emittee = emitter->GetEmitterMeshes();
+			//emittee.push_back(StaticCast<NiAVObject>(particle_geom));
+			//emitter->SetEmitterMeshes(emittee);
+
+			//vector<Ref<NiPSysModifier > > mods = obj.GetModifiers();
+			//mods.push_back(StaticCast<NiPSysModifier>(emitter));
+			//obj.SetModifiers(mods);
+
+			
 		}
+		lightingProperty->SetTextureClampMode(3);
+		lightingProperty->SetLightingInfluence(255);
+		obj.SetFlags(524302);
+
+		NiPSysEmitterRef emitter = NULL;
+
+		vector<Ref<NiPSysModifier > > mods = obj.GetModifiers();
+		for (int i = 0; i < mods.size(); i++)
+		{
+			//if (mods[i]->IsDerivedType(NiPSysEmitter::TYPE))
+			//{
+			//	emitter = mods[i];
+			//}
+			/*if (mods[i]->IsDerivedType(NiPSysColorModifier::TYPE))
+			{
+				NiPSysColorModifierRef old_cm = DynamicCast<NiPSysColorModifier>(mods[i]);
+				BSPSysSimpleColorModifierRef cm = new BSPSysSimpleColorModifier();
+				cm->SetName(old_cm->GetName());
+				cm->SetOrder(old_cm->GetOrder());
+				cm->SetTarget(old_cm->GetTarget());
+				cm->SetActive(old_cm->GetActive());
+				Niflib::array<3, Color4 > col_array = cm->GetColors();
+				NiColorDataRef colors = old_cm->GetData();
+				vector<Key<Color4 > > old_colors_arra = colors->GetData().keys;
+				for (int j = 0; j < old_colors_arra.size(); j++)
+				{
+					if (j == 3) break;
+					col_array[j] = old_colors_arra[j].data;
+				}
+				cm->SetColors(col_array);
+				mods[i] = cm;
+			}*/
+			//	mods.erase(mods.begin() + i);
+		}
+		//for (int i = 0; i < mods.size(); i++)
+		//{
+		//	if (mods[i]->IsDerivedType(NiPSysGrowFadeModifier::TYPE))
+		//	{
+		//		mods.erase(mods.begin() + i);
+		//	}
+		//}
+		//BSPSysLODModifierRef lodm = new BSPSysLODModifier();
+		//lodm->SetActive(true);
+		//lodm->SetOrder(1);
+		//lodm->SetTarget(&obj);
+		//lodm->SetActive(true);
+		//lodm->SetLodBeginDistance(0.111);
+		//lodm->SetLodEndDistance(0.111);
+		//lodm->SetEndEmitScale(1.0);
+		//lodm->SetEndSize(1.0);
+
+		//mods.insert(mods.begin() + 1, StaticCast<NiPSysModifier>(lodm));
+
+		//add controller
+		//if (emitter != NULL)
+		//{
+		//	NiPSysEmitterCtlrRef ectrl = new NiPSysEmitterCtlr();
+		//	ectrl->SetFlags(72);
+		//	ectrl->SetPhase(0.125126);
+		//	ectrl->SetTarget(StaticCast<NiObjectNET>(&obj));
+		//	ectrl->SetInterpolator(new NiFloatInterpolator);
+		//	ectrl->SetVisibilityInterpolator(new NiBoolInterpolator());
+		//	ectrl->SetModifierName(emitter->GetName());
+		//	obj.SetController(ectrl);
+		//}
+		obj.SetModifiers(mods);
+
 		if (!hasSpecular)
 			lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_SPECULAR));
 
 		if (hasZBuffer) {
 			lightingProperty->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lightingProperty->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_ZBUFFER_WRITE));
 		}
-		lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(SkyrimShaderPropertyFlags1::SLSF1_ZBUFFER_TEST | SkyrimShaderPropertyFlags1::SLSF1_OWN_EMIT));
+
+		if (!hasOwnEmit)
+			lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_OWN_EMIT));
+		else
+			lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(lightingProperty->GetShaderFlags1_sk() | SkyrimShaderPropertyFlags1::SLSF1_OWN_EMIT));
+
+
+		lightingProperty->SetShaderFlags1_sk(static_cast<SkyrimShaderPropertyFlags1>(SkyrimShaderPropertyFlags1::SLSF1_ZBUFFER_TEST));
 
 		//lightingProperty->SetTextureSet(textureSet);
 		obj.SetShaderProperty(DynamicCast<BSShaderProperty>(lightingProperty));
@@ -2983,7 +3723,16 @@ bool BeginConversion(string importPath, string exportPath) {
 	NifInfo info;
 	vector<fs::path> nifs;
 
-	findFiles(importPath, ".nif", nifs);
+	if (fs::exists(importPath) && fs::is_directory(importPath))
+		findFiles(importPath, ".nif", nifs);
+
+	//spt
+#ifdef HAVE_SPEEDTREE
+	if (fs::exists(importPath) && fs::is_directory(importPath))
+		findFiles(importPath, ".spt", nifs);
+#endif
+
+	games.loadBsas(Games::TES4);
 
 	set<set<string>> sequences_groups;
 	HKXWrapperCollection wrappers;
@@ -2992,12 +3741,12 @@ bool BeginConversion(string importPath, string exportPath) {
 
 
 
-		Games& games = Games::Instance();
+
 		const Games::GamesPathMapT& installations = games.getGames();
 
-		for (const auto& bsa : games.bsas(Games::TES4)) {
-			std::cout << "Checking: " << bsa.filename() << std::endl;
-			BSAFile bsa_file(bsa);
+		for (const auto& bsa_file : games.bsa_files()) {
+			//std::cout << "Checking: " << bsa.filename() << std::endl;
+			//BSAFile bsa_file(bsa);
 			for (const auto& nif : bsa_file.assets(".*\.nif")) {
 				Log::Info("Current File: %s", nif.c_str());
 
@@ -3080,6 +3829,8 @@ bool BeginConversion(string importPath, string exportPath) {
 					if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
 					{
 						NiBillboardNode* proxyRoot = new NiBillboardNode();
+						if (mode == ROTATE_ABOUT_UP)
+							mode = BSROTATE_ABOUT_UP;
 						proxyRoot->SetBillboardMode(mode);
 						proxyRoot->SetFlags(bsroot->GetFlags());
 						proxyRoot->SetChildren(bsroot->GetChildren());
@@ -3113,14 +3864,13 @@ bool BeginConversion(string importPath, string exportPath) {
 
 							children.push_back(proxyRoot);
 
-							bsroot->SetRotation(Matrix33());
-							bsroot->SetTranslation(Vector3());
-							bsroot->SetCollisionObject(NULL);
-							bsroot->SetChildren(children);
 						}
 					}
 
-
+					bsroot->SetRotation(Matrix33());
+					bsroot->SetTranslation(Vector3());
+					bsroot->SetCollisionObject(NULL);
+					bsroot->SetChildren(children);
 
 					//to calculate the right flags, we need to rebuild the blocks
 					vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
@@ -3154,13 +3904,24 @@ bool BeginConversion(string importPath, string exportPath) {
 
 					bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
 
+					bool bsx_flag_found = false;
 					for (NiObjectRef ref : blocks) {
 						if (ref->IsDerivedType(BSXFlags::TYPE)) {
 							BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
 							bref->SetIntegerData(calculated_flags.to_ulong());
+							bsx_flag_found = true;
 							break;
 						}
 					}
+					if (!bsx_flag_found && calculated_flags != 0)
+					{
+						BSXFlagsRef bref = new BSXFlags();
+						bref->SetIntegerData(calculated_flags.to_ulong());
+						vector<NiExtraDataRef> list = bsroot->GetExtraDataList();
+						list.push_back(StaticCast<NiExtraData>(bref));
+						bsroot->SetExtraDataList(list);
+					}
+
 				}
 				else {
 //					FixTargetsVisitor(root, info, blocks);
@@ -3186,6 +3947,20 @@ bool BeginConversion(string importPath, string exportPath) {
 
 		for (size_t i = 0; i < nifs.size(); i++) {
 			Log::Info("Current File: %s", nifs[i].string().c_str());
+#ifdef HAVE_SPEEDTREE
+			if (nifs[i].string().find("spt") != string::npos)
+			{
+				SpeedTree::CTree spt_tree;
+				bool isauth = spt_tree.IsAuthorized();
+				bool result = spt_tree.LoadTree(nifs[i].string().c_str());
+				if (!result)
+					Log::Error("Failed to load [%s]: %s\n", nifs[i].string().c_str(), SpeedTree::CCore::GetError());
+				continue;
+			}
+#endif
+
+			if (nifs[i].string().find("lod") != string::npos)
+				continue;
 
 			//this is all hacky but ehhhh.
 			bool isBillboardRoot = false;
@@ -3234,6 +4009,8 @@ bool BeginConversion(string importPath, string exportPath) {
 				if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
 				{
 					NiBillboardNode* proxyRoot = new NiBillboardNode();
+					if (mode == ROTATE_ABOUT_UP)
+						mode = BSROTATE_ABOUT_UP;
 					proxyRoot->SetBillboardMode(mode);
 					proxyRoot->SetFlags(bsroot->GetFlags());
 					proxyRoot->SetChildren(bsroot->GetChildren());
@@ -3250,7 +4027,7 @@ bool BeginConversion(string importPath, string exportPath) {
 				else
 				{
 					NiNode* proxyRoot = new NiNode();
-					proxyRoot->SetName(IndexString("ProxyNode"));
+
 					proxyRoot->SetFlags(bsroot->GetFlags());
 					proxyRoot->SetChildren(bsroot->GetChildren());
 					proxyRoot->SetRotation(bsroot->GetRotation());
@@ -3300,28 +4077,35 @@ bool BeginConversion(string importPath, string exportPath) {
 
 				bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
 
+				bool bsx_flag_found = false;
 				for (NiObjectRef ref : blocks) {
 					if (ref->IsDerivedType(BSXFlags::TYPE)) {
 						BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
 						bref->SetIntegerData(calculated_flags.to_ulong());
+						bsx_flag_found = true;
 						break;
 					}
+				}
+				if (!bsx_flag_found && calculated_flags != 0)
+				{
+					BSXFlagsRef bref = new BSXFlags();
+					bref->SetIntegerData(calculated_flags.to_ulong());
+					vector<NiExtraDataRef> list = bsroot->GetExtraDataList();
+					list.push_back(StaticCast<NiExtraData>(bref));
+					bsroot->SetExtraDataList(list);
 				}
 			}
 			else {
 				FixTargetsVisitor(root, info, blocks);
 			}
 
-			size_t offset = nifs[i].parent_path().string().find("meshes", 0);
-			size_t end = nifs[i].parent_path().string().length();
-			std::string newPath = exportPath + nifs[i].parent_path().string().substr(offset, end);
-			fs::path out_path = newPath / nifs[i].filename();
+			fs::path out_path = exportPath / nifs[i].filename();
 			fs::create_directories(out_path.parent_path());
 			WriteNifTree(out_path.string(), root, info);
-			NifFile check(out_path.string());
-			NiObject* lroot = check.GetRoot();
-			if (lroot == NULL)
-				throw runtime_error("Error converting");
+			//NifFile check(out_path.string());
+			//NiObject* lroot = check.GetRoot();
+			//if (lroot == NULL)
+			//	throw runtime_error("Error converting");
 		}
 	}
 	Log::Info("Done");

@@ -1422,7 +1422,7 @@ FbxNode* create_mesh(FbxManager* manager, VHACD::IVHACD* interfaceVHACD)
 
 hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
-	double bhkScaleFactorInverse = 1 / 69.99124908;
+	double bhkScaleFactorInverse = 0.01428; // 1 skyrim unit = 0,01428m
 	hkpRigidBodyCinfo body_cinfo;
 	
 	//search for the mesh children
@@ -1690,7 +1690,6 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 			else {
 				hkInertiaTensorComputer::computeGeometrySurfaceMassProperties(&to_bound, 0.1, true, mass, properties);
 			}
-
 			return pCompMesh;
 		}
 		catch (...) {

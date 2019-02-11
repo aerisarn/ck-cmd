@@ -541,7 +541,7 @@ int NifFile::Load(const std::string& fileName) {
 	Clear();
 	try {
 		blocks = ReadNifList(fileName.c_str(), &hdr);
-		bhkScaleFactor = hdr.version < VER_20_2_0_7 ? 6.9969 : 69.99124908;
+		bhkScaleFactor = hdr.version < VER_20_2_0_7 ? (1.0f / 0.1428f) : (1.0f / 0.01428f);
 	}
 	catch (...) {
 		throw runtime_error("Unable to read file: " + fileName);

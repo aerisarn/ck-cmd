@@ -4,6 +4,14 @@ project( "ck-cmd" )
 include(ExternalProject)
 
 option(PROJECT_STATIC_RUNTIME "Build with static runtime libs (/MT)" ON)
+UNSET(HAVE_SPEEDTREE CACHE)
+option(HAVE_SPEEDTREE "Build with speedtree support" OFF)
+
+
+if (HAVE_SPEEDTREE)
+  MESSAGE(STATUS "HAVE_SPEEDTREE")
+  add_definitions(-DHAVE_SPEEDTREE)
+endif()
 
 message( "[MAIN]: building ck-cmd..." )
 
@@ -56,6 +64,30 @@ include_directories("${CMAKE_SOURCE_DIR}/src"
 
 # Libraries
 
+# DirectXTex
+
+set ( DIRECTXTEX_INCLUDES_PATH
+	"${CMAKE_SOURCE_DIR}/lib/DirectXTex/include"
+)
+
+add_library(
+	DirectXTex
+	STATIC 
+	IMPORTED GLOBAL
+)
+
+set_target_properties(
+	DirectXTex 
+	PROPERTIES IMPORTED_LOCATION
+	"${CMAKE_SOURCE_DIR}/lib/DirectXTex/lib/Desktop_2017_Win10/Win32/Release/DirectXTex.lib"
+)
+
+set_target_properties(
+	DirectXTex
+	PROPERTIES IMPORTED_LOCATION_DEBUG             
+	"${CMAKE_SOURCE_DIR}/lib/DirectXTex/lib/Desktop_2017_Win10/Win32/Debug/DirectXTex.lib"
+)
+
 # Loki
 
 set ( LOKI_INCLUDES_PATH
@@ -79,6 +111,41 @@ set_target_properties(
 	PROPERTIES IMPORTED_LOCATION_DEBUG             
 	"${CMAKE_SOURCE_DIR}/lib/loki/debug/loki.lib"
 )
+
+if (HAVE_SPEEDTREE)
+# speedtree 5.1.1
+set ( SPDT_INCLUDES_PATH
+	"${CMAKE_SOURCE_DIR}/vendor/speedtree5.1.1/Include"
+)
+
+set ( SPEEDTREE_LIBS
+	SpeedTreeCore_v5.1_VC90MT_Static
+	SpeedTreeForest_v5.1_VC90MT_Static
+)
+
+foreach(SPEEDTREE_LIB IN LISTS SPEEDTREE_LIBS)
+	message( "[MAIN]: adding ${SPEEDTREE_LIB}" )
+	
+	add_library(
+		${SPEEDTREE_LIB}
+		STATIC 
+		IMPORTED GLOBAL
+    )
+
+	set_target_properties(
+		${SPEEDTREE_LIB} 
+		PROPERTIES IMPORTED_LOCATION             
+		"${CMAKE_SOURCE_DIR}/vendor/speedtree5.1.1/Lib/Windows/VC9/${SPEEDTREE_LIB}.lib"
+    )
+
+	set_target_properties(
+		${SPEEDTREE_LIB} 
+		PROPERTIES IMPORTED_LOCATION_DEBUG             
+		"${CMAKE_SOURCE_DIR}/vendor/speedtree5.1.1/Lib/Windows/VC9/${SPEEDTREE_LIB}_d.lib"
+    )
+
+endforeach(SPEEDTREE_LIB)
+endif(HAVE_SPEEDTREE)
 
 # havok_2010_2_0
 
@@ -294,12 +361,17 @@ include_directories("${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src/VHACD_Lib/p
 
 list(APPEND TEST_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES ${HAVOK_LIBS})
+list(APPEND PROJECT_LIBRARIES DirectXTex)
 list(APPEND PROJECT_LIBRARIES loki)
 list(APPEND PROJECT_LIBRARIES niflib)
 list(APPEND PROJECT_LIBRARIES fbxsdk)
 list(APPEND PROJECT_LIBRARIES libbsa)
 list(APPEND PROJECT_LIBRARIES vhacd)
 list(APPEND TEST_INCLUDES ${HAVOK_INCLUDES_PATH})
+if (HAVE_SPEEDTREE)
+list(APPEND PROJECT_INCLUDES ${SPDT_INCLUDES_PATH})
+endif(HAVE_SPEEDTREE)
+list(APPEND PROJECT_INCLUDES ${DIRECTXTEX_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_COMPAT_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${LOKI_INCLUDES_PATH})
@@ -392,8 +464,6 @@ list (APPEND PROJECT_SRC ${COMMANDS_SRC})
 list (APPEND PROJECT_SRC ${BETH_ANIMDATA_SRC})
 list (APPEND PROJECT_HEADERS ${HAVOK_COMPAT_HEADERS})
 list (APPEND PROJECT_HEADERS ${BETH_ANIMDATA_HEADERS})
-list (APPEND PROJECT_HEADERS ${HAVOK_COMPAT_HEADERS})
-list (APPEND PROJECT_HEADERS ${BETH_ANIMDATA_HEADERS})
 list (APPEND PROJECT_HEADERS ${NIF_CORE_HEADERS})
 list (APPEND PROJECT_HEADERS ${NIF_COMPOUNDS_HEADERS})
 list (APPEND PROJECT_HEADERS ${NIF_OBJS_HEADERS})
@@ -430,6 +500,7 @@ source_group("NIFlib\\GameSpecific" FILES ${NIF_GAME_SPECIFIC_HEADERS})
 source_group("Geometry\\MikkTSpace" FILES ${MIKKTSPACE_SRCS})
 source_group("Geometry\\BoundingMesh" FILES ${BOUNDINGMESH_SRCS})
 source_group("Geometry\\QuickHull" FILES ${QUICKHULL_SRCS})
+source_group("Textures\\DirectXTex" FILES ${DIRECTXTEX_INCLUDES_PATH})
 
 
 
@@ -465,6 +536,9 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src)
 add_executable				(ck-cmd ${PROJECT_SRC} ${PROJECT_HEADERS})
 add_dependencies			(ck-cmd zlib docopt)
 target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} ${DOCOPT_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
+if (HAVE_SPEEDTREE)
+target_link_libraries		(ck-cmd ${SPEEDTREE_LIBS})
+endif (HAVE_SPEEDTREE)
 target_include_directories	(ck-cmd PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_DIRS})
 
 add_custom_command(TARGET ck-cmd POST_BUILD

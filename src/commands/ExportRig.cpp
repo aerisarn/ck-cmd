@@ -13,12 +13,14 @@
 #include <bs/AnimDataFile.h>
 #include <bs/AnimSetDataFile.h>
 
+#include <core/MathHelper.h>
+
 
 using namespace ckcmd::FBX;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 
-static bool BeginConversion(const string& importSkeleton, const string& importSkeletonNif, const string& exportPath);
+static bool BeginConversion(const string& importSkeleton, const string& importSkeletonNif, const string& animationsPath, const string& exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
@@ -44,7 +46,7 @@ string ExportRig::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd importanimation
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> <path_to_skeleton_nif> [-e <path_to_export>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> <path_to_skeleton_nif> [-a <path_to_animations>] [-e <path_to_export>]\r\n";
 
 	const char help[] =
 		R"(Converts an HKX skeleton to FBX.
@@ -52,7 +54,8 @@ string ExportRig::GetHelp() const
 		Arguments:
 			<path_to_skeleton_hkx> the animation skeleton in hkx format
 			<path_to_skeleton_nif> the SAME animation skeleton in NIF format
-			<path_to_export> optional export path
+			-a <path_to_animations>, --animations <path_to_animations>  optional animations to load on the rig
+			-e <path_to_export>, --export-dir <path_to_export>  optional export path
 
 		)";
 	return usage + help;
@@ -66,19 +69,22 @@ string ExportRig::GetHelpShort() const
 bool ExportRig::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
-	string importSkeleton, importSkeletonNif, exportPath;
+	string importSkeleton, importSkeletonNif, animationsPath, exportPath;
 
 	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
 	importSkeletonNif = parsedArgs["<path_to_skeleton_nif>"].asString();
-	exportPath = parsedArgs["<path_to_export>"].asString();
+	if (parsedArgs["-a"].asBool())
+		animationsPath = parsedArgs["<path_to_animations>"].asString();
+	if (parsedArgs["-e"].asBool())
+		exportPath = parsedArgs["<path_to_export>"].asString();
 
 	InitializeHavok();
-	BeginConversion(importSkeleton, importSkeletonNif, exportPath);
+	BeginConversion(importSkeleton, importSkeletonNif, animationsPath, exportPath);
 	CloseHavok();
 	return true;
 }
 
-bool BeginConversion(const string& importSkeleton, const string& importSkeletonNif, const string& exportPath) {
+bool BeginConversion(const string& importSkeleton, const string& importSkeletonNif, const string& animationsPath, const string& exportPath) {
 	if (!fs::exists(importSkeleton) || !fs::is_regular_file(importSkeleton)) {
 		Log::Error("Invalid file: %s", importSkeleton.c_str());
 		return false;
@@ -95,8 +101,20 @@ bool BeginConversion(const string& importSkeleton, const string& importSkeletonN
 
 	FBXWrangler wrangler;
 	wrangler.NewScene();
-	vector<FbxProperty> float_tracks;
-	wrangler.importExternalSkeleton(importSkeleton, float_tracks);
+
+
+
+	vector<FbxProperty> floats;
+	vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, floats);
+
+	vector<fs::path> animation_files;
+	if (fs::exists(animationsPath) && fs::is_directory(animationsPath))
+	{
+		find_files(animationsPath, ".hkx", animation_files);
+		for (const auto& anim : animation_files)
+			wrangler.importAnimationOnSkeleton(anim.string(), ordered_skeleton, floats);
+	}
+
 	NifFile mesh(importSkeletonNif.c_str());
 	wrangler.AddNif(mesh);
 

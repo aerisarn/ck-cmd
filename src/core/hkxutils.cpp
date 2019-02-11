@@ -472,21 +472,41 @@ void loadFileIntoString(const fs::path& path, string& content) {
 		std::istreambuf_iterator<char>());
 }
 
-void loadOverrideOrBSA(const string& path, string& content, const Games::Game& game, const vector<string>& preferredBsas) {
+fs::path loadOverrideOrBSA(const string& path, string& content, const Games::Game& game, const vector<string>& preferredBsas) {
 	//search in override
 	Games& games = Games::Instance();
 	fs::path override_path = games.data(game) / path;
 	if (fs::exists(override_path) && fs::is_regular_file(override_path))
+	{
 		loadFileIntoString(override_path, content);
+		return override_path;
+	}
 	else {
-		for (string bsa_name : preferredBsas) {
-			BSAFile bsa_file(games.data(game) / bsa_name);
-			if (bsa_file.find(path)) {
-				size_t size = -1;
-				const uint8_t* data = bsa_file.extract(path, size);
-				content.assign((char*)data, size);
-				break;
+		if (preferredBsas.empty())
+		{
+			for (const auto& bsa_path : games.bsas(game))
+			{
+				BSAFile bsa_file(bsa_path);
+				if (bsa_file.find(path)) {
+					size_t size = -1;
+					const uint8_t* data = bsa_file.extract(path, size);
+					content.assign((char*)data, size);
+					return bsa_path.filename();
+				}
+			}
+		}
+		else
+		{
+			for (string bsa_name : preferredBsas) {
+				BSAFile bsa_file(games.data(game) / bsa_name);
+				if (bsa_file.find(path)) {
+					size_t size = -1;
+					const uint8_t* data = bsa_file.extract(path, size);
+					content.assign((char*)data, size);
+					return bsa_name;
+				}
 			}
 		}
 	}
+	return "";
 }
