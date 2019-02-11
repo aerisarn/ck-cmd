@@ -19,7 +19,7 @@ static bool BeginScan(string scanPath);
 
 REGISTER_COMMAND_CPP(NifScan)
 
-Games& games = Games::Instance();
+static Games& games = Games::Instance();
 const Games::GamesPathMapT& installations = games.getGames();
 
 NifScan::NifScan()
