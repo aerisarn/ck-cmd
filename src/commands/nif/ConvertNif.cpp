@@ -3162,6 +3162,10 @@ public:
 
 	template<>
 	inline void visit_object(bhkCollisionObject& obj) {
+		bhkRigidBodyRef ref = DynamicCast<bhkRigidBody>(obj.GetBody());
+		if (ref->GetHavokFilter().layer_ob == OblivionLayer::OL_CLUTTER) {
+			obj.SetFlags((bhkCOFlags)(obj.GetFlags() | BHKCO_SET_LOCAL | BHKCO_SYNC_ON_UPDATE));
+		}
 		if (already_upgraded.insert(&obj).second) {
 			if (obj.GetBody() != NULL)
 				collision_target_map[&*obj.GetBody()] = obj.GetTarget();
@@ -3186,6 +3190,11 @@ public:
 
 	template<>
 	inline void visit_object(bhkRigidBody& obj) {
+		if (obj.GetHavokFilter().layer_ob == OblivionLayer::OL_CLUTTER) {
+			obj.SetMotionSystem(MO_SYS_DYNAMIC);
+			obj.SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
+			obj.SetQualityType(MO_QUAL_MOVING);
+		}
 		if (already_upgraded.insert(&obj).second) {
 			NiAVObject* target = (NiAVObject*)collision_target_map[&obj];
 			Accessor<bhkRigidBodyUpgrader> upgrader(obj, this_info, target);
@@ -3194,6 +3203,12 @@ public:
 
 	template<>
 	inline void visit_object(bhkRigidBodyT& obj) {
+		HavokFilter ref = obj.GetHavokFilter();
+		if (obj.GetHavokFilter().layer_ob == OblivionLayer::OL_CLUTTER) {
+			obj.SetMotionSystem(MO_SYS_DYNAMIC);
+			obj.SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
+			obj.SetQualityType(MO_QUAL_MOVING);
+		}
 		if (already_upgraded.insert(&obj).second) {
 			NiAVObject* target = (NiAVObject*)collision_target_map[&obj];
 			Accessor<bhkRigidBodyUpgrader> upgrader(obj, this_info, target);
@@ -3333,12 +3348,12 @@ public:
 			descriptor.axleA = HKMATRIXROW(hkA, 0);
 			descriptor.perp2AxleInA1 = HKMATRIXROW(hkA, 1);
 			descriptor.perp2AxleInA2 = HKMATRIXROW(hkA, 2);
-			descriptor.pivotA = TOVECTOR4(hkA.getTranslation());
+			descriptor.pivotA = TOVECTOR4(hkA.getTranslation()) / 10;
 
 			descriptor.axleB = HKMATRIXROW(hkB, 0);
 			descriptor.perp2AxleInB1 = HKMATRIXROW(hkB, 1);
 			descriptor.perp2AxleInB2 = HKMATRIXROW(hkB, 2);
-			descriptor.pivotB = TOVECTOR4(hkB.getTranslation());
+			descriptor.pivotB = TOVECTOR4(hkB.getTranslation()) / 10;
 		}
 	}
 
@@ -3361,12 +3376,12 @@ public:
 			descriptor.axleA = HKMATRIXROW(hkA, 0);
 			descriptor.perp2AxleInA1 = HKMATRIXROW(hkA, 1);
 			descriptor.perp2AxleInA2 = HKMATRIXROW(hkA, 2);
-			descriptor.pivotA = TOVECTOR4(hkA.getTranslation());
+			descriptor.pivotA = TOVECTOR4(hkA.getTranslation()) / 10;
 
 			descriptor.axleB = HKMATRIXROW(hkB, 0);
 			descriptor.perp2AxleInB1 = HKMATRIXROW(hkB, 1);
 			descriptor.perp2AxleInB2 = HKMATRIXROW(hkB, 2);
-			descriptor.pivotB = TOVECTOR4(hkB.getTranslation());
+			descriptor.pivotB = TOVECTOR4(hkB.getTranslation()) / 10;
 		}
 	}
 
@@ -4061,7 +4076,7 @@ bool BeginConversion(string importPath, string exportPath) {
 				else
 				{
 					NiNode* proxyRoot = new NiNode();
-
+					proxyRoot->SetName(IndexString("ProxyRoot"));
 					proxyRoot->SetFlags(bsroot->GetFlags());
 					proxyRoot->SetChildren(bsroot->GetChildren());
 					proxyRoot->SetRotation(bsroot->GetRotation());

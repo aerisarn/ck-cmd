@@ -580,86 +580,6 @@ void ScanNif(vector<NiObjectRef>& blocks, NifInfo info)
 				if (data->GetHasVertexColors()) {
 					hasVFOnShader = true;
 				}
-				if ((data->GetHasVertexColors()) && shape->GetShaderProperty() != NULL && (shape->GetShaderProperty()->GetShaderFlags2() & SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) != SkyrimShaderPropertyFlags2::SLSF2_TREE_ANIM) {
-					vector<Color4> vc = data->GetVertexColors();
-					bool allWhite = true;
-					for (int x = 0; x != vc.size(); x++) {
-						if (vc[x].r != 1.0f || vc[x].g != 1.0f || vc[x].b != 1.0f || vc[x].a != 1.0f) {
-							allWhite = false;
-							break;
-						}
-					}
-					if (allWhite)
-					{
-						//remove bloat.
-						data->SetHasVertexColors(false);
-						data->SetVertexColors(vector<Color4>());
-						shaderprop->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(shaderprop->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
-					}
-				}
-
-				vector<Vector3> tangents = data->GetTangents();
-				bool allZero = true;
-				for (int x = 0; x != tangents.size(); x++) {
-					if (tangents[x].x != 0.0f || tangents[x].y != 0.0f || tangents[x].z != 0.0f) {
-						allZero = false;
-						break;
-					}
-				}
-
-				vector<Vector3> bitangents = data->GetBitangents();
-				allZero = true;
-				for (int x = 0; x != bitangents.size(); x++) {
-					if (bitangents[x].x != 0.0f || bitangents[x].y != 0.0f || bitangents[x].z != 0.0f) {
-						allZero = false;
-						break;
-					}
-				}
-
-				//if (allZero)
-				//{
-					//Log::Error("Block[%i]: Detected incorrect Tangents or Bitangents. Recalculating..", i);
-					vector<Vector3> vertices = data->GetVertices();
-					Vector3 COM;
-					if (vertices.size() != 0)
-						COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
-					vector<Triangle> faces = data->GetTriangles();
-					vector<Vector3> normals = data->GetNormals();
-					if (vertices.size() != 0 && faces.size() != 0 && data->GetUvSets().size() != 0) {
-						vector<TexCoord> uvs = data->GetUvSets()[0];
-
-						Geometry::TriGeometryContext g(vertices, COM, faces, uvs, normals);
-						data->SetHasNormals(1);
-						data->SetNormals(g.normals);
-						data->SetTangents(g.tangents);
-						data->SetBitangents(g.bitangents);
-					}
-				//}
-
-				//*beep boop* test
-				BSShaderTextureSetRef set = DynamicCast<BSShaderTextureSet>(shaderprop->GetTextureSet());
-				if (set->GetTextures().size() != 0) {
-					stringvector textures = set->GetTextures();
-					for (int i = 0; i != textures.size(); i++) {
-						bool isTexture = (textures[i].substr(0, 7) != "textures"); //Possible issue: If the user has capitalized "textures"#
-						if (!isTexture) {
-							Log::Error("Block[%i]: TextureSet includes paths not relative to data.", i);
-						}
-						else {
-							bool doesExist = false;
-							if (textures[i] != "") {
-								if ((fs::exists(games.data(Games::TES5) / textures[i])) || (fs::exists(games.data(Games::TES5) / "textures" / textures[i]))) { //this needs sorting out.
-									Log::Info("Checking texture data of %s", (textures[i]).c_str());
-									if (CheckDDS(games.data(Games::TES5) / textures[i], i, hasAlpha, isSpecular) == 1)
-										shape->SetAlphaProperty(new NiAlphaProperty());
-									doesExist = true;
-								}
-								if (!doesExist)
-									Log::Error("Block[%i]: Texture: '%s' does not exist!", i, textures[i].c_str());
-							}
-						}
-					}
-				}
 			}
 		}
 	}
@@ -781,12 +701,88 @@ void visitNode(NiNodeRef obj)
 
 			if (shape != NULL && lp != NULL)
 			{
+				NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(shape->GetData());
+
+				if (data != NULL)
+				{
+					//forcefully recalulcator tangents for now.. 
+					vector<Vector3> vertices = data->GetVertices();
+					Vector3 COM;
+					if (vertices.size() != 0)
+						COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
+					vector<Triangle> faces = data->GetTriangles();
+					vector<Vector3> normals = data->GetNormals();
+					if (vertices.size() != 0 && faces.size() != 0 && data->GetUvSets().size() != 0) {
+						vector<TexCoord> uvs = data->GetUvSets()[0];
+
+						Geometry::TriGeometryContext g(vertices, COM, faces, uvs, normals);
+						data->SetHasNormals(1);
+						data->SetNormals(g.normals);
+						data->SetTangents(g.tangents);
+						data->SetBitangents(g.bitangents);
+					}
+					data->SetBsVectorFlags(static_cast<BSVectorFlags>(data->GetBsVectorFlags() | BSVectorFlags::BSVF_HAS_TANGENTS));
+				}
+				else
+				{
+					Log::Warn("NiTriShape block with no NiTriShapeData attached!");
+				}
+
+				vector<Color4> vc = data->GetVertexColors();
+				bool allWhite = true;
+				for (int x = 0; x != vc.size(); x++) {
+					if (vc[x].r != 1.0f || vc[x].g != 1.0f || vc[x].b != 1.0f || vc[x].a != 1.0f) {
+						allWhite = false;
+						break;
+					}
+				}
+				if (allWhite)
+				{
+					//remove bloat.
+					data->SetHasVertexColors(false);
+					data->SetVertexColors(vector<Color4>());
+					lp->SetShaderFlags2_sk(static_cast<SkyrimShaderPropertyFlags2>(lp->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
+				}
+
 				bool hasAlpha = false, isSpecular = false;
 				if (shape->GetAlphaProperty() != NULL)
 					hasAlpha = true;
 
 				if (lp->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_SPECULAR)
 					isSpecular = true;
+
+				short errorCount = 0;
+				if (lp->GetSkyrimShaderType() == BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP) {
+					if ((lp->GetShaderFlags1_sk() & SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) != SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING) {
+						Log::Error("ShaderType is 'Environment', but ShaderFlags1 does not include 'Environment Mapping'.");
+						errorCount++;
+					}
+					if ((lp->GetShaderFlags2_sk() & SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) == SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP) {
+						Log::Error("ShaderType is 'Environment', but ShaderFlags2 includes 'Glow Map'.");
+						errorCount++;
+					}
+					if ((lp->GetEnvironmentMapScale() == 0)) {
+						Log::Error("ShaderType is 'Environment', but map scale equals 0, making it obsolete.");
+						errorCount++;
+					}
+					if (lp->GetTextureSet()->GetTextures().size() > 5) {
+						if (lp->GetTextureSet()->GetTextures()[4] == "") {
+							Log::Error("ShaderType is 'Environment', but no 'Cube map' texture is present.");
+							errorCount++;
+						}
+						if (lp->GetTextureSet()->GetTextures()[5] == "") {
+							Log::Error("ShaderType is 'Environment', but no 'mask' texture is present.");
+							errorCount++;
+						}
+					}
+					else {
+						Log::Error("TextureSet size is too small to include 'Environment' textures.");
+					}
+				}
+
+				if (errorCount > 2) {
+					lp->SetSkyrimShaderType(BSLightingShaderPropertyShaderType::ST_DEFAULT);
+				}
 
 				BSShaderTextureSetRef set = DynamicCast<BSShaderTextureSet>(lp->GetTextureSet());
 				if (set->GetTextures().size() != 0) {
@@ -811,6 +807,8 @@ void visitNode(NiNodeRef obj)
 						}
 					}
 				}
+
+				shape->SetData(DynamicCast<NiGeometryData>(data));
 			}
 		}
 	}
@@ -854,9 +852,9 @@ static bool BeginScan(string scanPath) {
 
 	vector<fs::path> nifs;
 
-	findFilesn(games.data(Games::TES5SE) / "meshes/tes4", ".nif", nifs);
+	//findFilesn(games.data(Games::TES5SE) / "meshes/tes4", ".nif", nifs);
 	//fs::path nif_in = "D:\\git\\ck-cmd\\resources\\in";
-	//findFilesn(scanPath, ".nif", nifs);
+	findFilesn(scanPath, ".nif", nifs);
 	bool write = true;
 	fs::path nif_path = "F:\\FIXED_NIFS";
 
@@ -917,10 +915,10 @@ static bool BeginScan(string scanPath) {
 			if (nifs[i].string().find("\\Creatures\\") != string::npos) {
 				continue;
 			}
-			if (nifs[i].string().find("\\armor\\") != string::npos) {
+			if (nifs[i].string().find("\\amulet\\") != string::npos) {
 				continue;
 			}
-			if (nifs[i].string().find("\\clothes\\") != string::npos) {
+			if (nifs[i].string().find("\\armor\\") != string::npos) {
 				continue;
 			}
 			if (nifs[i].string().find("\\weapons\\") != string::npos) {
