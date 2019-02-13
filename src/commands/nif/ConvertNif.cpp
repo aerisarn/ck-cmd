@@ -2577,7 +2577,7 @@ public:
 					Games& games = Games::Instance();
 					const Games::GamesPathMapT& installations = games.getGames();
 
-					if (fs::exists(games.data(Games::TES5) / textureNormal))
+					if (games.isGameInstalled(Games::TES5) && fs::exists(games.data(Games::TES5) / textureNormal))
 						textures[1] = textureNormal;
 					else
 						textures[1] = "textures\\default_n.dds";
@@ -3335,10 +3335,14 @@ public:
 	void visit_compound(HingeDescriptor& descriptor) {
 		if (already_upgraded.insert(&descriptor).second) {
 			hkpHingeConstraintData data;
+			hkVector4 parent_i; parent_i.setCross(
+				TOVECTOR4(descriptor.parentSpace.axis),
+				TOVECTOR4(descriptor.axis)
+			);
 			data.setInBodySpace(
 				TOVECTOR4(descriptor.parentSpace.pivot),
 				TOVECTOR4(descriptor.childSpace.pivot),
-				TOVECTOR4(descriptor.parentSpace.axis),
+				parent_i,
 				TOVECTOR4(descriptor.childSpace.axis)
 			);
 
@@ -3361,13 +3365,17 @@ public:
 	void visit_compound(LimitedHingeDescriptor& descriptor) {
 		if (already_upgraded.insert(&descriptor).second) {
 			hkpLimitedHingeConstraintData data;
+			hkVector4 child_j; child_j.setCross(
+				TOVECTOR4(descriptor.childSpace.referenceSystem.yAxis),
+				TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis)
+			);
 			data.setInBodySpace(
 				TOVECTOR4(descriptor.parentSpace.pivot),
 				TOVECTOR4(descriptor.childSpace.pivot),
 				TOVECTOR4(descriptor.parentSpace.referenceSystem.xAxis),
 				TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis),
 				TOVECTOR4(descriptor.parentSpace.referenceSystem.yAxis),
-				TOVECTOR4(descriptor.childSpace.referenceSystem.yAxis)
+				child_j
 			);
 
 			hkTransform& hkA = data.m_atoms.m_transforms.m_transformA;
@@ -4150,7 +4158,9 @@ bool BeginConversion(string importPath, string exportPath) {
 
 			size_t offset = nifs[i].parent_path().string().find("meshes", 0);
 			size_t end = nifs[i].parent_path().string().length();
-			std::string newPath = exportPath + nifs[i].parent_path().string().substr(offset, end);
+			std::string newPath = exportPath;
+			if (offset < end)
+				newPath += nifs[i].parent_path().string().substr(offset, end);
 			fs::path out_path = newPath / nifs[i].filename();
 			fs::create_directories(out_path.parent_path());
 			WriteNifTree(out_path.string(), root, info);

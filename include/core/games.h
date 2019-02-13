@@ -62,9 +62,12 @@ namespace ckcmd {
 
 			const inline std::list<fs::path> data_files(const Game& game,  const std::string& extension = "") {
 				std::list<fs::path> list;
-				for (auto& file : fs::directory_iterator(data(game))) {
-					if (file.path().has_extension() && !file.path().extension().compare(extension))
-						list.push_back(file);
+				if (isGameInstalled(game))
+				{
+					for (auto& file : fs::directory_iterator(data(game))) {
+						if (file.path().has_extension() && !file.path().extension().compare(extension))
+							list.push_back(file);
+					}
 				}
 				return list;
 			}
