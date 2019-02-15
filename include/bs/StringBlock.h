@@ -23,5 +23,9 @@ namespace AnimData {
 		void parseBlock(scannerpp::Scanner& input) {
 			string = input.nextLine();
 		}
+
+		virtual std::list<std::string> getStrings() {
+			return { string };
+		}
 	};
 }

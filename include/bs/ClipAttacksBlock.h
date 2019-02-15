@@ -9,7 +9,7 @@ namespace AnimData {
 
 		int blocks = 0;
 	public:
-		std::list<AttackDataBlock> attackData; // = new ArrayList<>();
+		std::list<AttackDataBlock> attackData;
 
 		int getBlocks() {
 			return blocks;
@@ -29,9 +29,9 @@ namespace AnimData {
 
 		void parseBlock(scannerpp::Scanner& input) override {
 			for (int i = 0; i < blocks; i++) {
-				AttackDataBlock ad; // = new AttackDataBlock();
+				AttackDataBlock ad;
 				ad.eventName = input.nextLine();
-				ad.unk1 = input.nextInt();// input.nextLine();
+				ad.unk1 = input.nextInt();
 				ad.clips.fromASCII(input);
 				attackData.push_back(ad);
 			}
@@ -42,7 +42,7 @@ namespace AnimData {
 			std::string out = "";
 			for (AttackDataBlock ad : attackData) {
 				out += ad.eventName + "\n";
-				out += ad.unk1 + "\n";
+				out += std::to_string(ad.unk1) + "\n";
 				out += ad.clips.toASCII();
 			}
 			return out;

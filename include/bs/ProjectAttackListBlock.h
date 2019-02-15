@@ -5,8 +5,8 @@
 namespace AnimData {
 	class ProjectAttackListBlock : public BlockObject {
 
-		StringListBlock projectFiles; // = new StringListBlock();
-		std::list<ProjectAttackBlock> projectAttackBlocks; // = new ArrayList<>();
+		StringListBlock projectFiles;
+		std::list<ProjectAttackBlock> projectAttackBlocks;
 
 	public: 
 		StringListBlock getProjectFiles() {
@@ -27,7 +27,7 @@ namespace AnimData {
 		void parseBlock(scannerpp::Scanner& input) override {
 			projectFiles.fromASCII(input);
 			for (std::string p : projectFiles.getStrings()) {
-				ProjectAttackBlock pb; // = new ProjectAttackBlock();
+				ProjectAttackBlock pb;
 				pb.parseBlock(input);
 				projectAttackBlocks.push_back(pb);
 			}

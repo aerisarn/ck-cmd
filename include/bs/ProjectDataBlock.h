@@ -18,10 +18,10 @@ namespace AnimData {
 
 		void parseBlock(scannerpp::Scanner& input) override {
 			while (input.hasNextLine()) {
-				ClipMovementData b; // = new ClipMovementData();
+				ClipMovementData b;
 				b.parseBlock(input);
 				movementData.push_back(b);
-				//input.nextLine();
+				input.nextLine();
 			}
 		}
 

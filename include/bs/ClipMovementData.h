@@ -7,19 +7,19 @@ namespace AnimData {
 
 		int cacheIndex = 0;
 		std::string duration = "0";
-		StringListBlock traslations; // = new StringListBlock();
-		StringListBlock rotations; // = new StringListBlock();
+		StringListBlock traslations;
+		StringListBlock rotations;
 
 	public: 
 		void parseBlock(scannerpp::Scanner& input) override {
-			cacheIndex = input.nextInt();//input.nextLine();
+			cacheIndex = input.nextInt();
 			duration = input.nextLine();
 			traslations.fromASCII(input);
 			rotations.fromASCII(input);
 		}
 
 		std::string getBlock() override {
-			std::string out = cacheIndex + "\n";
+			std::string out = std::to_string(cacheIndex) + "\n";
 			out += duration + "\n";
 			out += traslations.toASCII();
 			out += rotations.toASCII() + "\n";

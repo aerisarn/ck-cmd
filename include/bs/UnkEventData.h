@@ -5,7 +5,7 @@
 
 namespace AnimData {
 	class UnkEventData : public TriBlock {
-		std::list<std::string> strings; // = new ArrayList<String>();
+		std::list<std::string> strings;
 	public:
 
 		void setStrings(std::list<std::string> strings) {

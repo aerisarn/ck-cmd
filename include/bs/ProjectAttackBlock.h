@@ -9,10 +9,10 @@ namespace AnimData {
 	class ProjectAttackBlock : public BlockObject {
 
 		std::string animVersion = "V3";
-		StringListBlock unkEventList; // = new StringListBlock();
-		UnkEventData unkEventData; // = new UnkEventData();
-		ClipAttacksBlock attackData; // = new ClipAttacksBlock();
-		ClipFilesCRC32Block crc32Data; // = new ClipFilesCRC32Block();
+		StringListBlock unkEventList;
+		UnkEventData unkEventData;
+		ClipAttacksBlock attackData;
+		ClipFilesCRC32Block crc32Data;
 	public:
 		StringListBlock getUnkEventList() {
 			return unkEventList;
@@ -51,7 +51,7 @@ namespace AnimData {
 			animVersion = input.nextLine();
 			unkEventList.fromASCII(input);
 			unkEventData.fromASCII(input);
-			int numAttackBlocks = input.nextInt();//input.nextLine();
+			int numAttackBlocks = input.nextInt();
 			attackData.setBlocks(numAttackBlocks);
 			attackData.parseBlock(input);
 			crc32Data.fromASCII(input);
@@ -61,7 +61,7 @@ namespace AnimData {
 			std::string out = animVersion + "\n";
 			out += unkEventList.toASCII();
 			out += unkEventData.toASCII();
-			out += attackData.getBlocks() + "\n";
+			out += std::to_string(attackData.getBlocks()) + "\n";
 			out += attackData.getBlock();
 			out += crc32Data.toASCII();
 			return out;

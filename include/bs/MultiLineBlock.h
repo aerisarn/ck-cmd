@@ -19,20 +19,12 @@ namespace AnimData {
 			std::string out = "";
 			std::string blockContent = getBlock();
 			if (!blockContent.empty()) {
-				std::regex m("(\r\n)|(\n)|(\r)");
-				//Matcher m = Pattern.compile("(\r\n)|(\n)|(\r)").matcher(blockContent);
-				int lines = 1;
-				while (std::regex_match(blockContent, m)) {
-					lines++;
-				}
-				int blockLines = lines / linesPerBlock + lines%linesPerBlock;
-
-				out += blockLines - 1 + "\n";
+				int lines = std::count(blockContent.begin(), blockContent.end(), '\n');
+				int blockLines = lines / linesPerBlock;
+				out += std::to_string(blockLines) + "\n";
 				out += blockContent;
-
 			}
 			else
-
 			{
 				out += "0\n";
 			}
@@ -45,7 +37,6 @@ namespace AnimData {
 
 		virtual void fromASCII(scannerpp::Scanner& input) {
 			int numASCIIlines = input.nextInt();
-			//std::string temp = input.nextLine();
 			std::string blockContent = "";
 			for (int i = 0; i < numASCIIlines*linesPerBlock; i++) {
 				blockContent += input.nextLine() + "\n";
@@ -55,7 +46,7 @@ namespace AnimData {
 					parseBlock(blockContent);
 				}
 				catch (...) {
-					//e.printStackTrace();
+
 				}
 			}
 		}

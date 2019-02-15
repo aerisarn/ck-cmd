@@ -6,7 +6,7 @@
 namespace AnimData {
 	class StringListBlock : public Block {
 
-		std::list<std::string> strings; // = new ArrayList<String>();
+		std::list<std::string> strings;
 
 	public:
 		
@@ -14,7 +14,7 @@ namespace AnimData {
 			this->strings = strings;
 		}
 
-		std::list<std::string> getStrings() {
+		virtual std::list<std::string> getStrings() {
 			return strings;
 		}
 

@@ -149,6 +149,7 @@ struct AnimationCache {
 
 		animationData.parse(animationDataContent);
 		animationSetData.parse(animationSetDataContent);
+
 		int index = 0;
 		for (string creature : animationSetData.getProjectsList().getStrings()) {
 			string creature_project_name = fs::path(creature).filename().replace_extension("").string();
@@ -170,8 +171,44 @@ struct AnimationCache {
 	void printInfo() {
 		Log::Info("Parsed correctly %d havok projects", data_map.size());
 		Log::Info("Found %d creatures projects:", set_data_map.size());
+		checkInfo();
+	}
+
+	void checkInfo() {
 		for (const auto& pair : set_data_map) {
 			Log::Info("\tID:%d\tName: %s", pair.second, pair.first.c_str());
+
+			int data_index = data_map[pair.first];
+			int set_data_index = set_data_map[pair.first];
+
+			AnimData::ProjectBlock& this_data = animationData.getProjectBlock(data_index);
+			AnimData::ProjectDataBlock& this_movement_data = animationData.getprojectMovementBlock(data_index);
+			AnimData::ProjectAttackListBlock& this_set_data = animationSetData.getProjectAttackBlock(set_data_index);
+			Log::Info("\t\tHavok Files:%d", this_data.getProjectFiles().getStrings().size());
+			for (auto& havok_file : this_data.getProjectFiles().getStrings())
+				Log::Info("\t\t\t%s", havok_file.c_str());
+
+			//Check CRC clips number
+			size_t movements = this_movement_data.getMovementData().size();
+			set<string> paths;
+			
+			for (auto& block : this_set_data.getProjectAttackBlocks())
+			{
+				auto& strings = block.getCrc32Data().getStrings();
+				std::list<std::string>::iterator it;
+				int i = 0;
+				string this_path;
+				for (it = strings.begin(); it != strings.end(); ++it) {
+					if (i % 3 == 0)
+						this_path = *it;
+					if (i % 3 == 1)
+						paths.insert(this_path + *it);
+					i++;
+				}
+			}
+			size_t crcs = paths.size();
+			if (movements != crcs)
+				Log::Info("Warning: unaddressed movement data!");
 
 		}
 	}

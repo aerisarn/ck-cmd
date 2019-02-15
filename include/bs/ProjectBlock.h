@@ -7,9 +7,9 @@ namespace AnimData {
 	class ProjectBlock : public Block {
 
 		bool hasProjectFiles = false;
-		StringListBlock projectFiles; // = new StringListBlock();
+		StringListBlock projectFiles;
 		bool hasAnimationCache = false;
-		std::list<ClipGeneratorBlock> clips; // = new ArrayList<ClipGeneratorBlock>();
+		std::list<ClipGeneratorBlock> clips;
 
 	public:
 		bool getHasAnimationCache() {

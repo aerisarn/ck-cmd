@@ -63,7 +63,7 @@ namespace AnimData {
 
 		std::string getBlock() override {
 			std::string out = name + "\n";
-			out += cacheIndex + "\n";
+			out += std::to_string(cacheIndex) + "\n";
 			out += playbackSpeed + "\n";
 			out += unknown + "\n";
 			out += unknown2 + "\n";
@@ -73,7 +73,7 @@ namespace AnimData {
 
 		void parseBlock(scannerpp::Scanner& input) override {
 			name = input.nextLine();
-			cacheIndex = input.nextInt(); //input.nextLine();
+			cacheIndex = input.nextInt();
 			playbackSpeed = input.nextLine();
 			unknown = input.nextLine();
 			unknown2 = input.nextLine();

@@ -7,8 +7,8 @@
 namespace AnimData {
 	class AnimSetDataFile {
 
-		StringListBlock projectsList; // = new StringListBlock();
-		std::vector<ProjectAttackListBlock> projectAttacks; // = new ArrayList<>();
+		StringListBlock projectsList;
+		std::vector<ProjectAttackListBlock> projectAttacks;
 	public:
 		StringListBlock getProjectsList() { return projectsList; }
 		std::vector<ProjectAttackListBlock> getProjectAttackList() { return projectAttacks; }
@@ -21,12 +21,10 @@ namespace AnimData {
 			scannerpp::Scanner input(content);
 			projectsList.fromASCII(input);
 			while (input.hasNextLine()) {
-				ProjectAttackListBlock pa; // = new ProjectAttackListBlock();
+				ProjectAttackListBlock pa;
 				pa.parseBlock(input);
 				projectAttacks.push_back(pa);
 			}
-			//System.out.println("Parsed " + projectsList.getStrings().size() + " projects");
-			//System.out.println("and " + projectAttacks.size() + " Attacks Data");
 		}
 
 		std::string toString() {
@@ -37,7 +35,7 @@ namespace AnimData {
 				return out;
 			}
 			catch (...) {
-				//e.printStackTrace();
+
 			}
 			return "";
 

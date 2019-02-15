@@ -24,6 +24,10 @@ namespace AnimData {
 			return projectBlockList[i];
 		}
 
+		ProjectDataBlock& getprojectMovementBlock(int i) {
+			return projectMovementBlockList[i];
+		}
+
 		std::map<int, ProjectDataBlock> getProjectMovementBlockList() {
 			return projectMovementBlockList;
 		}
@@ -45,10 +49,6 @@ namespace AnimData {
 				}
 				i++;
 			}
-			//System.out.println("Parsed " + projectsList.getStrings().size() + " projects");
-			//System.out.println("and " + projectBlockList.size() + " projectBlockList Data");
-			//System.out.println("and " + projectMovementBlockList.size() + " projectMovementBlockList Data");
-
 		}
 
 		std::string toString() {
@@ -65,7 +65,7 @@ namespace AnimData {
 				return out;
 			}
 			catch (...) {
-//				e.printStackTrace();
+				
 			}
 			return "";
 
