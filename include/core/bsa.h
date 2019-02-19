@@ -52,6 +52,15 @@ namespace BSA {
 			return data;
 		}
 
+		std::string extract(const std::string& asset_path) const {
+			std::string load;
+			size_t size;
+			const uint8_t * content = extract(asset_path, size);
+			load.assign((char*)content, (char*)content + size);
+			delete content;
+			return load;
+		}
+
 		~BSAFile() {
 			bsa_close(bh);
 		}

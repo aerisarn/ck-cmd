@@ -24,6 +24,22 @@ namespace AnimData {
 			return projectBlockList[i];
 		}
 
+		void putProject(const string& name, ProjectBlock& projectBlock) {
+			std::vector<std::string>& projects = projectsList.getStrings();
+			projects.push_back(name);
+			projectsList.setStrings(projects);
+			projectBlockList.push_back(projectBlock);
+		}
+
+		void putProject(string name, ProjectBlock& projectBlock, ProjectDataBlock& projectDataBlock) {
+			std::vector<std::string>& projects = projectsList.getStrings();
+			projects.push_back(name);
+			projectsList.setStrings(projects);
+			size_t next = projectBlockList.size();
+			projectBlockList.push_back(projectBlock);
+			projectMovementBlockList[next] = projectDataBlock;
+		}
+
 		ProjectDataBlock& getprojectMovementBlock(int i) {
 			return projectMovementBlockList[i];
 		}

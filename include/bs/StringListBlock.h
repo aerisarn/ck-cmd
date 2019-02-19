@@ -6,15 +6,15 @@
 namespace AnimData {
 	class StringListBlock : public Block {
 
-		std::list<std::string> strings;
+		std::vector<std::string> strings;
 
 	public:
 		
-		void setStrings(std::list<std::string> strings) {
+		void setStrings(std::vector<std::string> strings) {
 			this->strings = strings;
 		}
 
-		virtual std::list<std::string> getStrings() {
+		virtual std::vector<std::string> getStrings() {
 			return strings;
 		}
 

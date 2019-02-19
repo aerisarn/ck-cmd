@@ -56,6 +56,8 @@ namespace scannerpp
 		string nextLine() {
 			string line;
 			getline(input, line);
+			if (!line.empty() && *line.rbegin() == '\r')
+				line.erase(line.size() - 1); //remove \r
 			return line;
 		}
 	};

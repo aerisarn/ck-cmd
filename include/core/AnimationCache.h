@@ -3,9 +3,11 @@
 #include "stdafx.h"
 
 #include <core/log.h>
+#include <core/bsa.h>
 #include <bs/AnimDataFile.h>
 #include <bs/AnimSetDataFile.h>
 #include <filesystem>
+#include <memory>
 
 namespace fs = std::experimental::filesystem;
 
@@ -136,97 +138,272 @@ public:
 	}
 };
 
+struct CacheEntry
+{
+	string name;
+	AnimData::ProjectBlock block;
+	AnimData::ProjectDataBlock movements;
+
+	CacheEntry() {}
+	CacheEntry(const string& name, const AnimData::ProjectBlock& block, const AnimData::ProjectDataBlock& movements) : name(name), block(block), movements(movements) {}
+
+	bool hasCache() { return block.getHasAnimationCache(); }
+};
+
+struct CreatureCacheEntry : public CacheEntry
+{
+	AnimData::ProjectAttackListBlock sets;
+
+	CreatureCacheEntry() {}
+	CreatureCacheEntry(const string& name, const AnimData::ProjectBlock& block, const AnimData::ProjectDataBlock& movements, AnimData::ProjectAttackListBlock& sets) :
+		CacheEntry(name, block, movements), sets(sets) {}
+};
+
 struct AnimationCache {
-	AnimData::AnimDataFile animationData;
-	AnimData::AnimSetDataFile animationSetData;
 
-	map<string, int> data_map;
-	map<string, int> set_data_map;
+	static constexpr const char* blocks_regex = "meshes\\\\animationdata\\\\.[^\\]+txt";
+	static constexpr const char* movements_blocks_regex = "meshes\\\\animationdata\\\\boundanims\\\\.[^\\]+txt";
+	static constexpr const char* attack_blocks_regex = "meshes\\\\animationsetdata\\\\.+\\\\.+txt";
 
-	map<string, string> data_set_data_map;
+	vector<CreatureCacheEntry> creature_entries;
+	vector<CacheEntry>		   misc_entries;
 
 	AnimationCache(const string&  animationDataContent, const string&  animationSetDataContent) {
+
+		AnimData::AnimDataFile animationData;
+		AnimData::AnimSetDataFile animationSetData;
 
 		animationData.parse(animationDataContent);
 		animationSetData.parse(animationSetDataContent);
 
 		int index = 0;
-		for (string creature : animationSetData.getProjectsList().getStrings()) {
-			string creature_project_name = fs::path(creature).filename().replace_extension("").string();
-			set_data_map[creature_project_name] = index++;
-		}
-		index = 0;
-		for (string misc : animationData.getProjectList().getStrings()) {
-			string misc_project_name = fs::path(misc).filename().replace_extension("").string();
-			data_map[misc_project_name] = index++;
-		}
-		for (const auto& pair : set_data_map) {
-			if (data_map.find(pair.first) == data_map.end())
-				Log::Error("Unpaired set data: %s", pair.first);
+		for (string project : animationData.getProjectList().getStrings()) {
+			string sanitized_project_name = fs::path(project).filename().replace_extension("").string();
+			string sanitized_creature_name = sanitized_project_name + "Data\\" + sanitized_project_name + ".txt";
+			int creature_index = animationSetData.getProjectAttackBlock(sanitized_creature_name);
+			if (creature_index != -1)
+			{
+				creature_entries.push_back(
+					CreatureCacheEntry(
+						sanitized_project_name,
+						animationData.getProjectBlock(index),
+						animationData.getprojectMovementBlock(index),
+						animationSetData.getProjectAttackBlock(creature_index)
+					)
+				);
+			}
+			else {
+				misc_entries.push_back(
+					CacheEntry(
+						sanitized_project_name,
+						animationData.getProjectBlock(index),
+						animationData.getprojectMovementBlock(index)
+					)
+				);
+			}
+			index++;
 		}
 
+		printInfo();
 
+		AnimData::AnimDataFile newAnimationData;
+
+		for (auto& entry : creature_entries)
+		{
+			newAnimationData.putProject(entry.name + ".txt", entry.block, entry.movements);
+		}
+		for (auto& entry : misc_entries)
+		{
+			if (entry.hasCache())
+				newAnimationData.putProject(entry.name + ".txt", entry.block, entry.movements);
+			else 
+				newAnimationData.putProject(entry.name + ".txt", entry.block);
+		}
+
+		string new_content = newAnimationData.toString();
+		std::string::size_type pos = 0;
+		while ((pos = new_content.find("\n", pos)) != std::string::npos)
+		{
+			new_content.replace(pos, 1, "\r\n");
+			pos = pos + 2;
+		}
+		if (new_content != animationDataContent)
+			Log::Error("round trip error!");
+
+		AnimData::AnimSetDataFile newAnimationSetData;
+		for (auto& entry : creature_entries)
+		{
+			newAnimationSetData.putProjectAttackBlock(entry.name + "Data\\" + entry.name  + ".txt", entry.sets);
+		}
+		string new_set_content = newAnimationSetData.toString();
+		 pos = 0;
+		while ((pos = new_set_content.find("\n", pos)) != std::string::npos)
+		{
+			new_set_content.replace(pos, 1, "\r\n");
+			pos = pos + 2;
+		}
+		if (new_set_content != animationSetDataContent)
+			Log::Error("round trip error!");
+	}
+
+	size_t getNumCreatureProjects(){
+		return creature_entries.size();
+	}
+
+	static void create_entry(
+		CacheEntry& entry,
+		const ckcmd::BSA::BSAFile& bsa_file,
+		const string& name)
+	{
+		entry.name = name;
+
+		string block_path = "meshes\\animationdata\\" + name + ".txt";
+		string block_content = bsa_file.extract(block_path);
+		scannerpp::Scanner p(block_content);
+		entry.block.parseBlock(p);
+
+		if (entry.block.getHasAnimationCache())
+		{
+			string movement_path = "meshes\\animationdata\\boundanims\\anims_" + name + ".txt";
+			string movement_content = bsa_file.extract(movement_path);
+			scannerpp::Scanner p(movement_content);
+			entry.movements.parseBlock(p);
+
+		}
+	}
+
+	static void create_creature_entry(
+		CreatureCacheEntry& entry,
+		const ckcmd::BSA::BSAFile& bsa_file, 
+		const string& name)
+	{
+		create_entry(entry, bsa_file, name);
+
+		string directory_path = "meshes\\animationsetdata\\" + entry.name + "Data\\"+ entry.name +".txt";
+		AnimData::StringListBlock list; 
+		string directory_content = bsa_file.extract(directory_path);
+		scannerpp::Scanner p(directory_content);
+		list.parseBlock(p);
+		vector<string> project_files = list.getStrings();
+
+		std::sort(project_files.begin(), project_files.end(),
+			[](const string& lhs, const string& rhs) -> bool
+		{
+			string llhs = lhs.substr(0, lhs.size() - 4);
+			string lrhs = rhs.substr(0, rhs.size() - 4);
+
+			std::transform(llhs.begin(), llhs.end(), llhs.begin(), ::tolower);
+			std::transform(lrhs.begin(), lrhs.end(), lrhs.begin(), ::tolower);
+
+			std::string::size_type pos = 0;
+			while ((pos = llhs.find("_", pos)) != std::string::npos)
+			{
+				llhs.replace(pos, 1, " ");
+				pos = pos + 1;
+			}
+			pos = 0;
+			while ((pos = lrhs.find("_", pos)) != std::string::npos)
+			{
+				lrhs.replace(pos, 1, " ");
+				pos = pos + 1;
+			}
+
+			//if (llhs.at(0) == '_') llhs.at(0) = ' ';
+			//if (lrhs.at(0) == '_') lrhs.at(0) = ' ';
+
+			return lrhs > llhs;
+		});
+
+		for (const auto& project : project_files)
+		{
+			string sub_project_path = "meshes\\animationsetdata\\" + entry.name + "Data\\" + project;
+			string sub_project_content = bsa_file.extract(sub_project_path);
+			scannerpp::Scanner p(sub_project_content);
+			AnimData::ProjectAttackBlock ab; ab.parseBlock(p);
+			entry.sets.putProjectAttack(project, ab);
+		}
+	}
+
+	bool iequals(const string& a, const string& b)
+	{
+		return std::equal(a.begin(), a.end(),
+			b.begin(), b.end(),
+			[](char a, char b) {
+			return tolower(a) == tolower(b);
+		});
+	}
+
+	void check_from_bsa(const ckcmd::BSA::BSAFile& bsa_file, const std::vector<string>& actors, const std::vector<string>& misc)
+	{
+
+		//vector<string> blocks = bsa_file.assets(blocks_regex);
+		//vector<string> movements_blocks = bsa_file.assets(movements_blocks_regex);
+		//vector<string> attack_blocks = bsa_file.assets(attack_blocks_regex);
+
+
+		for (int i = 0; i < actors.size(); i++)
+		{
+			CreatureCacheEntry entry;
+			CreatureCacheEntry& default_entry = creature_entries[i];
+			create_creature_entry(entry, bsa_file, fs::path(actors[i]).filename().replace_extension("").string());
+			if (!iequals(entry.name, default_entry.name) ||
+				entry.block.getBlock() != default_entry.block.getBlock() ||
+				entry.movements.getBlock() != default_entry.movements.getBlock() ||
+				entry.sets.getBlock() != default_entry.sets.getBlock())
+				Log::Info("Error");
+		}
+		
 	}
 
 	void printInfo() {
-		Log::Info("Parsed correctly %d havok projects", data_map.size());
-		Log::Info("Found %d creatures projects:", set_data_map.size());
-		checkInfo();
+		Log::Info("Parsed correctly %d havok projects", creature_entries.size() + misc_entries.size());
+		Log::Info("Found %d creatures projects:", getNumCreatureProjects());
+		//checkInfo();
 	}
 
-	void checkInfo() {
-		for (const auto& pair : set_data_map) {
-			Log::Info("\tID:%d\tName: %s", pair.second, pair.first.c_str());
+	//void checkInfo() {
+	//	for (const auto& pair : set_data_map) {
+	//		Log::Info("\tID:%d\tName: %s", pair.second, pair.first.c_str());
 
-			int data_index = data_map[pair.first];
-			int set_data_index = set_data_map[pair.first];
+	//		int data_index = data_map[pair.first];
+	//		int set_data_index = set_data_map[pair.first];
 
-			AnimData::ProjectBlock& this_data = animationData.getProjectBlock(data_index);
-			AnimData::ProjectDataBlock& this_movement_data = animationData.getprojectMovementBlock(data_index);
-			AnimData::ProjectAttackListBlock& this_set_data = animationSetData.getProjectAttackBlock(set_data_index);
-			Log::Info("\t\tHavok Files:%d", this_data.getProjectFiles().getStrings().size());
-			for (auto& havok_file : this_data.getProjectFiles().getStrings())
-				Log::Info("\t\t\t%s", havok_file.c_str());
+	//		AnimData::ProjectBlock& this_data = animationData.getProjectBlock(data_index);
+	//		AnimData::ProjectDataBlock& this_movement_data = animationData.getprojectMovementBlock(data_index);
+	//		AnimData::ProjectAttackListBlock& this_set_data = animationSetData.getProjectAttackBlock(set_data_index);
+	//		Log::Info("\t\tHavok Files:%d", this_data.getProjectFiles().getStrings().size());
+	//		list<string> projects = this_data.getProjectFiles().getStrings();
+	//		for (auto& havok_file : projects)
+	//			Log::Info("\t\t\t%s", havok_file.c_str());
 
-			//Check CRC clips number
-			size_t movements = this_movement_data.getMovementData().size();
-			set<string> paths;
-			
-			for (auto& block : this_set_data.getProjectAttackBlocks())
-			{
-				auto& strings = block.getCrc32Data().getStrings();
-				std::list<std::string>::iterator it;
-				int i = 0;
-				string this_path;
-				for (it = strings.begin(); it != strings.end(); ++it) {
-					if (i % 3 == 0)
-						this_path = *it;
-					if (i % 3 == 1)
-						paths.insert(this_path + *it);
-					i++;
-				}
-			}
-			size_t crcs = paths.size();
-			if (movements != crcs)
-				Log::Info("Warning: unaddressed movement data!");
+	//		//Check CRC clips number
+	//		size_t movements = this_movement_data.getMovementData().size();
+	//		set<string> paths;
+	//		
+	//		for (auto& block : this_set_data.getProjectAttackBlocks())
+	//		{
+	//			auto& strings = block.getCrc32Data().getStrings();
+	//			std::list<std::string>::iterator it;
+	//			int i = 0;
+	//			string this_path;
+	//			for (it = strings.begin(); it != strings.end(); ++it) {
+	//				if (i % 3 == 0)
+	//					this_path = *it;
+	//				if (i % 3 == 1)
+	//					paths.insert(this_path + *it);
+	//				i++;
+	//			}
+	//		}
+	//		size_t crcs = paths.size();
+	//		if (movements != crcs)
+	//			Log::Info("Warning: unaddressed movement data!");
 
-		}
-	}
+	//	}
+	//}
 
-	void printCreatureInfo(const string& project_name)
-	{
-		if (hasCreatureProject(project_name))
-		{
-			int data_index = data_map[project_name];
-			int set_data_index = set_data_map[project_name];
 
-			AnimData::ProjectBlock& this_data = animationData.getProjectBlock(data_index);
-			AnimData::ProjectAttackListBlock& this_set_data = animationSetData.getProjectAttackBlock(set_data_index);
-		}
-	}
-
-	bool hasCreatureProject (const string& project_name) {
-		return set_data_map.find(project_name) != set_data_map.end();
-	}
+	//bool hasCreatureProject (const string& project_name) {
+	//	return set_data_map.find(project_name) != set_data_map.end();
+	//}
 
 };

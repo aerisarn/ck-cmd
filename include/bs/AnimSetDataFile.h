@@ -17,6 +17,24 @@ namespace AnimData {
 			return projectAttacks[i];
 		}
 
+		int getProjectAttackBlock(const string& name) {
+			const std::vector<std::string>& projects = projectsList.getStrings();
+			for (int i = 0; i < projects.size(); i++)
+			{
+				if (projects[i] == name)
+					return i;
+			}
+			return -1;
+		}
+
+		void putProjectAttackBlock(const string& name, const ProjectAttackListBlock& block)
+		{
+			std::vector<std::string>& projects = projectsList.getStrings();
+			projects.push_back(name);
+			projectsList.setStrings(projects);
+			projectAttacks.push_back(block);
+		}
+
 		void parse(std::string content) {
 			scannerpp::Scanner input(content);
 			projectsList.fromASCII(input);

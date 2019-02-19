@@ -51,7 +51,7 @@ string RetargetCreatureCmd::GetHelp() const
 	  <source_havok_project> a valid havok project already loaded. 
 							 Use ListCreatures command to find one"
 	  <output_havok_project_name> the name of the havok project to be created. 
-                                  Must not be laready present into the Animation Cache;
+                                  Must not be already present into the Animation Cache;
 
 	  arguments are mandatory)";
 
@@ -125,16 +125,62 @@ hkRefPtr<hkType> load_havok_file(const fs::path& path, hkArray<hkVariant>& objec
 
 bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
-	string source_havok_project = parsedArgs["<source_havok_project>"].asString();
-	string output_havok_project_name = parsedArgs["<output_havok_project_name>"].asString();
+	string source_havok_project = "", output_havok_project_name = "";
+	if (parsedArgs["<source_havok_project>"].isString())
+		source_havok_project = parsedArgs["<source_havok_project>"].asString();
+	if (parsedArgs["<output_havok_project_name>"].isString())
+		output_havok_project_name = parsedArgs["<output_havok_project_name>"].asString();
 
-	Games& games = Games::Instance();
-	Games::Game tes5 = Games::TES5;
+	//Games& games = Games::Instance();
+	//Games::Game tes5 = Games::TES5;
 
-	if (!games.isGameInstalled(tes5)) {
-		Log::Error("This command only works on TES5, and doesn't seem to be installed. Be sure to run the game at least once.");
-		return false;
+	//if (!games.isGameInstalled(tes5)) {
+	//	Log::Error("This command only works on TES5, and doesn't seem to be installed. Be sure to run the game at least once.");
+	//	return false;
+	//}
+
+	BSAFile bsa_file("I:\\git_ref\\resources\\bsa\\Skyrim - Animations.bsa");
+	const std::regex re_actors("meshes\\\\actors\\\\(?!.*(animations|characters|character assets|characterassets|sharedkillmoves|behaviors)).*hkx", std::regex_constants::icase);
+	const std::regex re_misc("(?!.*(actors|animations|characters|character assets|characterassets|sharedkillmoves|behaviors)).*hkx", std::regex_constants::icase);
+
+
+	vector<string> projects;
+	vector<string> misc;
+	//find all projects
+	vector<string> actors_folders = bsa_file.assets(".*\.hkx");
+	for (const auto& hkx_file : actors_folders)
+	{
+		std::smatch match;
+		if (std::regex_match(hkx_file, match, re_actors))
+		{
+			//yeah, I bet _1st person didn't actually exist when exported
+			if (hkx_file.find("_1st") != string::npos)
+			{
+				projects.push_back("meshes\\actors\\character\\firstperson.hkx");
+			}
+			else {
+				projects.push_back(hkx_file);
+			}
+		}
+		if (std::regex_match(hkx_file, match, re_misc))
+		{
+			misc.push_back(hkx_file);
+		}
 	}
+	std::sort(projects.begin(), projects.end(),
+		[](const string& lhs, const string& rhs) -> bool
+	{
+		return rhs > lhs;
+	});
+
+	std::sort(misc.begin(), misc.end(),
+		[](const string& lhs, const string& rhs) -> bool
+	{
+		return rhs > lhs;
+	});
+
+
+	//AnimationCache::rebuild_from_bsa(bsa_file, projects, misc);
 
 	string animDataContent;
 	string animSetDataContent;
@@ -142,13 +188,28 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	const std::string animDataPath = "meshes\\animationdatasinglefile.txt";
 	const std::string animSetDataPath = "meshes\\animationsetdatasinglefile.txt";
 
-	const vector<string> bsas = { "Update.bsa", "Skyrim - Animations.bsa" };
+	size_t anim_data_size;
+	size_t anim_data_set_size;
+	const uint8_t* anim_data = bsa_file.extract(animDataPath, anim_data_size);
+	const uint8_t* anim_set_data = bsa_file.extract(animSetDataPath, anim_data_set_size);
+	string anim_data_content((char*)anim_data, anim_data_size);
+	string anim_set_data_content((char*)anim_set_data, anim_data_set_size);
 
-	//by priority order, we first check for overrides
-	loadOverrideOrBSA(animDataPath, animDataContent, tes5, bsas);
-	loadOverrideOrBSA(animSetDataPath, animSetDataContent, tes5, bsas);
 
-	AnimationCache cache(animDataContent, animSetDataContent);
+	//const vector<string> bsas = { "Update.bsa", "Skyrim - Animations.bsa" };
+
+	////by priority order, we first check for overrides
+	//loadOverrideOrBSA(animDataPath, animDataContent, tes5, bsas);
+	//loadOverrideOrBSA(animSetDataPath, animSetDataContent, tes5, bsas);
+
+	AnimationCache cache(anim_data_content, anim_set_data_content);
+
+	cache.check_from_bsa(bsa_file, projects, misc);
+
+	cache.printInfo();
+
+	delete anim_data;
+	delete anim_set_data;
 	
 	HKXWrapper wrapper;
 	hkRefPtr<hkbProjectData> project;
