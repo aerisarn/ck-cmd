@@ -1,3 +1,5 @@
+#define NOMINMAX
+
 #include "stdafx.h"
 #include <core/hkxcmd.h>
 #include <core/hkfutils.h>
@@ -31,6 +33,8 @@
 
 #include <DirectXTex.h>
 
+
+
 static bool BeginConversion(string importPath, string exportPath);
 static void InitializeHavok();
 static void CloseHavok();
@@ -58,15 +62,15 @@ string ConvertNif::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd convertnif [-i <path_to_import>] [-e <path_to_export>]
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " [-i <path_to_import>] [-e <path_to_export>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " [<path_to_export>] [<path_to_import>] \r\n";
 
 	//will need to check this help in console/
 	const char help[] =
 		R"(Convert Oblivion version models to Skyrim's format.
 		
 		Arguments:
-			<path_to_import> path to models which you want to convert"
 			<path_to_export> path to exported models;
+			<path_to_import> path to models which you want to convert
 
 		If none of these are present, then the program will look through your Oblivion BSAs. (if present))";
 
@@ -1955,6 +1959,103 @@ map<NiFlipControllerRef, NiFloatInterpControllerRef> material_flip_controllers_m
 map<NiFlipControllerRef, vector<pair<float, float>>> deferred_blends;
 map<NiTextureTransformControllerRef, NiFloatInterpControllerRef> material_transform_controllers_map;
 
+void convert_tt_rotate(NiTextureTransformControllerRef oldController, NiFloatInterpControllerRef newController, NiInterpolatorRef oldInterpolator, NiFloatInterpControllerRef& new_v_controller, NiInterpolatorRef& newInterpolatorU, NiInterpolatorRef& newInterpolatorV)
+{
+	if (oldInterpolator == NULL)
+		throw runtime_error("NULL intepolator while converting TT_ROTATE");
+	if (!oldInterpolator->IsDerivedType(NiFloatInterpolator::TYPE))
+		throw runtime_error("UNKNOWN intepolator TYPE while converting TT_ROTATE: " + oldInterpolator->GetInternalType().GetTypeName());
+	NiFloatInterpolatorRef rotate_interpolator = DynamicCast<NiFloatInterpolator>(oldInterpolator);
+
+	NiFloatInterpolatorRef u_interpolator = new NiFloatInterpolator();
+	NiFloatInterpolatorRef v_interpolator = new NiFloatInterpolator();
+
+	if (rotate_interpolator->GetData() != NULL)
+	{
+		NiFloatDataRef u_data = new NiFloatData();
+		KeyGroup<float> u_keys;
+		u_keys.interpolation = CONST_KEY;
+		NiFloatDataRef v_data = new NiFloatData();
+		KeyGroup<float> v_keys;
+		v_keys.interpolation = CONST_KEY;
+
+		vector < Key<float>> keys = rotate_interpolator->GetData()->GetData().keys;
+		size_t samples = (keys[keys.size()-1].time - keys[0].time)/0.1;
+		
+		for (int i = 0; i < samples; i++)
+		{
+			Key<float> u_value;
+			Key<float> v_value;
+
+			u_value.time = keys[0].time + i*0.1;
+			v_value.time = keys[0].time + i * 0.1;
+
+			u_value.data = cos(keys[0].data + i * 0.1) - 0.5;
+			v_value.data = sin(keys[0].data + i * 0.1) - 0.5;
+
+			/*u_value.forward_tangent = sin(frame.forward_tangent);
+			v_value.forward_tangent = cos(frame.forward_tangent);
+			u_value.backward_tangent = sin(frame.backward_tangent);
+			v_value.backward_tangent = cos(frame.backward_tangent);
+
+			u_value.tension = sin(frame.tension);
+			u_value.bias = sin(frame.bias);
+			u_value.continuity = sin(frame.continuity);
+
+			v_value.tension = cos(frame.tension);
+			v_value.bias = cos(frame.bias);
+			v_value.continuity = cos(frame.continuity);*/
+
+			u_keys.keys.push_back(u_value);
+			v_keys.keys.push_back(v_value);
+		}
+
+		u_data->SetData(u_keys);
+		v_data->SetData(v_keys);
+		u_interpolator->SetData(u_data);
+		v_interpolator->SetData(v_data);
+	}
+
+	if (rotate_interpolator->GetValue() > numeric_limits<float>::min() && rotate_interpolator->GetValue() < numeric_limits<float>::max())
+	{
+		u_interpolator->SetValue(cos(rotate_interpolator->GetValue()));
+		v_interpolator->SetValue(sin(rotate_interpolator->GetValue()));
+	}
+
+	if (newController->IsDerivedType(BSLightingShaderPropertyFloatController::TYPE))
+	{
+		BSLightingShaderPropertyFloatControllerRef v_controller = new BSLightingShaderPropertyFloatController();
+		v_controller->SetNextController(newController->GetNextController());
+		v_controller->SetFlags(newController->GetFlags());
+		v_controller->SetFrequency(newController->GetFrequency());
+		v_controller->SetPhase(newController->GetPhase());
+		v_controller->SetStartTime(newController->GetStartTime());
+		v_controller->SetStopTime(newController->GetStopTime());
+		v_controller->SetTarget(newController->GetTarget());
+		v_controller->SetInterpolator(StaticCast<NiInterpolator>(v_interpolator));
+		v_controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
+
+		new_v_controller = v_controller;
+	}
+	else {
+		BSEffectShaderPropertyFloatControllerRef v_controller = new BSEffectShaderPropertyFloatController();
+		v_controller->SetNextController(newController->GetNextController());
+		v_controller->SetFlags(newController->GetFlags());
+		v_controller->SetFrequency(newController->GetFrequency());
+		v_controller->SetPhase(newController->GetPhase());
+		v_controller->SetStartTime(newController->GetStartTime());
+		v_controller->SetStopTime(newController->GetStopTime());
+		v_controller->SetTarget(newController->GetTarget());
+		v_controller->SetInterpolator(StaticCast<NiInterpolator>(v_interpolator));
+		v_controller->SetTypeOfControlledVariable(EffectShaderControlledVariable::ESCV_V_OFFSET);
+
+		new_v_controller = v_controller;
+	}
+
+	newInterpolatorU = u_interpolator;
+	newInterpolatorV = v_interpolator;
+}
+
 class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
 	const NifInfo& this_info;
 	set<void*> already_upgraded;
@@ -2126,7 +2227,48 @@ public:
 					if (blocks[i].controller->IsDerivedType(NiTextureTransformController::TYPE)) {
 						map<NiTextureTransformControllerRef, NiFloatInterpControllerRef>::iterator cc = material_transform_controllers_map.find(DynamicCast<NiTextureTransformController>(blocks[i].controller));
 						if (cc != material_transform_controllers_map.end())
-							blocks[i].controller = cc->second;
+						{
+							if (cc->first->GetOperation() == TT_ROTATE)
+							{
+								NiTextureTransformControllerRef oldController = cc->first;
+								NiFloatInterpControllerRef controller = cc->second;
+								//convert, otherwise defer;
+								NiFloatInterpControllerRef new_v_controller;
+								NiInterpolatorRef newInterpolatorU;
+								NiInterpolatorRef newInterpolatorV;
+
+								convert_tt_rotate(oldController,
+									StaticCast<NiFloatInterpController>(controller),
+									blocks[i].interpolator,
+									new_v_controller,
+									newInterpolatorU,
+									newInterpolatorV);
+
+								NiBlendFloatInterpolatorRef f_ref = DynamicCast<NiBlendFloatInterpolator>(oldController->GetInterpolator());
+								//u_controller->SetInterpolator(StaticCast<NiInterpolator>(controller->GetInterpolator()));
+								NiBlendFloatInterpolatorRef v_ref = new NiBlendFloatInterpolator();
+								v_ref->SetFlags(f_ref->GetFlags());
+								Accessor<BlendUnknownSet>(f_ref, v_ref);
+								v_ref->SetManagedControlled(f_ref->GetManagedControlled());
+								v_ref->SetValue(f_ref->GetValue());
+
+								new_v_controller->SetNextController(oldController->GetNextController());
+								controller->SetNextController(StaticCast<NiTimeController>(new_v_controller));
+
+								new_v_controller->SetInterpolator(StaticCast<NiInterpolator>(v_ref));
+
+								ControlledBlock additional_v_block = blocks[i];
+								blocks[i].controller = controller;
+								blocks[i].interpolator = newInterpolatorU;
+								blocks[i].controllerId = to_string(controller_id++);
+								additional_v_block.controller = new_v_controller;
+								additional_v_block.interpolator = newInterpolatorV;
+								additional_v_block.controllerId = to_string(controller_id++);
+								blocks.insert(blocks.begin() + i + 1, additional_v_block);
+								
+							} else
+								blocks[i].controller = cc->second;
+						}
 						else
 							Log::Info("Not Found!");
 					}
@@ -2146,6 +2288,7 @@ public:
 	template<class T>
 	inline void visit_field(T& field) {
 	}
+
 
 	NiFloatInterpControllerRef convert(NiTextureTransformControllerRef in) {
 		if (!in == NULL && in->IsDerivedType(NiTextureTransformController::TYPE)) {
@@ -2173,7 +2316,30 @@ public:
 				if (oldController->GetOperation() == TransformMember::TT_SCALE_V)
 					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_SCALE);
 				if (oldController->GetOperation() == TransformMember::TT_ROTATE)
-					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
+				{
+					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_OFFSET);
+					if (!oldController->GetInterpolator()->IsDerivedType(NiBlendInterpolator::TYPE))
+					{
+						//convert, otherwise defer;
+						NiFloatInterpControllerRef new_v_controller; 
+						NiInterpolatorRef newInterpolatorU; 
+						NiInterpolatorRef newInterpolatorV;
+
+						convert_tt_rotate(oldController,
+							StaticCast<NiFloatInterpController>(controller),
+							oldController->GetInterpolator(),
+							new_v_controller,
+							newInterpolatorU,
+							newInterpolatorV);
+
+						new_v_controller->SetNextController(oldController->GetNextController());
+						controller->SetNextController(StaticCast<NiTimeController>(new_v_controller));
+
+						controller->SetInterpolator(newInterpolatorU);
+						new_v_controller->SetInterpolator(newInterpolatorV);
+					}
+				}
+
 				material_transform_controllers_map[oldController] = controller;
 				return controller;
 			}
@@ -2885,7 +3051,29 @@ public:
 						if (oldController->GetOperation() == TransformMember::TT_SCALE_V)
 							controller->SetTypeOfControlledVariable(EffectShaderControlledVariable::ESCV_V_SCALE);
 						if (oldController->GetOperation() == TransformMember::TT_ROTATE)
-							controller->SetTypeOfControlledVariable(EffectShaderControlledVariable::ESCV_ALPHA_TRANSPARENCY);
+						{
+							controller->SetTypeOfControlledVariable(EffectShaderControlledVariable::ESCV_U_OFFSET);
+							if (!oldController->GetInterpolator()->IsDerivedType(NiBlendInterpolator::TYPE))
+							{
+								//convert, otherwise defer;
+								NiFloatInterpControllerRef new_v_controller;
+								NiInterpolatorRef newInterpolatorU;
+								NiInterpolatorRef newInterpolatorV;
+
+								convert_tt_rotate(oldController,
+									StaticCast<NiFloatInterpController>(controller),
+									oldController->GetInterpolator(),
+									new_v_controller,
+									newInterpolatorU,
+									newInterpolatorV);
+
+								new_v_controller->SetNextController(oldController->GetNextController());
+								controller->SetNextController(StaticCast<NiTimeController>(new_v_controller));
+
+								controller->SetInterpolator(newInterpolatorU);
+								controller->SetInterpolator(newInterpolatorV);
+							}
+						}
 
 						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
 						material_transform_controllers_map[oldController] = controller;
@@ -3724,27 +3912,50 @@ public:
 				in = converted->second;
 			}
 			else {
-				BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
-				controller->SetNextController(oldController->GetNextController());
-				controller->SetFlags(oldController->GetFlags());
-				controller->SetFrequency(oldController->GetFrequency());
-				controller->SetPhase(oldController->GetPhase());
-				controller->SetStartTime(oldController->GetStartTime());
-				controller->SetStopTime(oldController->GetStopTime());
-				controller->SetTarget(oldController->GetTarget());
-				controller->SetInterpolator(oldController->GetInterpolator());
-				if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_U)
-					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_OFFSET);
-				if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_V)
-					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
-				if (oldController->GetOperation() == TransformMember::TT_SCALE_U)
-					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_SCALE);
-				if (oldController->GetOperation() == TransformMember::TT_SCALE_V)
-					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_SCALE);
-				if (oldController->GetOperation() == TransformMember::TT_ROTATE)
-					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_ALPHA);
-				material_transform_controllers_map[oldController] = controller;
-				in = controller;
+				throw runtime_error("Found unconverted controller!");
+				//BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
+				//controller->SetNextController(oldController->GetNextController());
+				//controller->SetFlags(oldController->GetFlags());
+				//controller->SetFrequency(oldController->GetFrequency());
+				//controller->SetPhase(oldController->GetPhase());
+				//controller->SetStartTime(oldController->GetStartTime());
+				//controller->SetStopTime(oldController->GetStopTime());
+				//controller->SetTarget(oldController->GetTarget());
+				//controller->SetInterpolator(oldController->GetInterpolator());
+				//if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_U)
+				//	controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_OFFSET);
+				//if (oldController->GetOperation() == TransformMember::TT_TRANSLATE_V)
+				//	controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
+				//if (oldController->GetOperation() == TransformMember::TT_SCALE_U)
+				//	controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_SCALE);
+				//if (oldController->GetOperation() == TransformMember::TT_SCALE_V)
+				//	controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_SCALE);
+				//if (oldController->GetOperation() == TransformMember::TT_ROTATE)
+				//{
+				//	controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_U_OFFSET);
+				//	if (!oldController->GetInterpolator()->IsDerivedType(NiBlendInterpolator::TYPE))
+				//	{
+				//		//convert, otherwise defer;
+				//		NiFloatInterpControllerRef new_v_controller;
+				//		NiInterpolatorRef newInterpolatorU;
+				//		NiInterpolatorRef newInterpolatorV;
+
+				//		convert_tt_rotate(oldController,
+				//			StaticCast<NiFloatInterpController>(controller),
+				//			oldController->GetInterpolator(),
+				//			new_v_controller,
+				//			newInterpolatorU,
+				//			newInterpolatorV);
+
+				//		new_v_controller->SetNextController(oldController->GetNextController());
+				//		controller->SetNextController(StaticCast<NiTimeController>(new_v_controller));
+
+				//		controller->SetInterpolator(newInterpolatorU);
+				//		controller->SetInterpolator(newInterpolatorV);
+				//	}
+				//}
+				//material_transform_controllers_map[oldController] = controller;
+				//in = controller;
 			}
 		}
 	}
@@ -3766,6 +3977,159 @@ void findFiles(fs::path startingDir, string extension, vector<fs::path>& results
 	}
 }
 
+void convert_blocks(
+	vector<NiObjectRef>& blocks, 
+	vector<NiObjectRef>& out_blocks, 
+	NiObjectRef& root, 
+	HKXWrapperCollection& wrappers,
+	NifInfo& info,
+	fs::path nif_file_path,
+	fs::path exportPath)
+{
+	//this is all hacky but ehhhh.
+	bool isBillboardRoot = false;
+	BillboardMode mode = BillboardMode::ALWAYS_FACE_CAMERA;
+
+	//vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
+	root = GetFirstRoot(blocks);
+	NiNode* rootn = DynamicCast<NiNode>(root);
+
+	ConverterVisitor fimpl(info, root, blocks);
+
+	if (root->IsSameType(NiBillboardNode::TYPE)) {
+		isBillboardRoot = true;
+		mode = DynamicCast<NiBillboardNode>(root)->GetBillboardMode();
+	}
+
+	info.userVersion = 12;
+	info.userVersion2 = 83;
+	info.version = Niflib::VER_20_2_0_7;
+	set<string> sequences = fimpl.nisequences;
+	if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
+		root = convert_root(root);
+		BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
+		//fixed?
+		bsroot->SetFlags(524302);
+		string out_havok_path = "";
+		if (!sequences.empty()) {
+			fs::path in_file = nif_file_path.filename();
+			string out_name = in_file.filename().replace_extension("").string();
+			fs::path out_path = fs::path("animations") / in_file.parent_path() / out_name;
+			fs::path out_path_abs = exportPath / out_path;
+			string out_path_a = out_path_abs.string();
+			out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
+			vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
+			BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
+			havokp->SetName(string("BGED"));
+			havokp->SetBehaviourGraphFile(out_havok_path);
+			havokp->SetControlsBaseSkeleton(false);
+			list.insert(list.begin(), StaticCast<NiExtraData>(havokp));
+			bsroot->SetExtraDataList(list);
+		}
+
+
+		std::vector<NiAVObjectRef> children;
+
+		if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
+		{
+			NiBillboardNode* proxyRoot = new NiBillboardNode();
+			if (mode == ROTATE_ABOUT_UP)
+				mode = BSROTATE_ABOUT_UP;
+			proxyRoot->SetBillboardMode(mode);
+			proxyRoot->SetFlags(bsroot->GetFlags());
+			proxyRoot->SetChildren(bsroot->GetChildren());
+			proxyRoot->SetRotation(bsroot->GetRotation());
+			proxyRoot->SetTranslation(bsroot->GetTranslation());
+			proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+
+			if (proxyRoot->GetCollisionObject() != NULL)
+				DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+
+			children.push_back(proxyRoot);
+			bsroot->SetChildren(children);
+			bsroot->SetCollisionObject(NULL);
+		}
+		else
+		{
+			if (bsroot->GetTranslation().Magnitude() != 0 ||
+				!bsroot->GetRotation().isIdentity())
+			{
+				NiNode* proxyRoot = new NiNode();
+				proxyRoot->SetName(IndexString("ProxyRoot"));
+				proxyRoot->SetFlags(bsroot->GetFlags());
+				proxyRoot->SetChildren(bsroot->GetChildren());
+				proxyRoot->SetRotation(bsroot->GetRotation());
+				proxyRoot->SetTranslation(bsroot->GetTranslation());
+				proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+
+				if (proxyRoot->GetCollisionObject() != NULL)
+					DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+
+				children.push_back(proxyRoot);
+				bsroot->SetChildren(children);
+				bsroot->SetCollisionObject(NULL);
+			}
+		}
+
+		bsroot->SetRotation(Matrix33());
+		bsroot->SetTranslation(Vector3());
+
+
+
+		//to calculate the right flags, we need to rebuild the blocks
+		vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
+
+		//fix targets from nitrishapes substitution
+		FixTargetsVisitor(root, info, new_blocks);
+
+		if (DynamicCast<NiNode>(root) != NULL && DynamicCast<NiNode>(root)->GetCollisionObject() == NULL) {
+			bhkCollisionObjectRef root_collision = NULL;
+			int num_collisions = 0;
+			//Optimize single collision models
+			for (NiObjectRef block : new_blocks) {
+				if (block->IsDerivedType(bhkCollisionObject::TYPE))
+				{
+					num_collisions++;
+					root_collision = DynamicCast<bhkCollisionObject>(block);
+				}
+			}
+			if (num_collisions == 1 && root_collision != NULL) {
+
+				vector<NiAVObjectRef> children = bsroot->GetChildren();
+				auto root_collision_position = find(children.begin(), children.end(), StaticCast<NiAVObject>(root_collision));
+				if (root_collision_position != children.end()) {
+					children.erase(root_collision_position);
+					bsroot->SetCollisionObject(StaticCast<NiCollisionObject>(root_collision));
+					bsroot->SetChildren(children);
+				}
+			}
+		}
+
+
+		bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
+
+		bool bsx_flag_found = false;
+		for (NiObjectRef ref : blocks) {
+			if (ref->IsDerivedType(BSXFlags::TYPE)) {
+				BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
+				bref->SetIntegerData(calculated_flags.to_ulong());
+				bsx_flag_found = true;
+				break;
+			}
+		}
+		if (!bsx_flag_found && calculated_flags != 0)
+		{
+			BSXFlagsRef bref = new BSXFlags();
+			bref->SetIntegerData(calculated_flags.to_ulong());
+			vector<NiExtraDataRef> list = bsroot->GetExtraDataList();
+			list.push_back(StaticCast<NiExtraData>(bref));
+			bsroot->SetExtraDataList(list);
+		}
+	}
+	else {
+		//FixTargetsVisitor(root, info, blocks);
+	}
+}
 
 bool BeginConversion(string importPath, string exportPath) {
 	char fullName[MAX_PATH], exeName[MAX_PATH];
@@ -3790,10 +4154,6 @@ bool BeginConversion(string importPath, string exportPath) {
 	HKXWrapperCollection wrappers;
 	if (nifs.empty()) {
 		Log::Info("No NIFs found.. trying BSAs");
-
-
-
-
 		const Games::GamesPathMapT& installations = games.getGames();
 
 		for (const auto& bsa_file : games.bsa_files()) {
@@ -3834,154 +4194,167 @@ bool BeginConversion(string importPath, string exportPath) {
 				std::string sdata((char*)data, size);
 				std::istringstream iss(sdata);
 
-				//this is all hacky but ehhhh.
-				bool isBillboardRoot = false;
-				BillboardMode mode = BillboardMode::ALWAYS_FACE_CAMERA;
-
+				NiObjectRef root;
 				vector<NiObjectRef> blocks = ReadNifList(iss, &info);
-				NiObjectRef root = GetFirstRoot(blocks);
-				NiNode* rootn = DynamicCast<NiNode>(root);
+				vector<NiObjectRef> new_blocks;
+				convert_blocks(
+					blocks,
+					new_blocks,
+					root,
+					wrappers,
+					info,
+					nif,
+					exportPath
+				);
 
-				ConverterVisitor fimpl(info, root, blocks);
-
-				if (root->IsSameType(NiBillboardNode::TYPE)) {
-					isBillboardRoot = true;
-					mode = DynamicCast<NiBillboardNode>(root)->GetBillboardMode();
-				}
-
-				set<string> sequences = fimpl.nisequences;
-				//root->accept(fimpl, info);
-				if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
-					root = convert_root(root);
-					BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
-					//fixed?
-					bsroot->SetFlags(524302);
-					string out_havok_path = "";
-					if (!sequences.empty()) {
-						fs::path in_file = nif;
-						string out_name = in_file.filename().replace_extension("").string();
-						string newPath = in_file.parent_path().string();
-						if (newPath.substr(0, 7) == "meshes\\")
-							newPath.erase(newPath.begin(), newPath.begin()+7);
-						fs::path out_path = fs::path("animations") / newPath / out_name;
-						fs::path out_path_abs = nif_out / out_path;
-						string out_path_a = out_path_abs.string();
-						out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
-						vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
-						BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
-						havokp->SetName(string("BGED"));
-						havokp->SetBehaviourGraphFile(out_havok_path);
-						havokp->SetControlsBaseSkeleton(false);
-						list.insert(list.begin(), StaticCast<NiExtraData>(havokp));
-						bsroot->SetExtraDataList(list);
-					}
-
-					std::vector<NiAVObjectRef> children;
-
-					if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
-					{
-						NiBillboardNode* proxyRoot = new NiBillboardNode();
-						if (mode == ROTATE_ABOUT_UP)
-							mode = BSROTATE_ABOUT_UP;
-						proxyRoot->SetBillboardMode(mode);
-						proxyRoot->SetFlags(bsroot->GetFlags());
-						proxyRoot->SetChildren(bsroot->GetChildren());
-						proxyRoot->SetRotation(bsroot->GetRotation());
-						proxyRoot->SetTranslation(bsroot->GetTranslation());
-						proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
-						proxyRoot->SetName(IndexString("ProxyNode"));
-
-						if (proxyRoot->GetCollisionObject() != NULL)
-							DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
-
-						children.push_back(proxyRoot);
-
-					}
-					else
-					{
-						if (bsroot->GetTranslation().Magnitude() != 0 ||
-							!bsroot->GetRotation().isIdentity()) 
-						{
-							NiNode* proxyRoot = new NiNode();
-
-							proxyRoot->SetFlags(bsroot->GetFlags());
-							proxyRoot->SetChildren(bsroot->GetChildren());
-							proxyRoot->SetRotation(bsroot->GetRotation());
-							proxyRoot->SetTranslation(bsroot->GetTranslation());
-							proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
-							proxyRoot->SetName(IndexString("ProxyNode"));
-
-							if (proxyRoot->GetCollisionObject() != NULL)
-								DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
-
-							children.push_back(proxyRoot);
-
-						}
-					}
-
-					bsroot->SetRotation(Matrix33());
-					bsroot->SetTranslation(Vector3());
-					bsroot->SetCollisionObject(NULL);
-					bsroot->SetChildren(children);
-
-					//to calculate the right flags, we need to rebuild the blocks
-					vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
-
-					//fix targets from nitrishapes substitution
-					FixTargetsVisitor(root, info, new_blocks);
-
-					if (DynamicCast<NiNode>(root) != NULL && DynamicCast<NiNode>(root)->GetCollisionObject() == NULL) {
-						bhkCollisionObjectRef root_collision = NULL;
-						int num_collisions = 0;
-						//Optimize single collision models
-						for (NiObjectRef block : new_blocks) {
-							if (block->IsDerivedType(bhkCollisionObject::TYPE))
-							{
-								num_collisions++;
-								root_collision = DynamicCast<bhkCollisionObject>(block);
-							}
-						}
-						if (num_collisions == 1 && root_collision != NULL) {
-
-							vector<NiAVObjectRef> children = bsroot->GetChildren();
-							auto root_collision_position = find(children.begin(), children.end(), StaticCast<NiAVObject>(root_collision));
-							if (root_collision_position != children.end()) {
-								children.erase(root_collision_position);
-								bsroot->SetCollisionObject(StaticCast<NiCollisionObject>(root_collision));
-								bsroot->SetChildren(children);
-							}
-						}
-					}
-
-
-					bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
-
-					bool bsx_flag_found = false;
-					for (NiObjectRef ref : blocks) {
-						if (ref->IsDerivedType(BSXFlags::TYPE)) {
-							BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
-							bref->SetIntegerData(calculated_flags.to_ulong());
-							bsx_flag_found = true;
-							break;
-						}
-					}
-					if (!bsx_flag_found && calculated_flags != 0)
-					{
-						BSXFlagsRef bref = new BSXFlags();
-						bref->SetIntegerData(calculated_flags.to_ulong());
-						vector<NiExtraDataRef> list = bsroot->GetExtraDataList();
-						list.push_back(StaticCast<NiExtraData>(bref));
-						bsroot->SetExtraDataList(list);
-					}
-
-				}
-				else {
-//					FixTargetsVisitor(root, info, blocks);
-				}
-
-				info.userVersion = 12;
-				info.userVersion2 = 83;
-				info.version = Niflib::VER_20_2_0_7;
+//				//this is all hacky but ehhhh.
+//				bool isBillboardRoot = false;
+//				BillboardMode mode = BillboardMode::ALWAYS_FACE_CAMERA;
+//
+//				vector<NiObjectRef> blocks = ReadNifList(iss, &info);
+//				NiObjectRef root = GetFirstRoot(blocks);
+//				NiNode* rootn = DynamicCast<NiNode>(root);
+//
+//				ConverterVisitor fimpl(info, root, blocks);
+//
+//				if (root->IsSameType(NiBillboardNode::TYPE)) {
+//					isBillboardRoot = true;
+//					mode = DynamicCast<NiBillboardNode>(root)->GetBillboardMode();
+//				}
+//
+//				set<string> sequences = fimpl.nisequences;
+//				//root->accept(fimpl, info);
+//				if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
+//					root = convert_root(root);
+//					BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
+//					//fixed?
+//					bsroot->SetFlags(524302);
+//					string out_havok_path = "";
+//					if (!sequences.empty()) {
+//						fs::path in_file = nif;
+//						string out_name = in_file.filename().replace_extension("").string();
+//						string newPath = in_file.parent_path().string();
+//						if (newPath.substr(0, 7) == "meshes\\")
+//							newPath.erase(newPath.begin(), newPath.begin()+7);
+//						fs::path out_path = fs::path("animations") / newPath / out_name;
+//						fs::path out_path_abs = nif_out / out_path;
+//						string out_path_a = out_path_abs.string();
+//						out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
+//						vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
+//						BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
+//						havokp->SetName(string("BGED"));
+//						havokp->SetBehaviourGraphFile(out_havok_path);
+//						havokp->SetControlsBaseSkeleton(false);
+//						list.insert(list.begin(), StaticCast<NiExtraData>(havokp));
+//						bsroot->SetExtraDataList(list);
+//					}
+//
+//					std::vector<NiAVObjectRef> children;
+//
+//					if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
+//					{
+//						NiBillboardNode* proxyRoot = new NiBillboardNode();
+//						if (mode == ROTATE_ABOUT_UP)
+//							mode = BSROTATE_ABOUT_UP;
+//						proxyRoot->SetBillboardMode(mode);
+//						proxyRoot->SetFlags(bsroot->GetFlags());
+//						proxyRoot->SetChildren(bsroot->GetChildren());
+//						proxyRoot->SetRotation(bsroot->GetRotation());
+//						proxyRoot->SetTranslation(bsroot->GetTranslation());
+//						proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+//						proxyRoot->SetName(IndexString("ProxyNode"));
+//
+//						if (proxyRoot->GetCollisionObject() != NULL)
+//							DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+//
+//						children.push_back(proxyRoot);
+//
+//					}
+//					else
+//					{
+//						if (bsroot->GetTranslation().Magnitude() != 0 ||
+//							!bsroot->GetRotation().isIdentity()) 
+//						{
+//							NiNode* proxyRoot = new NiNode();
+//
+//							proxyRoot->SetFlags(bsroot->GetFlags());
+//							proxyRoot->SetChildren(bsroot->GetChildren());
+//							proxyRoot->SetRotation(bsroot->GetRotation());
+//							proxyRoot->SetTranslation(bsroot->GetTranslation());
+//							proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+//							proxyRoot->SetName(IndexString("ProxyNode"));
+//
+//							if (proxyRoot->GetCollisionObject() != NULL)
+//								DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+//
+//							children.push_back(proxyRoot);
+//
+//						}
+//					}
+//
+//					bsroot->SetRotation(Matrix33());
+//					bsroot->SetTranslation(Vector3());
+//					bsroot->SetCollisionObject(NULL);
+//					bsroot->SetChildren(children);
+//
+//					//to calculate the right flags, we need to rebuild the blocks
+//					vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
+//
+//					//fix targets from nitrishapes substitution
+//					FixTargetsVisitor(root, info, new_blocks);
+//
+//					if (DynamicCast<NiNode>(root) != NULL && DynamicCast<NiNode>(root)->GetCollisionObject() == NULL) {
+//						bhkCollisionObjectRef root_collision = NULL;
+//						int num_collisions = 0;
+//						//Optimize single collision models
+//						for (NiObjectRef block : new_blocks) {
+//							if (block->IsDerivedType(bhkCollisionObject::TYPE))
+//							{
+//								num_collisions++;
+//								root_collision = DynamicCast<bhkCollisionObject>(block);
+//							}
+//						}
+//						if (num_collisions == 1 && root_collision != NULL) {
+//
+//							vector<NiAVObjectRef> children = bsroot->GetChildren();
+//							auto root_collision_position = find(children.begin(), children.end(), StaticCast<NiAVObject>(root_collision));
+//							if (root_collision_position != children.end()) {
+//								children.erase(root_collision_position);
+//								bsroot->SetCollisionObject(StaticCast<NiCollisionObject>(root_collision));
+//								bsroot->SetChildren(children);
+//							}
+//						}
+//					}
+//
+//
+//					bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
+//
+//					bool bsx_flag_found = false;
+//					for (NiObjectRef ref : blocks) {
+//						if (ref->IsDerivedType(BSXFlags::TYPE)) {
+//							BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
+//							bref->SetIntegerData(calculated_flags.to_ulong());
+//							bsx_flag_found = true;
+//							break;
+//						}
+//					}
+//					if (!bsx_flag_found && calculated_flags != 0)
+//					{
+//						BSXFlagsRef bref = new BSXFlags();
+//						bref->SetIntegerData(calculated_flags.to_ulong());
+//						vector<NiExtraDataRef> list = bsroot->GetExtraDataList();
+//						list.push_back(StaticCast<NiExtraData>(bref));
+//						bsroot->SetExtraDataList(list);
+//					}
+//
+//				}
+//				else {
+////					FixTargetsVisitor(root, info, blocks);
+//				}
+//
+//				info.userVersion = 12;
+//				info.userVersion2 = 83;
+//				info.version = Niflib::VER_20_2_0_7;
 
 				out_path = nif_out / nif;
 				fs::create_directories(out_path.parent_path());
@@ -4019,142 +4392,162 @@ bool BeginConversion(string importPath, string exportPath) {
 			if (nifs[i].string().find("lod") != string::npos)
 				continue;
 
-			//this is all hacky but ehhhh.
-			bool isBillboardRoot = false;
-			BillboardMode mode = BillboardMode::ALWAYS_FACE_CAMERA; 
-
+			NiObjectRef root;
 			vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
-			NiObjectRef root = GetFirstRoot(blocks);
-			NiNode* rootn = DynamicCast<NiNode>(root);
+			vector<NiObjectRef> new_blocks;
+			convert_blocks(
+				blocks,
+				new_blocks,
+				root,
+				wrappers,
+				info,
+				nifs[i],
+				exportPath
+			);
 
-			ConverterVisitor fimpl(info, root, blocks);
-			
-			if (root->IsSameType(NiBillboardNode::TYPE)) {
-				isBillboardRoot = true; 
-				mode = DynamicCast<NiBillboardNode>(root)->GetBillboardMode();
-			}
+			////this is all hacky but ehhhh.
+			//bool isBillboardRoot = false;
+			//BillboardMode mode = BillboardMode::ALWAYS_FACE_CAMERA; 
 
-			info.userVersion = 12;
-			info.userVersion2 = 83;
-			info.version = Niflib::VER_20_2_0_7;
-			set<string> sequences = fimpl.nisequences;
-			if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
-				root = convert_root(root);
-				BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
-				//fixed?
-				bsroot->SetFlags(524302);
-				string out_havok_path = "";
-				if (!sequences.empty()) {
-					fs::path in_file = nifs[i].filename();
-					string out_name = in_file.filename().replace_extension("").string();
-					fs::path out_path = fs::path("animations") / in_file.parent_path() / out_name;
-					fs::path out_path_abs = exportPath / out_path;
-					string out_path_a = out_path_abs.string();
-					out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
-					vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
-					BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
-					havokp->SetName(string("BGED"));
-					havokp->SetBehaviourGraphFile(out_havok_path);
-					havokp->SetControlsBaseSkeleton(false);
-					list.insert(list.begin(),StaticCast<NiExtraData>(havokp));
-					bsroot->SetExtraDataList(list);
-				}
+			//vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
+			//NiObjectRef root = GetFirstRoot(blocks);
+			//NiNode* rootn = DynamicCast<NiNode>(root);
 
+			//ConverterVisitor fimpl(info, root, blocks);
+			//
+			//if (root->IsSameType(NiBillboardNode::TYPE)) {
+			//	isBillboardRoot = true; 
+			//	mode = DynamicCast<NiBillboardNode>(root)->GetBillboardMode();
+			//}
 
-				std::vector<NiAVObjectRef> children;
-
-				if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
-				{
-					NiBillboardNode* proxyRoot = new NiBillboardNode();
-					if (mode == ROTATE_ABOUT_UP)
-						mode = BSROTATE_ABOUT_UP;
-					proxyRoot->SetBillboardMode(mode);
-					proxyRoot->SetFlags(bsroot->GetFlags());
-					proxyRoot->SetChildren(bsroot->GetChildren());
-					proxyRoot->SetRotation(bsroot->GetRotation());
-					proxyRoot->SetTranslation(bsroot->GetTranslation());
-					proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
-
-					if (proxyRoot->GetCollisionObject() != NULL)
-						DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
-
-					children.push_back(proxyRoot);
-					
-				}
-				else
-				{
-					NiNode* proxyRoot = new NiNode();
-					proxyRoot->SetName(IndexString("ProxyRoot"));
-					proxyRoot->SetFlags(bsroot->GetFlags());
-					proxyRoot->SetChildren(bsroot->GetChildren());
-					proxyRoot->SetRotation(bsroot->GetRotation());
-					proxyRoot->SetTranslation(bsroot->GetTranslation());
-					proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
-
-					if (proxyRoot->GetCollisionObject() != NULL)
-						DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
-
-					children.push_back(proxyRoot);
-				}
-
-				bsroot->SetRotation(Matrix33());
-				bsroot->SetTranslation(Vector3());
-				bsroot->SetCollisionObject(NULL);
-				bsroot->SetChildren(children);
-
-				//to calculate the right flags, we need to rebuild the blocks
-				vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
-
-				//fix targets from nitrishapes substitution
-				FixTargetsVisitor(root, info, new_blocks);
-
-				if (DynamicCast<NiNode>(root) != NULL && DynamicCast<NiNode>(root)->GetCollisionObject() == NULL) {
-					bhkCollisionObjectRef root_collision = NULL;
-					int num_collisions = 0;
-					//Optimize single collision models
-					for (NiObjectRef block : new_blocks) {
-						if (block->IsDerivedType(bhkCollisionObject::TYPE))
-						{
-							num_collisions++;
-							root_collision = DynamicCast<bhkCollisionObject>(block);
-						}
-					}
-					if (num_collisions == 1 && root_collision != NULL) {
-
-						vector<NiAVObjectRef> children = bsroot->GetChildren();
-						auto root_collision_position = find(children.begin(), children.end(), StaticCast<NiAVObject>(root_collision));
-						if (root_collision_position != children.end()) {
-							children.erase(root_collision_position);
-							bsroot->SetCollisionObject(StaticCast<NiCollisionObject>(root_collision));
-							bsroot->SetChildren(children);
-						}
-					}
-				}
+			//info.userVersion = 12;
+			//info.userVersion2 = 83;
+			//info.version = Niflib::VER_20_2_0_7;
+			//set<string> sequences = fimpl.nisequences;
+			//if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
+			//	root = convert_root(root);
+			//	BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
+			//	//fixed?
+			//	bsroot->SetFlags(524302);
+			//	string out_havok_path = "";
+			//	if (!sequences.empty()) {
+			//		fs::path in_file = nifs[i].filename();
+			//		string out_name = in_file.filename().replace_extension("").string();
+			//		fs::path out_path = fs::path("animations") / in_file.parent_path() / out_name;
+			//		fs::path out_path_abs = exportPath / out_path;
+			//		string out_path_a = out_path_abs.string();
+			//		out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
+			//		vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
+			//		BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
+			//		havokp->SetName(string("BGED"));
+			//		havokp->SetBehaviourGraphFile(out_havok_path);
+			//		havokp->SetControlsBaseSkeleton(false);
+			//		list.insert(list.begin(),StaticCast<NiExtraData>(havokp));
+			//		bsroot->SetExtraDataList(list);
+			//	}
 
 
-				bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
+			//	std::vector<NiAVObjectRef> children;
 
-				bool bsx_flag_found = false;
-				for (NiObjectRef ref : blocks) {
-					if (ref->IsDerivedType(BSXFlags::TYPE)) {
-						BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
-						bref->SetIntegerData(calculated_flags.to_ulong());
-						bsx_flag_found = true;
-						break;
-					}
-				}
-				if (!bsx_flag_found && calculated_flags != 0)
-				{
-					BSXFlagsRef bref = new BSXFlags();
-					bref->SetIntegerData(calculated_flags.to_ulong());
-					vector<NiExtraDataRef> list = bsroot->GetExtraDataList();
-					list.push_back(StaticCast<NiExtraData>(bref));
-					bsroot->SetExtraDataList(list);
-				}
-			}
-			else {
-				FixTargetsVisitor(root, info, blocks);
-			}
+			//	if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
+			//	{
+			//		NiBillboardNode* proxyRoot = new NiBillboardNode();
+			//		if (mode == ROTATE_ABOUT_UP)
+			//			mode = BSROTATE_ABOUT_UP;
+			//		proxyRoot->SetBillboardMode(mode);
+			//		proxyRoot->SetFlags(bsroot->GetFlags());
+			//		proxyRoot->SetChildren(bsroot->GetChildren());
+			//		proxyRoot->SetRotation(bsroot->GetRotation());
+			//		proxyRoot->SetTranslation(bsroot->GetTranslation());
+			//		proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+
+			//		if (proxyRoot->GetCollisionObject() != NULL)
+			//			DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+
+			//		children.push_back(proxyRoot);
+			//		bsroot->SetChildren(children);
+			//		bsroot->SetCollisionObject(NULL);
+			//	}
+			//	else
+			//	{
+			//		if (bsroot->GetTranslation().Magnitude() != 0 ||
+			//			!bsroot->GetRotation().isIdentity())
+			//		{
+			//			NiNode* proxyRoot = new NiNode();
+			//			proxyRoot->SetName(IndexString("ProxyRoot"));
+			//			proxyRoot->SetFlags(bsroot->GetFlags());
+			//			proxyRoot->SetChildren(bsroot->GetChildren());
+			//			proxyRoot->SetRotation(bsroot->GetRotation());
+			//			proxyRoot->SetTranslation(bsroot->GetTranslation());
+			//			proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+
+			//			if (proxyRoot->GetCollisionObject() != NULL)
+			//				DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+
+			//			children.push_back(proxyRoot);
+			//			bsroot->SetChildren(children);
+			//			bsroot->SetCollisionObject(NULL);
+			//		}
+			//	}
+
+			//	bsroot->SetRotation(Matrix33());
+			//	bsroot->SetTranslation(Vector3());
+			//	
+			//	
+
+			//	//to calculate the right flags, we need to rebuild the blocks
+			//	vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
+
+			//	//fix targets from nitrishapes substitution
+			//	FixTargetsVisitor(root, info, new_blocks);
+
+			//	if (DynamicCast<NiNode>(root) != NULL && DynamicCast<NiNode>(root)->GetCollisionObject() == NULL) {
+			//		bhkCollisionObjectRef root_collision = NULL;
+			//		int num_collisions = 0;
+			//		//Optimize single collision models
+			//		for (NiObjectRef block : new_blocks) {
+			//			if (block->IsDerivedType(bhkCollisionObject::TYPE))
+			//			{
+			//				num_collisions++;
+			//				root_collision = DynamicCast<bhkCollisionObject>(block);
+			//			}
+			//		}
+			//		if (num_collisions == 1 && root_collision != NULL) {
+
+			//			vector<NiAVObjectRef> children = bsroot->GetChildren();
+			//			auto root_collision_position = find(children.begin(), children.end(), StaticCast<NiAVObject>(root_collision));
+			//			if (root_collision_position != children.end()) {
+			//				children.erase(root_collision_position);
+			//				bsroot->SetCollisionObject(StaticCast<NiCollisionObject>(root_collision));
+			//				bsroot->SetChildren(children);
+			//			}
+			//		}
+			//	}
+
+
+			//	bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
+
+			//	bool bsx_flag_found = false;
+			//	for (NiObjectRef ref : blocks) {
+			//		if (ref->IsDerivedType(BSXFlags::TYPE)) {
+			//			BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
+			//			bref->SetIntegerData(calculated_flags.to_ulong());
+			//			bsx_flag_found = true;
+			//			break;
+			//		}
+			//	}
+			//	if (!bsx_flag_found && calculated_flags != 0)
+			//	{
+			//		BSXFlagsRef bref = new BSXFlags();
+			//		bref->SetIntegerData(calculated_flags.to_ulong());
+			//		vector<NiExtraDataRef> list = bsroot->GetExtraDataList();
+			//		list.push_back(StaticCast<NiExtraData>(bref));
+			//		bsroot->SetExtraDataList(list);
+			//	}
+			//}
+			//else {
+			//	FixTargetsVisitor(root, info, blocks);
+			//}
 
 			size_t offset = nifs[i].parent_path().string().find("meshes", 0);
 			size_t end = nifs[i].parent_path().string().length();
