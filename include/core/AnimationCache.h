@@ -308,9 +308,6 @@ struct AnimationCache {
 				pos = pos + 1;
 			}
 
-			//if (llhs.at(0) == '_') llhs.at(0) = ' ';
-			//if (lrhs.at(0) == '_') lrhs.at(0) = ' ';
-
 			return lrhs > llhs;
 		});
 
@@ -351,8 +348,54 @@ struct AnimationCache {
 				entry.movements.getBlock() != default_entry.movements.getBlock() ||
 				entry.sets.getBlock() != default_entry.sets.getBlock())
 				Log::Info("Error");
+
+
+			Log::Info("project creature: %s", entry.name.c_str());
+			int getUnkEventList = 0;
+			int getUnkEventData = 0;
+			int crc32s = 0;
+			size_t movements = entry.movements.getMovementData().size();
+			set<string> paths;
+			set<string> attacks;
+			std::list<AnimData::ProjectAttackBlock> abs = entry.sets.getProjectAttackBlocks();
+			Log::Info("animations sets: %d", abs.size());
+			for (auto& ab : abs)
+			{
+				getUnkEventList += ab.getUnkEventList().getStrings().size();
+				getUnkEventData += ab.getUnkEventData().getStrings().size();
+				auto& atts = ab.getAttackData().getAttackData();
+				auto& strings = ab.getCrc32Data().getStrings();
+				for (auto & att : atts)
+					attacks.insert(att.getEventName());
+				std::list<std::string>::iterator it;
+				int i = 0;
+				string this_path;
+				for (it = strings.begin(); it != strings.end(); ++it) {
+					if (i % 3 == 0)
+						this_path = *it;
+					if (i % 3 == 1)
+						paths.insert(this_path + *it);
+					i++;
+				}
+			}
+			Log::Info("attacks: %d", attacks.size());
+			Log::Info("getUnkEventList: %d", getUnkEventList);
+			Log::Info("getUnkEventData: %d", getUnkEventData);
+			Log::Info("movements: %d", movements);
+			Log::Info("paths: %d", paths.size());
+
 		}
-		
+		for (int i = 0; i < misc.size(); i++)
+		{
+			CacheEntry entry;
+			CacheEntry& default_entry = misc_entries[i];
+			create_entry(entry, bsa_file, fs::path(misc[i]).filename().replace_extension("").string());
+			if (!iequals(entry.name, default_entry.name) ||
+				entry.block.getBlock() != default_entry.block.getBlock() ||
+				entry.movements.getBlock() != default_entry.movements.getBlock())
+				Log::Info("Error");
+		}
+
 	}
 
 	void printInfo() {

@@ -141,7 +141,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 
 	BSAFile bsa_file("I:\\git_ref\\resources\\bsa\\Skyrim - Animations.bsa");
 	const std::regex re_actors("meshes\\\\actors\\\\(?!.*(animations|characters|character assets|characterassets|sharedkillmoves|behaviors)).*hkx", std::regex_constants::icase);
-	const std::regex re_misc("(?!.*(actors|animations|characters|character assets|characterassets|sharedkillmoves|behaviors)).*hkx", std::regex_constants::icase);
+	const std::regex re_misc("(?!.*(\\\\actors|\\\\.*animations|\\\\.*characters|\\\\.*character assets|\\\\.*characterassets|\\\\.*sharedkillmoves|\\\\behaviors|\\\\.+behaviors\\\\.*behavior|handeffect|handfx|fx.*cloak)).*hkx", std::regex_constants::icase);
 
 
 	vector<string> projects;
@@ -176,7 +176,29 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	std::sort(misc.begin(), misc.end(),
 		[](const string& lhs, const string& rhs) -> bool
 	{
-		return rhs > lhs;
+		string llhs = lhs;
+		string lrhs = rhs;
+
+		std::string::size_type pos = 0;
+		while ((pos = llhs.find("\\", pos)) != std::string::npos)
+		{
+			llhs.replace(pos, 1, "/");
+			pos = pos + 1;
+		}
+		pos = 0;
+		while ((pos = lrhs.find("\\", pos)) != std::string::npos)
+		{
+			lrhs.replace(pos, 1, "/");
+			pos = pos + 1;
+		}
+
+		fs::path pllhs = lhs; 
+		fs::path plrhs = rhs;
+
+		if (pllhs.parent_path() != plrhs.parent_path())
+			return plrhs.parent_path() > pllhs.parent_path();
+
+		return plrhs.filename() > pllhs.filename();
 	});
 
 
