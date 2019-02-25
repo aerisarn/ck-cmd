@@ -72,22 +72,6 @@ namespace ckcmd {
 			hkRootLevelContainer* read(const uint8_t* data, const size_t& size, hkArray<hkVariant>& objects);
 			hkRootLevelContainer* read(const uint8_t* data, const size_t& size);
 
-			template<typename hkRootType>
-			hkRefPtr<hkRootType> load(const fs::path& path, hkRootLevelContainer* root) {
-				root = read(path);
-				hkRefPtr<hkRootType> project;
-				project = (hkRootType*)root->findObjectByType(project->getClassType()->getName());
-				return project;
-			}
-
-			template<typename hkRootType>
-			hkRefPtr<hkRootType> load(const uint8_t* data, const size_t& size, hkRootLevelContainer* root) {
-				root = read(data, size);
-				hkRefPtr<hkRootType> project;
-				project = (hkRootType*)root->findObjectByType(project->getClassType()->getName());
-				return project;
-			}
-
 			//hkRefPtr<hkbProjectData> load_project(const fs::path& path);
 			//hkRefPtr<hkbProjectData> load_project(const uint8_t* data, const size_t& size);
 
@@ -112,6 +96,18 @@ namespace ckcmd {
 			HKXWrapper() {}
 			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix);
 			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix, const set<string>& sequences_names);
+
+			template<typename hkRootType>
+			hkRefPtr<hkRootType> load(const fs::path& path, hkRootLevelContainer* root) {
+				root = read(path);
+				return root->findObject<hkRootType>();
+			}
+
+			template<typename hkRootType>
+			hkRefPtr<hkRootType> load(const uint8_t* data, const size_t& size, hkRootLevelContainer* root) {
+				root = read(data, size);
+				return root->findObject<hkRootType>();
+			}
 
 			inline string GetPath() { return out_path + "\\" + out_name + "\\" + out_name + ".hkx"; }
 

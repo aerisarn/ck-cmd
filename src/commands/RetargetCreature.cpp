@@ -10,6 +10,7 @@
 #include <hkbBehaviorReferenceGenerator_0.h>
 #include <hkbClipGenerator_2.h>
 #include <hkbProjectData_2.h>
+#include <hkbCharacterData_7.h>
 
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
@@ -138,6 +139,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	//	Log::Error("This command only works on TES5, and doesn't seem to be installed. Be sure to run the game at least once.");
 	//	return false;
 	//}
+	InitializeHavok();
 
 	BSAFile bsa_file("I:\\git_ref\\resources\\bsa\\Skyrim - Animations.bsa");
 	const std::regex re_actors("meshes\\\\actors\\\\(?!.*(animations|characters|character assets|characterassets|sharedkillmoves|behaviors)).*hkx", std::regex_constants::icase);
@@ -146,52 +148,89 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 
 	vector<string> projects;
 	vector<string> misc;
+	set<fs::path> filenames;
+	HKXWrapper wrapper;
 	//find all projects
-	vector<string> actors_folders = bsa_file.assets(".*\.hkx");
-	for (const auto& hkx_file : actors_folders)
+	vector<string> assets = bsa_file.assets(".*\.hkx");
+	for (const auto& hkx_file : assets)
 	{
-		std::smatch match;
-		if (std::regex_match(hkx_file, match, re_actors))
+		string data = bsa_file.extract(hkx_file);
+		hkRootLevelContainer* root = NULL;
+		hkRefPtr<hkbProjectData> hkroot = wrapper.load<hkbProjectData>((const uint8_t *)data.c_str(), data.size(), root);
+		if (hkroot != NULL)
 		{
-			//yeah, I bet _1st person didn't actually exist when exported
-			if (hkx_file.find("_1st") != string::npos)
-			{
-				projects.push_back("meshes\\actors\\character\\firstperson.hkx");
-			}
-			else {
+			if (fs::path(hkx_file).parent_path().string().find("actors") != string::npos)
 				projects.push_back(hkx_file);
+			else
+			{
+				string filename = fs::path(hkx_file).filename().string();
+				//if (!filenames.insert(filename).second)
+				//	continue;
+				if (filename.find("fxfirecloak01.hkx") != string::npos ||
+					filename.find("fxicecloak") != string::npos ||
+					filename.find("healcontargetfx01") != string::npos ||
+					filename.find("healfxhand01.hkx") != string::npos ||
+					filename.find("healmystcontargetfx01.hkx") != string::npos ||
+					filename.find("healmystfxhand01.hkx") != string::npos ||
+					filename.find("healmysttargetfx.hkx") != string::npos ||
+					filename.find("invisfxbody01.hkx") != string::npos ||
+					filename.find("invisfxhand01.hkx") != string::npos ||
+					filename.find("lightspellactorfx.hkx") != string::npos ||
+					filename.find("lightspellhazard.hkx") != string::npos ||
+					filename.find("shockhandeffects.hkx") != string::npos ||
+					filename.find("soultrapcastpointfx01.hkx") != string::npos ||
+					filename.find("soultraphandeffects.hkx") != string::npos ||
+					filename.find("soultraptargeteffects.hkx") != string::npos ||
+					filename.find("soultraptargetpointfx.hkx") != string::npos ||
+					filename.find("summontargetfx.hkx") != string::npos ||
+					filename.find("turnundeadfxhand01.hkx") != string::npos ||
+					filename.find("turnundeadtargetfx.hkx") != string::npos ||
+					hkx_file.find("traps\\leantotrap\\norretractablebridge01.hkx") != string::npos ||
+					filename.find("fxlightspellhandeffects") != string::npos
+				)
+					continue;
+				hkRefPtr<hkbProjectStringData> sdata = hkroot->m_stringData;
+				if (sdata->m_characterFilenames.getSize() > 0)
+				{
+					string char_rel_path = sdata->m_characterFilenames[0];
+					hkRootLevelContainer* croot = NULL;
+					string char_path = fs::canonical((fs::path(hkx_file).parent_path() / char_rel_path)).string();
+					size_t offset = char_path.find("meshes", 0);
+					size_t end = char_path.length();
+					if (offset < end)
+						char_path = char_path.substr(offset, end);
+					if (bsa_file.find(char_path))
+					{
+						string cdata = bsa_file.extract(char_path);
+						hkRefPtr<hkbCharacterData> chkroot = wrapper.load<hkbCharacterData>((const uint8_t *)cdata.c_str(), cdata.size(), croot);
+						misc.push_back(hkx_file);
+					}
+					else {
+						Log::Warn("Project file with character file not found!: %s", hkx_file.c_str());
+					}
+				}
+				else {
+					Log::Warn("Project file without character: %s", hkx_file.c_str());
+				}
 			}
 		}
-		if (std::regex_match(hkx_file, match, re_misc))
-		{
-			misc.push_back(hkx_file);
-		}
+
 	}
 	std::sort(projects.begin(), projects.end(),
 		[](const string& lhs, const string& rhs) -> bool
 	{
-		return rhs > lhs;
+		fs::path pllhs = lhs;
+		fs::path plrhs = rhs;
+
+		if (pllhs.parent_path() != plrhs.parent_path())
+			return plrhs.parent_path() > pllhs.parent_path();
+
+		return plrhs.filename() > pllhs.filename();
 	});
 
 	std::sort(misc.begin(), misc.end(),
 		[](const string& lhs, const string& rhs) -> bool
 	{
-		string llhs = lhs;
-		string lrhs = rhs;
-
-		std::string::size_type pos = 0;
-		while ((pos = llhs.find("\\", pos)) != std::string::npos)
-		{
-			llhs.replace(pos, 1, "/");
-			pos = pos + 1;
-		}
-		pos = 0;
-		while ((pos = lrhs.find("\\", pos)) != std::string::npos)
-		{
-			lrhs.replace(pos, 1, "/");
-			pos = pos + 1;
-		}
-
 		fs::path pllhs = lhs; 
 		fs::path plrhs = rhs;
 
@@ -233,10 +272,9 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	delete anim_data;
 	delete anim_set_data;
 	
-	HKXWrapper wrapper;
 	hkRefPtr<hkbProjectData> project;
 	bool in_override = false;
-	InitializeHavok();
+	
 	fs::path project_path;
 
 	//TODO: take load order into account!
