@@ -104,8 +104,14 @@ namespace ckcmd {
 			}
 
 			template<typename hkRootType>
-			hkRefPtr<hkRootType> load(const uint8_t* data, const size_t& size, hkRootLevelContainer* root) {
+			hkRefPtr<hkRootType> load(const uint8_t* data, const size_t& size, hkRootLevelContainer*& root) {
 				root = read(data, size);
+				return root->findObject<hkRootType>();
+			}
+
+			template<typename hkRootType>
+			hkRefPtr<hkRootType> load(const uint8_t* data, const size_t& size, hkRootLevelContainer*& root, hkArray<hkVariant>& objects) {
+				root = read(data, size, objects);
 				return root->findObject<hkRootType>();
 			}
 

@@ -11,6 +11,7 @@
 #include <hkbClipGenerator_2.h>
 #include <hkbProjectData_2.h>
 #include <hkbCharacterData_7.h>
+#include <hkbBehaviorGraph_1.h>
 
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
@@ -124,6 +125,53 @@ hkRefPtr<hkType> load_havok_file(const fs::path& path, hkArray<hkVariant>& objec
 	return HK_NULL;
 }
 
+HKXWrapper wrapper;
+
+struct clip_compare {
+	bool operator() (const hkRefPtr<hkbClipGenerator>& lhs, const hkRefPtr<hkbClipGenerator>& rhs) const {
+		return string(lhs->m_name) < string(rhs->m_name);
+	}
+};
+
+
+void extract_clips(BSAFile& bsa_file, const string& behavior_path, const fs::path& root,  set<hkRefPtr<hkbClipGenerator>, clip_compare>& clips)
+{
+	string behavior_full_path = fs::canonical(root / behavior_path).string();
+	size_t offset = behavior_full_path.find("meshes", 0);
+	size_t end = behavior_full_path.length();
+	if (offset < end)
+		behavior_full_path = behavior_full_path.substr(offset, end);
+	if (bsa_file.find(behavior_full_path))
+	{
+		hkRootLevelContainer* broot = NULL;
+		string bdata = bsa_file.extract(behavior_full_path);
+		hkArray<hkVariant> objects;
+		hkRefPtr<hkbBehaviorGraph> bhkroot = wrapper.load<hkbBehaviorGraph>((const uint8_t *)bdata.c_str(), bdata.size(), broot, objects);
+		Log::Info("Graph: %s", bhkroot->m_name);
+		for (const auto& object : objects)
+		{
+			if (hkbClipGenerator::staticClass().getSignature() == object.m_class->getSignature())
+			{
+				hkRefPtr<hkbClipGenerator> clip = (hkbClipGenerator*)object.m_object;
+				Log::Info("Clip: %s, animation: %s", clip->m_name, clip->m_animationName);
+				clips.insert(clip);
+				clip = broot->findObject<hkbClipGenerator>(clip);
+			}
+			if (hkbBehaviorReferenceGenerator::staticClass().getSignature() == object.m_class->getSignature())
+			{
+				hkRefPtr<hkbBehaviorReferenceGenerator> sub_graph = (hkbBehaviorReferenceGenerator*)object.m_object;
+				Log::Info("Sub Graph: %s", sub_graph->m_behaviorName);
+				extract_clips(
+					bsa_file,
+					string(sub_graph->m_behaviorName),
+					root,
+					clips
+				);
+			}
+		}
+	}
+}
+
 bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	string source_havok_project = "", output_havok_project_name = "";
@@ -149,7 +197,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	vector<string> projects;
 	vector<string> misc;
 	set<fs::path> filenames;
-	HKXWrapper wrapper;
+
 	//find all projects
 	vector<string> assets = bsa_file.assets(".*\.hkx");
 	for (const auto& hkx_file : assets)
@@ -249,31 +297,93 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	const std::string animDataPath = "meshes\\animationdatasinglefile.txt";
 	const std::string animSetDataPath = "meshes\\animationsetdatasinglefile.txt";
 
-	size_t anim_data_size;
-	size_t anim_data_set_size;
-	const uint8_t* anim_data = bsa_file.extract(animDataPath, anim_data_size);
-	const uint8_t* anim_set_data = bsa_file.extract(animSetDataPath, anim_data_set_size);
-	string anim_data_content((char*)anim_data, anim_data_size);
-	string anim_set_data_content((char*)anim_set_data, anim_data_set_size);
-
-
-	//const vector<string> bsas = { "Update.bsa", "Skyrim - Animations.bsa" };
-
-	////by priority order, we first check for overrides
-	//loadOverrideOrBSA(animDataPath, animDataContent, tes5, bsas);
-	//loadOverrideOrBSA(animSetDataPath, animSetDataContent, tes5, bsas);
+	string anim_data_content = bsa_file.extract(animDataPath);
+	string anim_set_data_content = bsa_file.extract(animSetDataPath);
 
 	AnimationCache cache(anim_data_content, anim_set_data_content);
 
-	cache.check_from_bsa(bsa_file, projects, misc);
+	int cache_index = 0;
 
-	cache.printInfo();
+	for (const auto& creature_project_file : projects)
+	{
+		string project_file_data = bsa_file.extract(creature_project_file);
 
-	delete anim_data;
-	delete anim_set_data;
-	
-	hkRefPtr<hkbProjectData> project;
-	bool in_override = false;
+		hkRootLevelContainer* root = NULL;
+		hkRefPtr<hkbProjectData>  project_file_hkroot =
+			wrapper.load<hkbProjectData>((const uint8_t *)project_file_data.c_str(), project_file_data.size(), root);
+
+		Log::Info("Analyzing project: %s", creature_project_file.c_str());
+
+		//Characters
+		if (project_file_hkroot->m_stringData != NULL)
+		{
+			for (const auto& character : project_file_hkroot->m_stringData->m_characterFilenames)
+			{
+				Log::Info("Found Character: %s", character);
+				string char_path = fs::canonical((fs::path(creature_project_file).parent_path() / string(character))).string();
+				size_t offset = char_path.find("meshes", 0);
+				size_t end = char_path.length();
+				if (offset < end)
+					char_path = char_path.substr(offset, end);
+				Log::Info("Canonical Character Path: %s", char_path.c_str());
+
+				string character_file_data = bsa_file.extract(char_path);
+				hkRootLevelContainer* character_root = NULL;
+				hkRefPtr<hkbCharacterData>  character_file_hkroot =
+					wrapper.load<hkbCharacterData>((const uint8_t *)character_file_data.c_str(), character_file_data.size(), root);
+				set<hkRefPtr<hkbClipGenerator>, clip_compare> generators;
+				if (character_file_hkroot->m_stringData != NULL)
+				{
+					Log::Info("Animations: %d", character_file_hkroot->m_stringData->m_animationNames.getSize());
+					Log::Info("Behavior: %s", character_file_hkroot->m_stringData->m_behaviorFilename);
+					Log::Info("Rig: %s", character_file_hkroot->m_stringData->m_rigName);
+					Log::Info("Ragdoll: %s", character_file_hkroot->m_stringData->m_ragdollName);
+
+					
+					extract_clips(
+						bsa_file,
+						string(character_file_hkroot->m_stringData->m_behaviorFilename),
+						fs::path(creature_project_file).parent_path(),
+						generators
+					);
+				}
+				set<string> referenced_animations;
+				for (const auto& generator : generators)
+				{
+					referenced_animations.insert(string(generator->m_animationName));
+				}
+
+				CreatureCacheEntry& entry = cache.creature_entries[cache_index];
+				if (character_file_hkroot->m_stringData->m_animationNames.getSize() !=
+					referenced_animations.size())
+				{
+					Log::Warn("Declared animations %d, referenced by clips %d",
+						character_file_hkroot->m_stringData->m_animationNames.getSize(),
+						referenced_animations.size());
+					for (const auto& decl_anim : character_file_hkroot->m_stringData->m_animationNames)
+					{
+						if (referenced_animations.find(string(decl_anim)) == referenced_animations.end())
+						{
+							Log::Warn("Declared but not in clip %s", decl_anim);
+						}
+					}
+				}
+				if (character_file_hkroot->m_stringData->m_animationNames.getSize() !=
+					entry.movements.getMovementData().size())
+					Log::Warn("Declared animations %d, cache movements %d",
+						character_file_hkroot->m_stringData->m_animationNames.getSize(),
+						entry.movements.getMovementData().size());
+				if (generators.size() !=
+					entry.block.getClips().size())
+					Log::Warn("Behavior clips %d, cache blocks %d",
+						generators.size(),
+						entry.block.getClips().size());
+
+			}
+		}
+		cache_index++;
+
+	}
 	
 	fs::path project_path;
 

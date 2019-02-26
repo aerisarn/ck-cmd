@@ -333,11 +333,6 @@ struct AnimationCache {
 	void check_from_bsa(const ckcmd::BSA::BSAFile& bsa_file, const std::vector<string>& actors, const std::vector<string>& misc)
 	{
 
-		//vector<string> blocks = bsa_file.assets(blocks_regex);
-		//vector<string> movements_blocks = bsa_file.assets(movements_blocks_regex);
-		//vector<string> attack_blocks = bsa_file.assets(attack_blocks_regex);
-
-
 		for (int i = 0; i < actors.size(); i++)
 		{
 			CreatureCacheEntry entry;
