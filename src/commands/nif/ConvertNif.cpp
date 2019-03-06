@@ -4125,9 +4125,51 @@ void convert_blocks(
 			list.push_back(StaticCast<NiExtraData>(bref));
 			bsroot->SetExtraDataList(list);
 		}
+		bool human_attachment = false;
+		for (const auto& block : new_blocks)
+		{
+			if (block->IsDerivedType(BSInvMarker::TYPE))
+			{
+				human_attachment = true;
+				break;
+			}
+			/*
+			Shields: Bip01 L ForearmTwist
+
+			For Hair Bip01Head
+
+			One - Handed weapons : SideWeapon
+
+			Bows and Two - Handed weapons : BackWeapon
+
+			Torches and similar : Torch
+			*/
+		}
+		if (human_attachment)
+		{
+			for (auto& block : new_blocks)
+			{
+				if (block->IsDerivedType(NiStringExtraData::TYPE))
+				{
+					NiStringExtraDataRef ed = DynamicCast<NiStringExtraData>(block);
+					if (ed->GetName().find("Prn") != string::npos)
+					{
+						if (ed->GetStringData().find("Bip01 L ForearmTwist")!= string::npos)
+							ed->SetStringData(IndexString("SHIELD"));
+						if (ed->GetStringData().find("SideWeapon") != string::npos)
+							ed->SetStringData(IndexString("WeaponSword"));
+						if (ed->GetStringData().find("BackWeapon") != string::npos)
+							ed->SetStringData(IndexString("WeaponBack"));
+					}
+				}
+			}
+		}
 	}
 	else {
+		//TODO
 		//FixTargetsVisitor(root, info, blocks);
+		//Attach to skyrim skeleton
+		
 	}
 }
 
