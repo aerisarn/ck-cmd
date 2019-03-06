@@ -33,14 +33,15 @@ string FixSSENif::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd nifscan [-i <path_to_scan>]
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " [-i <path_to_scan>] [-o <path_to_out>] \r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " [-i <path_to_scan>] [-o <overwrite>] \r\n";
 
 	const char help[] =
 		R"(Scan Skyrim Legendary Editions meshes and apply fixes for SSE compatibility.
 		
 		Arguments:
 			<path_to_scan> path to models you want to check for errors)
-			<path_to_out> output path)";
+			<path_to_out> output path)
+			<overwrite> overwrite nif instead of using the /out/ path)";
 
 	return usage + help;
 }
@@ -988,50 +989,51 @@ NiTriShapeRef destrip(NiTriStripsRef& stripsRef)
 	shapeData->SetNumTriangles(triangles.size());
 	shapeData->SetNumTrianglePoints(triangles.size() * 3);
 	shapeData->SetHasTriangles(1);
-	shapeData->SetTriangles(triangles);
+shapeData->SetTriangles(triangles);
 
-	shapeData->SetHasNormals(stripsData->GetHasNormals());
-	shapeData->SetNormals(stripsData->GetNormals());
+shapeData->SetHasNormals(stripsData->GetHasNormals());
+shapeData->SetNormals(stripsData->GetNormals());
 
-	vector<Vector3> vertices = shapeData->GetVertices();
-	Vector3 COM;
-	if (vertices.size() != 0)
-		COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
-	vector<Triangle> faces = shapeData->GetTriangles();
-	vector<Vector3> normals = shapeData->GetNormals();
-	if (vertices.size() != 0 && faces.size() != 0 && shapeData->GetUvSets().size() != 0) {
-		vector<TexCoord> uvs = shapeData->GetUvSets()[0];
-		TriGeometryContext g(vertices, COM, faces, uvs, normals);
-		shapeData->SetHasNormals(1);
-		//recalculate
-		shapeData->SetNormals(g.normals);
-		shapeData->SetTangents(g.tangents);
-		shapeData->SetBitangents(g.bitangents);
-		if (vertices.size() != g.normals.size() || vertices.size() != g.tangents.size() || vertices.size() != g.bitangents.size())
-			throw runtime_error("Geometry mismatch!");
-		shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(shapeData->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
-	}
-	else {
-		shapeData->SetTangents(stripsData->GetTangents());
-		shapeData->SetBitangents(stripsData->GetBitangents());
-	}
+vector<Vector3> vertices = shapeData->GetVertices();
+Vector3 COM;
+if (vertices.size() != 0)
+COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
+vector<Triangle> faces = shapeData->GetTriangles();
+vector<Vector3> normals = shapeData->GetNormals();
 
-	shapeRef->SetData(DynamicCast<NiGeometryData>(shapeData));
+if (vertices.size() != 0 && faces.size() != 0 && shapeData->GetUvSets().size() != 0) {
+	vector<TexCoord> uvs = shapeData->GetUvSets()[0];
+	TriGeometryContext g(vertices, COM, faces, uvs, normals);
+	shapeData->SetHasNormals(1);
+	//recalculate
+	shapeData->SetNormals(g.normals);
+	shapeData->SetTangents(g.tangents);
+	shapeData->SetBitangents(g.bitangents);
+	if (vertices.size() != g.normals.size() || vertices.size() != g.tangents.size() || vertices.size() != g.bitangents.size())
+		throw runtime_error("Geometry mismatch!");
+	shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(shapeData->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
+}
+else {
+	shapeData->SetTangents(stripsData->GetTangents());
+	shapeData->SetBitangents(stripsData->GetBitangents());
+}
 
-	//TODO: shared normals no more supported
-	shapeData->SetMatchGroups(vector<MatchGroup>{});
+shapeRef->SetData(DynamicCast<NiGeometryData>(shapeData));
 
-	shapeRef->SetSkin(stripsRef->GetSkin());
-	shapeRef->SetSkinInstance(stripsRef->GetSkinInstance());
+//TODO: shared normals no more supported
+shapeData->SetMatchGroups(vector<MatchGroup>{});
 
-	return shapeRef;
+shapeRef->SetSkin(stripsRef->GetSkin());
+shapeRef->SetSkinInstance(stripsRef->GetSkinInstance());
+
+return shapeRef;
 }
 
 inline void visit_object(NiNodeRef obj) {
 	vector<Ref<NiAVObject>> children = obj->GetChildren();
 	vector<Ref<NiProperty>> properties = obj->GetProperties();
 	vector<Ref<NiAVObject>>::iterator eraser = children.begin();
-	while (eraser!= children.end())
+	while (eraser != children.end())
 	{
 		if (*eraser == NULL) {
 			eraser = children.erase(eraser);
@@ -1084,6 +1086,30 @@ inline void visit_object(NiNodeRef obj) {
 				//repartitioner.cast(nif, iBlock, bb, bv, false, false);
 				remake_partitions(geo, bb, bv, false, false);
 			}
+
+			if (shape->GetData() != NULL) {
+				NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(shape->GetData());
+				if (!(data->GetBsVectorFlags() & BSVF_HAS_TANGENTS) != 0) {
+					data->SetBsVectorFlags(static_cast<BSVectorFlags>(data->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
+					if (data->GetBitangents().size() == 0 || data->GetNormals().size() == 0) {
+						vector<Vector3> vertices = data->GetVertices();
+						Vector3 COM;
+						if (vertices.size() != 0)
+							COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
+						vector<Triangle> faces = data->GetTriangles();
+						vector<Vector3> normals = data->GetNormals();
+
+						if (vertices.size() != 0 && faces.size() != 0 && data->GetUvSets().size() != 0) {
+							vector<TexCoord> uvs = data->GetUvSets()[0];
+							TriGeometryContext g(vertices, COM, faces, uvs, normals);
+							data->SetHasNormals(1);
+							data->SetNormals(g.normals);
+							data->SetTangents(g.tangents);
+							data->SetBitangents(g.bitangents);
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -1112,11 +1138,13 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info) {
 }
 
 
-
-
 bool FixSSENif::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	string scanPath;
+	bool doOverwrite;
+	
+	if (parsedArgs["<overwrite>"].asString() == "true")
+		doOverwrite = true;
 
 	scanPath = parsedArgs["<path_to_scan>"].asString();
 	if (fs::exists(scanPath) && fs::is_directory(scanPath)) {
@@ -1127,10 +1155,16 @@ bool FixSSENif::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			try {
 				vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
 				vector<NiObjectRef> new_blocks = fixssenif(blocks, info);
-				fs::path out = scanPath / fs::path("out") / relative_to(nifs[i], scanPath);
-				fs::path parent_out = out.parent_path();
-				if (!fs::exists(parent_out))
-					fs::create_directories(parent_out);
+				fs::path out;
+				if (!doOverwrite) {
+					fs::path out = scanPath / fs::path("out") / relative_to(nifs[i], scanPath);
+					fs::path parent_out = out.parent_path();
+					if (!fs::exists(parent_out))
+						fs::create_directories(parent_out);
+				}
+				else {
+					out = nifs[i];
+				}
 				Log::Info("Output File: %s", out.string().c_str());
 				WriteNifTree(out.string(), GetFirstRoot(new_blocks), info);
 			}
