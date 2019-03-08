@@ -989,44 +989,44 @@ NiTriShapeRef destrip(NiTriStripsRef& stripsRef)
 	shapeData->SetNumTriangles(triangles.size());
 	shapeData->SetNumTrianglePoints(triangles.size() * 3);
 	shapeData->SetHasTriangles(1);
-shapeData->SetTriangles(triangles);
+	shapeData->SetTriangles(triangles);
 
-shapeData->SetHasNormals(stripsData->GetHasNormals());
-shapeData->SetNormals(stripsData->GetNormals());
+	shapeData->SetHasNormals(stripsData->GetHasNormals());
+	shapeData->SetNormals(stripsData->GetNormals());
 
-vector<Vector3> vertices = shapeData->GetVertices();
-Vector3 COM;
-if (vertices.size() != 0)
-COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
-vector<Triangle> faces = shapeData->GetTriangles();
-vector<Vector3> normals = shapeData->GetNormals();
+	vector<Vector3> vertices = shapeData->GetVertices();
+	Vector3 COM;
+	if (vertices.size() != 0)
+	COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
+	vector<Triangle> faces = shapeData->GetTriangles();
+	vector<Vector3> normals = shapeData->GetNormals();
 
-if (vertices.size() != 0 && faces.size() != 0 && shapeData->GetUvSets().size() != 0) {
-	vector<TexCoord> uvs = shapeData->GetUvSets()[0];
-	TriGeometryContext g(vertices, COM, faces, uvs, normals);
-	shapeData->SetHasNormals(1);
-	//recalculate
-	shapeData->SetNormals(g.normals);
-	shapeData->SetTangents(g.tangents);
-	shapeData->SetBitangents(g.bitangents);
-	if (vertices.size() != g.normals.size() || vertices.size() != g.tangents.size() || vertices.size() != g.bitangents.size())
-		throw runtime_error("Geometry mismatch!");
-	shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(shapeData->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
-}
-else {
-	shapeData->SetTangents(stripsData->GetTangents());
-	shapeData->SetBitangents(stripsData->GetBitangents());
-}
+	if (vertices.size() != 0 && faces.size() != 0 && shapeData->GetUvSets().size() != 0) {
+		vector<TexCoord> uvs = shapeData->GetUvSets()[0];
+		TriGeometryContext g(vertices, COM, faces, uvs, normals);
+		shapeData->SetHasNormals(1);
+		//recalculate
+		shapeData->SetNormals(g.normals);
+		shapeData->SetTangents(g.tangents);
+		shapeData->SetBitangents(g.bitangents);
+		if (vertices.size() != g.normals.size() || vertices.size() != g.tangents.size() || vertices.size() != g.bitangents.size())
+			throw runtime_error("Geometry mismatch!");
+		shapeData->SetBsVectorFlags(static_cast<BSVectorFlags>(shapeData->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
+	}
+	else {
+		shapeData->SetTangents(stripsData->GetTangents());
+		shapeData->SetBitangents(stripsData->GetBitangents());
+	}
 
-shapeRef->SetData(DynamicCast<NiGeometryData>(shapeData));
+	shapeRef->SetData(DynamicCast<NiGeometryData>(shapeData));
 
-//TODO: shared normals no more supported
-shapeData->SetMatchGroups(vector<MatchGroup>{});
+	//TODO: shared normals no more supported
+	shapeData->SetMatchGroups(vector<MatchGroup>{});
 
-shapeRef->SetSkin(stripsRef->GetSkin());
-shapeRef->SetSkinInstance(stripsRef->GetSkinInstance());
+	shapeRef->SetSkin(stripsRef->GetSkin());
+	shapeRef->SetSkinInstance(stripsRef->GetSkinInstance());
 
-return shapeRef;
+	return shapeRef;
 }
 
 inline void visit_object(NiNodeRef obj) {
@@ -1086,36 +1086,13 @@ inline void visit_object(NiNodeRef obj) {
 				//repartitioner.cast(nif, iBlock, bb, bv, false, false);
 				remake_partitions(geo, bb, bv, false, false);
 			}
-
-			if (shape->GetData() != NULL) {
-				NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(shape->GetData());
-				if (!(data->GetBsVectorFlags() & BSVF_HAS_TANGENTS) != 0) {
-					data->SetBsVectorFlags(static_cast<BSVectorFlags>(data->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
-					if (data->GetBitangents().size() == 0 || data->GetNormals().size() == 0) {
-						vector<Vector3> vertices = data->GetVertices();
-						Vector3 COM;
-						if (vertices.size() != 0)
-							COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
-						vector<Triangle> faces = data->GetTriangles();
-						vector<Vector3> normals = data->GetNormals();
-
-						if (vertices.size() != 0 && faces.size() != 0 && data->GetUvSets().size() != 0) {
-							vector<TexCoord> uvs = data->GetUvSets()[0];
-							TriGeometryContext g(vertices, COM, faces, uvs, normals);
-							data->SetHasNormals(1);
-							data->SetNormals(g.normals);
-							data->SetTangents(g.tangents);
-							data->SetBitangents(g.bitangents);
-						}
-					}
-				}
-			}
 		}
 	}
 
 	obj->SetChildren(children);
 }
 
+extern void ScanNif(vector<NiObjectRef>& blocks, NifInfo info);
 
 vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info) {
 
@@ -1133,6 +1110,42 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info) {
 
 	//fix targets from nitrishapes substitution
 	FixSSETargetsVisitor(GetFirstRoot(new_blocks), info, new_blocks);
+
+	for (auto& block : new_blocks) {
+		if (block->IsDerivedType(NiTriShapeData::TYPE))
+		{
+			NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(block);
+			vector<Vector3> vertices = data->GetVertices();
+			Vector3 COM;
+			if (vertices.size() != 0)
+				COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
+			vector<Triangle> faces = data->GetTriangles();
+			vector<Vector3> normals = data->GetNormals();
+			if (normals.size() != vertices.size() && (faces.empty() || data->GetUvSets().empty()))
+			{
+				Log::Error("Model has no normals or no faces or no UV. Won't be able to calculate tangent space");
+				//normals are needed for sse, let's just fill the void here
+				normals.resize(vertices.size());
+				for (int i = 0; i< vertices.size(); i++)
+				{
+					normals[i] = COM - vertices[i];
+					normals[i] = normals[i].Normalized();
+				}
+				data->SetHasNormals(true);
+				data->SetNormals(normals);
+			}
+			if (vertices.size() != 0 && faces.size() != 0 && data->GetUvSets().size() != 0) {
+				Log::Info("Updating tangent space");
+				vector<TexCoord> uvs = data->GetUvSets()[0];
+				TriGeometryContext g(vertices, COM, faces, uvs, normals);
+				data->SetHasNormals(1);
+				data->SetNormals(g.normals);
+				data->SetTangents(g.tangents);
+				data->SetBitangents(g.bitangents);
+				data->SetBsVectorFlags(static_cast<BSVectorFlags>(data->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
+			}
+		}
+	}
 
 	return move(new_blocks);
 }
@@ -1154,6 +1167,9 @@ bool FixSSENif::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			NifInfo info;
 			try {
 				vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
+				Log::Info("Performing NifScan");
+				ScanNif(blocks, info);
+				Log::Info("Performing FixSSE");
 				vector<NiObjectRef> new_blocks = fixssenif(blocks, info);
 				fs::path out;
 				if (!doOverwrite) {
