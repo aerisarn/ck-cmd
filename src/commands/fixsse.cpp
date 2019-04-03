@@ -33,7 +33,7 @@ string FixSSENif::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd nifscan [-i <path_to_scan>]
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " [-i <path_to_scan>] [-o <overwrite>] \r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " [-i <path_to_scan>] [-o <overwrite>] [<vanilla_texture_path>] \r\n";
 
 	const char help[] =
 		R"(Scan Skyrim Legendary Editions meshes and apply fixes for SSE compatibility.
@@ -41,7 +41,8 @@ string FixSSENif::GetHelp() const
 		Arguments:
 			<path_to_scan> path to models you want to check for errors)
 			<path_to_out> output path)
-			<overwrite> overwrite nif instead of using the /out/ path)";
+			<overwrite> overwrite nif instead of using the /out/ path
+			<vanilla_texture_path> search for textures in vanilla lot too)";
 
 	return usage + help;
 }
@@ -58,22 +59,22 @@ struct boneweight_equivalence
 {
 	bool operator()(const boneweight & lhs, const boneweight & rhs)
 	{
-		if (lhs.second == 0.0) {
-			if (rhs.second == 0.0) {
-				return rhs.first < lhs.first;
-			}
-			else {
-				return true;
-			}
+		//if (lhs.second == 0.0) {
+		//	if (rhs.second == 0.0) {
+		//		return rhs.first < lhs.first;
+		//	}
+		//	else {
+		//		return true;
+		//	}
 
-			return false;
-		}
-		else if (rhs.second == lhs.second) {
-			return lhs.first < rhs.first;
-		}
-		else {
+		//	return false;
+		//}
+		//else if (rhs.second == lhs.second) {
+		//	return lhs.first < rhs.first;
+		//}
+		//else {
 			return rhs.second < lhs.second;
-		}
+		//}
 	}
 };
 
@@ -1092,12 +1093,206 @@ inline void visit_object(NiNodeRef obj) {
 	obj->SetChildren(children);
 }
 
+void findTextureOrTryToCorrect(BSShaderTextureSetRef texture_set, const fs::path& texture_folder_path, const fs::path& vanilla_path)
+{
+	vector<string> textures = texture_set->GetTextures();
+	for (int i = 0; i < textures.size(); i++)
+	{
+		if (textures[i].empty())
+			continue;
+
+		//vurt, what are you doing?
+		if (textures[i].substr(1, textures[i].size() - 1) == "NOR")
+		{
+			textures[i].clear();
+			continue;
+		}
+
+		string this_tex = textures[i];
+		fs::path texture_path = texture_folder_path / this_tex;
+		if (fs::exists(texture_path))
+			continue;
+		texture_path = texture_folder_path / "textures" / this_tex;
+		if (fs::exists(texture_path))
+		{
+			textures[i] = (fs::path("textures") / this_tex).string().c_str();
+			continue;
+		}
+		texture_path = vanilla_path / this_tex;
+		if (fs::exists(texture_path))
+			continue;
+		texture_path = vanilla_path / "textures" / this_tex;
+		if (fs::exists(texture_path))
+		{
+			textures[i] = (fs::path("textures") / this_tex).string().c_str();
+			continue;
+		}
+	}
+	texture_set->SetTextures(textures);
+}
+
+inline void scanBSProperties(NiTriShapeRef shape, const fs::path& texture_folder_path, const fs::path& vanilla_path)
+{
+	//check texture sets
+	string shape_name = shape->GetName();
+	if (shape_name.find("EditorMarker") != string::npos)
+		return;
+
+	BSLightingShaderPropertyRef property = DynamicCast<BSLightingShaderProperty>(shape->GetShaderProperty());
+	if (shape->GetShaderProperty() == NULL)
+	{
+		Log::Info("Missing any kind of shader property on trishape %s", shape_name.c_str());
+		return;
+	}
+	if (property == NULL)
+	{
+		//BSEffect
+		return;
+	}
+
+	if (shape->GetData() == NULL)
+	{
+		Log::Info("Missing Geometry Data trishape %s", shape_name.c_str());
+		return;
+	}
+
+	if (property->GetTextureSet() == NULL || property->GetTextureSet()->GetTextures().empty())
+	{
+		Log::Info("Missing Texture Set on trishape %s", shape_name.c_str());
+		return;
+	}
+
+	NiAlphaPropertyRef alpha = shape->GetAlphaProperty();
+	BSShaderTextureSetRef textures = property->GetTextureSet();
+	BSLightingShaderPropertyShaderType shader_type = property->GetSkyrimShaderType();
+
+	findTextureOrTryToCorrect(textures, texture_folder_path, vanilla_path);
+
+	bool hasVCFlag = shape->GetData()->GetHasVertexColors();
+	bool hasVCArray = shape->GetData()->GetVertexColors().size() == shape->GetData()->GetVertices().size();
+
+	if (hasVCFlag != hasVCArray)
+	{
+		Log::Info("Shape %s: shape VC inconsistant!", shape_name.c_str());
+		if (hasVCFlag && shape->GetData()->GetVertexColors().size() != shape->GetData()->GetVertices().size())
+		{
+			//resizing vcs
+			Log::Info("Shape %s: resizing vc!", shape_name.c_str());
+			vector<Color4>& vcs = shape->GetData()->GetVertexColors();
+			vcs.resize(shape->GetData()->GetVertexColors().size());
+			shape->GetData()->SetVertexColors(vcs);
+		}
+	}
+	else {
+		if (hasVCFlag)
+			property->SetShaderFlags2_sk((SkyrimShaderPropertyFlags2)(property->GetShaderFlags2_sk() | SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
+		else
+			property->SetShaderFlags2_sk((SkyrimShaderPropertyFlags2)(property->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS));
+	}
+
+	//Check VS all black
+	bool allBlack = true;
+	vector<Color4>& vcs = shape->GetData()->GetVertexColors();
+	if (vcs.size() > 0)
+	{
+		for (const auto& vc : vcs)
+		{
+			if (vc.r != 0.0 || vc.g != 0.0 && vc.b != 0.0)
+			{
+				allBlack = false;
+				break;
+			}
+		}
+		if (allBlack)
+		{
+			Log::Info("Shape %s: has all black Vertex Colors, turning to full white!", shape_name.c_str());
+			for (auto& vc : vcs)
+			{
+				vc = Color4(1.0, 1.0, 1.0);
+			}
+			shape->GetData()->SetVertexColors(vcs);
+		}
+	}
+
+	//Check first two texture slots:
+	//Emissive
+	fs::path texture_slot_0 = texture_folder_path / textures->GetTextures()[0];
+	if (!fs::exists(texture_slot_0) && !fs::exists(vanilla_path / textures->GetTextures()[0]))
+		Log::Warn("Shape %s: Unable to find Emissive texture: %s (not even in vanilla path %s)", shape_name.c_str(), texture_slot_0.string().c_str(), vanilla_path.string().c_str());
+	//Normal
+	fs::path texture_slot_1 = texture_folder_path / textures->GetTextures()[1];
+	if (!fs::exists(texture_slot_1) && !fs::exists(vanilla_path / textures->GetTextures()[1]))
+	{
+		if (!textures->GetTextures()[1].empty())
+		{
+			Log::Warn("Shape %s: Unable to find Normal texture: %s (not even in vanilla path %s)", shape_name.c_str(), texture_slot_1.string().c_str(), vanilla_path.string().c_str());
+		}
+		else {
+			Log::Warn("Empty Normal texture, setting default");
+			vector<string> texture_s = textures->GetTextures();
+			texture_s[1] = "textures\\default_n.dds";
+			textures->SetTextures(texture_s);
+		}
+	}
+
+
+	if (shader_type == BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP /*|| BSLightingShaderPropertyShaderType::ST_EYE_ENVMAP*/) {
+		//Environment
+		fs::path texture_slot_4 = texture_folder_path / textures->GetTextures()[4];
+		fs::path texture_slot_5 = texture_folder_path / textures->GetTextures()[5];
+		if (!fs::exists(texture_slot_4) && !fs::exists(texture_slot_5) && !fs::exists(vanilla_path / textures->GetTextures()[4]) && !fs::exists(texture_folder_path / textures->GetTextures()[5]))
+			Log::Error("Shape %s: ShaderType is 'Environment', but no 'Environment' or 'Cubemap' texture is present at %s or %s ", shape_name.c_str(), texture_slot_4.string().c_str(), texture_slot_5.string().c_str());
+		
+		if (property->GetEnvironmentMapScale() == 0) {
+			Log::Error("Shape %s: ShaderType is 'Environment', but map scale equals 0, making it obsolete. Setting to 1", shape_name.c_str());
+			property->SetEnvironmentMapScale(1.0);
+		}
+
+		property->SetShaderFlags1_sk((SkyrimShaderPropertyFlags1)(property->GetShaderFlags1_sk() | SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING));
+		property->SetShaderFlags2_sk((SkyrimShaderPropertyFlags2)(property->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP));
+	}
+	if (shader_type == BSLightingShaderPropertyShaderType::ST_GLOW_SHADER) {
+		// Glow Map
+		fs::path texture_slot_2 = texture_folder_path / textures->GetTextures()[2];
+		if (!fs::exists(texture_slot_2) && !fs::exists(vanilla_path / textures->GetTextures()[2]))
+			Log::Error("Shape %s: ShaderType is 'Glow', but no 'Glow' texture is present %s.", shape_name.c_str(), texture_slot_2.string().c_str());
+
+		property->SetShaderFlags1_sk((SkyrimShaderPropertyFlags1)(property->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING));
+		property->SetShaderFlags1_sk((SkyrimShaderPropertyFlags1)(property->GetShaderFlags1_sk() | SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE));
+		property->SetShaderFlags2_sk((SkyrimShaderPropertyFlags2)(property->GetShaderFlags2_sk() | SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP));
+	}
+
+	if ((property->GetShaderFlags2_sk() & SLSF2_TREE_ANIM) > 0)
+	{
+		if (shape->GetData()->GetVertexColors().empty())
+		{
+			Log::Error("Shape %s: SLSF2_TREE_ANIM is set, creating full white vertex colors", shape_name.c_str());
+			vector<Color4> vcs(shape->GetData()->GetVertices().size());
+			for (auto& vc : vcs)
+			{
+				vc = Color4(1.0, 1.0, 1.0);
+			}
+			shape->GetData()->SetVertexColors(vcs);
+		}
+	}
+
+}
+
 extern void ScanNif(vector<NiObjectRef>& blocks, NifInfo info);
 
-vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info) {
+typedef bitset<12> bsx_flags_t;
+namespace ckcmd {
+	namespace nifscan
+	{
+		extern bsx_flags_t calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const NifInfo& info);
+	}
+}
+
+
+vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info, const fs::path& texture_path, const fs::path& vanilla_texture_path) {
 
 	NiObjectRef root = GetFirstRoot(blocks);
-
+		
 	for (auto& block : blocks) {
 		if (block->IsDerivedType(NiNode::TYPE))
 		{
@@ -1111,7 +1306,14 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info) {
 	//fix targets from nitrishapes substitution
 	FixSSETargetsVisitor(GetFirstRoot(new_blocks), info, new_blocks);
 
-	for (auto& block : new_blocks) {
+	BSXFlagsRef bsx_flags = NULL;
+
+	for (int i = 0; i < new_blocks.size(); i++) {
+		auto& block = new_blocks[i];
+		if (block->IsDerivedType(BSXFlags::TYPE))
+			bsx_flags = DynamicCast<BSXFlags>(block);
+		if (block->IsDerivedType(NiTriShape::TYPE))
+			scanBSProperties(DynamicCast<NiTriShape>(block), texture_path, vanilla_texture_path);
 		if (block->IsDerivedType(NiTriShapeData::TYPE))
 		{
 			NiTriShapeDataRef data = DynamicCast<NiTriShapeData>(block);
@@ -1135,8 +1337,16 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info) {
 				data->SetNormals(normals);
 			}
 			if (vertices.size() != 0 && faces.size() != 0 && data->GetUvSets().size() != 0) {
-				Log::Info("Updating tangent space");
 				vector<TexCoord> uvs = data->GetUvSets()[0];
+
+				//Seems that tangent space calculation wants the uv flipped
+				for (auto& uv : uvs)
+				{
+					float u = uv.u;
+					uv.u = uv.v;
+					uv.v = u;
+				}
+
 				TriGeometryContext g(vertices, COM, faces, uvs, normals);
 				data->SetHasNormals(1);
 				data->SetNormals(g.normals);
@@ -1145,7 +1355,37 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info) {
 				data->SetBsVectorFlags(static_cast<BSVectorFlags>(data->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
 			}
 		}
+		if (new_blocks[i]->IsDerivedType(NiTimeController::TYPE)) {
+			NiTimeControllerRef ref = DynamicCast<NiTimeController>(new_blocks[i]);
+			if (ref->GetTarget() == NULL) {
+				Log::Error("Block[%i]: Controller has no target. This will increase the chances of a crash.", i);
+			}
+		}
+
+		if (new_blocks[i]->IsDerivedType(NiControllerSequence::TYPE)) {
+			NiSequenceRef ref = DynamicCast<NiSequence>(new_blocks[i]);
+
+			if (ref->GetControlledBlocks().size() != 0) {
+				vector<ControlledBlock> blocks = ref->GetControlledBlocks();
+
+				for (int y = 0; y != blocks.size(); y++) {
+					if (blocks[y].controllerType == "") {
+						Log::Error("Block[%i]: ControlledBlock number %i, has a blank controller type.", i, y);
+					}
+				}
+			}
+		}
 	}
+
+	if (bsx_flags != NULL)
+	{
+		bsx_flags_t actual = ckcmd::nifscan::calculateSkyrimBSXFlags(new_blocks, info);
+		bsx_flags->SetIntegerData(actual.to_ulong());
+	}
+
+	set<NiObjectRef> roots = FindRoots(new_blocks);
+	if (roots.size() != 1)
+		throw runtime_error("Model has multiple roots!");
 
 	return move(new_blocks);
 }
@@ -1154,26 +1394,31 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info) {
 bool FixSSENif::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	string scanPath;
-	bool doOverwrite;
+	string vanilla_texture_path = "";
+	bool doOverwrite = false;
 	
 	if (parsedArgs["<overwrite>"].asString() == "true")
 		doOverwrite = true;
+	if (parsedArgs.find("<vanilla_texture_path>") != parsedArgs.end() &&
+		parsedArgs["<vanilla_texture_path>"].isString())
+		vanilla_texture_path = parsedArgs["<vanilla_texture_path>"].asString();
+
 
 	scanPath = parsedArgs["<path_to_scan>"].asString();
+	Log::Info("Scan Path: %s", scanPath.c_str());
+	Log::Info("Vanilla texture Path: %s", vanilla_texture_path.c_str());
 	if (fs::exists(scanPath) && fs::is_directory(scanPath)) {
 		vector<fs::path> nifs; find_files(scanPath, ".nif", nifs);
+		fs::path texture_path = fs::path(scanPath).parent_path();
 		for (size_t i = 0; i < nifs.size(); i++) {
 			Log::Info("Current File: %s", nifs[i].string().c_str());
 			NifInfo info;
 			try {
 				vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
-				Log::Info("Performing NifScan");
-				ScanNif(blocks, info);
-				Log::Info("Performing FixSSE");
-				vector<NiObjectRef> new_blocks = fixssenif(blocks, info);
+				vector<NiObjectRef> new_blocks = fixssenif(blocks, info, texture_path, vanilla_texture_path);
 				fs::path out;
 				if (!doOverwrite) {
-					fs::path out = scanPath / fs::path("out") / relative_to(nifs[i], scanPath);
+					out = fs::path(scanPath).parent_path() / fs::path("out") / relative_to(nifs[i], scanPath);
 					fs::path parent_out = out.parent_path();
 					if (!fs::exists(parent_out))
 						fs::create_directories(parent_out);
@@ -1181,18 +1426,33 @@ bool FixSSENif::InternalRunCommand(map<string, docopt::value> parsedArgs)
 				else {
 					out = nifs[i];
 				}
-				Log::Info("Output File: %s", out.string().c_str());
 				WriteNifTree(out.string(), GetFirstRoot(new_blocks), info);
+				blocks = ReadNifList(out.string().c_str(), &info);
+				for (const auto& block : blocks)
+				{
+					if (block->IsDerivedType(NiTriStrips::TYPE) || block->IsDerivedType(NiTriStripsData::TYPE)) {
+						throw std::runtime_error("Round trip error, model not triangulated!");
+					}
+				}
 			}
 			catch (const std::exception& e) {
 				Log::Info("ERROR: %s", e.what());
+				fs::path out = fs::path(scanPath).parent_path() / fs::path("error") / relative_to(nifs[i], scanPath);
+				fs::path parent_out = out.parent_path();
+				if (!fs::exists(parent_out))
+					fs::create_directories(parent_out);
+				fs::copy(nifs[i], out, fs::copy_options::overwrite_existing);
+			}
+			catch (...) {
+				Log::Info("SERIOUS ERROR");
+				fs::path out = fs::path(scanPath).parent_path() / fs::path("error") / relative_to(nifs[i], scanPath);
+				fs::path parent_out = out.parent_path();
+				if (!fs::exists(parent_out))
+					fs::create_directories(parent_out);
+				fs::copy(nifs[i], out, fs::copy_options::overwrite_existing);
 			}
 		}
 		Log::Info("Done..");
 	}
-	int a;
-	Log::Info("Press any key to continue..");
-	cin >> a;
-	//bool result = BeginScan(scanPath);
 	return true;
 }
