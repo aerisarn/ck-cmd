@@ -1,11 +1,13 @@
 #include "stdafx.h"
 
 #include <commands/fixsse.h>
+#include <core/NifFile.h>
 
 
 using namespace ckcmd;
 using namespace ckcmd::fixsse;
 using namespace ckcmd::Geometry;
+using namespace ckcmd::NIF;
 
 using namespace Niflib;
 using namespace std;
@@ -1288,6 +1290,96 @@ namespace ckcmd {
 	}
 }
 
+void check(bhkCollisionObjectRef co)
+{
+	if (co->GetBody() == NULL)
+	{
+		Log::Error("Collision Object without Rigid Body. FATAL");
+		return;
+	}
+	bhkRigidBodyRef rb = DynamicCast<bhkRigidBody>(co->GetBody());
+	if (rb == NULL)
+	{
+		return;
+	}
+	SkyrimLayer layer = rb->GetHavokFilter().layer_sk;
+	if (layer == SKYL_CLUTTER)
+	{
+		co->SetFlags((bhkCOFlags)(BHKCO_ACTIVE | BHKCO_SET_LOCAL | BHKCO_SYNC_ON_UPDATE));
+	}
+	else if (layer == SKYL_ANIMSTATIC)
+	{
+		co->SetFlags((bhkCOFlags)(BHKCO_ACTIVE | BHKCO_SET_LOCAL));
+	}
+	else if (layer == SKYL_STATIC)
+	{
+		co->SetFlags((bhkCOFlags)(BHKCO_ACTIVE));
+	}
+}
+
+void check(bhkRigidBodyRef rb)
+{
+	rb->SetBroadPhaseType(BROAD_PHASE_ENTITY);
+	hkWorldObjCinfoProperty cinfo;
+	cinfo.data = 0;
+	cinfo.size = 0;
+	cinfo.capacityAndFlags = 2147483648;
+	rb->SetCinfoProperty(cinfo);
+	HavokFilter original = rb->GetHavokFilter();
+	//check layer
+	if (string(NifFile::layer_name(original.layer_sk)) == string("SKYL_UNIDENTIFIED"))
+	{
+		Log::Error("Faulty Havok Layer. Setting it to STATIC");
+		original.layer_sk = SKYL_STATIC;
+	}
+	rb->SetHavokFilter(original);
+	rb->SetHavokFilterCopy(original);
+	rb->SetCollisionResponse(RESPONSE_SIMPLE_CONTACT);
+	rb->SetCollisionResponse2(RESPONSE_SIMPLE_CONTACT);
+	rb->SetProcessContactCallbackDelay(65535);
+	rb->SetProcessContactCallbackDelay2(65535);
+	if (rb->GetHavokFilter().layer_sk == SkyrimLayer::SKYL_CLUTTER) {
+		rb->SetMotionSystem(MO_SYS_DYNAMIC);
+		rb->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
+		rb->SetQualityType(MO_QUAL_MOVING);
+	}
+	if (rb->GetMotionSystem() == MO_SYS_KEYFRAMED)
+		rb->SetMotionSystem(MO_SYS_BOX_INERTIA);
+	if (rb->GetQualityType() == MO_QUAL_KEYFRAMED || rb->GetQualityType() == MO_QUAL_KEYFRAMED_REPORT)
+		rb->SetQualityType(MO_QUAL_FIXED);
+}
+
+void check(bhkMoppBvTreeShapeRef mopp)
+{
+	if (mopp->GetMoppData().empty())
+	{
+		Log::Error("Empty MOPP: TODO: Recalculate");
+	}
+	if (mopp->GetShape() == NULL)
+	{
+		Log::Error("Empty MOPP SHAPE: TODO: Recalculate");
+	}
+}
+
+void check_collisions(vector<NiObjectRef>& blocks)
+{
+	for (auto& block : blocks)
+	{
+		if (block->IsDerivedType(bhkRigidBody::TYPE))
+		{
+			check(DynamicCast<bhkRigidBody>(block));
+		}
+		if (block->IsDerivedType(bhkCollisionObject::TYPE))
+		{
+			check(DynamicCast<bhkCollisionObject>(block));
+		}
+		if (block->IsDerivedType(bhkMoppBvTreeShape::TYPE))
+		{
+			check(DynamicCast<bhkMoppBvTreeShape>(block));
+		}
+	}
+}
+
 
 vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info, const fs::path& texture_path, const fs::path& vanilla_texture_path) {
 
@@ -1387,6 +1479,7 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info, const fs
 	if (roots.size() != 1)
 		throw runtime_error("Model has multiple roots!");
 
+	check_collisions(new_blocks);
 	return move(new_blocks);
 }
 
