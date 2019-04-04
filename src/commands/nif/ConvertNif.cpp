@@ -1470,7 +1470,21 @@ void update_tangentspace(NiTriShapeDataRef data)
 	vector<Vector3> normals = data->GetNormals();
 	if (vertices.size() != 0 && faces.size() != 0 && data->GetUvSets().size() != 0) {
 		vector<TexCoord> uvs = data->GetUvSets()[0];
+		//Seems that tangent space calculation wants the uv flipped
+		for (auto& uv : uvs)
+		{
+			float u = uv.u;
+			uv.u = uv.v;
+			uv.v = u;
+		}
 		TriGeometryContext g(vertices, COM, faces, uvs, normals);
+		//Seems that tangent space calculation wants the uv flipped
+		for (auto& uv : uvs)
+		{
+			float u = uv.u;
+			uv.u = uv.v;
+			uv.v = u;
+		}
 		data->SetHasNormals(1);
 		//recalculate
 		data->SetNormals(g.normals);
@@ -2583,6 +2597,13 @@ public:
 		if (vertices.size() != 0 && faces.size() != 0 && obj.GetUvSets().size() != 0) {
 			vector<TexCoord> uvs = obj.GetUvSets()[0];
 			TriGeometryContext g(vertices, COM, faces, uvs, normals);
+			//Seems that tangent space calculation wants the uv flipped
+			for (auto& uv : uvs)
+			{
+				float u = uv.u;
+				uv.u = uv.v;
+				uv.v = u;
+			}
 			obj.SetHasNormals(1);
 			//recalculate
 			obj.SetNormals(g.normals);
