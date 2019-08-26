@@ -22,6 +22,9 @@
 
 #include <obj\NiNode.h>
 #include <obj\NiSequence.h>
+#include <obj\bhkRigidBody.h>
+#include <obj\NiTrishape.h>
+#include <obj\bhkShape.h>
 #include <nif_math.h>
 
 #include <fbxsdk.h>
@@ -142,7 +145,9 @@ namespace ckcmd {
 				const string& prefix, const set<string>& kf_sequences_names, const set<string>& havok_sequences_names);
 
 			static hkRefPtr<hkpRigidBody> build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
+			static hkRefPtr<hkpRigidBody> check_body(bhkRigidBodyRef body, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes);
 			static hkRefPtr<hkpShape> build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, FbxNode* body, hkpRigidBodyCinfo& hk_body);
+			static hkRefPtr<hkpShape> check_shape(bhkShapeRef shape_root, bhkRigidBodyRef bhkBody, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, hkpRigidBodyCinfo& hk_body);
 
 		};
 

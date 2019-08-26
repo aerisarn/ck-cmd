@@ -3,6 +3,9 @@
 #include <commands/fixsse.h>
 #include <core/NifFile.h>
 
+#include <deque>
+#include <map>
+
 
 using namespace ckcmd;
 using namespace ckcmd::fixsse;
@@ -53,6 +56,16 @@ string FixSSENif::GetHelpShort() const
 {
 	return "TODO: Short help message for FixSSENif";
 }
+
+static inline hkTransform TOHKTRANSFORM(const Niflib::Matrix33& r, const Niflib::Vector4 t, const float scale = 1.0) {
+	hkTransform out;
+	out(0, 0) = r[0][0]; out(0, 1) = r[0][1]; out(0, 2) = r[0][2]; out(0, 3) = t[0] * scale;
+	out(1, 0) = r[1][0]; out(1, 1) = r[1][1]; out(1, 2) = r[1][2]; out(1, 3) = t[1] * scale;
+	out(2, 0) = r[2][0]; out(2, 1) = r[2][1]; out(2, 2) = r[2][2]; out(2, 3) = t[2] * scale;
+	out(3, 0) = 0.0f;	 out(3, 1) = 0.0f;	  out(3, 2) = 0.0f;	   out(3, 3) = 1.0f;
+	return out;
+}
+
 
 typedef pair<int, float> boneweight;
 
@@ -1380,6 +1393,85 @@ void check_collisions(vector<NiObjectRef>& blocks)
 	}
 }
 
+void check_physics(NiNodeRef collision_parent, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes)
+{
+
+}
+
+
+typedef map<NiNodeRef, vector<pair<hkTransform, NiTriShapeRef>>> bodies_meshes_map_t;
+
+void rebuild_collisions(NiObjectRef root, vector<NiObjectRef>& blocks) {
+	bodies_meshes_map_t bodies_meshes_map;
+	std::deque<NiObjectRef> visit_stack;
+	set<NiNodeRef> animated_nodes;
+
+	//build a list of animated nodes, if any
+	for (const auto& block : blocks)
+	{
+		if (block->IsDerivedType(NiControllerSequence::TYPE))
+		{
+			NiControllerSequenceRef seq = DynamicCast<NiControllerSequence>(block);
+			for (const auto& cb : seq->GetControlledBlocks()) {
+				if (cb.controller->GetTarget()->IsDerivedType(NiNode::TYPE))
+				{
+					animated_nodes.insert(DynamicCast<NiNode>(cb.controller->GetTarget()));
+				}
+			}
+		}
+	}
+
+	std::function<void(NiObjectRef, std::deque<NiObjectRef>&)> findShapesToBeCollisioned = [&](NiObjectRef current_node, std::deque<NiObjectRef>& stack) {
+		//recurse until we find a shape, avoiding rb as their mesh will be taken into account later
+		stack.push_front(current_node);
+		if (current_node->IsDerivedType(NiNode::TYPE))
+		{
+			vector<NiAVObjectRef> children = DynamicCast<NiNode>(current_node)->GetChildren();
+			for (int i = 0; i < children.size(); i++) {
+				findShapesToBeCollisioned(StaticCast<NiObject>(children[i]), stack);
+			}
+		}
+		if (current_node->IsDerivedType(NiTriShape::TYPE))
+		{
+			//I'm a mesh, find my nearest parent RB, if any
+			NiNodeRef parent_collisioner = NULL;
+			hkTransform transform_from_rigid_body; transform_from_rigid_body.setIdentity();
+			for (const auto& element : stack)
+			{
+				NiObjectRef parent = element;
+				if (parent->IsDerivedType(NiNode::TYPE))
+				{
+					NiNodeRef parent_node = DynamicCast<NiNode>(parent);
+					hkTransform this_transform = TOHKTRANSFORM(parent_node->GetRotation(), parent_node->GetTranslation(), parent_node->GetScale());
+					transform_from_rigid_body.setMul(this_transform, transform_from_rigid_body);
+
+					if (parent_node->GetCollisionObject() != NULL || 
+						animated_nodes.find(parent_node) != animated_nodes.end())
+					{
+						parent_collisioner = parent_node;
+						break;
+					}
+				}
+			}
+			bodies_meshes_map_t::iterator it = bodies_meshes_map.find(parent_collisioner);
+			if (it == bodies_meshes_map.end())
+				bodies_meshes_map[parent_collisioner] = vector<pair<hkTransform, NiTriShapeRef>>();
+			bodies_meshes_map[parent_collisioner].push_back({ transform_from_rigid_body, DynamicCast<NiTriShape>(current_node) });
+		}
+		stack.pop_front();
+	};
+
+	findShapesToBeCollisioned(root, visit_stack);
+	Log::Info("Found shapes/collisions relation");
+
+	//todo: avoid build collisions for vfx, skins
+
+	for (auto& entry : bodies_meshes_map)
+	{
+		check_physics(entry.first, entry.second);
+	}	
+}
+
 
 vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info, const fs::path& texture_path, const fs::path& vanilla_texture_path) {
 
@@ -1480,6 +1572,8 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info, const fs
 		throw runtime_error("Model has multiple roots!");
 
 	check_collisions(new_blocks);
+	rebuild_collisions(GetFirstRoot(new_blocks), new_blocks);
+
 	return move(new_blocks);
 }
 

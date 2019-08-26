@@ -77,7 +77,7 @@
 
 #include <Common\GeometryUtilities\Misc\hkGeometryUtils.h>
 #include <Physics\Collide\Shape\Convex\ConvexVertices\hkpConvexVerticesConnectivity.h>
-
+#include <Physics\Utilities\Collide\ShapeUtils\ShapeConverter\hkpShapeConverter.h>
 
 #include <core/EulerAngles.h>
 #include <core/MathHelper.h>
@@ -1420,6 +1420,174 @@ FbxNode* create_mesh(FbxManager* manager, VHACD::IVHACD* interfaceVHACD)
 	return root;
 }
 
+static inline hkVector4 TOVECTOR4(const Niflib::Vector4& v) {
+	return hkVector4(v.x, v.y, v.z, v.w);
+}
+
+static inline hkMatrix4 TOMATRIX4(const Niflib::Matrix44& q, float scale=1.0) {
+	hkMatrix4 m4;
+	m4.setCols(TOVECTOR4(q.rows[0]), TOVECTOR4(q.rows[1]), TOVECTOR4(q.rows[2]), TOVECTOR4(q.rows[3]));
+	m4(3, 0) = m4(3, 0) * scale;
+	m4(3, 1) = m4(3, 1) * scale;
+	m4(3, 2) = m4(3, 2) * scale;
+	return m4;
+}
+
+
+void extract_geometry(vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes, hkGeometry& out)
+{
+	for (const auto& pair : geometry_meshes)
+	{
+		hkGeometry this_geom;
+		const auto& vertices = pair.second->GetData()->GetVertices();
+		this_geom.m_vertices.reserve(vertices.size());
+		for (const auto& v : vertices)
+			this_geom.m_vertices.pushBack(TOVECTOR4(v));
+		const auto& triangles = DynamicCast<NiTriShapeData>(pair.second->GetData())->GetTriangles();
+		this_geom.m_triangles.reserve(triangles.size());
+		for (const auto& t : triangles)
+		{
+			hkGeometry::Triangle out;
+			out.m_a = t.v1;
+			out.m_b = t.v2;
+			out.m_c = t.v3;
+			this_geom.m_triangles.pushBack(out);
+		}
+		hkMatrix4 tt; tt.set(pair.first);
+		hkGeometryUtils::transformGeometry(tt, this_geom);
+		hkGeometryUtils::appendGeometry(this_geom, out);
+	}
+}
+
+void extract_geometry(const bhkShapeRef shape_root, double scale_factor, hkGeometry& out)
+{
+	//If shape_root is null, no hints were given on how to handle the collisions
+	if (shape_root == NULL)
+	{
+		//ntd;
+		return;
+	}
+	if (shape_root->IsDerivedType(bhkTransformShape::TYPE))
+	{
+		hkGeometry sub_geom;
+		bhkTransformShapeRef tshape = DynamicCast<bhkTransformShape>(shape_root);
+		extract_geometry(tshape->GetShape(), scale_factor, out);
+		hkGeometryUtils::transformGeometry(TOMATRIX4(tshape->GetTransform(), scale_factor), sub_geom);
+		hkGeometryUtils::appendGeometry(sub_geom, out);
+		return;
+	}
+	if (shape_root->IsDerivedType(bhkListShape::TYPE))
+	{
+		bhkListShapeRef tshape = DynamicCast<bhkListShape>(shape_root);
+		const auto& sub_shapes = tshape->GetSubShapes();
+		hkArray<hkpMassElement> sub_elements;
+		for (auto& shape : sub_shapes)
+		{
+			extract_geometry(shape, scale_factor, out);
+		}
+		return;
+	}
+	if (shape_root->IsDerivedType(bhkMoppBvTreeShape::TYPE))
+	{
+		bhkMoppBvTreeShapeRef bv = DynamicCast<bhkMoppBvTreeShape>(shape_root);
+		extract_geometry(bv->GetShape(), scale_factor, out);
+		return;
+	}
+	//shapes
+	if (shape_root->IsDerivedType(bhkSphereShape::TYPE))
+	{
+		bhkSphereShapeRef bv = DynamicCast<bhkSphereShape>(shape_root);
+		hkpSphereShape hksph(bv->GetRadius()*scale_factor);
+		hkGeometry* sphere_geom = hkpShapeConverter::toSingleGeometry(&hksph);
+		hkGeometryUtils::appendGeometry(*sphere_geom, out);
+		delete sphere_geom;
+		return;
+	}
+	if (shape_root->IsDerivedType(bhkBoxShape::TYPE))
+	{
+		bhkBoxShapeRef bv = DynamicCast<bhkBoxShape>(shape_root);
+		hkpBoxShape hkbx(TOVECTOR4(bv->GetDimensions()*scale_factor), bv->GetRadius()*scale_factor);
+		hkGeometry* box_geom = hkpShapeConverter::toSingleGeometry(&hkbx);
+		hkGeometryUtils::appendGeometry(*box_geom, out);
+		delete box_geom;
+		return;
+	}
+	if (shape_root->IsDerivedType(bhkCapsuleShape::TYPE))
+	{
+		bhkCapsuleShapeRef bv = DynamicCast<bhkCapsuleShape>(shape_root);
+		hkpCapsuleShape hkcp(TOVECTOR4(bv->GetFirstPoint()*scale_factor), TOVECTOR4(bv->GetSecondPoint()*scale_factor), bv->GetRadius()*scale_factor);
+		hkGeometry* caps_geom = hkpShapeConverter::toSingleGeometry(&hkcp);
+		hkGeometryUtils::appendGeometry(*caps_geom, out);
+		delete caps_geom;
+		return;
+	}
+	if (shape_root->IsDerivedType(bhkConvexVerticesShape::TYPE))
+	{
+		bhkConvexVerticesShapeRef cvs = DynamicCast<bhkConvexVerticesShape>(shape_root);
+		hkStridedVertices stridedVertsIn;
+		auto& verts = cvs->GetVertices();
+		stridedVertsIn.set(verts.data(), verts.size());
+		hkGeometry convex;
+		hkArray<hkVector4> planeEquationsOut;
+		hkGeometryUtility::createConvexGeometry(stridedVertsIn, convex, planeEquationsOut);
+		hkStridedVertices stridedVertsOut(convex.m_vertices);
+		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(NifFile::material_name(cvs->GetMaterial().material_sk));
+		hkpShape* convex_shape = new hkpConvexVerticesShape(convex.m_vertices, planeEquationsOut);
+		//hkInertiaTensorComputer::computeVertexHullVolumeMassProperties(stridedVertsOut.m_vertices, stridedVertsOut.m_striding, stridedVertsOut.m_numVertices, mass, properties);
+		convex_shape->setUserData((hkUlong)material);
+		return;
+	}
+	//if (shape_root->IsDerivedType(bhkCompressedMeshShape::TYPE))
+	//{
+	//	bhkCompressedMeshShapeRef cms = DynamicCast<bhkCompressedMeshShape>(shape_root);
+	//	bhkCompressedMeshShapeDataRef cms_data = cms->GetData();
+	//	hkpCompressedMeshShapeBuilder			shapeBuilder;
+	//	shapeBuilder.m_stripperPasses = 5000;
+	//	hkpCompressedMeshShape* pCompMesh = shapeBuilder.createMeshShape(0.001f, hkpCompressedMeshShape::MATERIAL_SINGLE_VALUE_PER_CHUNK);
+	//	
+	//	//todo
+	//	//cms_data->
+	//	//pCompMesh->m_namedMaterials.setSize(materials.size());
+	//	//for (int i = 0; i < materials.size(); i++)
+	//	//	pCompMesh->m_namedMaterials[i] = materials[i];
+
+
+
+	//	try {
+	//		//  add geometry to shape
+	//		int										subPartId(0);
+	//		subPartId = shapeBuilder.beginSubpart(pCompMesh);
+	//		shapeBuilder.addGeometry(to_bound, hkMatrix4::getIdentity(), pCompMesh);
+	//		shapeBuilder.endSubpart(pCompMesh);
+	//		shapeBuilder.addInstance(subPartId, hkMatrix4::getIdentity(), pCompMesh);
+
+	//		//add materials to shape
+	//		for (int i = 0; i < materials.size(); i++) {
+	//			pCompMesh->m_materials.pushBack(i);
+	//		}
+	//		//check connectivity
+	//		hkpConvexVerticesConnectivity connector;
+	//		for (const auto& t : to_bound.m_triangles)
+	//		{
+	//			int tt[3]; tt[0] = t.m_a; tt[1] = t.m_b; tt[2] = t.m_c;
+	//			connector.addFace(tt, 3);
+	//		}
+	//		if (connector.isClosed())
+	//		{
+	//			hkInertiaTensorComputer::computeGeometryVolumeMassPropertiesChecked(&to_bound, mass, properties);
+	//		}
+	//		else {
+	//			hkInertiaTensorComputer::computeGeometrySurfaceMassProperties(&to_bound, 0.1, true, mass, properties);
+	//		}
+	//		return pCompMesh;
+	//	}
+	//	catch (...) {
+	//		throw runtime_error("Unable to calculate MOPP code!");
+	//	}
+	//}
+	return;
+}
+
 hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
 	double bhkScaleFactorInverse = 0.01428; // 1 skyrim unit = 0,01428m
@@ -1439,6 +1607,22 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	if (mesh_child == NULL) mesh_child = body->GetChild(0);
 	hkpMassProperties properties;
 	body_cinfo.m_shape = HKXWrapper::build_shape(mesh_child, geometry_meshes, properties, bhkScaleFactorInverse, body, body_cinfo);
+	body_cinfo.setMassProperties(properties);
+	hkRefPtr<hkpRigidBody> hk_body = new hkpRigidBody(body_cinfo);
+	hk_body->setShape(body_cinfo.m_shape);
+	return hk_body;
+}
+
+hkRefPtr<hkpRigidBody> check_body(bhkRigidBodyRef body, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes)
+{
+	double bhkScaleFactorInverse = 0.01428; // 1 skyrim unit = 0,01428m
+	hkpRigidBodyCinfo body_cinfo;
+	hkpMassProperties properties;
+	hkGeometry total_geometry;
+	//create the whole geometry collisioned by this body to check it against the existing collision
+	extract_geometry(geometry_meshes, total_geometry);
+
+	body_cinfo.m_shape = HKXWrapper::check_shape(body->GetShape(), body, geometry_meshes, properties, bhkScaleFactorInverse, body_cinfo);
 	body_cinfo.setMassProperties(properties);
 	hkRefPtr<hkpRigidBody> hk_body = new hkpRigidBody(body_cinfo);
 	hk_body->setShape(body_cinfo.m_shape);
@@ -1696,6 +1880,263 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 			throw runtime_error("Unable to calculate MOPP code!");
 		}
 	}
+	return NULL;
+}
+
+
+
+
+hkRefPtr<hkpShape> HKXWrapper::check_shape(bhkShapeRef shape_root, bhkRigidBodyRef bhkBody, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, hkpRigidBodyCinfo& hk_body)
+{
+	////If shape_root is null, no hints were given on how to handle the collisions
+	//if (shape_root == NULL)
+	//{
+	//	//we'll create a fbxnode hierachy to handle this and then recurse
+	//	//calculate geometry
+	//	VHACD::IVHACD* interfaceVHACD = VHACD::CreateVHACD();
+	//	shared_ptr<bmeshinfo> cmesh = make_shared<bmeshinfo>();
+	//	for (const auto& mesh : geometry_meshes)
+	//	{
+	//		convert_geometry(cmesh, mesh);
+	//	}
+	//	VHACD::IVHACD::Parameters params;
+	//	bool res = interfaceVHACD->Compute(&cmesh->points[0], (unsigned int)cmesh->points.size() / 3,
+	//		(const uint32_t *)&cmesh->triangles[0], (unsigned int)cmesh->triangles.size() / 3, params);
+
+	//	if (res) {
+	//		unsigned int nConvexHulls = interfaceVHACD->GetNConvexHulls();
+	//		if (nConvexHulls <= 10)
+	//		{
+	//			FbxManager* temp_manager = FbxManager::Create();
+	//			FbxNode* temp_root = NULL;
+
+
+	//			temp_root = create_hulls(temp_manager, interfaceVHACD);
+
+	//			if (nConvexHulls >= 4)
+	//			{
+	//				FbxNode* mopp = FbxNode::Create(temp_manager, "_mopp");
+	//				mopp->AddChild(temp_root);
+	//				temp_root = mopp;
+	//			}
+
+	//			hkpShape* shape = build_shape(temp_root, geometry_meshes, properties, scale_factor, body, hk_body);
+	//			temp_manager->Destroy();
+	//			return shape;
+	//		}
+	//	}
+
+	//	//convex optimization failed, we need a bounding mesh
+	//	boundingmesh::Mesh bmesh;
+	//	shared_ptr<bmeshinfo> bbmesh = cmesh;
+
+	//	for (int i = 0; i < bbmesh->points.size() / 3; i++)
+	//	{
+	//		bmesh.addVertex({ bbmesh->points[i * 3], bbmesh->points[i * 3 + 1], bbmesh->points[i * 3 + 2] });
+	//	}
+
+	//	for (int i = 0; i < bbmesh->triangles.size() / 3; i++)
+	//	{
+	//		bmesh.addTriangle(bbmesh->triangles[i * 3], bbmesh->triangles[i * 3 + 1], bbmesh->triangles[i * 3 + 2]);
+	//	}
+
+	//	boundingmesh::Decimator decimator;
+	//	decimator.setMesh(bmesh);
+	//	decimator.setMetric(boundingmesh::Average);
+	//	decimator.setMaximumError(0.1);
+
+	//	std::shared_ptr<boundingmesh::Mesh> result = decimator.compute();
+	//	FbxManager* temp_manager = FbxManager::Create();
+	//	FbxNode* root = FbxNode::Create(temp_manager, "_mesh");
+	//	FbxMesh* m = FbxMesh::Create(temp_manager, "_mesh_tris");
+	//	m->InitControlPoints(result->nVertices());
+	//	FbxVector4* points = m->GetControlPoints();
+	//	for (int i = 0; i < result->nVertices(); i++)
+	//	{
+	//		boundingmesh::Vector3 v = result->vertex(i).position();
+	//		points[i] = FbxVector4(v[0], v[1], v[2]);
+	//	}
+
+	//	for (int i = 0; i < result->nTriangles(); i++)
+	//	{
+	//		boundingmesh::Triangle v = result->triangle(i);
+	//		m->BeginPolygon(0);
+	//		m->AddPolygon(v.vertex(0));
+	//		m->AddPolygon(v.vertex(1));
+	//		m->AddPolygon(v.vertex(2));
+	//		m->EndPolygon();
+	//	}
+	//	root->AddNodeAttribute(m);
+	//	FbxNode* mopp = FbxNode::Create(temp_manager, "_mopp");
+	//	mopp->AddChild(root);
+	//	hkpShape* shape = build_shape(mopp, geometry_meshes, properties, scale_factor, body, hk_body);
+	//	temp_manager->Destroy();
+	//	return shape;
+	//}
+	//string name = shape_root->GetName();
+	////	//Containers
+	//if (ends_with(name, "_transform"))
+	//{
+	//	hkpShape* childShape = build_shape(shape_root->GetChild(0), geometry_meshes, properties, scale_factor, body, hk_body);
+	//	FbxAMatrix fbx_transform = shape_root->EvaluateLocalTransform();
+	//	FbxVector4 translation = fbx_transform.GetT();
+	//	FbxQuaternion rotation = fbx_transform.GetQ();
+	//	FbxVector4 scale = fbx_transform.GetS();
+	//	hkQsTransform stransform(
+	//		{ (hkReal)translation[0], (hkReal)translation[0] ,(hkReal)translation[0] },
+	//		{ (hkReal)rotation[0], (hkReal)rotation[1],(hkReal)rotation[2], (hkReal)rotation[3] },
+	//		{ (hkReal)scale[0], (hkReal)scale[1], (hkReal)scale[2] }
+	//	);
+	//	hkTransform transform; stransform.copyToTransform(transform);
+	//	return new hkpTransformShape(childShape, transform);
+	//}
+	//if (ends_with(name, "_list"))
+	//{
+	//	size_t num_children = shape_root->GetChildCount();
+	//	vector<hkRefPtr<hkpShape>> sub_shapes;
+	//	hkArray<hkpMassElement> sub_elements;
+	//	for (int i = 0; i < num_children; i++)
+	//	{
+	//		hkpMassProperties sub_properties;
+	//		hkpMassElement sub_element;
+	//		hkRefPtr<hkpShape> sub_shape = build_shape(shape_root->GetChild(i), geometry_meshes, sub_properties, scale_factor, body, hk_body);
+	//		if (sub_shape != NULL)
+	//		{
+	//			if (sub_shape->getType() == HK_SHAPE_CONVEX_TRANSFORM || sub_shape->getType() == HK_SHAPE_TRANSFORM)
+	//			{
+	//				hkpTransformShape* transform_shape = (hkpTransformShape *)&*sub_shape;
+	//				sub_element.m_transform = transform_shape->getTransform();
+	//			}
+	//			sub_element.m_properties = sub_properties;
+	//			sub_shapes.push_back(sub_shape);
+	//			sub_elements.pushBack(sub_element);
+	//		}
+	//	}
+	//	hkInertiaTensorComputer::combineMassProperties(sub_elements, properties);
+	//	return new hkpListShape((const hkpShape*const*)sub_shapes.data(), sub_shapes.size());
+	//}
+	//if (ends_with(name, "_convex_list"))
+	//{
+	//	size_t num_children = shape_root->GetChildCount();
+	//	vector<hkRefPtr<hkpConvexShape>> sub_shapes;
+	//	for (int i = 0; i < num_children; i++)
+	//	{
+	//		//GOSH!!!!, TODO: fix
+	//		hkRefPtr<hkpConvexShape> sub_shape = (hkpConvexShape*)&*build_shape(shape_root->GetChild(i), geometry_meshes, properties, scale_factor, body, hk_body);
+	//		if (sub_shape != NULL)
+	//			sub_shapes.push_back(sub_shape);
+	//	}
+	//	return new hkpConvexListShape((const hkpConvexShape*const*)sub_shapes.data(), sub_shapes.size());
+	//}
+	//if (ends_with(name, "_mopp"))
+	//{
+	//	hkpMoppCode*							pMoppCode(NULL);
+
+	//	hkpMoppCompilerInput					mci;
+	//	hkpShape* childShape = build_shape(shape_root->GetChild(0), geometry_meshes, properties, scale_factor, body, hk_body);
+	//	hkpShapeCollection* collection;
+	//	hkpShapeType result_type = childShape->getType();
+	//	if (result_type != HK_SHAPE_LIST && result_type != HK_SHAPE_COMPRESSED_MESH)
+	//		throw runtime_error("Invalid Mopp Shape type detected: " + to_string(result_type));
+	//	collection = dynamic_cast<hkpShapeCollection*>(childShape);
+	//	//create welding info
+	//	mci.m_enableChunkSubdivision = false;  //  PC version
+
+	//	pMoppCode = hkpMoppUtility::buildCode(collection->getContainer(), mci);
+	//	hkRefPtr<hkpMoppBvTreeShape> pMoppBvTree = new hkpMoppBvTreeShape(collection, pMoppCode);
+	//	hkpMeshWeldingUtility::computeWeldingInfo(collection, pMoppBvTree, hkpWeldingUtility::WELDING_TYPE_TWO_SIDED);
+	//	return pMoppBvTree;
+	//}
+	////shapes
+	//vector<hkpNamedMeshMaterial> materials;
+	//hkGeometry to_bound = extract_bounding_geometry(shape_root, geometry_meshes, materials, properties, scale_factor);
+	//hkReal mass = properties.m_mass;
+	//if (ends_with(name, "_sphere"))
+	//{
+	//	hkpCreateShapeUtility::CreateShapeInput input;
+	//	hkpCreateShapeUtility::ShapeInfoOutput output;
+	//	input.m_vertices = to_bound.m_vertices;
+	//	hkpCreateShapeUtility::createSphereShape(input, output);
+	//	hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
+	//	hkpSphereShape* shape = (hkpSphereShape*)output.m_shape;
+	//	hkInertiaTensorComputer::computeSphereVolumeMassProperties(shape->getRadius(), mass, properties);
+	//	return handle_output_transform(output, material, properties, shape_root, body, hk_body);
+	//}
+	//if (ends_with(name, "_box"))
+	//{
+	//	hkpCreateShapeUtility::CreateShapeInput input;
+	//	hkpCreateShapeUtility::ShapeInfoOutput output;
+	//	input.m_vertices = to_bound.m_vertices;
+	//	hkpCreateShapeUtility::createBoxShape(input, output);
+	//	hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
+	//	hkpBoxShape* shape = (hkpBoxShape*)output.m_shape;
+	//	hkInertiaTensorComputer::computeBoxVolumeMassProperties(shape->getHalfExtents(), mass, properties);
+	//	return handle_output_transform(output, material, properties, shape_root, body, hk_body);
+	//}
+	//if (ends_with(name, "_capsule"))
+	//{
+	//	hkpCreateShapeUtility::CreateShapeInput input;
+	//	hkpCreateShapeUtility::ShapeInfoOutput output;
+	//	input.m_vertices = to_bound.m_vertices;
+	//	hkpCreateShapeUtility::createCapsuleShape(input, output);
+	//	hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
+	//	hkpCapsuleShape* shape = (hkpCapsuleShape*)output.m_shape;
+	//	hkInertiaTensorComputer::computeCapsuleVolumeMassProperties(shape->getVertex(0), shape->getVertex(1), shape->getRadius(), mass, properties);
+	//	return handle_output_transform(output, material, properties, shape_root, body, hk_body);
+	//}
+	//if (ends_with(name, "_convex"))
+	//{
+	//	hkStridedVertices stridedVertsIn(to_bound.m_vertices);
+	//	hkGeometry convex;
+	//	hkArray<hkVector4> planeEquationsOut;
+	//	hkGeometryUtility::createConvexGeometry(stridedVertsIn, convex, planeEquationsOut);
+	//	hkStridedVertices stridedVertsOut(convex.m_vertices);
+	//	hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
+	//	hkpShape* convex_shape = new hkpConvexVerticesShape(convex.m_vertices, planeEquationsOut);
+	//	hkInertiaTensorComputer::computeVertexHullVolumeMassProperties(stridedVertsOut.m_vertices, stridedVertsOut.m_striding, stridedVertsOut.m_numVertices, mass, properties);
+	//	convex_shape->setUserData((hkUlong)material);
+	//	return convex_shape;
+	//}
+	//if (ends_with(name, "_mesh"))
+	//{
+	//	hkpCompressedMeshShapeBuilder			shapeBuilder;
+	//	shapeBuilder.m_stripperPasses = 5000;
+	//	hkpCompressedMeshShape* pCompMesh = shapeBuilder.createMeshShape(0.001f, hkpCompressedMeshShape::MATERIAL_SINGLE_VALUE_PER_CHUNK);
+	//	pCompMesh->m_namedMaterials.setSize(materials.size());
+	//	for (int i = 0; i < materials.size(); i++)
+	//		pCompMesh->m_namedMaterials[i] = materials[i];
+	//	try {
+	//		//  add geometry to shape
+	//		int										subPartId(0);
+	//		subPartId = shapeBuilder.beginSubpart(pCompMesh);
+	//		shapeBuilder.addGeometry(to_bound, hkMatrix4::getIdentity(), pCompMesh);
+	//		shapeBuilder.endSubpart(pCompMesh);
+	//		shapeBuilder.addInstance(subPartId, hkMatrix4::getIdentity(), pCompMesh);
+
+	//		//add materials to shape
+	//		for (int i = 0; i < materials.size(); i++) {
+	//			pCompMesh->m_materials.pushBack(i);
+	//		}
+	//		//check connectivity
+	//		hkpConvexVerticesConnectivity connector;
+	//		for (const auto& t : to_bound.m_triangles)
+	//		{
+	//			int tt[3]; tt[0] = t.m_a; tt[1] = t.m_b; tt[2] = t.m_c;
+	//			connector.addFace(tt, 3);
+	//		}
+	//		if (connector.isClosed())
+	//		{
+	//			hkInertiaTensorComputer::computeGeometryVolumeMassPropertiesChecked(&to_bound, mass, properties);
+	//		}
+	//		else {
+	//			hkInertiaTensorComputer::computeGeometrySurfaceMassProperties(&to_bound, 0.1, true, mass, properties);
+	//		}
+	//		return pCompMesh;
+	//	}
+	//	catch (...) {
+	//		throw runtime_error("Unable to calculate MOPP code!");
+	//	}
+	//}
 	return NULL;
 }
 

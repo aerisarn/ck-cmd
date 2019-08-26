@@ -11,7 +11,6 @@
 #include <core/NifFile.h>
 #include <commands/NifScan.h>
 
-#include <Animation/Animation/Rig/hkaSkeleton.h>
 #include <Physics\Dynamics\Constraint\Bilateral\Ragdoll\hkpRagdollConstraintData.h>
 #include <Physics\Dynamics\Constraint\Bilateral\BallAndSocket\hkpBallAndSocketConstraintData.h>
 #include <Physics\Dynamics\Constraint\Bilateral\Hinge\hkpHingeConstraintData.h>
@@ -21,14 +20,12 @@
 #include <Physics\Dynamics\Constraint\Malleable\hkpMalleableConstraintData.h>
 
 #include <Physics\Collide\Util\hkpTriangleUtil.h>
-#include <Animation\Animation\Mapper\hkaSkeletonMapperUtils.h>
-#include <Animation/Animation/hkaAnimationContainer.h>
 
 #include <limits>
 #include <array>
 #include <unordered_map>
 
-static bool BeginConversion(string importPath, string importSkeletonPath, string exportPath, string newSkeleton);
+static bool BeginConversion(string importPath, string importSkeletonPath, string exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
@@ -53,7 +50,7 @@ string RetargetSkin::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd convertnif [-i <path_to_import>] [-e <path_to_export>]
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skin> <path_to_skeleton> [-e <path_to_export>] [-s <path_to_new_skeleton>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " [-i <path_to_skin>] [-s <path_to_skeleton>] [-e <path_to_export>]\r\n";
 
 	//will need to check this help in console/
 	const char help[] =
@@ -62,8 +59,7 @@ string RetargetSkin::GetHelp() const
 		Arguments:
 			<path_to_skin> the skin NIF to retarget
 			<path_to_skeleton> path to the new skeleton
-			<path_to_export> path to the output directory
-			<path_to_new_skeleton> path to the new skeleton
+			<path_to_export> path to the output directory;
 
 		)";
 
@@ -80,16 +76,14 @@ string RetargetSkin::GetHelpShort() const
 bool RetargetSkin::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
-	string importSkinPath, importSkeletonPath, exportPath, newSkeletonPath = "";
+	string importSkinPath, importSkeletonPath, exportPath;
 
 	importSkinPath = parsedArgs["<path_to_skin>"].asString();
 	importSkeletonPath = parsedArgs["<path_to_skeleton>"].asString();
 	exportPath = parsedArgs["<path_to_export>"].asString();
-	if (parsedArgs["-s"].asBool())
-		newSkeletonPath = parsedArgs["<path_to_new_skeleton>"].asString();
 
 	InitializeHavok();
-	BeginConversion(importSkinPath, importSkeletonPath, exportPath, newSkeletonPath);
+	BeginConversion(importSkinPath, importSkeletonPath, exportPath);
 	CloseHavok();
 	return true;
 }
@@ -102,7 +96,7 @@ using namespace ckcmd::HKX;
 using namespace ckcmd::nifscan;
 
 
-static inline Niflib::Vector3 TOVECTOR3(const hkVector4& v){
+static inline Niflib::Vector3 TOVECTOR3(const hkVector4& v) {
 	return Niflib::Vector3(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2));
 }
 
@@ -118,11 +112,11 @@ static inline hkVector4 TOVECTOR3(const Niflib::Vector3& v) {
 	return hkVector4(v.x, v.y, v.z);
 }
 
-static inline hkVector4 TOVECTOR4(const Niflib::Vector4& v){
+static inline hkVector4 TOVECTOR4(const Niflib::Vector4& v) {
 	return hkVector4(v.x, v.y, v.z, v.w);
 }
 
-static inline hkRotation TOMATRIX3(const Niflib::Matrix33& q){
+static inline hkRotation TOMATRIX3(const Niflib::Matrix33& q) {
 	hkRotation m3;
 	m3(0, 0) = q[0][0]; m3(0, 1) = q[1][0]; m3(0, 2) = q[2][0];
 	m3(1, 0) = q[0][1]; m3(1, 1) = q[1][1]; m3(1, 2) = q[2][1];
@@ -145,27 +139,6 @@ static inline hkTransform TOHKTRANSFORM(const NiTransform& trans) {
 	hkRotation hk_node_rot = TOMATRIX3(node_rot);
 	return	hkTransform(hk_node_rot, hk_node_trans);
 }
-
-	static inline Niflib::Quaternion TOQUAT(const ::hkQuaternion& q, bool inverse = false){
-		Niflib::Quaternion qt(q.m_vec.getSimdAt(3), q.m_vec.getSimdAt(0), q.m_vec.getSimdAt(1), q.m_vec.getSimdAt(2));
-		return inverse ? qt.Inverse() : qt;
-	}
-
-	static inline ::hkQuaternion TOQUAT(const Niflib::Quaternion& q, bool inverse = false){
-		hkVector4 v(q.x, q.y, q.z, q.w);
-		v.normalize4();
-		::hkQuaternion qt(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
-		if (inverse) qt.setInverse(qt);
-		return qt;
-	}
-
-	static inline ::hkQuaternion TOQUAT(const Niflib::hkQuaternion& q, bool inverse = false){
-		hkVector4 v(q.x, q.y, q.z, q.w);
-		v.normalize4();
-		::hkQuaternion qt(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
-		if (inverse) qt.setInverse(qt);
-		return qt;
-	}
 
 Vector3 not_normalized_centeroid(const vector<Vector3>& in) {
 	Vector3 centeroid = Vector3(0.0, 0.0, 0.0);
@@ -194,7 +167,7 @@ vector<NiAVObjectRef> getParentChain(const map<NiAVObjectRef, NiObjectRef>& pare
 	NiAVObjectRef result = node;
 	vresult.insert(vresult.begin(), DynamicCast<NiAVObject>(result));
 	map<NiAVObjectRef, NiObjectRef>::const_iterator parent_it = parentMap.find(node);
-	while (parent_it != parentMap.end() && DynamicCast<NiAVObject>(parent_it->second)!=NULL) {
+	while (parent_it != parentMap.end() && DynamicCast<NiAVObject>(parent_it->second) != NULL) {
 		vresult.insert(vresult.begin(), DynamicCast<NiAVObject>(parent_it->second));
 		parent_it = parentMap.find(DynamicCast<NiAVObject>(parent_it->second));
 	}
@@ -238,152 +211,7 @@ hkTransform accumulateTransformChain(const vector<NiAVObjectRef>& chain/*, const
 	return result;
 }
 
-hkRefPtr<hkaSkeleton> createHkSkeleton(const vector<NiNodeRef>& bones, const map<NiAVObjectRef, NiObjectRef>& parentMap, NiNodeRef& skeleton_root) {
-	vector<int> intParentMap(bones.size());
-	for (size_t i = 0; i < bones.size(); i++) {
-		NiNodeRef bone = bones[i];
-		map<NiAVObjectRef, NiObjectRef>::const_iterator parent_it = parentMap.find(StaticCast<NiAVObject>(bone));
-		if (parent_it != parentMap.end()) {
-			NiNodeRef parent = DynamicCast<NiNode>(parent_it->second);
-			auto parentBone = find(bones.begin(), bones.end(), parent);
-			if (parentBone != bones.end())
-			{
-				intParentMap[i] = parentBone - bones.begin();
-			}
-		}
-		else {
-			intParentMap[i] = -1;
-			skeleton_root = bone;
-		}
-	}
-
-	Log::Info("Parent map created, root bone: %s\n", skeleton_root->GetName().c_str());
-	//
-	hkRefPtr<hkaSkeleton> hkSkeleton = new hkaSkeleton();
-	hkSkeleton->m_name = (new string(skeleton_root->GetName()))->c_str();
-
-	//Allocate
-	hkSkeleton->m_parentIndices.setSize(bones.size());
-	hkSkeleton->m_bones.setSize(bones.size());
-	hkSkeleton->m_referencePose.setSize(bones.size());
-	string bone_name;
-
-	for (size_t i = 0; i < bones.size(); i++) {
-		NiNodeRef bone = bones[i];
-		//parent map
-		hkSkeleton->m_parentIndices[i] = intParentMap[i];
-
-		//bone track
-		hkaBone& hkBone = hkSkeleton->m_bones[i];
-		bone_name = bone->GetName();
-		hkBone.m_name = (new string(bone_name))->c_str();
-		if (bone == skeleton_root)
-			hkBone.m_lockTranslation = false;
-		else
-			hkBone.m_lockTranslation = true;
-
-		//reference pose
-		hkSkeleton->m_referencePose[i].setTranslation(TOVECTOR4(bone->GetTranslation()));
-		hkSkeleton->m_referencePose[i].setRotation(TOQUAT(bone->GetRotation().AsQuaternion()));
-		hkSkeleton->m_referencePose[i].setScale(hkVector4(bone->GetScale(), bone->GetScale(), bone->GetScale()));
-	}
-
-	return hkSkeleton;
-}
-
-string getOblivionToSkyrimMapping(string oblivion_bone_name) 
-{
-	if (oblivion_bone_name == "Bip01 Head")
-		return "NPC Head [Head]";
-	if (oblivion_bone_name == "Bip01 L Clavicle")
-		return "NPC L Clavicle [LClv]";
-	if (oblivion_bone_name == "Bip01 R Clavicle")
-		return "NPC R Clavicle [RClv]";
-	if (oblivion_bone_name == "Bip01 L UpperArmTwist")
-		return "NPC L UpperarmTwist1 [LUt1]";
-	if (oblivion_bone_name == "Bip01 R UpperArmTwist")
-		return "NPC R UpperarmTwist1 [RUt1]";
-	if (oblivion_bone_name == "Bip01 R ForearmTwist")
-		return "NPC R ForearmTwist1 [RLt1]";
-	if (oblivion_bone_name == "Bip01 L ForearmTwist")
-		return "NPC L ForearmTwist1 [LLt1]";
-	if (oblivion_bone_name == "Bip01 L UpperArm")
-		return "NPC L UpperArm [LUar]";
-	if (oblivion_bone_name == "Bip01 R UpperArm")
-		return "NPC R UpperArm [RUar]";
-	if (oblivion_bone_name == "Bip01 L Forearm")
-		return "NPC L Forearm [LLar]";
-	if (oblivion_bone_name == "Bip01 R Forearm")
-		return "NPC R Forearm [RLar]";
-	if (oblivion_bone_name == "Bip01 L Thigh")
-		return "NPC L Thigh [LThg]";
-	if (oblivion_bone_name == "Bip01 R Thigh") 
-		return "NPC R Thigh [RThg]";
-	if (oblivion_bone_name == "Bip01 L Hand")
-		return "NPC L Hand [LHnd]";
-	if (oblivion_bone_name == "Bip01 R Hand")
-		return "NPC R Hand [RHnd]";
-	if (oblivion_bone_name == "Bip01 Spine")
-		return "NPC Spine [Spn0]";
-	if (oblivion_bone_name == "Bip01 Spine1")
-		return "NPC Spine1 [Spn1]";
-	if (oblivion_bone_name == "Bip01 Spine2")
-		return "NPC Spine2 [Spn2]";
-	if (oblivion_bone_name == "Bip01 Pelvis")
-		return "NPC Pelvis [Pelv]";
-	if (oblivion_bone_name == "Bip01 Neck1")
-		return "NPC Neck [Neck]";
-	return "";
-}
-
-//int compareNames(const char* name1, const char* name2) {
-//	try {
-//		bool name1_sk = false;
-//		bool name2_sk = false;
-//		bool name1_ob = false;
-//		bool name2_ob = false;
-//		string name1s(name1);
-//		std::transform(name1s.begin(), name1s.end(), name1s.begin(), ::tolower);
-//		string name2s(name2);
-//		std::transform(name2s.begin(), name2s.end(), name2s.begin(), ::tolower);
-//		size_t npc_pos1 = name1s.find("npc");
-//		size_t quadra_pos1 = name1s.find("[");
-//		if (npc_pos1 != string::npos && name1s.size()>4) {
-//			name1s = name1s.substr(4, name1s.size() - 4 - (name1s.size() - quadra_pos1));
-//			name1_sk = true;
-//		}
-//		size_t npc_pos2 = name2s.find("npc");
-//		size_t quadra_pos2 = name2s.find("[");
-//		if (npc_pos2 != string::npos && name2s.size()>4) {
-//			name2s = name2s.substr(4, name2s.size() - 4 - (name2s.size() - quadra_pos2));
-//			name2_sk = true;
-//		}
-//		size_t bip_pos1 = name1s.find("bip");
-//		if (bip_pos1 != string::npos && name1s.size() > 6) {
-//			name1s = name1s.substr(6, name1s.size() - 6);
-//			name1_ob = true;
-//		}
-//		size_t bip_pos2 = name2s.find("bip");
-//		if (bip_pos2 != string::npos && name2s.size() > 6) {
-//			name2s = name2s.substr(6, name2s.size() - 6);
-//			name2_ob = true;
-//		}
-//		if (name1_sk && name2_ob && name1s == name2s)
-//			return 0;
-//		if (name1_ob && name2_sk && name1s == name2s)
-//			return 0;
-//		if (!name1_sk && !name2_ob && !name1_ob && !name2_sk && name1s == name2s)
-//			return 0;
-//		return 1;
-//	}
-//	catch (std::out_of_range ex) {
-//		return 0;
-//	}
-//}
-
-bool BeginConversion(string importSkinPath, string importSkeletonPath, string exportPath, string newSkeletonpath) {
-
-	bool UseAnotherSkeleton = false;
+bool BeginConversion(string importSkinPath, string importSkeletonPath, string exportPath) {
 
 	fs::path skinModelpath = fs::path(importSkinPath);
 	if (!fs::exists(skinModelpath) || !fs::is_regular_file(skinModelpath)) {
@@ -397,15 +225,8 @@ bool BeginConversion(string importSkinPath, string importSkeletonPath, string ex
 	}
 	fs::path outputDir = fs::path(exportPath);
 	if (!fs::exists(outputDir) || !fs::is_directory(outputDir)) {
-		Log::Info("Invalid Directory: %s, using current_dir", exportPath.c_str());
-		outputDir = fs::current_path();
-	}
-	fs::path newSkeletonModelPath = fs::path(newSkeletonpath);
-	if (!fs::exists(skinModelpath) || !fs::is_regular_file(skinModelpath)) {
-		Log::Info("Invalid New skeleton path: %s", importSkinPath.c_str());
-	}
-	else {
-		UseAnotherSkeleton = true;
+		Log::Info("Invalid file: %s", exportPath.c_str());
+		return false;
 	}
 
 	NifInfo info;
@@ -425,7 +246,7 @@ bool BeginConversion(string importSkinPath, string importSkeletonPath, string ex
 	for (NiObjectRef niobj : skin_blocks) {
 		if (niobj->IsSameType(NiTriShape::TYPE)) {
 			NiTriShapeRef shape = DynamicCast<NiTriShape>(niobj);
-			
+
 			if (NULL != shape->GetSkinInstance() && NULL != shape->GetData()) {
 				vector<Vector3> vertices = shape->GetData()->GetVertices();
 				NiSkinInstanceRef skin_instance = shape->GetSkinInstance();
@@ -436,7 +257,37 @@ bool BeginConversion(string importSkinPath, string importSkeletonPath, string ex
 				for (int b_index = 0; b_index < bones_from_list.size(); b_index++) {
 					skin_bones.insert(bones_from_list[b_index]);
 					skin_bone_names.insert(bones_from_list[b_index]->GetName());
+					/*NiTransform& skin_transform = bone_data[b_index].skinTransform;
+					hkVector4 hk_skin_trans = TOVECTOR3(skin_transform.translation);
+					hkRotation hk_skin_rot = TOMATRIX3(skin_transform.rotation);
+					hkTransform hk_skin_transform(hk_skin_rot, hk_skin_trans);
+					skin_transforms.push_back(hk_skin_transform);
+					NiNode* bone_node = bones_from_list[b_index];
+					Vector3 node_trans = bone_node->GetTranslation();
+					hkVector4 hk_node_trans = TOVECTOR3(node_trans);
+					Matrix33 node_rot = bone_node->GetRotation();
+					hkRotation hk_node_rot = TOMATRIX3(node_rot);
+					hkTransform hk_node_transform(hk_node_rot, hk_node_trans);
+					std::vector<Vector3> thisBoneVertices;
+					for (const auto& weightData : bone_data[b_index].vertexWeights) {
+					thisBoneVertices.push_back(vertices[weightData.index]);
+					}
+					Vector3 centeroid = not_normalized_centeroid(thisBoneVertices);
+					hkTransform resm1; resm1.setMul(hk_node_transform, hk_skin_transform);
+					hkTransform resm2; resm2.setMul(hk_node_transform, hk_skin_transform);
+					hkTransform res1; res1.setMulMulInverse(hk_node_transform, hk_skin_transform);
+					hkTransform res2; res2.setMulInverseMul(hk_node_transform, hk_skin_transform);
+					hkTransform res3; res3.setMulMulInverse(hk_skin_transform, hk_node_transform);
+					hkTransform res4; res4.setMulInverseMul(hk_skin_transform, hk_node_transform);*/
 				}
+
+				//for (const auto& boneData : skin_instance->GetData()->GetBoneList()) {
+				//	std::vector<Vector3> thisBoneVertices;
+				//	for (const auto& weightData : boneData.vertexWeights) {
+				//		thisBoneVertices.push_back(vertices[weightData.index]);
+				//	}
+				//	centeroids.push_back(ckcmd::Geometry::centeroid(thisBoneVertices));
+				//}
 			}
 		}
 	}
@@ -444,7 +295,88 @@ bool BeginConversion(string importSkinPath, string importSkeletonPath, string ex
 	vector<NiObjectRef> blocks_skeleton = ReadNifList(skeletonModelpath.string().c_str(), &info);
 	NiObjectRef root_skeleton = GetFirstRoot(blocks_skeleton);
 
-	//find all bones. TODO: support set
+	//temp
+	//map<string, hkVector4> ob_positions;
+	//map<string, hkVector4> sk_positions;
+
+	//map<NiAVObjectRef, NiObjectRef> obParentMap = buildParentMap(blocks_skeleton);
+	//map<NiAVObjectRef, NiObjectRef> skParentMap = buildParentMap(skin_blocks);
+
+	//std::set<NiNodeRef> ob_skeleton_bones;
+	//std::set<NiNodeRef> sk_skeleton_bones;
+
+	//for (const auto& obj : blocks_skeleton) {
+	//	if (obj->IsSameType(NiNode::TYPE)) {
+	//		NiNodeRef skeleton_node = DynamicCast<NiNode>(obj);
+	//		ob_skeleton_bones.insert(skeleton_node);
+	//	}
+	//}
+
+	//for (const auto& obj : skin_blocks) {
+	//	if (obj->IsSameType(NiNode::TYPE)) {
+	//		NiNodeRef skeleton_node = DynamicCast<NiNode>(obj);
+	//		sk_skeleton_bones.insert(skeleton_node);
+
+	//		/*
+	//		obj.SetName(IndexString("NPC L Thigh [LThg]"));
+	//		obj.SetTranslation(Vector3(-6.615073f, 0.000394f, 68.911301f));
+	//		obj.SetRotation(Matrix33(
+	//			-0.9943f, -0.0379f, 0.0999f,
+	//			-0.0414f, 0.9986f, -0.0329f,
+	//			-0.0985f, -0.0369f, -0.9944f));
+	//		
+	//		*/
+	//	}
+	//}
+
+	//vector<vector<NiAVObjectRef>> ob_skeleton_chains;
+	//for (const auto& bone : ob_skeleton_bones) {
+	//	ob_skeleton_chains.push_back(getParentChain(obParentMap, DynamicCast<NiAVObject>(bone)));
+	//}
+
+	//vector<vector<NiAVObjectRef>> sk_skeleton_chains;
+	//for (const auto& bone : sk_skeleton_bones) {
+	//	sk_skeleton_chains.push_back(getParentChain(skParentMap, DynamicCast<NiAVObject>(bone)));
+	//}
+
+	//for (const auto& chain : ob_skeleton_chains) {
+	//	const NiAVObjectRef& this_bone = *chain.rbegin();
+	//	hkTransform node_transform = accumulateTransformChain(chain/*, DynamicCast<NiAVObject>(root_skeleton)*/);
+	//	ob_positions[this_bone->GetName()] = node_transform.getTranslation();
+	//}
+
+	//for (const auto& chain : sk_skeleton_chains) {
+	//	const NiAVObjectRef& this_bone = *chain.rbegin();
+	//	hkTransform node_transform = accumulateTransformChain(chain/*, DynamicCast<NiAVObject>(root_skeleton)*/);
+	//	sk_positions[this_bone->GetName()] = node_transform.getTranslation();
+	//	cout << "obj.SetName(IndexString(\"" << this_bone->GetName() << "\"));" << endl;
+	//	cout << "obj.SetTranslation(Vector3(" << to_string(node_transform.getTranslation()(0)) << ", " << to_string(node_transform.getTranslation()(1)) << ", " << to_string(node_transform.getTranslation()(2)) << "));" << endl;
+	//	cout << "obj.SetRotation(Matrix33(" << endl;
+	//	Matrix33 rot = TOMATRIX33(node_transform.getRotation());
+	//	cout << "\t" << to_string(rot[0][0]) << ", " << to_string(rot[0][1]) << ", " << to_string(rot[0][2]) << "," << endl;
+	//	cout << "\t" << to_string(rot[1][0]) << ", " << to_string(rot[1][1]) << ", " << to_string(rot[1][2]) << "," << endl;
+	//	cout << "\t" << to_string(rot[2][0]) << ", " << to_string(rot[2][1]) << ", " << to_string(rot[2][2]) << "));" << endl;
+	//}
+
+	//map<string, string> ob_to_sk_map;
+	//map<string, hkReal> ob_to_sk_map_dist;
+	////find nearest map
+	//for (const auto & ob_tuple : ob_positions) {
+	//	hkReal lastDistance = 10000;
+	//	string lastMatch = "";
+	//	for (const auto & sk_tuple : sk_positions) {
+	//		hkReal distance = ob_tuple.second.distanceToSquared3(sk_tuple.second);
+	//		if (distance < lastDistance) {
+	//			lastDistance = distance;
+	//			lastMatch = sk_tuple.first;
+	//		}
+	//	}
+	//	ob_to_sk_map[ob_tuple.first] = lastMatch;
+	//	ob_to_sk_map_dist[ob_tuple.first] = lastDistance;
+	//}
+
+
+	//find all bones
 	std::set<NiObjectRef> skeleton_bones;
 	for (const auto& obj : blocks_skeleton) {
 		if (obj->IsDerivedType(NiNode::TYPE)) {
@@ -458,82 +390,6 @@ bool BeginConversion(string importSkinPath, string importSkeletonPath, string ex
 		throw std::runtime_error("Error: cannot find skin bone into the given skeleton!");
 
 	map<NiAVObjectRef, NiObjectRef> skeletonParentMap = buildParentMap(blocks_skeleton);
-
-	if (UseAnotherSkeleton) {
-
-		vector<NiNodeRef> old_skeleton_nodes = DynamicCast<NiNode>(blocks_skeleton);
-
-		//vector<NiObjectRef> blocks_new_skeleton = ReadNifList(newSkeletonModelPath.string().c_str(), &info);
-		//NiObjectRef root_new_skeleton = GetFirstRoot(blocks_skeleton);
-
-		//vector<NiNodeRef> new_skeleton_nodes = DynamicCast<NiNode>(blocks_new_skeleton);
-
-		//map<NiAVObjectRef, NiObjectRef> newSkeletonParentMap = buildParentMap(blocks_new_skeleton);
-
-		NiNodeRef ninode_old_skeleton_root;
-		//NiNodeRef ninode_new_skeleton_root;
-
-		//RETARGET! create hk skeletons
-		hkRefPtr<hkaSkeleton> old_hkskeleton = createHkSkeleton(old_skeleton_nodes, skeletonParentMap, ninode_old_skeleton_root);
-		//hkRefPtr<hkaSkeleton> new_hkskeleton = createHkSkeleton(new_skeleton_nodes, newSkeletonParentMap, ninode_new_skeleton_root);
-
-		hkRefPtr<hkaSkeleton> new_hkskeleton;
-		
-		{
-			hkIstream stream(newSkeletonModelPath.string().c_str());
-			hkStreamReader *reader = stream.getStreamReader();
-			hkResource* skelResource = hkSerializeLoadResource(reader);
-		
-			hkRootLevelContainer* container = skelResource->getContents<hkRootLevelContainer>();
-			HK_ASSERT2(0x27343437, container != HK_NULL, "Could not load asset");
-			hkaAnimationContainer* ac = reinterpret_cast<hkaAnimationContainer*>(container->findObjectByType(hkaAnimationContainerClass.getName()));
-		
-			HK_ASSERT2(0x27343435, ac && (ac->m_skeletons.getSize() > 0), "No skeleton loaded");
-			new_hkskeleton = ac->m_skeletons[0];
-		}
-
-		hkArray<hkQsTransform> modelPose(new_hkskeleton->m_referencePose.getSize());
-		hkaSkeletonUtils::transformLocalPoseToModelPose(new_hkskeleton->m_referencePose.getSize(), new_hkskeleton->m_parentIndices.begin(), new_hkskeleton->m_referencePose.begin(), modelPose.begin());
-
-		vector<hkQsTransform> pose;
-
-		for (int i = 0; i < modelPose.getSize(); i++) {
-			pose.push_back(modelPose[i]);
-		}
-
-
-		cout << "Created skeletons" << endl;
-
-		hkaSkeletonMapperUtils::Params mapping_parameters;
-		mapping_parameters.m_skeletonA = old_hkskeleton;
-		mapping_parameters.m_skeletonB = new_hkskeleton;
-
-		hkArray<hkaSkeletonMapperUtils::UserMapping> old_to_new;
-		for (const auto& bone : old_skeleton_nodes) {
-			string bone_name = bone->GetName();
-			string mapping = getOblivionToSkyrimMapping(bone_name);
-			if (mapping != "") {
-				hkaSkeletonMapperUtils::UserMapping a_mapping;
-				a_mapping.m_boneIn = (new string(bone_name))->c_str();
-				a_mapping.m_boneOut = (new string(mapping))->c_str();
-				old_to_new.pushBack(a_mapping);
-			}
-		}
-
-		mapping_parameters.m_userMappingsAtoB = old_to_new;
-		mapping_parameters.m_autodetectSimple = true;
-		mapping_parameters.m_autodetectChains = false;
-		mapping_parameters.m_mappingType = hkaSkeletonMapperData::HK_RETARGETING_MAPPING;
-
-		hkaSkeletonMapperData oldToNew;
-		hkaSkeletonMapperData newToOld;
-
-		hkaSkeletonMapperUtils::createMapping(mapping_parameters, oldToNew, newToOld);
-
-		cout << "Created mappings" << endl;
-
-	}
-
 	vector<vector<NiAVObjectRef>> skeleton_chains;
 	for (const auto& bone : skeleton_bones) {
 		skeleton_chains.push_back(getParentChain(skeletonParentMap, DynamicCast<NiAVObject>(bone)));
@@ -548,9 +404,10 @@ bool BeginConversion(string importSkinPath, string importSkeletonPath, string ex
 		//node_transform.setInverse(node_transform);
 		//skeleton_transforms_inv[this_bone->GetName()] = node_transform;
 	}
-
+	map<string, hkTransform> old_skeleton_transforms;
 	//update skin bones
 	for (const auto& skin_bone : skin_bones) {
+		old_skeleton_transforms[skin_bone->GetName()] = TOHKTRANSFORM(StaticCast<NiAVObject>(skin_bone));
 		hkTransform new_transform = skeleton_transforms[skin_bone->GetName()];
 		skin_bone->SetTranslation(TOVECTOR3(new_transform.getTranslation()));
 		skin_bone->SetRotation(TOMATRIX33(new_transform.getRotation()));
@@ -564,11 +421,25 @@ bool BeginConversion(string importSkinPath, string importSkeletonPath, string ex
 		vector<Vector3> vertices = shape->GetVertices();
 
 		for (int b_index = 0; b_index < bones_from_list.size(); b_index++) {
+			//hkTransform new_transform = skeleton_transforms_inv[bones_from_list[b_index]->GetName()];
 			if (skeleton_transforms.find(bones_from_list[b_index]->GetName()) == skeleton_transforms.end())
 				throw runtime_error("Cannot find the skeleton transform!");
 			hkTransform new_direct_transform = skeleton_transforms[bones_from_list[b_index]->GetName()];
+			//hkTransform old_transform_node = old_skeleton_transforms[bones_from_list[b_index]->GetName()];
 			NiTransform& skin_transform = bone_data[b_index].skinTransform;
+			//hkTransform old_transform(TOHKTRANSFORM(skin_transform));
+			//hkMatrix4 old_transform_matrix; old_transform_matrix.set(old_transform);
+			//hkMatrix4 new_direct_matrix; new_direct_matrix.set(new_direct_transform);
 			hkTransform temp; temp.setInverse(new_direct_transform);
+			//temp.setMulEq(new_transform);
+			//for (const auto& vertWeight : bone_data[b_index].vertexWeights) {
+			//	//reskin the mesh to the new pose
+			//	hkVector4 vert = TOVECTOR4(vertices[vertWeight.index]);
+			//	hkVector4 root_vert; old_transform_matrix.transformPosition(vert, root_vert);
+			//	hkVector4 new_vert; new_direct_matrix.transformPosition(root_vert, new_vert);
+			//	vertices[vertWeight.index] = TOVECTOR3(new_vert);
+			//}
+
 			skin_transform.translation = TOVECTOR3(temp.getTranslation());
 			skin_transform.rotation = TOMATRIX33(temp.getRotation());
 		}
@@ -580,6 +451,77 @@ bool BeginConversion(string importSkinPath, string importSkeletonPath, string ex
 	fs::create_directories(outputDir);
 	WriteNifTree(out_path.string(), root_skin, info);
 
+
+	//for (const auto& strans : skin_transforms) {
+	//	bool found = false;
+	//	for (const auto& sk_bone : skin_bones) {
+	//		hkTransform temp = TOHKTRANSFORM(StaticCast<NiAVObject>(sk_bone));
+	//		temp.setMul(strans, temp);
+	//		if (temp.isApproximatelyEqual(hkTransform::getIdentity())) 
+	//		{
+	//			found = true;
+	//			break;
+	//		}
+	//	}
+	//	if (!found)
+	//		throw std::runtime_error("Error!");
+	//}
+
+	//for (const auto& sk_bone : skin_bones) {		
+	//	bool found = false;
+	//	for (const auto& sktrans : skeleton_transforms) {
+	//		hkTransform temp = TOHKTRANSFORM(StaticCast<NiAVObject>(sk_bone));
+	//		hkTransform temp2; temp2.setMulInverseMul(temp, sktrans);
+	//		if (temp2.isApproximatelyEqual(hkTransform::getIdentity(),0.5)) {
+	//			found = true;
+	//			break;
+	//		}
+	//	}
+	//	if (!found)
+	//		throw std::runtime_error("Error: cannot find an equivalent skin transform!");
+	//}
+
+	//for (const auto& strans : skin_transforms) {
+	//	bool found = false;
+	//	for (const auto& sktrans : skeleton_transforms) {
+	//		hkTransform temp; temp.setMul(strans, sktrans);
+	//		if (temp.isApproximatelyEqual(hkTransform::getIdentity(), 0.5))
+	//		{	
+	//			found = true;
+	//			break;
+	//		}
+	//	}
+	//	if (!found)
+	//		throw std::runtime_error("Error: cannot find an equivalent skin transform!");
+	//}
+
+	//NifInfo info;
+	//vector<NiObjectRef> blocks = ReadNifList(skeletonModelpath.string().c_str(), &info);
+	//NiObjectRef root = GetFirstRoot(blocks);
+
+	//for (NiObjectRef niobj : blocks) {
+	//	if (niobj->IsSameType(NiNode::TYPE)) {
+	//		NiNodeRef ninodeobj = DynamicCast<NiNode>(niobj);
+	//		//if (ninodeobj->GetName().find("NPC") != string::npos) {
+	//		vector<Ref<NiAVObject>> children = ninodeobj->GetChildren();
+	//		vector<Ref<NiAVObject>> new_children;
+	//		for (NiAVObjectRef rr : children) {
+	//			NiNode* proxyRoot = new NiNode();
+
+	//			proxyRoot->SetFlags(ninodeobj->GetFlags());
+	//			proxyRoot->SetChildren({ rr });
+	//			proxyRoot->SetName(IndexString("ProxyNode_" + rr->GetName()));
+	//			new_children.push_back(proxyRoot);
+	//		}
+	//		if (!new_children.empty())
+	//			ninodeobj->SetChildren(new_children);
+	//		//}
+	//	}
+	//}
+
+	//fs::path out_path = outputDir / "skeleton.nif";
+	//fs::create_directories(outputDir);
+	//WriteNifTree(out_path.string(), root, info);
 	Log::Info("Done");
 	return true;
 }
