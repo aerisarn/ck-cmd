@@ -882,6 +882,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				alreadyVisitedNodes.insert(node.GetSkinInstance()->GetData());
 			if (node.GetSkinInstance()->GetSkinPartition() != NULL)
 				alreadyVisitedNodes.insert(node.GetSkinInstance()->GetSkinPartition());
+			skins[node.GetSkinInstance()] = &node;
 		}
 
 
@@ -927,6 +928,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				alreadyVisitedNodes.insert(node.GetSkinInstance()->GetData());
 			if (node.GetSkinInstance()->GetSkinPartition() != NULL)
 				alreadyVisitedNodes.insert(node.GetSkinInstance()->GetSkinPartition());
+			skins[node.GetSkinInstance()] = &node;
 		}
 
 		if (verts.empty())
@@ -1087,6 +1089,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		FbxNode* result = scene.FindNodeByName(name.c_str());
 		if (result == NULL)
 			result = scene.FindNodeByName(sanitized.c_str());
+		if (result == NULL)
+			result = scene.FindNodeByName((sanitized + "_support").c_str());
 		return result;
 	}
 
@@ -1098,6 +1102,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		FbxNode* result = scene.FindNodeByName(name.c_str());
 		if (result == NULL)
 			result = scene.FindNodeByName(sanitized.c_str());
+		if (result == NULL)
+			result = scene.FindNodeByName((sanitized + "_support").c_str());
 		return result;
 	}
 
@@ -1106,11 +1112,12 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			return;
 		for (pair<NiSkinInstance*, NiTriBasedGeom*> skin : skins) {
 			NiTriBasedGeomRef mesh = skin.second;
-
+			string shapeName = mesh->GetName();
+			sanitizeString(shapeName);
 			NiSkinDataRef data = skin.first->GetData();
 			NiSkinPartitionRef part = skin.first->GetSkinPartition();
 			vector<BoneData>& bonelistdata = data->GetBoneList();
-			std::string shapeSkin = mesh->GetName() + "_skin";
+			std::string shapeSkin = shapeName + "_skin";
 
 
 			vector<NiNode * > data_bonelist = skin.first->GetBones();
@@ -1164,17 +1171,25 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				{
 					fbx_skin->AddCluster(cluster.second);
 				}
-				FbxNode* skin_parent = fbx_meshes_skin_parent[skin.first];
-				for (int i = 0; i < skin_parent->GetNodeAttributeCount(); i++)
+				FbxNode* skin_parent = fbx_meshes_skin_parent[skin.first]; scene.FindNodeByName(mesh->GetName().c_str());
+				if (NULL != skin_parent)
 				{
-					if (FbxNodeAttribute::eMesh == skin_parent->GetNodeAttributeByIndex(i)->GetAttributeType())
+					string dummy_name = shapeName + "_support";
+					//search for support node
+					auto skin_support = skin_parent->FindChild(dummy_name.c_str(), false);
+					if (skin_support != NULL)
+						skin_parent = skin_support;
+					for (int i = 0; i < skin_parent->GetNodeAttributeCount(); i++)
 					{
-						FbxMesh* m_i = (FbxMesh*)skin_parent->GetNodeAttributeByIndex(i);
-						string m_i_name = m_i->GetName();
-						if (m_i_name == mesh->GetName())
+						if (FbxNodeAttribute::eMesh == skin_parent->GetNodeAttributeByIndex(i)->GetAttributeType())
 						{
-							m_i->AddDeformer(fbx_skin);
-							break;
+							FbxMesh* m_i = (FbxMesh*)skin_parent->GetNodeAttributeByIndex(i);
+							string m_i_name = m_i->GetName();
+							if (m_i_name == shapeName)
+							{
+								m_i->AddDeformer(fbx_skin);
+								break;
+							}
 						}
 					}
 				}
@@ -2922,12 +2937,47 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			int vertex_index = m->GetPolygonVertex(t, i);
 
 			if (normal && normal->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
-				m->GetPolygonVertexNormal(t, i, v_n);
+				switch (normal->GetReferenceMode())
+				{
+					case FbxGeometryElement::eDirect:
+					{
+						v_n = normal->GetDirectArray().GetAt(t * 3 + i);
+						break;
+					}
+					case FbxGeometryElement::eIndexToDirect:
+					{
+						int id = normal->GetIndexArray().GetAt(t * 3 + i);
+						v_n = normal->GetDirectArray().GetAt(id);
+						break;
+					}
+					default:
+					{
+						break;
+					}
+				}
 				nif_n = Vector3(v_n.mData[0], v_n.mData[1], v_n.mData[2]);
 				has_normal = true;
 			}
 			if (uv && uv->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
-				m->GetPolygonVertexUV(t, i, uvName, v_uv, isUnmapped);
+				//m->GetPolygonVertexUV(t, i, uvName, v_uv, isUnmapped);
+				switch (normal->GetReferenceMode())
+				{
+				case FbxGeometryElement::eDirect:
+				{
+					v_uv = uv->GetDirectArray().GetAt(t * 3 + i);
+					break;
+				}
+				case FbxGeometryElement::eIndexToDirect:
+				{
+					int id = uv->GetIndexArray().GetAt(t * 3 + i);
+					v_uv = uv->GetDirectArray().GetAt(id);
+					break;
+				}
+				default:
+				{
+					break;
+				}
+				}
 				nif_uv = TexCoord(v_uv.mData[0], v_uv.mData[1]);
 				has_uv = true;
 			}
@@ -2935,21 +2985,21 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			{
 				switch (vc->GetReferenceMode())
 				{
-				case FbxGeometryElement::eDirect:
-				{
-					color = vc->GetDirectArray().GetAt(t * 3 + i);
-					break;
-				}
-				case FbxGeometryElement::eIndexToDirect:
-				{
-					int id = vc->GetIndexArray().GetAt(t * 3 + i);
-					color = vc->GetDirectArray().GetAt(id);
-					break;
-				}
-				default:
-				{
-					break;
-				}
+					case FbxGeometryElement::eDirect:
+					{
+						color = vc->GetDirectArray().GetAt(t * 3 + i);
+						break;
+					}
+					case FbxGeometryElement::eIndexToDirect:
+					{
+						int id = vc->GetIndexArray().GetAt(t * 3 + i);
+						color = vc->GetDirectArray().GetAt(id);
+						break;
+					}
+					default:
+					{
+						break;
+					}
 				}
 				if (hasAlpha == false && color.mAlpha < 1.0)
 					hasAlpha = true;

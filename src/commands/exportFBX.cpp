@@ -72,9 +72,9 @@ bool ExportFBX::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		return false;
 	}
 	importNIF = parsedArgs["<path_to_nif>"].asString();
-	if (parsedArgs["-e"].asBool())
+	if (parsedArgs.find("-e") != parsedArgs.end() && parsedArgs["-e"].asBool())
 		exportPath = parsedArgs["<path_to_export>"].asString();
-	if (parsedArgs["-t"].asBool())
+	if (parsedArgs.find("-t") != parsedArgs.end() && parsedArgs["-t"].asBool())
 		texturePath = parsedArgs["<path_to_textures>"].asString();
 
 	InitializeHavok();

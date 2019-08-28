@@ -406,7 +406,7 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 			float bitang[] = {pTSpace->vOt.x, pTSpace->vOt.y, pTSpace->vOt.z};
 			if (pContext->m_pInterface->m_setTSpace!=NULL)
 				pContext->m_pInterface->m_setTSpace(pContext, tang, bitang, pTSpace->fMagS, pTSpace->fMagT, pTSpace->bOrient, f, i);
-			if (pContext->m_pInterface->m_setTSpaceBasic!=NULL)
+			else if (pContext->m_pInterface->m_setTSpaceBasic!=NULL)
 				pContext->m_pInterface->m_setTSpaceBasic(pContext, tang, pTSpace->bOrient==TTRUE ? 1.0f : (-1.0f), f, i);
 
 			++index;

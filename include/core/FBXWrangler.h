@@ -23,7 +23,7 @@ namespace FBX {
 
 	struct FBXImportOptions {
 		bool InvertU = false;
-		bool InvertV = true;
+		bool InvertV = false;
 	};
 
 
