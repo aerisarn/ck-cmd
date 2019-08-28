@@ -2834,6 +2834,8 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 
 	vector<Vector3> verts;
 	vector<Vector3> normals;
+	vector<Vector3> tangents;
+	vector<Vector3> bitangents;
 	vector<Color4 > vcs;
 
 	if (normal == NULL) {
@@ -2842,6 +2844,27 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	vector<TexCoord> uvs;
 
 	FbxAMatrix node_trans; node_trans = m->GetPivot(node_trans);
+	auto& uv_array = uv->GetDirectArray();
+	if (options.InvertU)
+		for (int i = 0; i < uv_array.GetCount(); i++)
+		{
+			auto uvv = uv_array.GetAt(i);
+			uvv[0] = 1.0f - uvv[0];
+			uv_array.SetAt(i, uvv);
+		}
+
+	if (options.InvertV)
+		for (int i = 0; i < uv_array.GetCount(); i++)
+		{
+			auto uvv = uv_array.GetAt(i);
+			uvv[1] = 1.0f - uvv[1];
+			uv_array.SetAt(i, uvv);
+		}
+
+	m->GenerateTangentsDataForAllUVSets();
+
+	FbxGeometryElementTangent* tangent = m->GetElementTangent(0);
+	FbxGeometryElementBinormal* bitangent = m->GetElementBinormal(0);
 
 	bool max_wa = false;
 
@@ -2876,8 +2899,13 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			normals.emplace_back((float)normal->GetDirectArray().GetAt(v).mData[0],
 				(float)normal->GetDirectArray().GetAt(v).mData[1],
 				(float)normal->GetDirectArray().GetAt(v).mData[2]);
+			tangents.emplace_back((float)tangent->GetDirectArray().GetAt(v).mData[0],
+				(float)tangent->GetDirectArray().GetAt(v).mData[1],
+				(float)tangent->GetDirectArray().GetAt(v).mData[2]);
+			bitangents.emplace_back((float)bitangent->GetDirectArray().GetAt(v).mData[0],
+				(float)bitangent->GetDirectArray().GetAt(v).mData[1],
+				(float)bitangent->GetDirectArray().GetAt(v).mData[2]);
 		}
-
 
 
 		if (vc && (vc->GetMappingMode() == FbxGeometryElement::eByControlPoint || max_wa)) {
@@ -2908,7 +2936,11 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	}
 
 	if (normal && normals.empty())
+	{
 		normals.resize(numVerts);
+		tangents.resize(numVerts);
+		bitangents.resize(numVerts);
+	}
 
 	vector<Triangle> tris;
 	set<int> mapped;
@@ -2922,6 +2954,8 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 		for (int i = 0; i < 3; i++)
 		{
 			FbxVector4 v_n;
+			FbxVector4 v_t;
+			FbxVector4 v_bt;
 			FbxVector2 v_uv;
 			FbxColor color;
 
@@ -2930,6 +2964,8 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			bool has_vc = false;
 
 			Vector3 nif_n;
+			Vector3 nif_t;
+			Vector3 nif_bt;
 			TexCoord nif_uv;
 			Color4 nif_color;
 
@@ -2942,12 +2978,16 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 					case FbxGeometryElement::eDirect:
 					{
 						v_n = normal->GetDirectArray().GetAt(t * 3 + i);
+						v_t = tangent->GetDirectArray().GetAt(t * 3 + i);
+						v_bt = bitangent->GetDirectArray().GetAt(t * 3 + i);
 						break;
 					}
 					case FbxGeometryElement::eIndexToDirect:
 					{
 						int id = normal->GetIndexArray().GetAt(t * 3 + i);
 						v_n = normal->GetDirectArray().GetAt(id);
+						v_t = tangent->GetDirectArray().GetAt(id);
+						v_bt = bitangent->GetDirectArray().GetAt(id);
 						break;
 					}
 					default:
@@ -2956,28 +2996,13 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 					}
 				}
 				nif_n = Vector3(v_n.mData[0], v_n.mData[1], v_n.mData[2]);
+				nif_t = Vector3(v_t.mData[0], v_t.mData[1], v_t.mData[2]);
+				nif_bt = Vector3(v_bt.mData[0], v_bt.mData[1], v_bt.mData[2]);
+
 				has_normal = true;
 			}
 			if (uv && uv->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
-				//m->GetPolygonVertexUV(t, i, uvName, v_uv, isUnmapped);
-				switch (normal->GetReferenceMode())
-				{
-				case FbxGeometryElement::eDirect:
-				{
-					v_uv = uv->GetDirectArray().GetAt(t * 3 + i);
-					break;
-				}
-				case FbxGeometryElement::eIndexToDirect:
-				{
-					int id = uv->GetIndexArray().GetAt(t * 3 + i);
-					v_uv = uv->GetDirectArray().GetAt(id);
-					break;
-				}
-				default:
-				{
-					break;
-				}
-				}
+				m->GetPolygonVertexUV(t, i, uvName, v_uv, isUnmapped);
 				nif_uv = TexCoord(v_uv.mData[0], v_uv.mData[1]);
 				has_uv = true;
 			}
@@ -3041,17 +3066,24 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 				if (remap_normal || remap_uv || remap_vc) {
 					triangle[i] = verts.size();
 					verts.push_back(verts[vertex_index]);
-					if (has_normal)
+					if (has_normal) {
 						normals.push_back(nif_n);
+						tangents.push_back(nif_t);
+						bitangents.push_back(nif_bt);
+					}
 					if (has_uv)
 						uvs.push_back(nif_uv);
 					if (has_vc)
 						vcs.push_back(nif_color);
+					
 				}
 			}
 			else {
-				if (has_normal)
+				if (has_normal) {
 					normals[vertex_index] = nif_n;
+					tangents[vertex_index] = nif_t;
+					bitangents[vertex_index] = nif_bt;
+				}
 				if (has_uv)
 					uvs[vertex_index] = nif_uv;
 				if (has_vc)
@@ -3098,13 +3130,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 		meshes.insert(m);
 	}
 
-	if (options.InvertU)
-		for (auto &u : uvs)
-			u.u = 1.0f - u.u;
 
-	if (options.InvertV)
-		for (auto &v : uvs)
-			v.v = 1.0f - v.v;
 
 	if (uvs.size() > 0) {
 		data->SetHasUv(true);
@@ -3115,15 +3141,14 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	data->SetConsistencyFlags(CT_STATIC);
 
 	if (verts.size() != 0 && tris.size() != 0 && uvs.size() != 0) {
-		Vector3 COM;
-		TriGeometryContext g(verts, COM, tris, uvs, normals);
+		//Vector3 COM;;
+		//TriGeometryContext g(verts, COM, tris, uvs, normals);
 		data->SetHasNormals(1);
 		//recalculate
-		data->SetNormals(g.normals);
-		data->SetTangents(g.tangents);
-		data->SetBitangents(g.bitangents);
-		if (verts.size() != g.normals.size() || verts.size() != g.tangents.size() || verts.size() != g.bitangents.size())
-			throw runtime_error("Geometry mismatch!");
+		data->SetNormals(normals);
+		//switched to uniform with nifskope
+		data->SetTangents(bitangents);
+		data->SetBitangents(tangents);
 		data->SetBsVectorFlags(static_cast<BSVectorFlags>(data->GetBsVectorFlags() | BSVF_HAS_TANGENTS));
 	}
 

@@ -86,7 +86,7 @@ namespace Geometry {
 		) {
 			Triangle face = ((TriGeometryContext*)x)->faces[f];
 			unsigned short t_index = (v == 0 ? face.v1 : v == 1 ? face.v2 : face.v3);
-			((TriGeometryContext*)x)->tangents[t_index] = Vector3(t[0], t[1], t[2]).Normalized();
+			((TriGeometryContext*)x)->tangents[t_index] = Vector3(t[0], 1.0-t[1], t[2]).Normalized();
 			((TriGeometryContext*)x)->bitangents[t_index] = (((TriGeometryContext*)x)->normals[t_index] ^ ((TriGeometryContext*)x)->tangents[t_index]);
 			((TriGeometryContext*)x)->bitangents[t_index] *= s;
 			//((TriGeometryContext*)x)->bitangents[t_index] = ((TriGeometryContext*)x)->bitangents[t_index].Normalized();
@@ -102,10 +102,7 @@ namespace Geometry {
 			int f,
 			int v
 		) {
-			Triangle face = ((TriGeometryContext*)x)->faces[f];
-			unsigned short t_index = (v == 0 ? face.v1 : v == 1 ? face.v2 : face.v3);
-			((TriGeometryContext*)x)->tangents[t_index] = Vector3(t[0], t[1], t[2]) * mag_s;
-			((TriGeometryContext*)x)->bitangents[t_index] = Vector3(b[0], b[1], b[2]) * mag_t;
+			set_tspace_basic(x, t, op != 0 ? 1.0f : -1.0f, f, v);
 		}
 
 		static void calculate(TriGeometryContext* obj) {
