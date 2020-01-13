@@ -4818,6 +4818,12 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				physic_entities.insert(child);
 				continue;
 			}
+			if (ends_with(child_name, "_support"))
+			{
+				//ignore support nodes added for root meshes
+				loadNodeChildren(child);
+				return;
+			}
 			if (nif_child == NULL) {
 				nif_child = new NiNode();
 				nif_child->SetName(unsanitizeString(string(child->GetName())));
