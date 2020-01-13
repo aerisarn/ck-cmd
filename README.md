@@ -5,9 +5,14 @@
 Command line helper for executing some Creation Kit/Engine commands. Based upon hkxcmd project by Figment,
 available at https://github.com/figment/hkxcmd
 
+ck-cmd has been developed to support the effort of Skywind's artists
+
+![image4.png](doc/images/TESR_full_alpha.png)
+
+
 ## Introduction
 
-ck-md is a command prompt application that can convert fbx files into nif files for use in appropriate game engines. This makes is software-agnostic unlike most exporter plugin solutions, and it is not easily affected by version changes in the modeling software used for exporting the fbx. Essentially, it makes it possible to export a finished asset as an fbx from nearly any modeling software, and create a nif file that is 95% ready for game import with only one command. 
+ck-cmd is a command prompt application that can convert fbx files into nif files for use in appropriate game engines. This makes is software-agnostic unlike most exporter plugin solutions, and it is not easily affected by version changes in the modeling software used for exporting the fbx. Essentially, it makes it possible to export a finished asset as an fbx from nearly any modeling software, and create a nif file that is 95% ready for game import with only one command. 
 
 It properly transfers vertex coloring to nif files from an fbx, which was previously only possible with very specific plugin and software combinations. Models are automatically split by material ID and materials settings and paths are translated from modeling software to BSLightingShaderProperty nodes. It also applies all necessary strings, flags, and values in the resulting nif. Visual adjustments may be desired through nifskope, but if properly prepared, the resulting nif is game-ready.
 
