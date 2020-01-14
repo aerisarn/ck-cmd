@@ -2890,91 +2890,17 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 
 	bool max_wa = false;
 
-
-	//string exporter_name = "";
-	//string exporter_version = "";
-
 	//Max has a wrong value into the vertex color mappings in 2016/2017/2018 
 	if (exporter_name == "3ds Max" &&
 		(exporter_version == "2017" || exporter_version == "2018"))
 		max_wa = true;
 
-	//for (int v = 0; v < numVerts; v++) {
-	//	FbxVector4 vert = m->GetControlPointAt(v);
-
-	//	if (uv && uv->GetMappingMode() != FbxGeometryElement::eByControlPoint &&
-	//		uv->GetMappingMode() != FbxGeometryElement::eByPolygonVertex) {
-	//		FbxGeometryElement::EMappingMode m = uv->GetMappingMode();
-	//	}
-
-	//	verts.emplace_back((float)vert.mData[0], (float)vert.mData[1], (float)vert.mData[2]);
-	//	if (uv && uv->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
-	//		int uIndex = v;
-	//		if (uv->GetReferenceMode() == FbxLayerElement::eIndexToDirect)
-	//			uIndex = uv->GetIndexArray().GetAt(v);
-
-	//		uvs.emplace_back((float)uv->GetDirectArray().GetAt(uIndex).mData[0],
-	//			(float)uv->GetDirectArray().GetAt(uIndex).mData[1]);
-	//	}
-
-	//	if (normal && normal->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
-	//		normals.emplace_back((float)normal->GetDirectArray().GetAt(v).mData[0],
-	//			(float)normal->GetDirectArray().GetAt(v).mData[1],
-	//			(float)normal->GetDirectArray().GetAt(v).mData[2]);
-	//		if (tangent)
-	//		{
-	//			tangents.emplace_back((float)tangent->GetDirectArray().GetAt(v).mData[0],
-	//				(float)tangent->GetDirectArray().GetAt(v).mData[1],
-	//				(float)tangent->GetDirectArray().GetAt(v).mData[2]);
-	//		}
-	//		if (bitangent)
-	//		{
-	//			bitangents.emplace_back((float)bitangent->GetDirectArray().GetAt(v).mData[0],
-	//				(float)bitangent->GetDirectArray().GetAt(v).mData[1],
-	//				(float)bitangent->GetDirectArray().GetAt(v).mData[2]);
-	//		}
-	//	}
-
-
-	//	if (vc && (vc->GetMappingMode() == FbxGeometryElement::eByControlPoint || max_wa)) {
-	//		vcs.emplace_back(
-	//			Color4
-	//			(
-	//			(float)vc->GetDirectArray().GetAt(v).mRed,
-	//				(float)vc->GetDirectArray().GetAt(v).mGreen,
-	//				(float)vc->GetDirectArray().GetAt(v).mBlue,
-	//				(float)vc->GetDirectArray().GetAt(v).mAlpha
-	//			)
-	//		);
-	//		if (hasAlpha == false && (float)vc->GetDirectArray().GetAt(v).mAlpha < 1.0)
-	//			hasAlpha = true;
-	//	}
-	//}
-
-
-	//verts.resize(numVerts);
 	const char* uvName = nullptr;
 	if (uv) {
 		uvName = uv->GetName();
-		//uvs.resize(numVerts);
 	}
 
-	//if (vc && vcs.empty()) {
-	//	vcs.resize(numVerts);
-	//}
-
-	//if (normal && normals.empty())
-	//{
-	//	normals.resize(numVerts);
-	//	if (uv)
-	//	{
-	//		tangents.resize(numVerts);
-	//		bitangents.resize(numVerts);
-	//	}
-	//}
-
 	vector<Triangle> tris;
-	set<int> mapped;
 
 	map<std::array<double,18>, size_t> uniques;
 	map<int, int> cp;
@@ -3037,7 +2963,6 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 
 			nif_v = toNIF(v);
 			int nif_vertex_index = verts.size();
-			//verts[vertex_index] = toNIF(v);
 			triangle[i] = nif_vertex_index;
 
 			nif_n = toNIF(v_n);
@@ -3045,13 +2970,6 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			nif_bt = toNIF(v_bt);
 			nif_uv = toNIF(v_uv);
 			nif_color = toNIF(color);
-
-			//FbxVector4 v;
-			//FbxVector4 v_n;
-			//FbxVector4 v_t;
-			//FbxVector4 v_bt;
-			//FbxVector2 v_uv;
-			//FbxColor color;
 
 			std::array<double, 18> values = {
 				v.mData[0], v.mData[1], v.mData[2],
@@ -3086,144 +3004,6 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 
 			cp[vertex_index] = triangle[i];
 
-			/*if (vc && (vc->GetMappingMode() == FbxGeometryElement::eByControlPoint || max_wa)) {
-				color = vc->GetDirectArray().GetAt(vertex_index);
-				if (hasAlpha == false && (float)vc->GetDirectArray().GetAt(vertex_index).mAlpha < 1.0)
-					hasAlpha = true;
-			}
-			if (vc && vc->GetMappingMode() == FbxGeometryElement::eByPolygonVertex && !max_wa)
-			{
-				switch (vc->GetReferenceMode())
-				{
-				case FbxGeometryElement::eDirect:
-				{
-					color = vc->GetDirectArray().GetAt(t * 3 + i);
-					break;
-				}
-				case FbxGeometryElement::eIndexToDirect:
-				{
-					int id = vc->GetIndexArray().GetAt(t * 3 + i);
-					color = vc->GetDirectArray().GetAt(id);
-					break;
-				}
-				default:
-				{
-					break;
-				}
-				}
-				if (hasAlpha == false && color.mAlpha < 1.0)
-					hasAlpha = true;
-				nif_color = Color4
-				(
-					(float)color.mRed,
-					(float)color.mGreen,
-					(float)color.mBlue,
-					(float)color.mAlpha
-				);
-				has_vc = true;
-			}
-			else if (max_wa && vc)
-			{
-				has_vc = true;
-				nif_color = vcs[vertex_index];
-			}*/
-
-
-			/*if (normal && normal->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
-				switch (normal->GetReferenceMode())
-				{
-					case FbxGeometryElement::eDirect:
-					{
-						v_n = normal->GetDirectArray().GetAt(t * 3 + i);
-						if (tangent)
-							v_t = tangent->GetDirectArray().GetAt(t * 3 + i);
-						if (bitangent)
-							v_bt = bitangent->GetDirectArray().GetAt(t * 3 + i);
-						break;
-					}
-					case FbxGeometryElement::eIndexToDirect:
-					{
-						int id = normal->GetIndexArray().GetAt(t * 3 + i);
-						v_n = normal->GetDirectArray().GetAt(id);
-						if (tangent)
-							v_t = tangent->GetDirectArray().GetAt(id);
-						if (bitangent)
-							v_bt = bitangent->GetDirectArray().GetAt(id);
-						break;
-					}
-					default:
-					{
-						break;
-					}
-				}
-				nif_n = Vector3(v_n.mData[0], v_n.mData[1], v_n.mData[2]);
-				if (tangent && bitangent)
-				{
-					nif_t = Vector3(v_t.mData[0], v_t.mData[1], v_t.mData[2]);
-					nif_bt = Vector3(v_bt.mData[0], v_bt.mData[1], v_bt.mData[2]);
-				}
-				has_normal = true;
-			}*/
-			//if (uv && uv->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
-			//	m->GetPolygonVertexUV(t, i, uvName, v_uv, isUnmapped);
-			//	nif_uv = TexCoord(v_uv.mData[0], v_uv.mData[1]);
-			//	has_uv = true;
-			//}
-			
-
-
-
-			//CE can only handle per vertex mapping. We duplicate vertices that have multiple mappings
-			/*if (!mapped.insert(vertex_index).second)
-			{
-				bool remap_normal = false;
-				bool remap_uv = false;
-				bool remap_vc = false;
-				if (has_normal && !(nif_n == normals[vertex_index]))
-				{
-					remap_normal = true;
-				}
-				if (has_uv && !(nif_uv == uvs[vertex_index]))
-				{
-					int lTextureUVIndex = m->GetTextureUVIndex(t, i);
-					remap_uv = true;
-				}
-				if (has_vc && !(nif_color == vcs[vertex_index]))
-				{
-					remap_vc = true;
-				}
-				if (remap_normal || remap_uv || remap_vc) {
-					triangle[i] = verts.size();
-					verts.push_back(verts[vertex_index]);
-					if (has_normal) {
-						normals.push_back(nif_n);
-						if (has_uv)
-						{
-							tangents.push_back(nif_t);
-							bitangents.push_back(nif_bt);
-						}
-					}
-					if (has_uv)
-						uvs.push_back(nif_uv);
-					if (has_vc)
-						vcs.push_back(nif_color);
-					
-				}
-			}
-			else {
-				if (has_normal) {
-					normals[vertex_index] = nif_n;
-					if (has_uv)
-					{
-						tangents[vertex_index] = nif_t;
-						bitangents[vertex_index] = nif_bt;
-					}
-				}
-				if (has_uv)
-					uvs[vertex_index] = nif_uv;
-				if (has_vc)
-					vcs[vertex_index] = nif_color;
-			}*/
 		}
 
 		tris.emplace_back(triangle[0], triangle[1], triangle[2]);
@@ -4858,12 +4638,14 @@ void FBXWrangler::buildCollisions()
 					break;
 				parent = parent->GetParent();
 			}
-
-			for (int i = 0; i < root->GetNodeAttributeCount(); i++)
+			if (body != NULL)
 			{
-				if (root->GetNodeAttributeByIndex(i)->GetAttributeType() == FbxNodeAttribute::eMesh)
-					bodies_meshes_map.insert({ body,
-						(FbxMesh*)root->GetNodeAttributeByIndex(i) });
+				for (int i = 0; i < root->GetNodeAttributeCount(); i++)
+				{
+					if (root->GetNodeAttributeByIndex(i)->GetAttributeType() == FbxNodeAttribute::eMesh)
+						bodies_meshes_map.insert({ body,
+							(FbxMesh*)root->GetNodeAttributeByIndex(i) });
+				}
 			}
 		}
 
@@ -4954,12 +4736,12 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				physic_entities.insert(child);
 				continue;
 			}
-			if (ends_with(child_name, "_support") || child_name.find("AssimpFbx") != string::npos)
-			{
-				//ignore support nodes added for root meshes
-				loadNodeChildren(child);
-				return;
-			}
+			//if (ends_with(child_name, "_support") || child_name.find("AssimpFbx") != string::npos)
+			//{
+			//	//ignore support nodes added for root meshes
+			//	loadNodeChildren(child);
+			//	return;
+			//}
 			if (nif_child == NULL) {
 				nif_child = new NiNode();
 				nif_child->SetName(unsanitizeString(string(child->GetName())));
