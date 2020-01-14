@@ -5,7 +5,7 @@
 Command line helper for executing some Creation Kit/Engine commands. Based upon hkxcmd project by Figment,
 available at https://github.com/figment/hkxcmd
 
-ck-cmd has been developed to support the effort of Skywind's artists
+ck-cmd was born to support the effort of [Skywind](https://tesrskywind.com)'s artists and developed for all of TES games modding communities.
 
 ![image4.png](doc/images/TESR_full_alpha.png)
 

@@ -2525,7 +2525,7 @@ template<>
 class Accessor<AccessSkin>
 {
 	public:
-		Accessor(FbxMesh* m, NiTriShapeRef shape, map<FbxNode*, NiObjectRef>& conversion_Map, NiNodeRef& conversion_root, bool export_skin) {
+		Accessor(FbxMesh* m, const map<int, int>& cp, NiTriShapeRef shape, map<FbxNode*, NiObjectRef>& conversion_Map, NiNodeRef& conversion_root, bool export_skin) {
 			if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
 				NiSkinInstanceRef skin;
 				if (export_skin)
@@ -2547,9 +2547,9 @@ class Accessor<AccessSkin>
 					if (m->GetPolygonSize(t) != 3)
 						continue;
 
-					int p1 = m->GetPolygonVertex(t, 0);
-					int p2 = m->GetPolygonVertex(t, 1);
-					int p3 = m->GetPolygonVertex(t, 2);
+					int p1 = cp.find(m->GetPolygonVertex(t, 0))->second;
+					int p2 = cp.find(m->GetPolygonVertex(t, 1))->second;
+					int p3 = cp.find(m->GetPolygonVertex(t, 2))->second;
 
 					faces_map.insert({ p1,t });
 					faces_map.insert({ p2,t });
@@ -2619,7 +2619,7 @@ class Accessor<AccessSkin>
 						vector<Triangle>& local_triangles = partition.triangles;
 						for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++)
 						{
-							int v = cluster->GetControlPointIndices()[iPoint];
+							int v = cp.find(cluster->GetControlPointIndices()[iPoint])->second;
 							float w = cluster->GetControlPointWeights()[iPoint];
 
 							if (w > 0.0)
@@ -2656,16 +2656,16 @@ class Accessor<AccessSkin>
 						//triangles
 						for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++)
 						{
-							int v = cluster->GetControlPointIndices()[iPoint];
+							int v = cp.find(cluster->GetControlPointIndices()[iPoint])->second;
 							pair <multimap<int, int>::iterator, multimap<int, int>::iterator> this_faces = faces_map.equal_range(v);
 
 							for (multimap<int, int>::iterator faces_it = this_faces.first; faces_it != this_faces.second; faces_it++)
 							{
 								int triangle_index = faces_it->second;
 
-								int global_v1 = m->GetPolygonVertex(triangle_index, 0);
-								int global_v2 = m->GetPolygonVertex(triangle_index, 1);
-								int global_v3 = m->GetPolygonVertex(triangle_index, 2);
+								int global_v1 = cp.find(m->GetPolygonVertex(triangle_index, 0))->second;
+								int global_v2 = cp.find(m->GetPolygonVertex(triangle_index, 1))->second;
+								int global_v3 = cp.find(m->GetPolygonVertex(triangle_index, 2))->second;
 
 								vector<unsigned short >::iterator local_v1_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), global_v1);
 								vector<unsigned short >::iterator local_v2_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), global_v2);
@@ -2764,37 +2764,12 @@ class Accessor<AccessSkin>
 		}
 };
 
-void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape) {
-	Accessor<AccessSkin> do_it(m, shape, conversion_Map, conversion_root, export_skin);
+void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape, const map<int, int>& cp) {
+	Accessor<AccessSkin> do_it(m, cp, shape, conversion_Map, conversion_root, export_skin);
 	int bones = 60;
 	int weights = 4;
 	if (shape->GetSkinInstance()->GetBones().size() > 60)
 		remake_partitions(StaticCast<NiTriBasedGeom>(shape), bones, weights, false, false);
-}
-
-template <class Type, typename T> 
-T getIndexedElement(FbxLayerElementTemplate<Type>* layer, size_t index)
-{
-	switch (layer->GetReferenceMode()) {
-		case FbxLayerElement::EReferenceMode::eDirect:
-			return layer->GetDirectArray().GetAt(index);
-		case FbxLayerElement::eIndex:
-		case FbxLayerElement::eIndexToDirect:
-			return layer->GetDirectArray().GetAt(layer->GetIndexArray()->GetAt(index));
-	}
-}
-
-template <class Type, typename T>
-void getElement(FbxLayerElementTemplate<Type>* layer, size_t index, T& element) {
-	switch (layer->GetMappingMode())
-	{
-	case FbxLayerElement::EMappingMode::eByControlPoint:
-		T = getIndexedElement(layer, index)
-	case FbxLayerElement::EMappingMode::eByPolygonVertex:
-	case FbxLayerElement::EMappingMode::eByPolygon:
-	case FbxLayerElement::EMappingMode::eByEdge:
-	case FbxLayerElement::EMappingMode::eAllSame:
-	}
 }
 
 string format_texture(string tempString)
@@ -2816,6 +2791,50 @@ string format_texture(string tempString)
 	return p.string();
 }
 
+// Get the value of a geometry element for a triangle vertex
+template <typename TGeometryElement, typename TValue>
+inline TValue get_vertex_element(TGeometryElement * pElement, int iPoint, int iTriangle, int iVertex, TValue defaultValue)
+{
+	if (!pElement || pElement->GetMappingMode() == fbxsdk::FbxGeometryElement::eNone) return defaultValue;
+	int index = 0;
+	if (pElement->GetMappingMode() == fbxsdk::FbxGeometryElement::eByControlPoint) index = iPoint;
+	else if (pElement->GetMappingMode() == fbxsdk::FbxGeometryElement::eByPolygon) index = iTriangle;
+	else if (pElement->GetMappingMode() == fbxsdk::FbxGeometryElement::eByPolygonVertex) index = iTriangle * 3 + iVertex;
+	if (pElement->GetReferenceMode() != fbxsdk::FbxGeometryElement::eDirect) index = pElement->GetIndexArray().GetAt(index);
+	return pElement->GetDirectArray().GetAt(index);
+}
+
+FbxVector4 v;
+FbxVector4 v_n;
+FbxVector4 v_t;
+FbxVector4 v_bt;
+FbxVector2 v_uv;
+FbxColor color;
+
+bool has_normal = false;
+bool has_uv = false;
+bool has_vc = false;
+
+Vector3 nif_n;
+Vector3 nif_t;
+Vector3 nif_bt;
+TexCoord nif_uv;
+Color4 nif_color;
+
+inline Vector3 toNIF(const FbxVector4& v) {
+	return { (float)v.mData[0], (float)v.mData[1], (float)v.mData[2] };
+}
+
+inline TexCoord toNIF(const FbxVector2& v) {
+	return { (float)v.mData[0], (float)v.mData[1]};
+}
+
+inline Color4 toNIF(const FbxColor& color) {
+	return 	{ (float)color.mRed, (float)color.mGreen, (float)color.mBlue, (float)color.mAlpha };
+}
+
+
+
 NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOptions& options) {
 	NiTriShapeRef out = new NiTriShape();
 	NiTriShapeDataRef data = new NiTriShapeData();
@@ -2832,11 +2851,11 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	int numVerts = m->GetControlPointsCount();
 	int numTris = m->GetPolygonCount();
 
-	vector<Vector3> verts;
-	vector<Vector3> normals;
-	vector<Vector3> tangents;
-	vector<Vector3> bitangents;
-	vector<Color4 > vcs;
+	vector<Vector3> verts(0);
+	vector<Vector3> normals(0);
+	vector<Vector3> tangents(0);
+	vector<Vector3> bitangents(0);
+	vector<Color4 > vcs(0);
 
 	if (normal == NULL) {
 		Log::Info("Warning: cannot find normals, I'll recalculate them for %s", m->GetName());
@@ -2844,22 +2863,25 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	vector<TexCoord> uvs;
 
 	FbxAMatrix node_trans; node_trans = m->GetPivot(node_trans);
-	auto& uv_array = uv->GetDirectArray();
-	if (options.InvertU)
-		for (int i = 0; i < uv_array.GetCount(); i++)
-		{
-			auto uvv = uv_array.GetAt(i);
-			uvv[0] = 1.0f - uvv[0];
-			uv_array.SetAt(i, uvv);
-		}
+	if (uv)
+	{
+		auto& uv_array = uv->GetDirectArray();
+		if (options.InvertU)
+			for (int i = 0; i < uv_array.GetCount(); i++)
+			{
+				auto uvv = uv_array.GetAt(i);
+				uvv[0] = 1.0f - uvv[0];
+				uv_array.SetAt(i, uvv);
+			}
 
-	if (options.InvertV)
-		for (int i = 0; i < uv_array.GetCount(); i++)
-		{
-			auto uvv = uv_array.GetAt(i);
-			uvv[1] = 1.0f - uvv[1];
-			uv_array.SetAt(i, uvv);
-		}
+		if (options.InvertV)
+			for (int i = 0; i < uv_array.GetCount(); i++)
+			{
+				auto uvv = uv_array.GetAt(i);
+				uvv[1] = 1.0f - uvv[1];
+				uv_array.SetAt(i, uvv);
+			}		
+	}
 
 	m->GenerateTangentsDataForAllUVSets();
 
@@ -2877,73 +2899,85 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 		(exporter_version == "2017" || exporter_version == "2018"))
 		max_wa = true;
 
-	for (int v = 0; v < numVerts; v++) {
-		FbxVector4 vert = m->GetControlPointAt(v);
+	//for (int v = 0; v < numVerts; v++) {
+	//	FbxVector4 vert = m->GetControlPointAt(v);
 
-		if (uv && uv->GetMappingMode() != FbxGeometryElement::eByControlPoint &&
-			uv->GetMappingMode() != FbxGeometryElement::eByPolygonVertex) {
-			FbxGeometryElement::EMappingMode m = uv->GetMappingMode();
-		}
+	//	if (uv && uv->GetMappingMode() != FbxGeometryElement::eByControlPoint &&
+	//		uv->GetMappingMode() != FbxGeometryElement::eByPolygonVertex) {
+	//		FbxGeometryElement::EMappingMode m = uv->GetMappingMode();
+	//	}
 
-		verts.emplace_back((float)vert.mData[0], (float)vert.mData[1], (float)vert.mData[2]);
-		if (uv && uv->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
-			int uIndex = v;
-			if (uv->GetReferenceMode() == FbxLayerElement::eIndexToDirect)
-				uIndex = uv->GetIndexArray().GetAt(v);
+	//	verts.emplace_back((float)vert.mData[0], (float)vert.mData[1], (float)vert.mData[2]);
+	//	if (uv && uv->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
+	//		int uIndex = v;
+	//		if (uv->GetReferenceMode() == FbxLayerElement::eIndexToDirect)
+	//			uIndex = uv->GetIndexArray().GetAt(v);
 
-			uvs.emplace_back((float)uv->GetDirectArray().GetAt(uIndex).mData[0],
-				(float)uv->GetDirectArray().GetAt(uIndex).mData[1]);
-		}
+	//		uvs.emplace_back((float)uv->GetDirectArray().GetAt(uIndex).mData[0],
+	//			(float)uv->GetDirectArray().GetAt(uIndex).mData[1]);
+	//	}
 
-		if (normal && normal->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
-			normals.emplace_back((float)normal->GetDirectArray().GetAt(v).mData[0],
-				(float)normal->GetDirectArray().GetAt(v).mData[1],
-				(float)normal->GetDirectArray().GetAt(v).mData[2]);
-			tangents.emplace_back((float)tangent->GetDirectArray().GetAt(v).mData[0],
-				(float)tangent->GetDirectArray().GetAt(v).mData[1],
-				(float)tangent->GetDirectArray().GetAt(v).mData[2]);
-			bitangents.emplace_back((float)bitangent->GetDirectArray().GetAt(v).mData[0],
-				(float)bitangent->GetDirectArray().GetAt(v).mData[1],
-				(float)bitangent->GetDirectArray().GetAt(v).mData[2]);
-		}
-
-
-		if (vc && (vc->GetMappingMode() == FbxGeometryElement::eByControlPoint || max_wa)) {
-			vcs.emplace_back(
-				Color4
-				(
-				(float)vc->GetDirectArray().GetAt(v).mRed,
-					(float)vc->GetDirectArray().GetAt(v).mGreen,
-					(float)vc->GetDirectArray().GetAt(v).mBlue,
-					(float)vc->GetDirectArray().GetAt(v).mAlpha
-				)
-			);
-			if (hasAlpha == false && (float)vc->GetDirectArray().GetAt(v).mAlpha < 1.0)
-				hasAlpha = true;
-		}
-	}
+	//	if (normal && normal->GetMappingMode() == FbxGeometryElement::eByControlPoint) {
+	//		normals.emplace_back((float)normal->GetDirectArray().GetAt(v).mData[0],
+	//			(float)normal->GetDirectArray().GetAt(v).mData[1],
+	//			(float)normal->GetDirectArray().GetAt(v).mData[2]);
+	//		if (tangent)
+	//		{
+	//			tangents.emplace_back((float)tangent->GetDirectArray().GetAt(v).mData[0],
+	//				(float)tangent->GetDirectArray().GetAt(v).mData[1],
+	//				(float)tangent->GetDirectArray().GetAt(v).mData[2]);
+	//		}
+	//		if (bitangent)
+	//		{
+	//			bitangents.emplace_back((float)bitangent->GetDirectArray().GetAt(v).mData[0],
+	//				(float)bitangent->GetDirectArray().GetAt(v).mData[1],
+	//				(float)bitangent->GetDirectArray().GetAt(v).mData[2]);
+	//		}
+	//	}
 
 
+	//	if (vc && (vc->GetMappingMode() == FbxGeometryElement::eByControlPoint || max_wa)) {
+	//		vcs.emplace_back(
+	//			Color4
+	//			(
+	//			(float)vc->GetDirectArray().GetAt(v).mRed,
+	//				(float)vc->GetDirectArray().GetAt(v).mGreen,
+	//				(float)vc->GetDirectArray().GetAt(v).mBlue,
+	//				(float)vc->GetDirectArray().GetAt(v).mAlpha
+	//			)
+	//		);
+	//		if (hasAlpha == false && (float)vc->GetDirectArray().GetAt(v).mAlpha < 1.0)
+	//			hasAlpha = true;
+	//	}
+	//}
 
+
+	//verts.resize(numVerts);
 	const char* uvName = nullptr;
 	if (uv) {
 		uvName = uv->GetName();
-		uvs.resize(numVerts);
+		//uvs.resize(numVerts);
 	}
 
-	if (vc && vcs.empty()) {
-		vcs.resize(numVerts);
-	}
+	//if (vc && vcs.empty()) {
+	//	vcs.resize(numVerts);
+	//}
 
-	if (normal && normals.empty())
-	{
-		normals.resize(numVerts);
-		tangents.resize(numVerts);
-		bitangents.resize(numVerts);
-	}
+	//if (normal && normals.empty())
+	//{
+	//	normals.resize(numVerts);
+	//	if (uv)
+	//	{
+	//		tangents.resize(numVerts);
+	//		bitangents.resize(numVerts);
+	//	}
+	//}
 
 	vector<Triangle> tris;
 	set<int> mapped;
+
+	map<std::array<double,18>, size_t> uniques;
+	map<int, int> cp;
 
 	for (int t = 0; t < numTris; t++) {
 		if (m->GetPolygonSize(t) != 3)
@@ -2953,6 +2987,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 
 		for (int i = 0; i < 3; i++)
 		{
+			FbxVector4 v;
 			FbxVector4 v_n;
 			FbxVector4 v_t;
 			FbxVector4 v_bt;
@@ -2963,6 +2998,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			bool has_uv = false;
 			bool has_vc = false;
 
+			Vector3 nif_v;
 			Vector3 nif_n;
 			Vector3 nif_t;
 			Vector3 nif_bt;
@@ -2972,59 +3008,108 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			bool isUnmapped;
 			int vertex_index = m->GetPolygonVertex(t, i);
 
-			if (normal && normal->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
-				switch (normal->GetReferenceMode())
-				{
-					case FbxGeometryElement::eDirect:
-					{
-						v_n = normal->GetDirectArray().GetAt(t * 3 + i);
-						v_t = tangent->GetDirectArray().GetAt(t * 3 + i);
-						v_bt = bitangent->GetDirectArray().GetAt(t * 3 + i);
-						break;
-					}
-					case FbxGeometryElement::eIndexToDirect:
-					{
-						int id = normal->GetIndexArray().GetAt(t * 3 + i);
-						v_n = normal->GetDirectArray().GetAt(id);
-						v_t = tangent->GetDirectArray().GetAt(id);
-						v_bt = bitangent->GetDirectArray().GetAt(id);
-						break;
-					}
-					default:
-					{
-						break;
-					}
-				}
-				nif_n = Vector3(v_n.mData[0], v_n.mData[1], v_n.mData[2]);
-				nif_t = Vector3(v_t.mData[0], v_t.mData[1], v_t.mData[2]);
-				nif_bt = Vector3(v_bt.mData[0], v_bt.mData[1], v_bt.mData[2]);
-
+			v = m->GetControlPointAt(vertex_index);
+			if (normal)
+			{
+				v_n = get_vertex_element(normal, vertex_index, t, i, fbxsdk::FbxVector4(0, 0, 0, 0));
+				if (tangent)
+					v_t = get_vertex_element(tangent, vertex_index, t, i, fbxsdk::FbxVector4(0, 0, 0, 0));
+				if (bitangent)
+					v_bt = get_vertex_element(bitangent, vertex_index, t, i, fbxsdk::FbxVector4(0, 0, 0, 0));
 				has_normal = true;
 			}
-			if (uv && uv->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
-				m->GetPolygonVertexUV(t, i, uvName, v_uv, isUnmapped);
+
+			if (uv) {
+				v_uv = get_vertex_element(uv, vertex_index, t, i, fbxsdk::FbxVector2(0, 0));
 				nif_uv = TexCoord(v_uv.mData[0], v_uv.mData[1]);
 				has_uv = true;
+			}
+
+			if (vc) {
+				color = get_vertex_element(vc, vertex_index, t, i, fbxsdk::FbxColor(0, 0, 0, 0));
+				//MAX workaround
+				if (max_wa)
+					color = vc->GetDirectArray().GetAt(vertex_index);
+				if (hasAlpha == false && color.mAlpha < 1.0)
+					hasAlpha = true;
+				has_vc = true;
+			}
+
+			nif_v = toNIF(v);
+			int nif_vertex_index = verts.size();
+			//verts[vertex_index] = toNIF(v);
+			triangle[i] = nif_vertex_index;
+
+			nif_n = toNIF(v_n);
+			nif_t = toNIF(v_t);
+			nif_bt = toNIF(v_bt);
+			nif_uv = toNIF(v_uv);
+			nif_color = toNIF(color);
+
+			//FbxVector4 v;
+			//FbxVector4 v_n;
+			//FbxVector4 v_t;
+			//FbxVector4 v_bt;
+			//FbxVector2 v_uv;
+			//FbxColor color;
+
+			std::array<double, 18> values = {
+				v.mData[0], v.mData[1], v.mData[2],
+				v_n.mData[0], v_n.mData[1], v_n.mData[2],
+				v_t.mData[0], v_t.mData[1], v_t.mData[2],
+				v_bt.mData[0], v_bt.mData[1], v_bt.mData[2],
+				v_uv.mData[0], v_uv.mData[1],
+				color.mRed, color.mGreen, color.mBlue, color.mAlpha
+			};
+			auto v_iter = uniques.find(values);
+			if (v_iter == uniques.end()) {
+				int index = verts.size();
+				verts.push_back(nif_v);
+				if (normal) {
+					normals.push_back(nif_n);
+					if (tangent && bitangent)
+					{
+						tangents.push_back(nif_t);
+						bitangents.push_back(nif_bt);
+					}
+				}
+				if (has_uv)
+					uvs.push_back(nif_uv);
+				if (has_vc)
+					vcs.push_back(nif_color);
+				uniques[values] = index;
+				triangle[i] = index;
+			}
+			else {
+				triangle[i] = v_iter->second;
+			}
+
+			cp[vertex_index] = triangle[i];
+
+			/*if (vc && (vc->GetMappingMode() == FbxGeometryElement::eByControlPoint || max_wa)) {
+				color = vc->GetDirectArray().GetAt(vertex_index);
+				if (hasAlpha == false && (float)vc->GetDirectArray().GetAt(vertex_index).mAlpha < 1.0)
+					hasAlpha = true;
 			}
 			if (vc && vc->GetMappingMode() == FbxGeometryElement::eByPolygonVertex && !max_wa)
 			{
 				switch (vc->GetReferenceMode())
 				{
-					case FbxGeometryElement::eDirect:
-					{
-						color = vc->GetDirectArray().GetAt(t * 3 + i);
-						break;
-					}
-					case FbxGeometryElement::eIndexToDirect:
-					{
-						int id = vc->GetIndexArray().GetAt(t * 3 + i);
-						color = vc->GetDirectArray().GetAt(id);
-						break;
-					}
-					default:
-					{
-						break;
-					}
+				case FbxGeometryElement::eDirect:
+				{
+					color = vc->GetDirectArray().GetAt(t * 3 + i);
+					break;
+				}
+				case FbxGeometryElement::eIndexToDirect:
+				{
+					int id = vc->GetIndexArray().GetAt(t * 3 + i);
+					color = vc->GetDirectArray().GetAt(id);
+					break;
+				}
+				default:
+				{
+					break;
+				}
 				}
 				if (hasAlpha == false && color.mAlpha < 1.0)
 					hasAlpha = true;
@@ -3041,12 +3126,55 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			{
 				has_vc = true;
 				nif_color = vcs[vertex_index];
-			}
+			}*/
 
-			triangle[i] = vertex_index;
+
+			/*if (normal && normal->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
+				switch (normal->GetReferenceMode())
+				{
+					case FbxGeometryElement::eDirect:
+					{
+						v_n = normal->GetDirectArray().GetAt(t * 3 + i);
+						if (tangent)
+							v_t = tangent->GetDirectArray().GetAt(t * 3 + i);
+						if (bitangent)
+							v_bt = bitangent->GetDirectArray().GetAt(t * 3 + i);
+						break;
+					}
+					case FbxGeometryElement::eIndexToDirect:
+					{
+						int id = normal->GetIndexArray().GetAt(t * 3 + i);
+						v_n = normal->GetDirectArray().GetAt(id);
+						if (tangent)
+							v_t = tangent->GetDirectArray().GetAt(id);
+						if (bitangent)
+							v_bt = bitangent->GetDirectArray().GetAt(id);
+						break;
+					}
+					default:
+					{
+						break;
+					}
+				}
+				nif_n = Vector3(v_n.mData[0], v_n.mData[1], v_n.mData[2]);
+				if (tangent && bitangent)
+				{
+					nif_t = Vector3(v_t.mData[0], v_t.mData[1], v_t.mData[2]);
+					nif_bt = Vector3(v_bt.mData[0], v_bt.mData[1], v_bt.mData[2]);
+				}
+				has_normal = true;
+			}*/
+			//if (uv && uv->GetMappingMode() == FbxGeometryElement::eByPolygonVertex) {
+			//	m->GetPolygonVertexUV(t, i, uvName, v_uv, isUnmapped);
+			//	nif_uv = TexCoord(v_uv.mData[0], v_uv.mData[1]);
+			//	has_uv = true;
+			//}
+			
+
+
 
 			//CE can only handle per vertex mapping. We duplicate vertices that have multiple mappings
-			if (!mapped.insert(vertex_index).second)
+			/*if (!mapped.insert(vertex_index).second)
 			{
 				bool remap_normal = false;
 				bool remap_uv = false;
@@ -3057,6 +3185,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 				}
 				if (has_uv && !(nif_uv == uvs[vertex_index]))
 				{
+					int lTextureUVIndex = m->GetTextureUVIndex(t, i);
 					remap_uv = true;
 				}
 				if (has_vc && !(nif_color == vcs[vertex_index]))
@@ -3068,8 +3197,11 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 					verts.push_back(verts[vertex_index]);
 					if (has_normal) {
 						normals.push_back(nif_n);
-						tangents.push_back(nif_t);
-						bitangents.push_back(nif_bt);
+						if (has_uv)
+						{
+							tangents.push_back(nif_t);
+							bitangents.push_back(nif_bt);
+						}
 					}
 					if (has_uv)
 						uvs.push_back(nif_uv);
@@ -3081,14 +3213,17 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			else {
 				if (has_normal) {
 					normals[vertex_index] = nif_n;
-					tangents[vertex_index] = nif_t;
-					bitangents[vertex_index] = nif_bt;
+					if (has_uv)
+					{
+						tangents[vertex_index] = nif_t;
+						bitangents[vertex_index] = nif_bt;
+					}
 				}
 				if (has_uv)
 					uvs[vertex_index] = nif_uv;
 				if (has_vc)
 					vcs[vertex_index] = nif_color;
-			}
+			}*/
 		}
 
 		tris.emplace_back(triangle[0], triangle[1], triangle[2]);
@@ -3125,6 +3260,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
 
 		skins_Map[m] = out;
+		skins_control_Points.insert({ m, cp });
 	}
 	else {
 		meshes.insert(m);
@@ -4818,7 +4954,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				physic_entities.insert(child);
 				continue;
 			}
-			if (ends_with(child_name, "_support"))
+			if (ends_with(child_name, "_support") || child_name.find("AssimpFbx") != string::npos)
 			{
 				//ignore support nodes added for root meshes
 				loadNodeChildren(child);
@@ -4887,7 +5023,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	//skins
 	for (const auto& p : skins_Map)
 	{
-		convertSkins(p.first, p.second);
+		convertSkins(p.first, p.second, skins_control_Points[p.first]);
 	}
 
 	//insertion deferred for skins

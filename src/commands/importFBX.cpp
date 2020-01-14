@@ -132,11 +132,16 @@ bool BeginConversion(string importFBX, string exportPath) {
 	}
 
 	FBXWrangler wrangler;
-	wrangler.ImportScene(fbxModelpath.string().c_str());
+	if (wrangler.ImportScene(fbxModelpath.string().c_str()))
+	{
 
-	fs::path out_path = outputDir / fbxModelpath.filename().replace_extension(".nif");
-	fs::create_directories(outputDir);
-	wrangler.SaveNif(out_path.string());
+		fs::path out_path = outputDir / fbxModelpath.filename().replace_extension(".nif");
+		fs::create_directories(outputDir);
+		wrangler.SaveNif(out_path.string());
+	}
+	else {
+		Log::Error("Invalid FBX File: %s", fbxModelpath.string().c_str());
+	}
 
 }
 

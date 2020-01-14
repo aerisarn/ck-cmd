@@ -46,6 +46,7 @@ namespace FBX {
 		map<NiAVObjectRef, NiAVObjectRef> conversion_parent_Map;
 		map<FbxNode*, NiObjectRef> conversion_Map;
 		map<FbxMesh*, NiTriShapeRef> skins_Map;
+		map<FbxMesh*, const map<int, int>> skins_control_Points;
 		set<FbxMesh*> meshes;
 
 		set<FbxNode*> skinned_bones;
@@ -77,7 +78,7 @@ namespace FBX {
 		bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_layer);
 		NiCollisionObjectRef build_physics(FbxNode* rigid_body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
 		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start, double last_stop);
-		void convertSkins(FbxMesh* m, NiTriShapeRef shape);
+		void convertSkins(FbxMesh* m, NiTriShapeRef shape, const map<int,int>& cp);
 		FbxNode* find_animated_parent(FbxNode* rigid_body);
 	public:
 		FBXWrangler();
