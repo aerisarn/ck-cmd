@@ -4932,8 +4932,11 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		}
 	}
 
-	//collisions
-	buildCollisions();
+	if (!export_skin)
+	{
+		//collisions
+		buildCollisions();
+	}
 
 	return true;
 }
