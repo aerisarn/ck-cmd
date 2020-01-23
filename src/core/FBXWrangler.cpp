@@ -2953,6 +2953,14 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 
 			if (vc) {
 				color = get_vertex_element(vc, vertex_index, t, i, fbxsdk::FbxColor(0, 0, 0, 0));
+				//Blender Workaround, read alpha from the second layer
+				auto vc2 = m->GetElementVertexColor(0);
+				if (vc2) {
+					auto fake_alpha = get_vertex_element(vc2, vertex_index, t, i, fbxsdk::FbxColor(0, 0, 0, 0));
+					//rgb to alpha
+					color.mAlpha = (fake_alpha.mRed * 0.2126 + fake_alpha.mGreen * 0.7152 + fake_alpha.mBlue * 0.0722);
+				}
+
 				//MAX workaround
 				if (max_wa)
 					color = vc->GetDirectArray().GetAt(vertex_index);
