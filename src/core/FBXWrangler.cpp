@@ -63,6 +63,8 @@ using namespace  ckcmd::Geometry;
 using namespace ckcmd::nifscan;
 using namespace ckcmd::HKX;
 
+#undef max
+
 static inline Niflib::Vector3 TOVECTOR3(const hkVector4& v, const float scale = 1.0f) {
 	return Niflib::Vector3((float)v.getSimdAt(0) * scale, (float)v.getSimdAt(1) * scale, (float)v.getSimdAt(2) * scale);
 }
@@ -2845,6 +2847,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	FbxGeometryElementUV* uv = m->GetElementUV(0);
 	FbxGeometryElementNormal* normal = m->GetElementNormal(0);
 	FbxGeometryElementVertexColor* vc = m->GetElementVertexColor(0);
+	FbxGeometryElementVertexColor* vc2 = m->GetElementVertexColor(1);
 
 	string orig_name = m->GetName();
 	out->SetName(unsanitizeString(orig_name));
@@ -2954,11 +2957,10 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			if (vc) {
 				color = get_vertex_element(vc, vertex_index, t, i, fbxsdk::FbxColor(0, 0, 0, 0));
 				//Blender Workaround, read alpha from the second layer
-				auto vc2 = m->GetElementVertexColor(0);
 				if (vc2) {
 					auto fake_alpha = get_vertex_element(vc2, vertex_index, t, i, fbxsdk::FbxColor(0, 0, 0, 0));
 					//rgb to alpha
-					color.mAlpha = (fake_alpha.mRed * 0.2126 + fake_alpha.mGreen * 0.7152 + fake_alpha.mBlue * 0.0722);
+					color.mAlpha = std::max({ fake_alpha.mRed, fake_alpha.mGreen, fake_alpha.mBlue });
 				}
 
 				//MAX workaround
@@ -3079,7 +3081,9 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	BSLightingShaderProperty* shader = new BSLightingShaderProperty();
 
 	if (data->GetHasVertexColors() == false)
-		shader->SetShaderFlags2_sk(SkyrimShaderPropertyFlags2(shader->GetShaderFlags2() & ~SLSF2_VERTEX_COLORS));
+		shader->SetShaderFlags2_sk(SkyrimShaderPropertyFlags2(shader->GetShaderFlags2_sk() & ~SLSF2_VERTEX_COLORS));
+	else if (hasAlpha)
+		shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() | SLSF1_VERTEX_ALPHA));
 
 	if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
 		shader->SetShaderFlags1_sk(SkyrimShaderPropertyFlags1(shader->GetShaderFlags1_sk() | SLSF1_SKINNED));
@@ -3266,12 +3270,12 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 
 
 
-	//if (out->GetAlphaProperty() == NULL && hasAlpha) {
-	//	NiAlphaPropertyRef alpharef = new NiAlphaProperty();
-	//	alpharef->SetFlags(237);
-	//	alpharef->SetThreshold(128);
-	//	out->SetAlphaProperty(alpharef);
-	//}
+	if (out->GetAlphaProperty() == NULL && hasAlpha) {
+		NiAlphaPropertyRef alpharef = new NiAlphaProperty();
+		alpharef->SetFlags(237);
+		alpharef->SetThreshold(128);
+		out->SetAlphaProperty(alpharef);
+	}
 
 	shader->SetTextureSet(textures);
 
