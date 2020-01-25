@@ -3165,7 +3165,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 					if (texture)
 					{
 						vTextures[0] = format_texture(texture->GetFileName());
-						if (texture->Alpha > 0.0)
+						if (texture->Alpha < 1.0)
 							hasAlpha = true;
 					}
 
