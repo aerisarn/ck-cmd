@@ -765,9 +765,13 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 	int FloatNumber = animation->m_numberOfFloatTracks;
 
 	float AnimDuration = animation->m_duration;
-	hkReal incrFrame = animation->m_duration / (hkReal)(FrameNumber - 1);
+	hkReal incrFrame = animation->m_duration / (hkReal)(FrameNumber -1);
+	double framerate = FrameNumber / AnimDuration;
 
-
+	lTime.SetGlobalTimeMode(FbxTime::EMode::eCustom, framerate);
+	FbxTime startTime; startTime.SetSecondDouble(0.0);
+	FbxTime stopTime; stopTime.SetSecondDouble(AnimDuration);
+	lAnimStack->SetLocalTimeSpan(FbxTimeSpan(startTime, stopTime));
 
 	if (TrackNumber > numBones)
 	{
@@ -778,13 +782,13 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 	hkLocalArray<hkQsTransform> transformOut(TrackNumber);
 	floatsOut.setSize(FloatNumber);
 	transformOut.setSize(TrackNumber);
-	hkReal startTime = 0.0;
+	//hkReal startTime = 0.0;
 
 	hkArray<hkInt16> tracks;
 	tracks.setSize(TrackNumber);
 	for (int i = 0; i<TrackNumber; ++i) tracks[i] = i;
 
-	hkReal time = startTime;
+	//hkReal time = startTime;
 
 	FbxAnimCurve* lCurve_Trans_X;
 	FbxAnimCurve* lCurve_Trans_Y;
@@ -869,7 +873,7 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 	}
 
 	// loop through keyframes
-	for (int iFrame = 0; iFrame<FrameNumber; ++iFrame, time += incrFrame)
+	for (hkReal time = 0.0; time<AnimDuration; time += incrFrame)
 	{
 		animation->samplePartialTracks(time, TrackNumber, transformOut.begin(), FloatNumber, floatsOut.begin(), NULL);
 		hkaSkeletonUtils::normalizeRotations(transformOut.begin(), TrackNumber);
@@ -878,7 +882,7 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 		// loop through animated bones
 
 		// todo support for anything else beside 30 fps?
-		lTime.SetTime(0, 0, 0, iFrame, 0, 0, lTime.eFrames30);
+		lTime.SetSecondDouble(time);
 
 		for (int i = 0; i<TrackNumber; ++i)
 		{
