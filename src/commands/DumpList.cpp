@@ -41,8 +41,6 @@
 
 using namespace std;
 
-REGISTER_COMMAND_CPP(DumpList)
-
 DumpList::DumpList()
 {
 }
@@ -51,12 +49,12 @@ DumpList::~DumpList()
 {
 }
 
-string DumpList::GetName() const
+string DumpList::GetName() 
 {
     return "DumpList";
 }
 
-string DumpList::GetHelp() const
+string DumpList::GetHelp() 
 {
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -77,17 +75,17 @@ Options:
     return usage + help;
 }
 
-string DumpList::GetHelpShort() const
+string DumpList::GetHelpShort() 
 {
     return "Dump the transform or float list for a given skeleton";
 }
 
-bool DumpList::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool DumpList::InternalRunCommand(const CommandSettings& settings)
 {
     // TODO: SafeExecuteCmd
 
-	string inpath   = parsedArgs["<infile>"].asString();
-	string outpath  = parsedArgs["-o"].asString();
+	string inpath; // = parsedArgs["<infile>"].asString();
+	string outpath; // = parsedArgs["-o"].asString();
 	hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT|hkSerializeUtil::SAVE_TEXT_NUMBERS);
 
     /*

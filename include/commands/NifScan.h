@@ -11,8 +11,13 @@ static const fs::path nif_scan_err = "D:\\git\\ck-cmd\\resources\\err";
 namespace ckcmd {
 	namespace nifscan {
 
-        class NifScan : public CommandBase
+        class NifScan : public CommandBase<NifScan>
         {
+			COMMAND_PARAMETERS_LIST
+			{
+				//COMMAND_PARAMETER(bool, a);
+			};
+
             REGISTER_COMMAND_HEADER(NifScan)
 
         private:
@@ -20,12 +25,11 @@ namespace ckcmd {
             virtual ~NifScan();
 
         public:
-            virtual string GetName() const;
-            virtual string GetHelp() const;
-            virtual string GetHelpShort() const;
+			static string GetName();
+			static string GetHelp();
+			static string GetHelpShort();
 
-        protected:
-            virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
+            virtual bool InternalRunCommand(const CommandSettings& settings);
         };
 
 		using namespace Niflib;

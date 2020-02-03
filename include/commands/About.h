@@ -3,18 +3,34 @@
 // Command Base
 #include <commands\CommandBase.h>
 
-class About : public CommandBase
-{
-    REGISTER_COMMAND_HEADER(About)
 
-private:
+
+struct About : public CommandBase<About>
+{
+
+	COMMAND_PARAMETERS_LIST 
+	{
+		//COMMAND_PARAMETER(bool, a);
+		bool a;
+	};
+
+
+	struct CommandSettingsHelp
+	{
+
+	};
+
     About();
     virtual ~About();
 
-    virtual string GetName() const;
-    virtual string GetHelp() const;
-    virtual string GetHelpShort() const;
 
-protected:
-    virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
+
+public:
+	static string GetName();
+	static string GetHelp();
+	static string GetHelpShort();
+
+    virtual bool InternalRunCommand(const CommandSettings& settings);
+
+	REGISTER_COMMAND_HEADER(About);
 };

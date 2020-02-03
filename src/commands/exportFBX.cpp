@@ -22,8 +22,6 @@ using namespace ckcmd::FBX;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 
-REGISTER_COMMAND_CPP(ExportFBX)
-
 ExportFBX::ExportFBX()
 {
 }
@@ -32,12 +30,12 @@ ExportFBX::~ExportFBX()
 {
 }
 
-string ExportFBX::GetName() const
+string ExportFBX::GetName() 
 {
     return "exportfbx";
 }
 
-string ExportFBX::GetHelp() const
+string ExportFBX::GetHelp() 
 {
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -56,26 +54,26 @@ string ExportFBX::GetHelp() const
     return usage + help;
 }
 
-string ExportFBX::GetHelpShort() const
+string ExportFBX::GetHelpShort() 
 {
     return "TODO: Short help message for ExportFBX";
 }
 
-bool ExportFBX::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool ExportFBX::InternalRunCommand(const CommandSettings& settings)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
 	string importNIF, exportPath = "", texturePath = "";
 
-	if (parsedArgs.find("<path_to_nif>") == parsedArgs.end())
-	{
-		Log::Error("<path_to_nif> argument is mandatory");
-		return false;
-	}
-	importNIF = parsedArgs["<path_to_nif>"].asString();
-	if (parsedArgs.find("-e") != parsedArgs.end() && parsedArgs["-e"].asBool())
-		exportPath = parsedArgs["<path_to_export>"].asString();
-	if (parsedArgs.find("-t") != parsedArgs.end() && parsedArgs["-t"].asBool())
-		texturePath = parsedArgs["<path_to_textures>"].asString();
+	//if (parsedArgs.find("<path_to_nif>") == parsedArgs.end())
+	//{
+	//	Log::Error("<path_to_nif> argument is mandatory");
+	//	return false;
+	//}
+	//importNIF = parsedArgs["<path_to_nif>"].asString();
+	//if (parsedArgs.find("-e") != parsedArgs.end() && parsedArgs["-e"].asBool())
+	//	exportPath = parsedArgs["<path_to_export>"].asString();
+	//if (parsedArgs.find("-t") != parsedArgs.end() && parsedArgs["-t"].asBool())
+	//	texturePath = parsedArgs["<path_to_textures>"].asString();
 
 	InitializeHavok();
 	BeginConversion(importNIF, exportPath, texturePath);
@@ -108,7 +106,7 @@ bool BeginConversion(string importNIF, string exportPath, string texturePath) {
 	return true;
 }
 
-//bool ExportFBX::InternalRunCommand(map<string, docopt::value> parsedArgs)
+//bool ExportFBX::InternalRunCommand(const CommandSettings& settings)
 //{
 //    Log::Info("Begin Scan");
 //

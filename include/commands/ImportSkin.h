@@ -5,8 +5,13 @@
 // Command Base
 #include <commands/CommandBase.h>
 
-class ImportSkin : public CommandBase
+class ImportSkin : public CommandBase<ImportSkin>
 {
+	COMMAND_PARAMETERS_LIST
+	{
+		//COMMAND_PARAMETER(bool, a);
+	};
+
     REGISTER_COMMAND_HEADER(ImportSkin)
 
 private:
@@ -14,12 +19,11 @@ private:
     virtual ~ImportSkin();
 
 public:
-    virtual string GetName() const;
-    virtual string GetHelp() const;
-    virtual string GetHelpShort() const;
+	static string GetName();
+	static string GetHelp();
+	static string GetHelpShort();
 
-protected:
-    virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
+    virtual bool InternalRunCommand(const CommandSettings& settings);
 };
 
 #endif //IMPFBX_H

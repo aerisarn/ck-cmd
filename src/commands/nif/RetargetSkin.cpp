@@ -29,8 +29,6 @@ static bool BeginConversion(string importPath, string importSkeletonPath, string
 static void InitializeHavok();
 static void CloseHavok();
 
-REGISTER_COMMAND_CPP(RetargetSkin)
-
 RetargetSkin::RetargetSkin()
 {
 }
@@ -39,12 +37,12 @@ RetargetSkin::~RetargetSkin()
 {
 }
 
-string RetargetSkin::GetName() const
+string RetargetSkin::GetName() 
 {
 	return "retargetskin";
 }
 
-string RetargetSkin::GetHelp() const
+string RetargetSkin::GetHelp() 
 {
 	string name = GetName();
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -66,21 +64,21 @@ string RetargetSkin::GetHelp() const
 	return usage + help;
 }
 
-string RetargetSkin::GetHelpShort() const
+string RetargetSkin::GetHelpShort() 
 {
 	//I'm unsure about returning a string.. It doesn't show up on the console..
 	//Log::Info("Convert Oblivion version models to Skyrim's format.");
 	return "TODO: Short help message for ConvertNif";
 }
 
-bool RetargetSkin::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool RetargetSkin::InternalRunCommand(const CommandSettings& settings)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
 	string importSkinPath, importSkeletonPath, exportPath;
 
-	importSkinPath = parsedArgs["<path_to_skin>"].asString();
-	importSkeletonPath = parsedArgs["<path_to_skeleton>"].asString();
-	exportPath = parsedArgs["<path_to_export>"].asString();
+	//importSkinPath = parsedArgs["<path_to_skin>"].asString();
+	//importSkeletonPath = parsedArgs["<path_to_skeleton>"].asString();
+	//exportPath = parsedArgs["<path_to_export>"].asString();
 
 	InitializeHavok();
 	BeginConversion(importSkinPath, importSkeletonPath, exportPath);
@@ -526,20 +524,20 @@ bool BeginConversion(string importSkinPath, string importSkeletonPath, string ex
 	return true;
 }
 
-static void HelpString(hkxcmd::HelpType type) {
-	switch (type)
-	{
-	case hkxcmd::htShort: Log::Info("About - Help about this program."); break;
-	case hkxcmd::htLong: {
-		char fullName[MAX_PATH], exeName[MAX_PATH];
-		GetModuleFileName(NULL, fullName, MAX_PATH);
-		_splitpath(fullName, NULL, NULL, exeName, NULL);
-		Log::Info("Usage: %s about", exeName);
-		Log::Info("  Prints additional information about this program.");
-	}
-						 break;
-	}
-}
+//static void HelpString(hkxcmd::HelpType type) {
+//	switch (type)
+//	{
+//	case hkxcmd::htShort: Log::Info("About - Help about this program."); break;
+//	case hkxcmd::htLong: {
+//		char fullName[MAX_PATH], exeName[MAX_PATH];
+//		GetModuleFileName(NULL, fullName, MAX_PATH);
+//		_splitpath(fullName, NULL, NULL, exeName, NULL);
+//		Log::Info("Usage: %s about", exeName);
+//		Log::Info("  Prints additional information about this program.");
+//	}
+//						 break;
+//	}
+//}
 
 //Havok initialization
 

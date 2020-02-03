@@ -20,8 +20,6 @@ using namespace ckcmd::HKX;
 static void InitializeHavok();
 static void CloseHavok();
 
-REGISTER_COMMAND_CPP(RetargetCreatureCmd)
-
 RetargetCreatureCmd::RetargetCreatureCmd()
 {
 }
@@ -30,12 +28,12 @@ RetargetCreatureCmd::~RetargetCreatureCmd()
 {
 }
 
-string RetargetCreatureCmd::GetName() const
+string RetargetCreatureCmd::GetName() 
 {
 	return "RetargetCreature";
 }
 
-string RetargetCreatureCmd::GetHelp() const
+string RetargetCreatureCmd::GetHelp() 
 {
 	string name = GetName();
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -60,7 +58,7 @@ string RetargetCreatureCmd::GetHelp() const
 	return usage + help;
 }
 
-string RetargetCreatureCmd::GetHelpShort() const
+string RetargetCreatureCmd::GetHelpShort() 
 {
 	return "Checks for installed bethesda games and their install path";
 }
@@ -172,13 +170,13 @@ void extract_clips(BSAFile& bsa_file, const string& behavior_path, const fs::pat
 	}
 }
 
-bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool RetargetCreatureCmd::InternalRunCommand(const CommandSettings& settings)
 {
 	string source_havok_project = "", output_havok_project_name = "";
-	if (parsedArgs["<source_havok_project>"].isString())
-		source_havok_project = parsedArgs["<source_havok_project>"].asString();
-	if (parsedArgs["<output_havok_project_name>"].isString())
-		output_havok_project_name = parsedArgs["<output_havok_project_name>"].asString();
+	//if (parsedArgs["<source_havok_project>"].isString())
+	//	source_havok_project = parsedArgs["<source_havok_project>"].asString();
+	//if (parsedArgs["<output_havok_project_name>"].isString())
+	//	output_havok_project_name = parsedArgs["<output_havok_project_name>"].asString();
 
 	//Games& games = Games::Instance();
 	//Games::Game tes5 = Games::TES5;

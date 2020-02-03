@@ -8,6 +8,7 @@
 #include <core/log.h>
 #include <cstdio>
 #include <sys/stat.h>
+#include <set>
 
 #include <Common/Base/hkBase.h>
 #include <Common/Base/Memory/System/Util/hkMemoryInitUtil.h>
@@ -48,8 +49,6 @@ void HK_CALL DumpClassesAll();
 
 using namespace std;
 
-REGISTER_COMMAND_CPP(Report)
-
 Report::Report()
 {
 }
@@ -58,12 +57,12 @@ Report::~Report()
 {
 }
 
-string Report::GetName() const
+string Report::GetName() 
 {
     return "Report";
 }
 
-string Report::GetHelp() const
+string Report::GetHelp() 
 {
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -84,21 +83,21 @@ Options:
     return usage + help;
 }
 
-string Report::GetHelpShort() const
+string Report::GetHelpShort() 
 {
     return "Generate a simple report for all supported Havok classes";
 }
 
-bool Report::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool Report::InternalRunCommand(const CommandSettings& settings)
 {
     // TODO: SafeExecuteCmd
 
-    string outpath = parsedArgs["<outfile>"].asString();
-    Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
+	string outpath; // = parsedArgs["<outfile>"].asString();
+    //Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
 
     hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT | hkSerializeUtil::SAVE_TEXT_NUMBERS);
 
-    list<hkxcmd *> plugins;
+//    list<hkxcmd *> plugins;
 
     /*
 #pragma region Handle Input Args
@@ -712,16 +711,16 @@ void HK_CALL DumpClassesAll()
    DumpHavokClassesByAddress(const_cast<hkClass**>(const_cast<hkClass * const *>(&hkBuiltinTypeRegistry::StaticLinkedClasses[0])));
 }
 
-static bool ExecuteCmd(hkxcmdLine &cmdLine)
-{
-	
-}
-
-static bool SafeExecuteCmd(hkxcmdLine &cmdLine)
-{
-   __try{
-      return ExecuteCmd(cmdLine);
-   } __except (EXCEPTION_EXECUTE_HANDLER){
-      return false;
-   }
-}
+//static bool ExecuteCmd(hkxcmdLine &cmdLine)
+//{
+//	
+//}
+//
+//static bool SafeExecuteCmd(hkxcmdLine &cmdLine)
+//{
+//   __try{
+//      return ExecuteCmd(cmdLine);
+//   } __except (EXCEPTION_EXECUTE_HANDLER){
+//      return false;
+//   }
+//}

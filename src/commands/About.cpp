@@ -4,45 +4,51 @@
 
 #include <core/hkxcmd.h>
 #include <core/log.h>
-using namespace std;
+//using namespace std;
 
-
-REGISTER_COMMAND_CPP(About)
 
 About::About()
 {
 }
 
+
 About::~About()
 {
 }
 
-string About::GetName() const
+string About::GetName() 
 {
-    return "About";
+	return "About";
 }
 
-string About::GetHelp() const
+string About::GetHelp() 
 {
-    const char help[] = "Prints additional information about this program";
+	const char help[] = "Prints additional information about this program";
 
-    string name = GetName();
-    transform(name.begin(), name.end(), name.begin(), ::tolower);
+	string name = GetName();
+	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
-    // Usage: ck-cmd about
-    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + "\r\n";
+	// Usage: ck-cmd about
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + "\r\n";
 
-    return usage + help;
+	return usage + help;
 }
 
-string About::GetHelpShort() const
+string About::GetHelpShort() 
 {
-    return "Help about this program";
+	return "Help about this program";
 }
 
-bool About::InternalRunCommand(map<string, docopt::value> parsedArgs)
+#define BUILD_YEAR  (__DATE__ + 7)
+
+inline const char * year(void) {
+	const char *build_year = __DATE__ + 7;
+	return build_year;
+}
+
+bool About::InternalRunCommand(const CommandSettings& settings)
 {
-   cout << "Copyright (c) 2018" << endl
+   cout << "Copyright (c) " << year() << endl
         << "All rights reserved." << endl
         << endl;
    cout <<

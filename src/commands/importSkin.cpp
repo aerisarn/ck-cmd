@@ -22,9 +22,6 @@ static bool BeginConversion(string importPath, string exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
-
-REGISTER_COMMAND_CPP(ImportSkin)
-
 ImportSkin::ImportSkin()
 {
 }
@@ -33,12 +30,12 @@ ImportSkin::~ImportSkin()
 {
 }
 
-string ImportSkin::GetName() const
+string ImportSkin::GetName() 
 {
     return "importskin";
 }
 
-string ImportSkin::GetHelp() const
+string ImportSkin::GetHelp() 
 {
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -57,18 +54,18 @@ string ImportSkin::GetHelp() const
     return usage + help;
 }
 
-string ImportSkin::GetHelpShort() const
+string ImportSkin::GetHelpShort() 
 {
     return "TODO: Short help message for ImportFBX";
 }
 
-bool ImportSkin::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool ImportSkin::InternalRunCommand(const CommandSettings& settings)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
 	string importFBX, exportPath;
 
-	importFBX = parsedArgs["<path_to_fbx>"].asString();
-	exportPath = parsedArgs["<path_to_export>"].asString();
+	//importFBX = parsedArgs["<path_to_fbx>"].asString();
+	//exportPath = parsedArgs["<path_to_export>"].asString();
 
 	InitializeHavok();
 	BeginConversion(importFBX, exportPath);

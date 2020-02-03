@@ -5,8 +5,13 @@
 // Command Base
 #include <commands/CommandBase.h>
 
-class ImportAnimation : public CommandBase
+class ImportAnimation : public CommandBase<ImportAnimation>
 {
+	COMMAND_PARAMETERS_LIST
+	{
+		//COMMAND_PARAMETER(bool, a);
+	};
+
 	REGISTER_COMMAND_HEADER(ImportAnimation)
 
 private:
@@ -14,12 +19,11 @@ private:
 	virtual ~ImportAnimation();
 
 public:
-	virtual string GetName() const;
-	virtual string GetHelp() const;
-	virtual string GetHelpShort() const;
+	static string GetName();
+	static string GetHelp();
+	static string GetHelpShort();
 
-protected:
-	virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
+	virtual bool InternalRunCommand(const CommandSettings& settings);
 };
 
 #endif //IMPANIM_H

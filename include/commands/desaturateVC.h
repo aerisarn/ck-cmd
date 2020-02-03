@@ -32,8 +32,13 @@ namespace fs = std::experimental::filesystem;
 namespace ckcmd {
 	namespace desaturateVC {
 
-		class DesaturateVC : public CommandBase
+		class DesaturateVC : public CommandBase<DesaturateVC>
 		{
+			COMMAND_PARAMETERS_LIST
+			{
+				//COMMAND_PARAMETER(bool, a);
+			};
+
 			REGISTER_COMMAND_HEADER(DesaturateVC)
 
 		private:
@@ -41,12 +46,11 @@ namespace ckcmd {
 			virtual ~DesaturateVC();
 
 		public:
-			virtual string GetName() const;
-			virtual string GetHelp() const;
-			virtual string GetHelpShort() const;
+			static string GetName();
+			static string GetHelp();
+			static string GetHelpShort();
 
-		protected:
-			virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
+			virtual bool InternalRunCommand(const CommandSettings& settings);
 		};
 	}
 }

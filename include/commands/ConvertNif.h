@@ -76,8 +76,13 @@ static const fs::path nif_out = "D:\\git\\ck-cmd\\resources\\out";
 //bool BeginConversion();
 
 
-class ConvertNif : public CommandBase
+class ConvertNif : public CommandBase<ConvertNif>
 {
+	COMMAND_PARAMETERS_LIST
+	{
+		//COMMAND_PARAMETER(bool, a);
+	};
+
     REGISTER_COMMAND_HEADER(ConvertNif)
 
 private:
@@ -86,10 +91,9 @@ private:
     virtual ~ConvertNif();
 
 public:
-    virtual string GetName() const;
-    virtual string GetHelp() const;
-    virtual string GetHelpShort() const;
+	static string GetName();
+	static string GetHelp();
+	static string GetHelpShort();
 
-protected:
-    virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
+    virtual bool InternalRunCommand(const CommandSettings& settings);
 };

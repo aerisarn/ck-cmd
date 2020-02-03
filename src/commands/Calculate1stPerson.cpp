@@ -249,8 +249,6 @@ static bool ExportFile(const char *baseSkel, const char *sourceAnim, const char 
 // Class
 //////////////////////////////////////////////////////////////////////////
 
-REGISTER_COMMAND_CPP(Calculate1stPerson)
-
 Calculate1stPerson::Calculate1stPerson()
 {
 }
@@ -259,12 +257,12 @@ Calculate1stPerson::~Calculate1stPerson()
 {
 }
 
-string Calculate1stPerson::GetName() const
+string Calculate1stPerson::GetName() 
 {
     return "Calculate1stPerson";
 }
 
-string Calculate1stPerson::GetHelp() const
+string Calculate1stPerson::GetHelp() 
 {
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -308,25 +306,25 @@ Havok saving flags:
     return usage + help;
 }
 
-string Calculate1stPerson::GetHelpShort() const
+string Calculate1stPerson::GetHelpShort() 
 {
     return "Modify an animation to add a smooth movement for the 1st person camera bone";
 }
 
-bool Calculate1stPerson::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool Calculate1stPerson::InternalRunCommand(const CommandSettings& settings)
 {
     bool recursion = true;
     string skelName, strBase, strSource, strDest;
     hkPackFormat pkFormat = HKPF_DEFAULT;
     hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
 
-    strBase = parsedArgs["<base_skel>"].asString();
-    strDest = parsedArgs["<output_anim>"].asString();
+	//strBase = parsedArgs["<base_skel>"].asString();
+    //strDest = parsedArgs["<output_anim>"].asString();
+    //strSource   = parsedArgs["-i"].asString();
 
-    strSource   = parsedArgs["-i"].asString();
-    flags       = (hkSerializeUtil::SaveOptionBits)StringToFlags(parsedArgs["-f"].asStringList(), SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
-    pkFormat    = (hkPackFormat)StringToEnum(parsedArgs["-v"].asString(), PackFlags, HKPF_DEFAULT);
-    Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
+    //flags       = (hkSerializeUtil::SaveOptionBits)StringToFlags(parsedArgs["-f"].asStringList(), SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
+    //pkFormat    = (hkPackFormat)StringToEnum(parsedArgs["-v"].asString(), PackFlags, HKPF_DEFAULT);
+    //Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
 
     /* This entire region will be replaced with just the above lines, ain't that beautiful
 #pragma region Handle Input Args

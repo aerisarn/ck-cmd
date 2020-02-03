@@ -24,9 +24,6 @@ static bool BeginConversion(const string& importSkeleton, const string& importSk
 static void InitializeHavok();
 static void CloseHavok();
 
-
-REGISTER_COMMAND_CPP(ExportRig)
-
 ExportRig::ExportRig()
 {
 }
@@ -35,12 +32,12 @@ ExportRig::~ExportRig()
 {
 }
 
-string ExportRig::GetName() const
+string ExportRig::GetName() 
 {
 	return "exportrig";
 }
 
-string ExportRig::GetHelp() const
+string ExportRig::GetHelp() 
 {
 	string name = GetName();
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -61,22 +58,22 @@ string ExportRig::GetHelp() const
 	return usage + help;
 }
 
-string ExportRig::GetHelpShort() const
+string ExportRig::GetHelpShort() 
 {
 	return "TODO: Short help message for ImportFBX";
 }
 
-bool ExportRig::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool ExportRig::InternalRunCommand(const CommandSettings& settings)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
 	string importSkeleton, importSkeletonNif, animationsPath, exportPath;
 
-	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
-	importSkeletonNif = parsedArgs["<path_to_skeleton_nif>"].asString();
-	if (parsedArgs["-a"].asBool())
-		animationsPath = parsedArgs["<path_to_animations>"].asString();
-	if (parsedArgs["-e"].asBool())
-		exportPath = parsedArgs["<path_to_export>"].asString();
+	//importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
+	//importSkeletonNif = parsedArgs["<path_to_skeleton_nif>"].asString();
+	//if (parsedArgs["-a"].asBool())
+	//	animationsPath = parsedArgs["<path_to_animations>"].asString();
+	//if (parsedArgs["-e"].asBool())
+	//	exportPath = parsedArgs["<path_to_export>"].asString();
 
 	InitializeHavok();
 	BeginConversion(importSkeleton, importSkeletonNif, animationsPath, exportPath);

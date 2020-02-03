@@ -619,7 +619,7 @@ class AlphaFlagsHandler
 	}
 
 	alpha_flags_modes modes;
-	byte threshold;
+	uint8_t threshold;
 
 public:
 
@@ -650,7 +650,7 @@ public:
 		modes.bits.alpha_test_enable = get_property<FbxBool>(material, "alpha_test_enable");
 		modes.bits.alpha_test_mode = gl_test_modes_to_value(get_property<FbxString>(material, "alpha_test_mode").Buffer());
 		modes.bits.no_sorter_flag = get_property<FbxBool>(material, "no_sorter_flag");
-		threshold = (byte)get_property<FbxShort>(material, "alpha_test_threshold");
+		threshold = (uint8_t)get_property<FbxShort>(material, "alpha_test_threshold");
 	}
 
 	NiAlphaPropertyRef to_property()

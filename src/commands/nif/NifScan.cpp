@@ -17,8 +17,6 @@ class FixTargetsVisitor;
 
 static bool BeginScan(string scanPath);
 
-REGISTER_COMMAND_CPP(NifScan)
-
 static Games& games = Games::Instance();
 const Games::GamesPathMapT& installations = games.getGames();
 
@@ -30,12 +28,12 @@ NifScan::~NifScan()
 {
 }
 
-string NifScan::GetName() const
+string NifScan::GetName() 
 {
     return "NifScan";
 }
 
-string NifScan::GetHelp() const
+string NifScan::GetHelp() 
 {
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -52,7 +50,7 @@ string NifScan::GetHelp() const
     return usage + help;
 }
 
-string NifScan::GetHelpShort() const
+string NifScan::GetHelpShort() 
 {
     return "TODO: Short help message for ConvertNif";
 }
@@ -954,11 +952,11 @@ static bool BeginScan(string scanPath) {
 	}
 }
 
-bool NifScan::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool NifScan::InternalRunCommand(const CommandSettings& settings)
 {
 	string scanPath;
 
-	scanPath = parsedArgs["<path_to_scan>"].asString();
+	//scanPath = parsedArgs["<path_to_scan>"].asString();
 
 	bool result = BeginScan(scanPath);
 	Log::Info("NifScan Ended");

@@ -49,8 +49,6 @@
 
 using namespace std;
 
-REGISTER_COMMAND_CPP(Convert)
-
 Convert::Convert()
 {
 }
@@ -59,12 +57,12 @@ Convert::~Convert()
 {
 }
 
-string Convert::GetName() const
+string Convert::GetName() 
 {
     return "Convert";
 }
 
-string Convert::GetHelp() const
+string Convert::GetHelp() 
 {
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -110,29 +108,29 @@ Havok saving flags:
     return usage + help;
 }
 
-string Convert::GetHelpShort() const
+string Convert::GetHelpShort() 
 {
     return "Read/write with no modifications but with different format";
 }
 
 typedef void (__stdcall * DumpClassesAllDecl)();
 
-bool Convert::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool Convert::InternalRunCommand(const CommandSettings& settings)
 {
     // TODO: SafeExecuteCmd
 
     string inpath;
     string outpath;
     bool flagsSpecified = false;
-    hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_DEFAULT);
+	hkSerializeUtil::SaveOptionBits flags; // = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_DEFAULT);
     hkPackFormat pkFormat = HKPF_DEFAULT;
 
-    inpath = parsedArgs["<infile>"].asString();
+    //inpath = parsedArgs["<infile>"].asString();
 
-    outpath     = parsedArgs["-o"].asString();
-    pkFormat    = (hkPackFormat)StringToEnum(parsedArgs["-v"].asString(), PackFlags, HKPF_DEFAULT);
-    flags       = (hkSerializeUtil::SaveOptionBits)StringToFlags(parsedArgs["-f"].asStringList(), SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
-    Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
+    //outpath     = parsedArgs["-o"].asString();
+    //pkFormat    = (hkPackFormat)StringToEnum(parsedArgs["-v"].asString(), PackFlags, HKPF_DEFAULT);
+    //flags       = (hkSerializeUtil::SaveOptionBits)StringToFlags(parsedArgs["-f"].asStringList(), SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
+    //Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
 
     /*
 	list<hkxcmd *> plugins;

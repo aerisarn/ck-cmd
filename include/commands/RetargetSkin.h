@@ -72,8 +72,13 @@ namespace fs = std::experimental::filesystem;
 //bool BeginConversion();
 
 
-class RetargetSkin : public CommandBase
+class RetargetSkin : public CommandBase<RetargetSkin>
 {
+	COMMAND_PARAMETERS_LIST
+	{
+		//COMMAND_PARAMETER(bool, a);
+	};
+
 	REGISTER_COMMAND_HEADER(RetargetSkin)
 
 private:
@@ -82,10 +87,9 @@ private:
 	virtual ~RetargetSkin();
 
 public:
-	virtual string GetName() const;
-	virtual string GetHelp() const;
-	virtual string GetHelpShort() const;
+	static string GetName();
+	static string GetHelp();
+	static string GetHelpShort();
 
-protected:
-	virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
+	virtual bool InternalRunCommand(const CommandSettings& settings);
 };

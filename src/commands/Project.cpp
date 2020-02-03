@@ -175,7 +175,7 @@
 //    return "TODO: Short help message for Project";
 //}
 //
-//bool Project::InternalRunCommand(map<string, docopt::value> parsedArgs)
+//bool Project::InternalRunCommand(const CommandSettings& settings)
 //{
 //    // TODO: SafeExecuteCmd
 //

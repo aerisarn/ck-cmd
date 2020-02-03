@@ -65,9 +65,6 @@ struct AnimationCache {
     }
 };
 
-
-REGISTER_COMMAND_CPP(ImportFBX)
-
 ImportFBX::ImportFBX()
 {
 }
@@ -76,12 +73,12 @@ ImportFBX::~ImportFBX()
 {
 }
 
-string ImportFBX::GetName() const
+string ImportFBX::GetName() 
 {
     return "importfbx";
 }
 
-string ImportFBX::GetHelp() const
+string ImportFBX::GetHelp() 
 {
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -100,18 +97,18 @@ string ImportFBX::GetHelp() const
     return usage + help;
 }
 
-string ImportFBX::GetHelpShort() const
+string ImportFBX::GetHelpShort() 
 {
     return "TODO: Short help message for ImportFBX";
 }
 
-bool ImportFBX::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool ImportFBX::InternalRunCommand(const CommandSettings& settings)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
 	string importFBX, exportPath;
 
-	importFBX = parsedArgs["<path_to_fbx>"].asString();
-	exportPath = parsedArgs["<path_to_export>"].asString();
+	//importFBX = parsedArgs["<path_to_fbx>"].asString();
+	//exportPath = parsedArgs["<path_to_export>"].asString();
 
 	InitializeHavok();
 	BeginConversion(importFBX, exportPath);

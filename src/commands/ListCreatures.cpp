@@ -10,8 +10,6 @@ using namespace std;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 
-REGISTER_COMMAND_CPP(ListCreaturesCmd)
-
 ListCreaturesCmd::ListCreaturesCmd()
 {
 }
@@ -20,12 +18,12 @@ ListCreaturesCmd::~ListCreaturesCmd()
 {
 }
 
-string ListCreaturesCmd::GetName() const
+string ListCreaturesCmd::GetName() 
 {
 	return "ListCreatures";
 }
 
-string ListCreaturesCmd::GetHelp() const
+string ListCreaturesCmd::GetHelp() 
 {
 	string name = GetName();
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -38,12 +36,12 @@ string ListCreaturesCmd::GetHelp() const
 	return usage + help;
 }
 
-string ListCreaturesCmd::GetHelpShort() const
+string ListCreaturesCmd::GetHelpShort() 
 {
 	return "Checks for installed bethesda games and their install path";
 }
 
-bool ListCreaturesCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool ListCreaturesCmd::InternalRunCommand(const CommandSettings& settings)
 {
 	Games& games = Games::Instance();
 	Games::Game tes5 = Games::TES5;

@@ -31,6 +31,7 @@
 
 #include <cstdio>
 #include <sys/stat.h>
+#include <set>
 #include <map>
 #include <filesystem>
 namespace fs = std::experimental::filesystem;

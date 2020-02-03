@@ -45,8 +45,13 @@ Niflib::NiTriShapeRef remake_partitions(Niflib::NiTriBasedGeomRef iShape, int & 
 namespace ckcmd {
 	namespace fixsse {
 
-		class FixSSENif : public CommandBase
+		class FixSSENif : public CommandBase<FixSSENif>
 		{
+			COMMAND_PARAMETERS_LIST
+			{
+				//COMMAND_PARAMETER(bool, a);
+			};
+
 			REGISTER_COMMAND_HEADER(FixSSENif)
 
 		private:
@@ -54,12 +59,11 @@ namespace ckcmd {
 			virtual ~FixSSENif();
 
 		public:
-			virtual string GetName() const;
-			virtual string GetHelp() const;
-			virtual string GetHelpShort() const;
+			static string GetName();
+			static string GetHelp();
+			static string GetHelpShort();
 
-		protected:
-			virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
+			virtual bool InternalRunCommand(const CommandSettings& settings);
 		};
 	}
 }

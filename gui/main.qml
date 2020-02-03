@@ -1,11 +1,13 @@
-import QtQuick 2.0
-import QtQuick.Controls 1.0
+import QtQuick 2.2
+import QtQuick.Controls 1.5
+import QtQml.Models 2.2
+import io.qt.examples.quick.controls.filesystembrowser 1.0
 
-ApplicationWindow
-{
+ApplicationWindow {
+	id: root
     visible: true
-    width: 640
-    height: 480
-    title: qsTr("Minimal Qml")
+    width: 1280
+    height: 720
+	objectName: "ApplicationWindow"
+    title: qsTr("ck-cmd GUI")
 }
-

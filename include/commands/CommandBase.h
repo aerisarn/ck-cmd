@@ -1,7 +1,15 @@
 #pragma once
 #include "stdafx.h"
 
+#ifdef USE_DOCOPT_CMD
 #include <docopt.h>
+#else
+#undef min
+#undef max
+#include <cobalt.hpp>
+#include <memory>
+#endif
+
 #include <core/log.h>
 
 
@@ -95,49 +103,161 @@
 
 using namespace std;
 
+#ifdef USE_DOCOPT_CMD
+typedef map<string, docopt::value> CommandSettings;
+#else
+template<typename T>
+struct CommandDefinition {
+	T value;
+	const char* name;
+	const char* help;
+	const char* parameter;
+	bool optional;
+};
+//typedef Cobalt::Arguments CommandSettings;
+#endif
+
+//static classname instance;
+//classname classname::instance{};
+#define COMMAND_PARAMETERS_LIST public: struct CommandSettings
+#define REGISTER_COMMAND_HEADER(classname) 	template<typename T> friend class CommandBase; static const classname& getInstance() { return instance; }
+#define COMMAND_PARAMETER(type, name) CommandDefinition<type> name
+#define FORMAL_COMMAND_PARAMETER(value, name, help) {value, name, help}
+
+class ExeCommandList;
+
+#include <magic_get.hpp>
+
 // Base class for commands
-class CommandBase
+template<typename T>
+class CommandBase : public Cobalt::Command<T>
 {
+public:
+	struct Flags {};
+
 protected:
-    CommandBase();
-    virtual ~CommandBase();
+
+
+
+	template<typename V>
+	static void convert_arg(const std::string& in, V& out) {
+		std::stringstream convert(in);
+		convert >> out;
+	}
+
+	template<>
+	static void convert_arg(const std::string& in, bool& out) {
+		std::stringstream convert(in);
+		convert >> std::boolalpha >> out;
+	}
+
+	template <int First, int Last, typename P>
+	struct static_for
+	{
+		void operator()(P& parsed_args, const Cobalt::Arguments& args) const
+		{
+			if (First < Last)
+			{
+				if (First < args.size())
+					convert_arg(args.at(First), flat_get<First>(parsed_args));
+				static_for<First + 1, Last, P>()(parsed_args, args);
+			}
+		}
+	};
+
+	template <int N, typename P>
+	struct static_for<N, N, P>
+	{
+		void operator()(P& parsed_args, const Cobalt::Arguments& args) const
+		{}
+	};
+
+	template <typename P>
+	struct static_for<0, 0, P>
+	{
+		void operator()(P& parsed_args, const Cobalt::Arguments& args) const
+		{}
+	};
+
+
+	void registerFlags()
+	{
+		//static_for<0, flat_tuple_size<T::CommandSettings>::value>()();
+		//ForEach<flat_tuple_size<T::Parameters>::value>::item<0>();
+	}
+
+	CommandBase() {
+		ExeCommandList::AddCommand(
+			Cobalt::detail::Convert<T>()((T*)this)
+		);
+	}
+	virtual ~CommandBase() {}
+
+	T* command() { return  dynamic_cast<T*>(this); }
 
 public:
-    bool RunCommand(int argc, char **argv);
 
-    virtual string GetName() const = 0;
-    virtual string GetHelp() const = 0;
-    virtual string GetHelpShort() const = 0;
+	static T instance;
 
-protected:
-    virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs) = 0;
+	std::string Use() {
+		return T::GetName();
+	}
+
+	std::string Short() {
+		return T::GetHelpShort();
+	}
+
+	std::string Long() {
+		return T::GetHelp();
+	}
+
+	int Run(const Cobalt::Arguments& args) {
+		T::CommandSettings parsed_args = {};
+		static_for<0, flat_tuple_size<T::CommandSettings>::value, T::CommandSettings>()(parsed_args, args);
+		return command()->InternalRunCommand(parsed_args);
+	}
 };
+
+template<typename T>
+T CommandBase<T>::instance = {};
+
+class ExeCommandList
+{
+private:
+	static Cobalt::detail::Command::PointerType CommandList();
+
+public:
+	static void AddCommand(Cobalt::detail::Command::PointerType cmd);
+
+	static int Run(int argc, char** argv) {
+		return CommandList()->Execute(argc, argv);
+	}
+
+	static string GetExeName();
+	static string GetExeHelp();
+	static string GetExeVersion();
+};
+
 
 static void HK_CALL ErrorReport(const char* msg, void* userContext)
 {
     Log::Debug("%s", msg);
 }
 
-class ExeCommandList
+
+/*
+EXAMPLE:
+
+	COMMAND_PARAMETERS_LIST
+	{
+		COMMAND_PARAMETER(bool, a);
+	};
+
+	...
+
+FORMAL_PARAMETERS_LIST(About)
 {
-private:
-    static vector<CommandBase*>& CommandList()
-    {
-        static vector<CommandBase*> commandList;
-        return commandList;
-    }
-
-public:
-    static void AddCommand(CommandBase* cmd);
-
-    static CommandBase* GetCommandByIndex(int index);
-    static CommandBase* GetCommandByName(string name);
-    static const vector<CommandBase*>& GetCommandList();
-
-    static string GetExeName();
-    static string GetExeHelp();
-    static string GetExeVersion();
+	FORMAL_COMMAND_PARAMETER(true, "a", "a bool"),
 };
 
-#define REGISTER_COMMAND_HEADER(classname) private: static classname instance;
-#define REGISTER_COMMAND_CPP(classname) classname classname::instance{};
+*/

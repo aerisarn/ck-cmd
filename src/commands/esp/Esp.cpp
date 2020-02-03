@@ -7,9 +7,6 @@
 #include <core\games.h>
 using namespace ckcmd::info;
 
-
-REGISTER_COMMAND_CPP(CreateEsp)
-
 CreateEsp::CreateEsp()
 {
 }
@@ -18,12 +15,12 @@ CreateEsp::~CreateEsp()
 {
 }
 
-string CreateEsp::GetName() const
+string CreateEsp::GetName() 
 {
     return "CreateEsp";
 }
 
-string CreateEsp::GetHelp() const
+string CreateEsp::GetHelp() 
 {
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -35,12 +32,12 @@ string CreateEsp::GetHelp() const
     return usage + help;
 }
 
-string CreateEsp::GetHelpShort() const
+string CreateEsp::GetHelpShort() 
 {
     return "Create a TEST plugin file";
 }
 
-bool CreateEsp::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool CreateEsp::InternalRunCommand(const CommandSettings& settings)
 {
     Esp esp("CmdTest", false);
     esp.SetAuthor("ck-cmd");

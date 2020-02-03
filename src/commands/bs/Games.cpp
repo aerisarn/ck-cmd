@@ -11,8 +11,6 @@
 using namespace std;
 using namespace ckcmd::info;
 
-REGISTER_COMMAND_CPP(GamesCmd)
-
 GamesCmd::GamesCmd()
 {
 }
@@ -21,12 +19,12 @@ GamesCmd::~GamesCmd()
 {
 }
 
-string GamesCmd::GetName() const
+string GamesCmd::GetName() 
 {
     return "Games";
 }
 
-string GamesCmd::GetHelp() const
+string GamesCmd::GetHelp() 
 {
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -39,12 +37,12 @@ string GamesCmd::GetHelp() const
     return usage + help;
 }
 
-string GamesCmd::GetHelpShort() const
+string GamesCmd::GetHelpShort() 
 {
     return "Checks for installed bethesda games and their install path";
 }
 
-bool GamesCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool GamesCmd::InternalRunCommand(const CommandSettings& settings)
 {
 	Games& games = Games::Instance();
 	const Games::GamesPathMapT& pathMap = games.getGames();

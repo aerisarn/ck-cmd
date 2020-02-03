@@ -8,6 +8,7 @@
 #include <bs/AnimSetDataFile.h>
 #include <filesystem>
 #include <memory>
+#include <set>
 
 namespace fs = std::experimental::filesystem;
 

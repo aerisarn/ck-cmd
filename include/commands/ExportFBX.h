@@ -5,8 +5,13 @@
 // Command Base
 #include <commands/CommandBase.h>
 
-class ExportFBX : public CommandBase
+class ExportFBX : public CommandBase<ExportFBX>
 {
+	COMMAND_PARAMETERS_LIST
+	{
+		//COMMAND_PARAMETER(bool, a);
+	};
+
     REGISTER_COMMAND_HEADER(ExportFBX)
 
 private:
@@ -14,12 +19,11 @@ private:
     virtual ~ExportFBX();
 
 public:
-    virtual string GetName() const;
-    virtual string GetHelp() const;
-    virtual string GetHelpShort() const;
+	static string GetName();
+	static string GetHelp();
+	static string GetHelpShort();
 
-protected:
-    virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
+    virtual bool InternalRunCommand(const CommandSettings& settings);
 };
 
 #endif //EXPFBX_H

@@ -17,8 +17,6 @@ using namespace std;
 
 static bool BeginScan(string scanPath);
 
-REGISTER_COMMAND_CPP(FixSSENif)
-
 FixSSENif::FixSSENif()
 {
 }
@@ -27,12 +25,12 @@ FixSSENif::~FixSSENif()
 {
 }
 
-string FixSSENif::GetName() const
+string FixSSENif::GetName() 
 {
 	return "fixssenif";
 }
 
-string FixSSENif::GetHelp() const
+string FixSSENif::GetHelp() 
 {
 	string name = GetName();
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -52,7 +50,7 @@ string FixSSENif::GetHelp() const
 	return usage + help;
 }
 
-string FixSSENif::GetHelpShort() const
+string FixSSENif::GetHelpShort() 
 {
 	return "TODO: Short help message for FixSSENif";
 }
@@ -285,13 +283,13 @@ NiTriShapeRef remake_partitions(NiTriBasedGeomRef iShape, int & maxBonesPerParti
 		}
 
 		map<Triangle, unsigned int> trimap;
-		int defaultPart = 0;
+		size_t defaultPart = 0;
 
 		//if (nif->inherits(iSkinInst, "BSDismemberSkinInstance")) {
 		if (iSkinInst->IsDerivedType(BSDismemberSkinInstance::TYPE)) {
 			BSDismemberSkinInstanceRef iBSSkinInst = DynamicCast<BSDismemberSkinInstance>(iSkinInst);
 			// First find a partition to dump dangling faces.  Torso is prefered if available.
-			unsigned int nparts = iBSSkinInst->GetPartitions().size(); // GetNnif->get<uint>(iSkinInst, "Num Partitions");
+			size_t nparts = iBSSkinInst->GetPartitions().size(); // GetNnif->get<uint>(iSkinInst, "Num Partitions");
 			auto& iPartData = iBSSkinInst->GetPartitions();
 
 			for (int i = 0; i < nparts; ++i) {
@@ -306,13 +304,13 @@ NiTriShapeRef remake_partitions(NiTriBasedGeomRef iShape, int & maxBonesPerParti
 				}
 			}
 
-			defaultPart = min(nparts - 1, defaultPart);
+			defaultPart = min(--nparts, defaultPart);
 
 			// enumerate existing partitions and select faces into same partition
-			unsigned int nskinparts = iSkinPart->GetSkinPartitionBlocks().size(); //"Num Skin Partition Blocks");
+			auto nskinparts = iSkinPart->GetSkinPartitionBlocks().size(); //"Num Skin Partition Blocks");
 			auto& iPartBlockData = iSkinPart->GetSkinPartitionBlocks();
 
-			for (int i = 0; i < nskinparts; ++i) {
+			for (size_t i = 0; i < nskinparts; ++i) {
 				auto& iPart = iPartBlockData[i];
 
 				//if (!iPart.isValid())
@@ -1578,20 +1576,20 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info, const fs
 }
 
 
-bool FixSSENif::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool FixSSENif::InternalRunCommand(const CommandSettings& settings)
 {
 	string scanPath;
 	string vanilla_texture_path = "";
 	bool doOverwrite = false;
 	
-	if (parsedArgs["<overwrite>"].asString() == "true")
-		doOverwrite = true;
-	if (parsedArgs.find("<vanilla_texture_path>") != parsedArgs.end() &&
-		parsedArgs["<vanilla_texture_path>"].isString())
-		vanilla_texture_path = parsedArgs["<vanilla_texture_path>"].asString();
+	//if (parsedArgs["<overwrite>"].asString() == "true")
+	//	doOverwrite = true;
+	//if (parsedArgs.find("<vanilla_texture_path>") != parsedArgs.end() &&
+	//	parsedArgs["<vanilla_texture_path>"].isString())
+	//	vanilla_texture_path = parsedArgs["<vanilla_texture_path>"].asString();
 
 
-	scanPath = parsedArgs["<path_to_scan>"].asString();
+	//scanPath = parsedArgs["<path_to_scan>"].asString();
 	Log::Info("Scan Path: %s", scanPath.c_str());
 	Log::Info("Vanilla texture Path: %s", vanilla_texture_path.c_str());
 	if (fs::exists(scanPath) && fs::is_directory(scanPath)) {

@@ -15,8 +15,6 @@ using namespace std;
 
 static bool BeginScan(string scanPath);
 
-REGISTER_COMMAND_CPP(DesaturateVC)
-
 DesaturateVC::DesaturateVC()
 {
 }
@@ -25,12 +23,12 @@ DesaturateVC::~DesaturateVC()
 {
 }
 
-string DesaturateVC::GetName() const
+string DesaturateVC::GetName() 
 {
 	return "DesaturateVC";
 }
 
-string DesaturateVC::GetHelp() const
+string DesaturateVC::GetHelp() 
 {
 	string name = GetName();
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -47,7 +45,7 @@ string DesaturateVC::GetHelp() const
 	return usage + help;
 }
 
-string DesaturateVC::GetHelpShort() const
+string DesaturateVC::GetHelpShort() 
 {
 	return "TODO: Short help message for ConvertNif";
 }
@@ -90,11 +88,11 @@ void desaturate(vector<NiObjectRef> blocks, NifInfo info) {
 	}
 }
 
-bool DesaturateVC::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool DesaturateVC::InternalRunCommand(const CommandSettings& settings)
 {
 	string scanPath;
 
-	scanPath = parsedArgs["<path_to_scan>"].asString();
+//	scanPath = parsedArgs["<path_to_scan>"].asString();
 	if (fs::exists(scanPath) && fs::is_directory(scanPath)) {
 		vector<fs::path> nifs; findFilesWithExtension(scanPath, ".nif", nifs);
 		for (size_t i = 0; i < nifs.size(); i++) {

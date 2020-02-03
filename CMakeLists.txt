@@ -7,6 +7,8 @@ option(PROJECT_STATIC_RUNTIME "Build with static runtime libs (/MT)" ON)
 option(PROJECT_GUI "Build GUI" ON)
 UNSET(HAVE_SPEEDTREE CACHE)
 option(HAVE_SPEEDTREE "Build with speedtree support" OFF)
+UNSET(USE_DOCOPT_CMD CACHE)
+option(USE_DOCOPT_CMD "Build with deprecated DocOpt Interface" OFF)
 
 
 if (HAVE_SPEEDTREE)
@@ -43,6 +45,8 @@ ELSE ()
     set (ZLIB_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}z${CMAKE_STATIC_LIBRARY_SUFFIX}")
 ENDIF ()
 
+IF (USE_DOCOPT_CMD)
+
 ExternalProject_Add(docopt
                     PREFIX "external"
                     GIT_REPOSITORY "https://github.com/docopt/docopt.cpp.git"
@@ -57,6 +61,8 @@ IF (MSVC)
                     debug "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt_s${CMAKE_STATIC_LIBRARY_SUFFIX}")
 ELSE ()
     set (DOCOPT_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}")
+ENDIF ()
+
 ENDIF ()
 
 include_directories("${CMAKE_SOURCE_DIR}/src"
@@ -91,27 +97,27 @@ set_target_properties(
 
 # Loki
 
-set ( LOKI_INCLUDES_PATH
-	"${CMAKE_SOURCE_DIR}/lib/loki/include"
-)
+# set ( LOKI_INCLUDES_PATH
+#	"${CMAKE_SOURCE_DIR}/lib/loki/include"
+#)
 
-add_library(
-	loki
-	STATIC 
-	IMPORTED GLOBAL
-)
+#add_library(
+#	loki
+#	STATIC 
+#	IMPORTED GLOBAL
+#)
 
-set_target_properties(
-	loki 
-	PROPERTIES IMPORTED_LOCATION             
-	"${CMAKE_SOURCE_DIR}/lib/loki/release/loki.lib"
-)
+#set_target_properties(
+#	loki 
+#	PROPERTIES IMPORTED_LOCATION             
+#	"${CMAKE_SOURCE_DIR}/lib/loki/release/loki.lib"
+#)
 
-set_target_properties(
-	loki
-	PROPERTIES IMPORTED_LOCATION_DEBUG             
-	"${CMAKE_SOURCE_DIR}/lib/loki/debug/loki.lib"
-)
+#set_target_properties(
+#	loki
+#	PROPERTIES IMPORTED_LOCATION_DEBUG             
+#	"${CMAKE_SOURCE_DIR}/lib/loki/debug/loki.lib"
+#)
 
 if (HAVE_SPEEDTREE)
 # speedtree 5.1.1
@@ -359,7 +365,7 @@ include_directories("${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src/VHACD_Lib/p
 list(APPEND TEST_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES DirectXTex)
-list(APPEND PROJECT_LIBRARIES loki)
+#list(APPEND PROJECT_LIBRARIES loki)
 list(APPEND PROJECT_LIBRARIES niflib)
 list(APPEND PROJECT_LIBRARIES fbxsdk)
 list(APPEND PROJECT_LIBRARIES libbsa)
@@ -371,7 +377,7 @@ endif(HAVE_SPEEDTREE)
 list(APPEND PROJECT_INCLUDES ${DIRECTXTEX_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_COMPAT_INCLUDES_PATH})
-list(APPEND PROJECT_INCLUDES ${LOKI_INCLUDES_PATH})
+#list(APPEND PROJECT_INCLUDES ${LOKI_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${BETH_ANIMDATA_PATH})
 list(APPEND PROJECT_INCLUDES ${NIFLIB_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${FBXSDK_INCLUDES_PATH})
@@ -384,7 +390,6 @@ set (PROJECT_SRC "${CMAKE_SOURCE_DIR}/src/core/FBXCommon.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkclsnam.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkcrc.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkfutils.cpp"
-                 "${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkxcore.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkxpch.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkxutils.cpp"
@@ -395,22 +400,20 @@ set (PROJECT_SRC "${CMAKE_SOURCE_DIR}/src/core/FBXCommon.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/HKXWrangler.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/NifFile.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/Image_Utils.cpp"
-				 "${CMAKE_SOURCE_DIR}/src/core/RawModel.cpp"
-				 "${CMAKE_SOURCE_DIR}/src/core/Fbx2Raw.cpp"
+				 #"${CMAKE_SOURCE_DIR}/src/core/RawModel.cpp"
+				 #"${CMAKE_SOURCE_DIR}/src/core/Fbx2Raw.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/geometry.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/MathHelper.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/EulerAngles.cpp")
 
 set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/stdafx.h"
+					 "${CMAKE_SOURCE_DIR}/include/cobalt.hpp"
 #CORE
                      "${CMAKE_SOURCE_DIR}/include/core/EulerAngles.h"
                      "${CMAKE_SOURCE_DIR}/include/core/FBXCommon.h"
                      "${CMAKE_SOURCE_DIR}/include/core/hkcrc.h"
                      "${CMAKE_SOURCE_DIR}/include/core/hkfutils.h"
-                     "${CMAKE_SOURCE_DIR}/include/core/hkxcmd.h"
-                     "${CMAKE_SOURCE_DIR}/include/core/hkxcmdver.h"
-                     "${CMAKE_SOURCE_DIR}/include/core/hkxcore.h"
                      "${CMAKE_SOURCE_DIR}/include/core/hkxcore.h"
                      "${CMAKE_SOURCE_DIR}/include/core/hkxpch.h"
                      "${CMAKE_SOURCE_DIR}/include/core/hkxutils.h"
@@ -420,35 +423,28 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/bsa.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/HKXWrangler.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/FBXWrangler.h"
-					 "${CMAKE_SOURCE_DIR}/include/core/Fbx2Raw.h"
+					 #"${CMAKE_SOURCE_DIR}/include/core/Fbx2Raw.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/mathfu.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/stb_image.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/stb_image_write.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/Image_Utils.h"
-					 "${CMAKE_SOURCE_DIR}/include/core/Fbx2Raw.h"
+					 #"${CMAKE_SOURCE_DIR}/include/core/Fbx2Raw.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/NifFile.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/AnimationCache.h"
-#COMMANDS
-					 "${CMAKE_SOURCE_DIR}/include/commands/ImportFbx.h"
-					 "${CMAKE_SOURCE_DIR}/include/commands/ImportSkin.h"
-					 "${CMAKE_SOURCE_DIR}/include/commands/ImportAnimation.h"
-					 "${CMAKE_SOURCE_DIR}/include/commands/ExportAnimation.h"
-					 "${CMAKE_SOURCE_DIR}/include/commands/ExportRig.h"
-					 "${CMAKE_SOURCE_DIR}/include/commands/RetargetSkin.h"
-					 "${CMAKE_SOURCE_DIR}/include/commands/AddNodesToSkeleton.h"
-					 "${CMAKE_SOURCE_DIR}/include/commands/ConvertNif.h"
-					 "${CMAKE_SOURCE_DIR}/include/commands/Geometry.h"
-					 "${CMAKE_SOURCE_DIR}/include/commands/ListCreatures.h"
-					 "${CMAKE_SOURCE_DIR}/include/commands/RetargetCreature.h"
-					 "${CMAKE_SOURCE_DIR}/include/commands/desaturateVC.h"
-					 "${CMAKE_SOURCE_DIR}/include/commands/fixsse.h"
-                     "${CMAKE_SOURCE_DIR}/include/commands/esp/Esp.h"
-                     "${CMAKE_SOURCE_DIR}/include/commands/esp/io/EspWriter.h"
-                     "${CMAKE_SOURCE_DIR}/include/commands/esp/io/EspTypes.h"
-                     "${CMAKE_SOURCE_DIR}/include/commands/esp/data/EspForm.h" 
-                     "${CMAKE_SOURCE_DIR}/include/commands/esp/data/EspTES4Form.h"
-                     "${CMAKE_SOURCE_DIR}/include/commands/esp/data/EspFile.h"
-#resource
+	)
+
+file(GLOB_RECURSE PROJECT_COMMANDS
+	"${CMAKE_SOURCE_DIR}/include/commands/*.h"
+)
+
+set		(CMD_HEADERS "${CMAKE_SOURCE_DIR}/include/cobalt.hpp"
+					 "${CMAKE_SOURCE_DIR}/include/magic_get.hpp"
+					 "${CMAKE_SOURCE_DIR}/include/core/hkxcmd.h"
+                     "${CMAKE_SOURCE_DIR}/include/core/hkxcmdver.h"
+					 "${CMAKE_SOURCE_DIR}/src/cli/ExeCommandList.h"
+				)
+set		(CMD_SOURCES  "${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp"
+					  "${CMAKE_SOURCE_DIR}/src/cli/ExeCommandList.cpp"
 				)
 # Commands
 
@@ -458,6 +454,7 @@ file(GLOB_RECURSE COMMANDS_SRC
 
 list (APPEND PROJECT_SRC ${HAVOK_COMPAT_SRC})
 list (APPEND PROJECT_SRC ${COMMANDS_SRC})
+list (APPEND PROJECT_SRC ${PROJECT_COMMANDS})
 list (APPEND PROJECT_HEADERS ${HAVOK_COMPAT_HEADERS})
 list (APPEND PROJECT_HEADERS ${BETH_ANIMDATA_HEADERS})
 list (APPEND PROJECT_HEADERS ${NIF_CORE_HEADERS})
@@ -484,7 +481,8 @@ list (APPEND PROJECT_SRC ${MIKKTSPACE_SRCS})
 source_group("Havok Compat\\Headers" FILES ${HAVOK_COMPAT_HEADERS})
 source_group("Havok Compat\\Sources" FILES ${HAVOK_COMPAT_SRC})
 source_group("Header Files" FILES ${PROJECT_HEADERS})
-source_group("Commands" FILES ${COMMANDS_SRC})
+source_group("Commands\\Headers" FILES ${PROJECT_COMMANDS})
+source_group("Commands\\Sources" FILES ${COMMANDS_SRC})
 source_group("AnimationData\\Headers" FILES ${BETH_ANIMDATA_HEADERS})
 source_group("AnimationData\\Sources" FILES ${BETH_ANIMDATA_SRC})
 source_group("NIFlib" FILES ${NIF_CORE_HEADERS})
@@ -502,7 +500,7 @@ source_group("Textures\\DirectXTex" FILES ${DIRECTXTEX_INCLUDES_PATH})
 
 # Settings when compiling with MSVC.
 IF (MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_HAS_AUTO_PTR_ETC=1 /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
     # Update compiler flags.
     IF (PROJECT_STATIC_RUNTIME)
@@ -526,6 +524,14 @@ IF (MSVC)
 
 ENDIF ()
 
+if (MSVC_VERSION GREATER_EQUAL "1900")
+    include(CheckCXXCompilerFlag)
+    CHECK_CXX_COMPILER_FLAG("/std:c++14" _cpp_latest_flag_supported)
+    if (_cpp_latest_flag_supported)
+        add_compile_options("/std:c++14")		
+    endif()
+endif()
+
 add_subdirectory(${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src)
 
 IF (PROJECT_GUI)
@@ -536,13 +542,23 @@ IF (PROJECT_GUI)
 ENDIF ()
 
 # Build core
-add_executable				(ck-cmd ${PROJECT_SRC} ${PROJECT_HEADERS})
-add_dependencies			(ck-cmd zlib docopt)
-target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} ${DOCOPT_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
+add_library					(ck-cmd-lib STATIC ${PROJECT_SRC} ${PROJECT_HEADERS})
+target_include_directories	(ck-cmd-lib PUBLIC ${PROJECT_INCLUDES})
+
+# Build cmd
+add_executable				(ck-cmd ${CMD_SOURCES} ${CMD_HEADERS})
+add_dependencies			(ck-cmd ck-cmd-lib zlib)
+IF (USE_DOCOPT_CMD)
+add_dependencies			(ck-cmd docopt)
+ENDIF(USE_DOCOPT_CMD)
+target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} ck-cmd-lib Shlwapi.lib legacy_stdio_definitions.lib)
 if (HAVE_SPEEDTREE)
 target_link_libraries		(ck-cmd ${SPEEDTREE_LIBS})
 endif (HAVE_SPEEDTREE)
-target_include_directories	(ck-cmd PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_DIRS})
+target_include_directories	(ck-cmd PUBLIC ${PROJECT_INCLUDES})
+SET_TARGET_PROPERTIES		(ck-cmd PROPERTIES LINK_FLAGS_DEBUG "/WHOLEARCHIVE:ck-cmd-lib")
+SET_TARGET_PROPERTIES		(ck-cmd PROPERTIES LINK_FLAGS_RELEASE "/WHOLEARCHIVE:ck-cmd-lib")
+
 
 add_custom_command(TARGET ck-cmd POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different  

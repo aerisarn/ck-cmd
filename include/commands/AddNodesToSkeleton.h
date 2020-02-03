@@ -72,9 +72,12 @@ namespace fs = std::experimental::filesystem;
 //bool BeginConversion();
 
 
-class AddNodesToSkeleton : public CommandBase
+class AddNodesToSkeleton : public CommandBase<AddNodesToSkeleton>
 {
-    REGISTER_COMMAND_HEADER(AddNodesToSkeleton)
+	COMMAND_PARAMETERS_LIST
+	{
+		//COMMAND_PARAMETER(bool, a);
+	};
 
 private:
 
@@ -82,10 +85,11 @@ private:
     virtual ~AddNodesToSkeleton();
 
 public:
-    virtual string GetName() const;
-    virtual string GetHelp() const;
-    virtual string GetHelpShort() const;
+    static string GetName();
+	static string GetHelp();
+	static string GetHelpShort();
 
-protected:
-    virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
+    virtual bool InternalRunCommand(const CommandSettings& settings);
+
+	REGISTER_COMMAND_HEADER(AddNodesToSkeleton)
 };

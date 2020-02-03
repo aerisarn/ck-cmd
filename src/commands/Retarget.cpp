@@ -240,8 +240,6 @@ static hkPackfileWriter::Options GetWriteOptionsFromFormat(hkPackFormat format);
 // Class
 //////////////////////////////////////////////////////////////////////////
 
-REGISTER_COMMAND_CPP(Retarget)
-
 Retarget::Retarget()
 {
 }
@@ -250,12 +248,12 @@ Retarget::~Retarget()
 {
 }
 
-string Retarget::GetName() const
+string Retarget::GetName() 
 {
     return "Retarget";
 }
 
-string Retarget::GetHelp() const
+string Retarget::GetHelp() 
 {
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -299,27 +297,27 @@ Havok saving flags:
     return usage + help;
 }
 
-string Retarget::GetHelpShort() const
+string Retarget::GetHelpShort() 
 {
     return "Convert Havok HKX animation to Gamebryo HKX animation using another skeleton";
 }
 
-bool Retarget::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool Retarget::InternalRunCommand(const CommandSettings& settings)
 {
     bool recursion = true;
     string skelName, strBase, strSource, strDest;
     hkPackFormat pkFormat = HKPF_DEFAULT;
     hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
 
-    strBase = parsedArgs["<base_skel>"].asString();
-    strDest = parsedArgs["<output_anim>"].asString();
+    //strBase = parsedArgs["<base_skel>"].asString();
+    //strDest = parsedArgs["<output_anim>"].asString();
 
-    strSource = parsedArgs["-i"].asString();
-    skelName = parsedArgs["-n"].asString();
+    //strSource = parsedArgs["-i"].asString();
+    //skelName = parsedArgs["-n"].asString();
 
-    Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
-    pkFormat = (hkPackFormat)StringToEnum(parsedArgs["-v"].asString(), PackFlags, HKPF_DEFAULT);
-    flags = (hkSerializeUtil::SaveOptionBits)StringToFlags(parsedArgs["-f"].asStringList(), SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
+    //Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
+    //pkFormat = (hkPackFormat)StringToEnum(parsedArgs["-v"].asString(), PackFlags, HKPF_DEFAULT);
+    //flags = (hkSerializeUtil::SaveOptionBits)StringToFlags(parsedArgs["-f"].asStringList(), SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
 
     /*
 #pragma region Handle Input Args
@@ -544,48 +542,48 @@ static hkPackfileWriter::Options GetWriteOptionsFromFormat(hkPackFormat format)
 	return options;
 }
 
-static void HelpString(hkxcmd::HelpType type){
-	switch (type)
-	{
-	case hkxcmd::htShort: Log::Info("Retarget - Convert Havok HKX animation to Gamebryo HKX animation using another skeleton"); break;
-	case hkxcmd::htLong:  
-		{
-			char fullName[MAX_PATH], exeName[MAX_PATH];
-			GetModuleFileName(NULL, fullName, MAX_PATH);
-			_splitpath(fullName, NULL, NULL, exeName, NULL);
-
-			Log::Info("Usage: %s Retarget [-opts[modifiers]] [baseskel.hkx] [anim.hkx] [output_anim.hkx]", exeName); 
-			Log::Info("  Convert Havok HKX animation to Gamebryo HKX animation using another skeleton" );
-			Log::Info("");
-			Log::Info("<Options>" );
-			Log::Info("  skel.hkx      Path to Havok skeleton for animation binding." );
-			Log::Info("  anim.kf       Path to Gamebryo animation to convert (Default: anim.hkx with kf ext)" );
-			Log::Info("  anim.hkx      Path to Havok animation to write" );
-			Log::Info("<Switches>" );
-			Log::Info(" -d[:level]     Debug Level: ERROR,WARN,INFO,DEBUG,VERBOSE (Default: INFO)" );
-			Log::Info("");
-			Log::Info(" -v:<flags>     Havok Packfile saving flags");
-			Log::Info("    DEFAULT     Save as Default Format (MSVC Win32 Packed)");
-			Log::Info("    XML         Save as Xml Format");
-			Log::Info("    WIN32       Save as Win32 Format");
-			Log::Info("    AMD64       Save as AMD64 Format");
-			Log::Info("    XBOX        Save as XBOX Format");
-			Log::Info("    XBOX360     Save as XBOX360 Format");
-			Log::Info("");
-			Log::Info(" -f:<flags>     Havok saving flags (Defaults:  SAVE_DEFAULT)");
-			Log::Info("    SAVE_DEFAULT           = All flags default to OFF, enable whichever are needed");
-			Log::Info("    SAVE_TEXT_FORMAT       = Use text (usually XML) format, default is binary format if available.");
-			Log::Info("    SAVE_SERIALIZE_IGNORED_MEMBERS = Write members which are usually ignored.");
-			Log::Info("    SAVE_WRITE_ATTRIBUTES  = Include extended attributes in metadata, default is to write minimum metadata.");
-			Log::Info("    SAVE_CONCISE           = Doesn't provide any extra information which would make the file easier to interpret. ");
-			Log::Info("                              E.g. additionally write hex floats as text comments.");
-			Log::Info("    SAVE_TEXT_NUMBERS      = Floating point numbers output as text, not as binary.  ");
-			Log::Info("                              Makes them easily readable/editable, but values may not be exact.");
-			Log::Info("");
-		}
-		break;
-	}
-}
+//static void HelpString(hkxcmd::HelpType type){
+//	switch (type)
+//	{
+//	case hkxcmd::htShort: Log::Info("Retarget - Convert Havok HKX animation to Gamebryo HKX animation using another skeleton"); break;
+//	case hkxcmd::htLong:  
+//		{
+//			char fullName[MAX_PATH], exeName[MAX_PATH];
+//			GetModuleFileName(NULL, fullName, MAX_PATH);
+//			_splitpath(fullName, NULL, NULL, exeName, NULL);
+//
+//			Log::Info("Usage: %s Retarget [-opts[modifiers]] [baseskel.hkx] [anim.hkx] [output_anim.hkx]", exeName); 
+//			Log::Info("  Convert Havok HKX animation to Gamebryo HKX animation using another skeleton" );
+//			Log::Info("");
+//			Log::Info("<Options>" );
+//			Log::Info("  skel.hkx      Path to Havok skeleton for animation binding." );
+//			Log::Info("  anim.kf       Path to Gamebryo animation to convert (Default: anim.hkx with kf ext)" );
+//			Log::Info("  anim.hkx      Path to Havok animation to write" );
+//			Log::Info("<Switches>" );
+//			Log::Info(" -d[:level]     Debug Level: ERROR,WARN,INFO,DEBUG,VERBOSE (Default: INFO)" );
+//			Log::Info("");
+//			Log::Info(" -v:<flags>     Havok Packfile saving flags");
+//			Log::Info("    DEFAULT     Save as Default Format (MSVC Win32 Packed)");
+//			Log::Info("    XML         Save as Xml Format");
+//			Log::Info("    WIN32       Save as Win32 Format");
+//			Log::Info("    AMD64       Save as AMD64 Format");
+//			Log::Info("    XBOX        Save as XBOX Format");
+//			Log::Info("    XBOX360     Save as XBOX360 Format");
+//			Log::Info("");
+//			Log::Info(" -f:<flags>     Havok saving flags (Defaults:  SAVE_DEFAULT)");
+//			Log::Info("    SAVE_DEFAULT           = All flags default to OFF, enable whichever are needed");
+//			Log::Info("    SAVE_TEXT_FORMAT       = Use text (usually XML) format, default is binary format if available.");
+//			Log::Info("    SAVE_SERIALIZE_IGNORED_MEMBERS = Write members which are usually ignored.");
+//			Log::Info("    SAVE_WRITE_ATTRIBUTES  = Include extended attributes in metadata, default is to write minimum metadata.");
+//			Log::Info("    SAVE_CONCISE           = Doesn't provide any extra information which would make the file easier to interpret. ");
+//			Log::Info("                              E.g. additionally write hex floats as text comments.");
+//			Log::Info("    SAVE_TEXT_NUMBERS      = Floating point numbers output as text, not as binary.  ");
+//			Log::Info("                              Makes them easily readable/editable, but values may not be exact.");
+//			Log::Info("");
+//		}
+//		break;
+//	}
+//}
 
 
 
@@ -1006,7 +1004,7 @@ static void HK_CALL errorReport(const char* msg, void* userContext)
 	Log::Debug("%s", msg);
 }
 
-static bool ExecuteCmd(hkxcmdLine &cmdLine)
-{
-	
-}
+//static bool ExecuteCmd(hkxcmdLine &cmdLine)
+//{
+//	
+//}

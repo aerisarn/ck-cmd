@@ -24,8 +24,6 @@ static void InitializeHavok();
 static void CloseHavok();
 
 
-REGISTER_COMMAND_CPP(ImportAnimation)
-
 ImportAnimation::ImportAnimation()
 {
 }
@@ -34,12 +32,12 @@ ImportAnimation::~ImportAnimation()
 {
 }
 
-string ImportAnimation::GetName() const
+string ImportAnimation::GetName() 
 {
 	return "importanimation";
 }
 
-string ImportAnimation::GetHelp() const
+string ImportAnimation::GetHelp() 
 {
 	string name = GetName();
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -59,19 +57,19 @@ string ImportAnimation::GetHelp() const
 	return usage + help;
 }
 
-string ImportAnimation::GetHelpShort() const
+string ImportAnimation::GetHelpShort() 
 {
 	return "TODO: Short help message for ImportFBX";
 }
 
-bool ImportAnimation::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool ImportAnimation::InternalRunCommand(const CommandSettings& settings)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
 	string importFBX, importSkeleton, exportPath;
 
-	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
-	importFBX = parsedArgs["<path_to_fbx_animation>"].asString();
-	exportPath = parsedArgs["<path_to_export>"].asString();
+	//importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
+	//importFBX = parsedArgs["<path_to_fbx_animation>"].asString();
+	//exportPath = parsedArgs["<path_to_export>"].asString();
 
 	InitializeHavok();
 	BeginConversion(importSkeleton, importFBX, exportPath);

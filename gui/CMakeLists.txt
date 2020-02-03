@@ -20,14 +20,19 @@ if(NOT DEFINED HEADERS)
     file(GLOB HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
 endif()
 
+if(NOT DEFINED QML_GUI_FILES)
+    file(GLOB QML_GUI_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.qml)
+endif()
+
 if(NOT DEFINED SOURCES)
     file(GLOB SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 endif()
 
 source_group("Header Files" FILES ${HEADERS})
 source_group("Source Files" FILES ${SOURCES})
+source_group("QML Files" FILES ${QML_GUI_FILES})
 
-add_executable(${PROJECT} ${HEADERS} ${SOURCES} ${QT_RESOURCES})
+add_executable(${PROJECT} ${HEADERS} ${SOURCES} ${QML_GUI_FILES} ${QT_RESOURCES})
 
 target_link_libraries(${PROJECT}
     Qt5::Widgets

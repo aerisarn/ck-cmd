@@ -52,8 +52,6 @@
 
 using namespace std;
 
-REGISTER_COMMAND_CPP(Test)
-
 Test::Test()
 {
 }
@@ -62,12 +60,12 @@ Test::~Test()
 {
 }
 
-string Test::GetName() const
+string Test::GetName() 
 {
     return "Test";
 }
 
-string Test::GetHelp() const
+string Test::GetHelp() 
 {
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
@@ -99,7 +97,7 @@ Havok saving flags:
     return usage + help;
 }
 
-string Test::GetHelpShort() const
+string Test::GetHelpShort() 
 {
     return "Test";
 }
@@ -189,17 +187,17 @@ static hkResource* hkSerializeUtilLoad( hkStreamReader* stream
 		return NULL;
 	}
 }
-bool Test::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool Test::InternalRunCommand(const CommandSettings& settings)
 {
     // TODO: SafeExecuteCmd
 
-    string inpath = parsedArgs["<infile>"].asString();
-    string outpath = parsedArgs["-o"].asString();
+	string inpath; // = parsedArgs["<infile>"].asString();
+	string outpath; // = parsedArgs["-o"].asString();
 
-    hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)StringToFlags(parsedArgs["-f"].asStringList(), SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
-    Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
+	hkSerializeUtil::SaveOptionBits flags; // = (hkSerializeUtil::SaveOptionBits)StringToFlags(parsedArgs["-f"].asStringList(), SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
+    //Log::SetLogLevel((LogLevel)StringToEnum(parsedArgs["-d"].asString(), LogFlags, LOG_INFO));
 
-	list<hkxcmd *> plugins;
+	//slist<hkxcmd *> plugins;
 
     /*
 #pragma region Handle Input Args
