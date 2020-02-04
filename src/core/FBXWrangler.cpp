@@ -4562,6 +4562,8 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		bhkCMSDMaterial body_layer;
 		size_t depth = 0;
 		hkRefPtr<hkpRigidBody> hk_body = HKXWrapper::build_body(rigid_body, geometry_meshes);
+		if (hk_body == NULL)
+			return NULL;
 		hkpRigidBodyCinfo body_cinfo; hk_body->getCinfo(body_cinfo);
 		body->SetShape(convert_from_hk(body_cinfo.m_shape, body_layer));
 		body->SetCenter(TOVECTOR4(body_cinfo.m_centerOfMass));
@@ -4604,7 +4606,11 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		bhkCMSDMaterial phantom_layer;
 		size_t depth = 0;
 		Vector3 center;
-		//phantom->SetShape(convert_from_hk(HKXWrapper::build_shape(rigid_body->GetChild(0), geometry_meshes), phantom_layer, depth, center));
+		hkRefPtr<hkpRigidBody> hk_body = HKXWrapper::build_body(rigid_body, geometry_meshes);
+		if (hk_body == NULL)
+			return NULL;
+		hkpRigidBodyCinfo body_cinfo; hk_body->getCinfo(body_cinfo);
+		phantom->SetShape(convert_from_hk(body_cinfo.m_shape, phantom_layer));
 		phantom_collision->SetBody(StaticCast<bhkWorldObject>(phantom));
 		return_collision = StaticCast<NiCollisionObject>(phantom_collision);
 	}
@@ -4624,6 +4630,8 @@ void FBXWrangler::buildCollisions()
 		string name = root->GetName();
 		if (ends_with(name, "_rb") || ends_with(name, "_sp"))
 			return;
+
+
 		for (int i = 0; i < root->GetChildCount(); i++) {
 			FbxNode* child = root->GetChild(i);
 
@@ -4633,6 +4641,10 @@ void FBXWrangler::buildCollisions()
 			root->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh)
 		{
 			//I'm a mesh, find my nearest parent RB, if any
+
+			if (skins_Map.find((FbxMesh*)root->GetNodeAttribute()) != skins_Map.end())
+				return;
+
 			FbxNode* parent = root;
 			FbxNode* body = NULL;
 			while (parent != NULL)

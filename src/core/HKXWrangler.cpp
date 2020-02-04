@@ -107,6 +107,13 @@ bool isShapeFbxNode(FbxNode* node)
 		);
 }
 
+bool isConstraintFbxNode(FbxNode* node) {
+	string node_name = node->GetName();
+	return
+		node_name.find("_con_") != string::npos;
+		
+}
+
 void HKXWrapper::write(hkRootLevelContainer& rootCont, string subfolder, string name) {
 	hkPackFormat pkFormat = HKPF_DEFAULT;
 	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
@@ -1599,16 +1606,26 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	
 	//search for the mesh children
 	FbxNode* mesh_child = NULL;
+	vector<FbxNode*> constraint_childs;
 	for (int i = 0; i < body->GetChildCount(); i++)
 	{
 		FbxNode* temp_child = body->GetChild(i);
 		if (isShapeFbxNode(temp_child))
 		{
 			mesh_child = temp_child;
-			break;
+		}
+		if (isConstraintFbxNode(temp_child))
+		{
+			constraint_childs.push_back(temp_child);
 		}
 	}
-	if (mesh_child == NULL) mesh_child = body->GetChild(0);
+	for (int i = 0; i < body->GetNodeAttributeCount(); i++)
+	{
+		if (body->GetNodeAttributeByIndex(i)->GetAttributeType() == FbxNodeAttribute::eMesh)
+			mesh_child = body;
+	}
+	//if (mesh_child == NULL) mesh_child = body->GetChild(0);
+	if (mesh_child == NULL && geometry_meshes.empty()) return NULL;
 	hkpMassProperties properties;
 	body_cinfo.m_shape = HKXWrapper::build_shape(mesh_child, geometry_meshes, properties, bhkScaleFactorInverse, body, body_cinfo);
 	body_cinfo.setMassProperties(properties);

@@ -189,7 +189,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	//}
 	InitializeHavok();
 
-	BSAFile bsa_file("I:\\git_ref\\resources\\bsa\\Skyrim - Animations.bsa");
+	BSAFile bsa_file("C:\\git_ref\\resources\\bsa\\Skyrim - Animations.bsa");
 	const std::regex re_actors("meshes\\\\actors\\\\(?!.*(animations|characters|character assets|characterassets|sharedkillmoves|behaviors)).*hkx", std::regex_constants::icase);
 	const std::regex re_misc("(?!.*(\\\\actors|\\\\.*animations|\\\\.*characters|\\\\.*character assets|\\\\.*characterassets|\\\\.*sharedkillmoves|\\\\behaviors|\\\\.+behaviors\\\\.*behavior|handeffect|handfx|fx.*cloak)).*hkx", std::regex_constants::icase);
 
