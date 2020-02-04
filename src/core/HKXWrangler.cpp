@@ -1599,6 +1599,19 @@ void extract_geometry(const bhkShapeRef shape_root, double scale_factor, hkGeome
 	return;
 }
 
+std::map< FbxNode*, hkRefPtr<hkpRigidBody>> bodies;
+hkArray< hkRefPtr<hkpRigidBody>> rigidBodies;
+hkArray< hkRefPtr<hkpConstraintInstance>> constraints;
+
+hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
+{
+	for (int i = 0; i < body->GetChildCount(); i++)
+	{
+		FbxNode* temp_child = body->GetChild(i);
+	}
+	return NULL;
+}
+
 hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
 	double bhkScaleFactorInverse = 0.01428; // 1 skyrim unit = 0,01428m
@@ -1631,6 +1644,11 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	body_cinfo.setMassProperties(properties);
 	hkRefPtr<hkpRigidBody> hk_body = new hkpRigidBody(body_cinfo);
 	hk_body->setShape(body_cinfo.m_shape);
+	bodies[body] = hk_body;
+	rigidBodies.pushBack(hk_body);
+	for (auto con : constraint_childs)
+		build_constraint(con);
+
 	return hk_body;
 }
 
