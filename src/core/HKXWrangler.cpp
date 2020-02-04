@@ -299,6 +299,17 @@ hkQsTransform getBoneTransform(FbxNode* pNode, FbxTime time) {
 	return hk_trans;
 }
 
+hkTransform getTransform(const FbxVector4& lT, const FbxQuaternion& lR) {
+	hkQsTransform hk_trans;
+
+	hk_trans.setTranslation(hkVector4(lT[0], lT[1], lT[2]));
+	hk_trans.setRotation(::hkQuaternion(lR[0], lR[1], lR[2], lR[3]));
+
+	hkTransform b;
+	hk_trans.copyToTransformNoScale(b);
+	return b;
+}
+
 hkReal getFloatTrackValue(FbxProperty& property, FbxTime time) {
 	hkReal result = 0.0;
 	if (property.IsValid())
@@ -1605,9 +1616,24 @@ hkArray< hkRefPtr<hkpConstraintInstance>> constraints;
 
 hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 {
-	for (int i = 0; i < body->GetChildCount(); i++)
+
+	int numConstraints = body->RootProperty.GetSrcObjectCount(FbxCriteria::ObjectType(FbxConstraintParent::ClassId));
+	if (numConstraints > 0)
 	{
-		FbxNode* temp_child = body->GetChild(i);
+		FbxConstraintParent* fbx_constraint = body->RootProperty.GetSrcObject<FbxConstraintParent>(FbxCriteria::ObjectType(FbxConstraintParent::ClassId));
+		FbxNode* target = (FbxNode*)fbx_constraint->GetConstrainedObject();
+		auto rotation = fbx_constraint->GetRotationOffset(body);
+		FbxQuaternion qrotation; qrotation.ComposeSphericalXYZ(rotation);
+		auto translation = fbx_constraint->GetTranslationOffset(body);
+
+		hkRefPtr<hkpRigidBody> source_rb = bodies[body];
+		hkRefPtr<hkpRigidBody> target_rb = bodies[target];
+
+		hkpRagdollConstraintData* bs;
+		bs = new hkpRagdollConstraintData();
+		hkTransform a;
+		bs->m_atoms.m_transforms.m_transformA = getTransform(translation, qrotation);		hkRefPtr<hkpConstraintInstance> instance = new hkpConstraintInstance(source_rb, target_rb, bs);		constraints.pushBack(instance);
+		return instance;
 	}
 	return NULL;
 }
