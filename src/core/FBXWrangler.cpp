@@ -1874,9 +1874,9 @@ public:
 			row4.w = 1;
 
 			Matrix44 matA = Matrix44(
-				row1[0], row1[1], row1[2], row4[0],
-				row2[0], row2[1], row2[2], row4[1],
-				row3[0], row3[1], row3[2], row4[2],
+				row1[0], row2[1], row3[2], row4[0],
+				row1[0], row2[1], row2[2], row4[1],
+				row1[0], row2[1], row3[2], row4[2],
 				0.0f, 0.0f, 0.0f, row4[3]
 			);
 
@@ -1887,9 +1887,9 @@ public:
 			row4b.w = 1;
 
 			Matrix44 matB = Matrix44(
-				row1b[0], row1b[1], row1b[2], row4b[0],
-				row2b[0], row2b[1], row2b[2], row4b[1],
-				row3b[0], row3b[1], row3b[2], row4b[2],
+				row1b[0], row2b[1], row2b[2], row4b[0],
+				row1b[0], row2b[1], row2b[2], row4b[1],
+				row1b[0], row2b[1], row2b[2], row4b[2],
 				0.0f, 0.0f, 0.0f, row4b[3]
 			);
 
@@ -1948,9 +1948,9 @@ public:
 			row4.w = 1;
 
 			Matrix44 matA = Matrix44(
-				row1[0], row1[1], row1[2], row4[0],
-				row2[0], row2[1], row2[2], row4[1],
-				row3[0], row3[1], row3[2], row4[2],
+				row1[0], row2[1], row3[2], row4[0],
+				row1[0], row2[1], row2[2], row4[1],
+				row1[0], row2[1], row3[2], row4[2],
 				0.0f, 0.0f, 0.0f, row4[3]
 			);
 
@@ -1961,9 +1961,9 @@ public:
 			row4b.w = 1;
 
 			Matrix44 matB = Matrix44(
-				row1b[0], row1b[1], row1b[2], row4b[0],
-				row2b[0], row2b[1], row2b[2], row4b[1],
-				row3b[0], row3b[1], row3b[2], row4b[2],
+				row1b[0], row2b[1], row2b[2], row4b[0],
+				row1b[0], row2b[1], row2b[2], row4b[1],
+				row1b[0], row2b[1], row2b[2], row4b[2],
 				0.0f, 0.0f, 0.0f, row4b[3]
 			);
 
@@ -1995,9 +1995,9 @@ public:
 			row4.w = 1;
 
 			Matrix44 matA = Matrix44(
-				row1[0], row1[1], row1[2], row4[0],
-				row2[0], row2[1], row2[2], row4[1],
-				row3[0], row3[1], row3[2], row4[2],
+				row1[0], row2[1], row3[2], row4[0],
+				row1[0], row2[1], row2[2], row4[1],
+				row1[0], row2[1], row3[2], row4[2],
 				0.0f, 0.0f, 0.0f, row4[3]
 			);
 
@@ -2008,9 +2008,9 @@ public:
 			row4b.w = 1;
 
 			Matrix44 matB = Matrix44(
-				row1b[0], row1b[1], row1b[2], row4b[0],
-				row2b[0], row2b[1], row2b[2], row4b[1],
-				row3b[0], row3b[1], row3b[2], row4b[2],
+				row1b[0], row2b[1], row2b[2], row4b[0],
+				row1b[0], row2b[1], row2b[2], row4b[1],
+				row1b[0], row2b[1], row2b[2], row4b[2],
 				0.0f, 0.0f, 0.0f, row4b[3]
 			);
 	
@@ -2030,23 +2030,9 @@ public:
 			fbx_constraint->SetTranslationOffset(constraint_node, TOFBXVECTOR3(matA.GetTrans()));
 
 
-			int index = fabs(descriptor.axleB.x) > fabs(descriptor.axleB.y) ?
-				fabs(descriptor.axleB.x) > fabs(descriptor.axleB.z) ? 0 : 2 :
-				fabs(descriptor.axleB.y) > fabs(descriptor.axleB.z) ? 1 : 2;
+			fbx_constraint->AffectRotationX = false;
+			fbx_constraint->AffectRotationY = false;
 
-			//if (index == 1)
-			//	printf("lol");
-
-			//if (index == 0)
-				fbx_constraint->AffectRotationX = false;
-			//else if (index == 1)
-				fbx_constraint->AffectRotationY = false;
-			//else
-				//fbx_constraint->AffectRotationZ = false;
-
-			//fbx_constraint->AffectRotationX = false;
-			//fbx_constraint->AffectRotationY = false;
-			//fbx_constraint->AffectRotationZ = false;
 
 			return NULL;
 		}
@@ -4757,8 +4743,11 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				(ends_with(child_name,"_rb") || ends_with(child_name, "_sp")))
 			{
 				//collisions are leaves, defer them and return
-				physic_entities.insert(child);
-				continue;
+				if (find(physic_entities.begin(), physic_entities.end(), child) == physic_entities.end())
+				{
+					physic_entities.push_back(child);
+					continue;
+				}
 			}
 			//if (ends_with(child_name, "_support") || child_name.find("AssimpFbx") != string::npos)
 			//{
@@ -4960,6 +4949,10 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	{
 		//collisions
 		buildCollisions();
+		//rig
+		auto ragdoll = HKXWrapper::build_skeleton_from_ragdoll();
+
+
 	}
 
 	return true;

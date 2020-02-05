@@ -62,7 +62,7 @@ namespace FBX {
 		set<string> sequences_names;
 		set<string> havok_sequences;
 
-		set<FbxNode*> physic_entities;
+		vector<FbxNode*> physic_entities;
 
 		bool export_skin = false;
 		bool export_rig = false;

@@ -145,6 +145,7 @@ namespace ckcmd {
 				const string& prefix, const set<string>& kf_sequences_names, const set<string>& havok_sequences_names);
 
 			static hkRefPtr<hkpRigidBody> build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
+			static hkaSkeleton* build_skeleton_from_ragdoll();
 			static hkRefPtr<hkpConstraintInstance> build_constraint(FbxNode* body);
 			static hkRefPtr<hkpRigidBody> check_body(bhkRigidBodyRef body, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes);
 			static hkRefPtr<hkpShape> build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, FbxNode* body, hkpRigidBodyCinfo& hk_body);

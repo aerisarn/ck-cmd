@@ -79,6 +79,8 @@
 #include <Physics\Collide\Shape\Convex\ConvexVertices\hkpConvexVerticesConnectivity.h>
 #include <Physics\Utilities\Collide\ShapeUtils\ShapeConverter\hkpShapeConverter.h>
 
+#include <Animation\Ragdoll\Utils\hkaRagdollUtils.h>
+
 #include <core/EulerAngles.h>
 #include <core/MathHelper.h>
 
@@ -301,6 +303,22 @@ hkQsTransform getBoneTransform(FbxNode* pNode, FbxTime time) {
 
 hkTransform getTransform(const FbxVector4& lT, const FbxQuaternion& lR) {
 	hkQsTransform hk_trans;
+
+	hk_trans.setTranslation(hkVector4(lT[0], lT[1], lT[2]));
+	hk_trans.setRotation(::hkQuaternion(lR[0], lR[1], lR[2], lR[3]));
+
+	hkTransform b;
+	hk_trans.copyToTransformNoScale(b);
+	return b;
+}
+
+hkTransform getTransform(FbxNode* pNode) {
+	hkQsTransform hk_trans;
+
+	FbxAMatrix localMatrix = pNode->EvaluateLocalTransform();
+
+	const FbxVector4 lT = localMatrix.GetT();
+	const FbxQuaternion lR = localMatrix.GetQ();
 
 	hk_trans.setTranslation(hkVector4(lT[0], lT[1], lT[2]));
 	hk_trans.setRotation(::hkQuaternion(lR[0], lR[1], lR[2], lR[3]));
@@ -1610,9 +1628,26 @@ void extract_geometry(const bhkShapeRef shape_root, double scale_factor, hkGeome
 	return;
 }
 
-std::map< FbxNode*, hkRefPtr<hkpRigidBody>> bodies;
-hkArray< hkRefPtr<hkpRigidBody>> rigidBodies;
-hkArray< hkRefPtr<hkpConstraintInstance>> constraints;
+std::map< FbxNode*, hkpRigidBody*> bodies;
+std::set< hkpRigidBody*> rigidBodies;
+std::set< hkpConstraintInstance*> constraints;
+
+hkaSkeleton* HKXWrapper::build_skeleton_from_ragdoll()
+{
+	if (constraints.size() == rigidBodies.size() - 1)
+	{
+		hkArray<hkpRigidBody*> hkRigidBodies;
+		for (const auto body : rigidBodies)
+			hkRigidBodies.pushBack(body);
+		hkArray<hkpConstraintInstance*> hkConstraints;
+		for (const auto con : constraints)
+			hkConstraints.pushBack(con); 
+		hkaRagdollUtils::reorderAndAlignForRagdoll(hkRigidBodies, hkConstraints);
+		return hkaRagdollUtils::constructSkeletonForRagdoll(hkRigidBodies, hkConstraints);
+	}
+	return NULL;
+}
+
 
 hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 {
@@ -1626,13 +1661,29 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 		FbxQuaternion qrotation; qrotation.ComposeSphericalXYZ(rotation);
 		auto translation = fbx_constraint->GetTranslationOffset(body);
 
-		hkRefPtr<hkpRigidBody> source_rb = bodies[body];
-		hkRefPtr<hkpRigidBody> target_rb = bodies[target];
+		hkRefPtr<hkpRigidBody> entity_b = bodies[body->GetParent()];
+		hkRefPtr<hkpRigidBody> entity_a = bodies[target];
+		hkTransform transform_a = getTransform(translation, qrotation);
+		hkTransform transform_b = getTransform(body);
 
-		hkpRagdollConstraintData* bs;
-		bs = new hkpRagdollConstraintData();
-		hkTransform a;
-		bs->m_atoms.m_transforms.m_transformA = getTransform(translation, qrotation);		hkRefPtr<hkpConstraintInstance> instance = new hkpConstraintInstance(source_rb, target_rb, bs);		constraints.pushBack(instance);
+		hkpConstraintData* data = NULL;
+		//Entity A is the child 
+		if (fbx_constraint->AffectRotationZ) {
+			//ragdoll
+			hkpRagdollConstraintData* temp = new hkpRagdollConstraintData();
+			temp->m_atoms.m_transforms.m_transformA = transform_a;
+			temp->m_atoms.m_transforms.m_transformB = transform_b;
+			data = temp;
+		}
+		else {
+			hkpLimitedHingeConstraintData* temp = new hkpLimitedHingeConstraintData();
+			temp->m_atoms.m_transforms.m_transformA = transform_a;
+			temp->m_atoms.m_transforms.m_transformB = transform_b;
+			data = temp;
+		}
+		hkRefPtr<hkpConstraintInstance> instance = 
+			new hkpConstraintInstance(entity_a, entity_b, data);
+		constraints.insert(instance);
 		return instance;
 	}
 	return NULL;
@@ -1670,10 +1721,14 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	body_cinfo.setMassProperties(properties);
 	hkRefPtr<hkpRigidBody> hk_body = new hkpRigidBody(body_cinfo);
 	hk_body->setShape(body_cinfo.m_shape);
-	bodies[body] = hk_body;
-	rigidBodies.pushBack(hk_body);
-	for (auto con : constraint_childs)
-		build_constraint(con);
+	if (string(body->GetName()).find("_sp") == string::npos)
+	{
+		bodies[body] = hk_body;
+		hk_body->addReference();
+		rigidBodies.insert(hk_body);
+		for (auto con : constraint_childs)
+			build_constraint(con);
+	}
 
 	return hk_body;
 }
