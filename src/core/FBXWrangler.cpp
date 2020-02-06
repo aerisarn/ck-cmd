@@ -482,31 +482,7 @@ public:
 //	ConstraintBuilder(vector<bhkBlendCollisionObjectRef>& nbodies, hkArray<hkpRigidBody*>& hkbodies) : ConstraintVisitor(nbodies,hkbodies) {}
 //};
 
-template<typename PropertyType, typename input>
-void set_property(FbxSurfaceMaterial* material, const char* name, input value, PropertyType T)
-{
-	FbxProperty p = material->FindProperty(name);
-	if (!p.IsValid())
-	{
-		p = FbxProperty::Create(material, T, name);
-		p.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
-	}
-	p.Set(value);
-};
-
 bool valid = false;
-
-template<typename Output>
-Output get_property(FbxSurfaceMaterial* material, const char* name)
-{
-	FbxProperty p = material->FindProperty(name);
-	if (p.IsValid())
-	{
-		valid = true;
-		return p.Get<Output>();
-	}
-	return Output();
-};
 
 enum gl_blend_modes {
 	GL_ONE = 0,
@@ -4731,6 +4707,21 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			}
 		}
 
+		for (int i = 0; i < root->GetNodeAttributeCount(); i++)
+		{
+			if (root->GetNodeAttributeByIndex(i) != NULL && root->GetNodeAttributeByIndex(i)->GetAttributeType() == FbxNodeAttribute::eSkeleton) {
+				FbxSkeleton* bone = (FbxSkeleton*)root->GetNodeAttributeByIndex(i);
+				if (bone->GetSkeletonType() == FbxSkeleton::eRoot)
+				{
+					hkxWrapper.create_skeleton(root);
+				}
+				else {
+					hkxWrapper.add_bone(root);
+				}
+				break;
+			}
+		}
+
 		for (int i = 0; i < root->GetChildCount(); i++) {
 			FbxNode* child = root->GetChild(i);
 			NiAVObjectRef nif_child = NULL;
@@ -4950,7 +4941,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		//collisions
 		buildCollisions();
 		//rig
-		auto ragdoll = HKXWrapper::build_skeleton_from_ragdoll();
+		hkxWrapper.build_skeleton_from_ragdoll();
 
 
 	}

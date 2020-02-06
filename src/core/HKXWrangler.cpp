@@ -312,10 +312,13 @@ hkTransform getTransform(const FbxVector4& lT, const FbxQuaternion& lR) {
 	return b;
 }
 
-hkTransform getTransform(FbxNode* pNode) {
+hkTransform getTransform(FbxNode* pNode, bool absolute = false) {
 	hkQsTransform hk_trans;
-
-	FbxAMatrix localMatrix = pNode->EvaluateLocalTransform();
+	FbxAMatrix localMatrix;
+	if (absolute)
+		localMatrix = pNode->EvaluateGlobalTransform();
+	else
+		localMatrix = pNode->EvaluateLocalTransform();
 
 	const FbxVector4 lT = localMatrix.GetT();
 	const FbxQuaternion lR = localMatrix.GetQ();
@@ -1053,6 +1056,7 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 
 		lSkeletonLimbNodeAttribute1->Size.Set(1.0);
 		FbxNode* BaseJoint = FbxNode::Create(scene_root->GetScene(), b_name.c_str());
+		set_property(BaseJoint, "bone_order", b, FbxShortDT);
 		BaseJoint->SetNodeAttribute(lSkeletonLimbNodeAttribute1);
 
 		// Set Translation
@@ -1095,6 +1099,7 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 		if (index != string::npos)
 		{
 			string parent = track_name.substr(index + 1, track_name.size());
+			sanitizeString(parent);
 			track_name = track_name.substr(0, index);
 			FbxNode* parent_node = ordered_skeleton[0]->GetScene()->FindNodeByName(parent.c_str());
 			if (parent_node != NULL)
@@ -1464,6 +1469,10 @@ static inline hkVector4 TOVECTOR4(const Niflib::Vector4& v) {
 	return hkVector4(v.x, v.y, v.z, v.w);
 }
 
+static inline hkVector4 TOVECTOR4(const FbxVector4& v) {
+	return hkVector4(v.mData[0], v.mData[1], v.mData[2], v.mData[3]);
+}
+
 static inline hkMatrix4 TOMATRIX4(const Niflib::Matrix44& q, float scale=1.0) {
 	hkMatrix4 m4;
 	m4.setCols(TOVECTOR4(q.rows[0]), TOVECTOR4(q.rows[1]), TOVECTOR4(q.rows[2]), TOVECTOR4(q.rows[3]));
@@ -1628,11 +1637,96 @@ void extract_geometry(const bhkShapeRef shape_root, double scale_factor, hkGeome
 	return;
 }
 
+struct byA
+{
+	bool operator () (const hkpRigidBody* lhs, const hkpRigidBody* rhs)
+	{
+		return lhs->getName() < rhs->getName();
+	}
+};
+
 std::map< FbxNode*, hkpRigidBody*> bodies;
-std::set< hkpRigidBody*> rigidBodies;
+std::map< FbxNode*, hkaBone*> boneMap;
+std::vector< hkaBone*> bones;
+std::vector< hkpRigidBody*> rigidBodies;
 std::set< hkpConstraintInstance*> constraints;
 
-hkaSkeleton* HKXWrapper::build_skeleton_from_ragdoll()
+void HKXWrapper::create_skeleton(FbxNode* bone)
+{
+	skeleton = new hkaSkeleton();
+	string root_name = "NPC Root [Root]";
+	sanitizeString(root_name);
+	skeleton->m_name = "NPC Root [Root]";
+	bone->SetName(root_name.c_str());
+	skeleton->m_parentIndices.setSize(1);
+	skeleton->m_bones.setSize(1);
+	skeleton->m_referencePose.setSize(1);
+	skeleton->m_parentIndices[0] = -1;
+	skeleton->m_bones[0].m_name = "NPC Root [Root]";
+	skeleton->m_bones[0].m_lockTranslation = false;
+	auto transform = getTransform(bone);
+	skeleton->m_referencePose[0].setTranslation(transform.getTranslation());
+	skeleton->m_referencePose[0].setRotation(transform.getRotation());
+	skeleton->m_referencePose[0].setScale(hkVector4(1.000000, 1.000000, 1.000000, 0.000000));
+
+	FbxProperty prop = bone->GetFirstProperty();
+	while (prop.IsValid()) {
+		if (prop.GetFlag(FbxPropertyFlags::eUserDefined) == true &&
+			prop.GetFlag(FbxPropertyFlags::eAnimatable) == true &&
+			prop.GetPropertyDataType() == FbxFloatDT)
+		{
+			skeleton->m_floatSlots.pushBack((const char*)prop.GetName());
+			skeleton->m_referenceFloats.pushBack(getFloatTrackValue(prop,0.0));
+		}
+		prop = bone->GetNextProperty(prop);
+	}
+
+}
+
+void HKXWrapper::add_bone(FbxNode* bone)
+{
+	//find parent
+	string parent_name = bone->GetParent()->GetName();
+	parent_name = unsanitizeString(parent_name);
+	string bone_name = bone->GetName();
+	bone_name = unsanitizeString(bone_name);
+	int parent_index = -1;
+	for (int b = 0; b < skeleton->m_bones.getSize(); b++)
+	{
+		if (skeleton->m_bones[b].m_name && strcmp(skeleton->m_bones[b].m_name.cString(), parent_name.c_str()) == 0)
+		{
+			parent_index = b;
+			break;
+		}
+	}
+	if (parent_index == -1)
+	{
+		Log::Warn("Cannot find parent bone of %s (%s)", bone->GetName(), bone->GetParent()->GetName());
+	}
+	int bone_index = -1;
+	if (bone->FindProperty("bone_order").IsValid())
+	{
+		bone_index = get_property<FbxShort>(bone, "bone_order");
+		Log::Info("Found preset bone order: %d",bone_index);
+	}
+	else bone_index = skeleton->m_bones.getSize();
+	if (bone_index >= skeleton->m_bones.getSize())
+	{
+		skeleton->m_parentIndices.setSize(bone_index + 1);
+		skeleton->m_bones.setSize(bone_index + 1);
+		skeleton->m_referencePose.setSize(bone_index + 1);
+	}
+
+	skeleton->m_parentIndices[bone_index] = parent_index;
+	skeleton->m_bones[bone_index].m_name = bone_name.c_str();
+	skeleton->m_bones[bone_index].m_lockTranslation = true;
+	auto transform = getTransform(bone);
+	skeleton->m_referencePose[bone_index].setTranslation(transform.getTranslation());
+	skeleton->m_referencePose[bone_index].setRotation(transform.getRotation());
+	skeleton->m_referencePose[bone_index].setScale(hkVector4(1.000000, 1.000000, 1.000000, 0.000000));
+}
+
+void HKXWrapper::build_skeleton_from_ragdoll()
 {
 	if (constraints.size() == rigidBodies.size() - 1)
 	{
@@ -1643,9 +1737,33 @@ hkaSkeleton* HKXWrapper::build_skeleton_from_ragdoll()
 		for (const auto con : constraints)
 			hkConstraints.pushBack(con); 
 		hkaRagdollUtils::reorderAndAlignForRagdoll(hkRigidBodies, hkConstraints);
-		return hkaRagdollUtils::constructSkeletonForRagdoll(hkRigidBodies, hkConstraints);
+		hkaSkeleton* ragdoll_skeleton = hkaRagdollUtils::constructSkeletonForRagdoll(hkRigidBodies, hkConstraints);
+
+		auto ragdoll = hkaRagdollUtils::createRagdollInstanceFromSkeleton(ragdoll_skeleton, hkRigidBodies, hkConstraints);
+
+		hkaAnimationContainer anim_container;
+		hkMemoryResourceContainer mem_container;
+		
+		anim_container.m_skeletons.pushBack(skeleton);
+		anim_container.m_skeletons.pushBack(ragdoll_skeleton);
+
+		hkRootLevelContainer container;
+		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Merged Animation Container", &anim_container, &anim_container.staticClass()));
+		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Resource Data", &mem_container, &mem_container.staticClass()));
+		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("RagdollInstance", ragdoll, &ragdoll->staticClass()));
+
+		hkPackFormat pkFormat = HKPF_DEFAULT;
+		hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
+		hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
+		fs::path final_out_path = "./skeleton.hkx";
+		hkOstream stream(final_out_path.string().c_str());
+		hkVariant root = { &container, &container.staticClass() };
+		hkResult res = hkSerializeUtilSave(pkFormat, root, stream, flags, packFileOptions);
+		if (res != HK_SUCCESS)
+		{
+			Log::Error("Havok reports save failed.");
+		}
 	}
-	return NULL;
 }
 
 
@@ -1693,7 +1811,7 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 {
 	double bhkScaleFactorInverse = 0.01428; // 1 skyrim unit = 0,01428m
 	hkpRigidBodyCinfo body_cinfo;
-	
+	body_cinfo.setTransform(getTransform(body, true));
 	//search for the mesh children
 	FbxNode* mesh_child = NULL;
 	vector<FbxNode*> constraint_childs;
@@ -1720,12 +1838,17 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	body_cinfo.m_shape = HKXWrapper::build_shape(mesh_child, geometry_meshes, properties, bhkScaleFactorInverse, body, body_cinfo);
 	body_cinfo.setMassProperties(properties);
 	hkRefPtr<hkpRigidBody> hk_body = new hkpRigidBody(body_cinfo);
+	string name = body->GetName();
+	name = name.substr(0, name.size() - 3);
+	name = "Ragdoll_"+unsanitizeString(name);
+	hk_body->setName(name.c_str());
 	hk_body->setShape(body_cinfo.m_shape);
+	
 	if (string(body->GetName()).find("_sp") == string::npos)
 	{
 		bodies[body] = hk_body;
 		hk_body->addReference();
-		rigidBodies.insert(hk_body);
+		rigidBodies.push_back(hk_body);
 		for (auto con : constraint_childs)
 			build_constraint(con);
 	}

@@ -47,6 +47,30 @@ namespace fs = std::experimental::filesystem;
 
 bool isShapeFbxNode(FbxNode* node);
 
+template<typename PropertyType, typename input>
+void set_property(FbxObject* material, const char* name, input value, PropertyType T)
+{
+	FbxProperty p = material->FindProperty(name);
+	if (!p.IsValid())
+	{
+		p = FbxProperty::Create(material, T, name);
+		p.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+	}
+	p.Set(value);
+};
+
+template<typename Output>
+Output get_property(FbxObject* material, const char* name)
+{
+	FbxProperty p = material->FindProperty(name);
+	if (p.IsValid())
+	{
+		return p.Get<Output>();
+	}
+	return Output();
+};
+
+
 namespace ckcmd {
 	namespace HKX {
 
@@ -65,6 +89,8 @@ namespace ckcmd {
 			string out_path;
 			string out_path_abs;
 			string prefix;
+
+			hkaSkeleton* skeleton = NULL;
 
 			map<fs::path, hkRootLevelContainer> out_data;
 
@@ -125,6 +151,9 @@ namespace ckcmd {
 			//gives back the ordered bone array as written in the skeleton file
 			vector<FbxNode*> create_skeleton(const string& name, const set<FbxNode*>& bones, FbxNode* root = NULL);
 
+			void create_skeleton(FbxNode* bone);
+			void add_bone(FbxNode* bone);
+
 			set<string> create_animations(
 				const string& skeleton_name,
 				vector<FbxNode*>& skeleton,
@@ -145,7 +174,7 @@ namespace ckcmd {
 				const string& prefix, const set<string>& kf_sequences_names, const set<string>& havok_sequences_names);
 
 			static hkRefPtr<hkpRigidBody> build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
-			static hkaSkeleton* build_skeleton_from_ragdoll();
+			void build_skeleton_from_ragdoll();
 			static hkRefPtr<hkpConstraintInstance> build_constraint(FbxNode* body);
 			static hkRefPtr<hkpRigidBody> check_body(bhkRigidBodyRef body, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes);
 			static hkRefPtr<hkpShape> build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, FbxNode* body, hkpRigidBodyCinfo& hk_body);
