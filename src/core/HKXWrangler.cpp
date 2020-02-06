@@ -1105,6 +1105,7 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 			if (parent_node != NULL)
 			{
 				float_tracks[i] = FbxProperty::Create(parent_node, FbxFloatDT, track_name.c_str());
+				set_property(ordered_skeleton[0], ("float" + parent).c_str(), i, FbxShortDT);
 			}
 			else {
 				float_tracks[i] = FbxProperty::Create(ordered_skeleton[0], FbxFloatDT, track_name.c_str());
@@ -1670,8 +1671,12 @@ void HKXWrapper::create_skeleton(FbxNode* bone)
 	skeleton->m_referencePose[0].setScale(hkVector4(1.000000, 1.000000, 1.000000, 0.000000));
 
 	FbxProperty prop = bone->GetFirstProperty();
+	//set_property(ordered_skeleton[0], ("float" + parent).c_str(), i, FbxShortDT);
 	while (prop.IsValid()) {
-		if (prop.GetFlag(FbxPropertyFlags::eUserDefined) == true &&
+		string name = prop.GetNameAsCStr();
+		if (name.rfind("float", 0) == 0) {
+			float_map[name.substr(5, name.size() - 5)] = get_property<FbxShort>(bone, name.c_str());
+		} else if (prop.GetFlag(FbxPropertyFlags::eUserDefined) == true &&
 			prop.GetFlag(FbxPropertyFlags::eAnimatable) == true &&
 			prop.GetPropertyDataType() == FbxFloatDT)
 		{
@@ -1724,6 +1729,31 @@ void HKXWrapper::add_bone(FbxNode* bone)
 	skeleton->m_referencePose[bone_index].setTranslation(transform.getTranslation());
 	skeleton->m_referencePose[bone_index].setRotation(transform.getRotation());
 	skeleton->m_referencePose[bone_index].setScale(hkVector4(1.000000, 1.000000, 1.000000, 0.000000));
+
+	FbxProperty prop = bone->GetFirstProperty();
+	//set_property(ordered_skeleton[0], ("float" + parent).c_str(), i, FbxShortDT);
+	while (prop.IsValid()) {
+		if (prop.GetFlag(FbxPropertyFlags::eUserDefined) == true &&
+			prop.GetFlag(FbxPropertyFlags::eAnimatable) == true &&
+			prop.GetPropertyDataType() == FbxFloatDT)
+		{
+			int float_index = -1;
+			if (float_map.find(bone->GetName()) != float_map.end())
+			{
+				float_index = float_map[bone->GetName()];
+				Log::Info("Found preset float order: %d", float_index);
+			}
+			else float_index = skeleton->m_floatSlots.getSize();
+			if (float_index >= skeleton->m_floatSlots.getSize())
+			{
+				skeleton->m_floatSlots.setSize(float_index + 1);
+			}
+			skeleton->m_floatSlots[float_index] = (string(prop.GetNameAsCStr()) + ":" + bone_name).c_str();
+			skeleton->m_referenceFloats.pushBack(getFloatTrackValue(prop, 0.0));
+		}
+		prop = bone->GetNextProperty(prop);
+	}
+
 }
 
 void HKXWrapper::build_skeleton_from_ragdoll()

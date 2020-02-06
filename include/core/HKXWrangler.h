@@ -93,6 +93,7 @@ namespace ckcmd {
 			hkaSkeleton* skeleton = NULL;
 
 			map<fs::path, hkRootLevelContainer> out_data;
+			map<string, int> float_map;
 
 			void write(hkRootLevelContainer& rootCont, string subfolder = "", string name = "");
 
