@@ -1638,17 +1638,8 @@ void extract_geometry(const bhkShapeRef shape_root, double scale_factor, hkGeome
 	return;
 }
 
-struct byA
-{
-	bool operator () (const hkpRigidBody* lhs, const hkpRigidBody* rhs)
-	{
-		return lhs->getName() < rhs->getName();
-	}
-};
-
 std::map< FbxNode*, hkpRigidBody*> bodies;
 std::map< FbxNode*, hkaBone*> boneMap;
-std::vector< hkaBone*> bones;
 std::vector< hkpRigidBody*> rigidBodies;
 std::set< hkpConstraintInstance*> constraints;
 
@@ -1671,7 +1662,6 @@ void HKXWrapper::create_skeleton(FbxNode* bone)
 	skeleton->m_referencePose[0].setScale(hkVector4(1.000000, 1.000000, 1.000000, 0.000000));
 
 	FbxProperty prop = bone->GetFirstProperty();
-	//set_property(ordered_skeleton[0], ("float" + parent).c_str(), i, FbxShortDT);
 	while (prop.IsValid()) {
 		string name = prop.GetNameAsCStr();
 		if (name.rfind("float", 0) == 0) {
@@ -1685,7 +1675,6 @@ void HKXWrapper::create_skeleton(FbxNode* bone)
 		}
 		prop = bone->GetNextProperty(prop);
 	}
-
 }
 
 void HKXWrapper::add_bone(FbxNode* bone)
@@ -1731,7 +1720,6 @@ void HKXWrapper::add_bone(FbxNode* bone)
 	skeleton->m_referencePose[bone_index].setScale(hkVector4(1.000000, 1.000000, 1.000000, 0.000000));
 
 	FbxProperty prop = bone->GetFirstProperty();
-	//set_property(ordered_skeleton[0], ("float" + parent).c_str(), i, FbxShortDT);
 	while (prop.IsValid()) {
 		if (prop.GetFlag(FbxPropertyFlags::eUserDefined) == true &&
 			prop.GetFlag(FbxPropertyFlags::eAnimatable) == true &&
@@ -1753,8 +1741,89 @@ void HKXWrapper::add_bone(FbxNode* bone)
 		}
 		prop = bone->GetNextProperty(prop);
 	}
-
 }
+hkpPhysicsSystem* physic_entities = NULL;
+hkaSkeletonMapperData* fromRagdollToSkeletonMapping = NULL;
+
+//		Log::Info("Build Mappings Ragdoll -> Skeleton\n");
+//
+//		hkaSkeletonMapperData* fromRagdollToSkeletonMapping = new hkaSkeletonMapperData();
+//		fromRagdollToSkeletonMapping->m_simpleMappings.setSize(rigidBodies.size());
+//		fromRagdollToSkeletonMapping->m_skeletonA = hkRagdollSkeleton;
+//		fromRagdollToSkeletonMapping->m_skeletonB = hkSkeleton;
+//		set<int> mappedBones;
+//		for (size_t i = 0; i < rigidBodies.size(); i++) {
+//			hkaSkeletonMapperData::SimpleMapping& mapping = fromRagdollToSkeletonMapping->m_simpleMappings[i];
+//			mapping.m_boneA = i;
+//			mapping.m_boneB = ragdollAnimationParentMap[i];
+//			mappedBones.insert(ragdollAnimationParentMap[i]);
+//
+//			//Absolute transform
+//			int findroot = ragdollParentMap[i];
+//			hkQsTransform ragdollBoneTransform = hkRagdollSkeleton->m_referencePose[i];
+//			while (findroot != -1) {
+//				ragdollBoneTransform.setMul(hkRagdollSkeleton->m_referencePose[findroot], ragdollBoneTransform);
+//				findroot = ragdollParentMap[findroot];
+//			}
+//
+//			NiNodeRef animationBone = bones[ragdollAnimationParentMap[i]];
+//
+//			hkQsTransform animationBoneTransform;
+//			double scale = 1.0;
+//			animationBoneTransform.setTranslation(TOVECTOR4(animationBone->GetWorldTransform().GetTranslation()*scale));
+//			animationBoneTransform.setRotation(TOQUAT(animationBone->GetWorldTransform().GetRotation().AsQuaternion()));
+//			animationBoneTransform.setScale(hkVector4(animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale()));
+//
+//			mapping.m_aFromBTransform.setMulInverseMul(ragdollBoneTransform, animationBoneTransform);
+//		}
+//
+//		for (int i = 0; i < bones.size(); i++) {
+//			if (mappedBones.find(i) == mappedBones.end())
+//				fromRagdollToSkeletonMapping->m_unmappedBones.pushBack(i);
+//		}
+//
+//		hkRefPtr<hkaSkeletonMapper> ragdollToAnimationMapper = new hkaSkeletonMapper(*fromRagdollToSkeletonMapping);
+//
+//		rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", ragdollToAnimationMapper.val(), &ragdollToAnimationMapper->staticClass()));
+//
+//
+//		Log::Info("Build Mappings Skeleton -> Ragdoll\n");
+//
+//		hkaSkeletonMapperData* fromSkeletonToRagdollMapping = new hkaSkeletonMapperData();
+//		fromSkeletonToRagdollMapping->m_simpleMappings.setSize(rigidBodies.size());
+//		fromSkeletonToRagdollMapping->m_skeletonA = hkSkeleton;
+//		fromSkeletonToRagdollMapping->m_skeletonB = hkRagdollSkeleton;
+//
+//		for (size_t i = 0; i < rigidBodies.size(); i++) {
+//			hkaSkeletonMapperData::SimpleMapping& mapping = fromSkeletonToRagdollMapping->m_simpleMappings[i];
+//			mapping.m_boneA = ragdollAnimationParentMap[i];
+//			mapping.m_boneB = i;
+//			mappedBones.insert(ragdollAnimationParentMap[i]);
+//
+//			//Absolute transform
+//			int findroot = ragdollParentMap[i];
+//			hkQsTransform ragdollBoneTransform = hkRagdollSkeleton->m_referencePose[i];
+//			while (findroot != -1) {
+//				ragdollBoneTransform.setMul(hkRagdollSkeleton->m_referencePose[findroot], ragdollBoneTransform);
+//				findroot = ragdollParentMap[findroot];
+//			}
+//
+//			NiNodeRef animationBone = bones[ragdollAnimationParentMap[i]];
+//
+//			hkQsTransform animationBoneTransform;
+//			double scale = 1.0;
+//			animationBoneTransform.setTranslation(TOVECTOR4(animationBone->GetWorldTransform().GetTranslation()*scale));
+//			animationBoneTransform.setRotation(TOQUAT(animationBone->GetWorldTransform().GetRotation().AsQuaternion()));
+//			animationBoneTransform.setScale(hkVector4(animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale()));
+//
+//			mapping.m_aFromBTransform.setMulInverseMul(animationBoneTransform, ragdollBoneTransform);
+//		}
+//
+//		hkRefPtr<hkaSkeletonMapper> animationToRagdollMapper = new hkaSkeletonMapper(*fromSkeletonToRagdollMapping);
+//
+//		rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", animationToRagdollMapper.val(), &animationToRagdollMapper->staticClass()));
+//
+
 
 void HKXWrapper::build_skeleton_from_ragdoll()
 {
@@ -1771,16 +1840,117 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 
 		auto ragdoll = hkaRagdollUtils::createRagdollInstanceFromSkeleton(ragdoll_skeleton, hkRigidBodies, hkConstraints);
 
+		hkaSkeleton* hkRagdollSkeleton = ragdoll_skeleton;
+		hkaSkeleton* hkSkeleton = skeleton;
+		Log::Info("Build Mappings Ragdoll -> Skeleton\n");
+
+		
+		vector<int> ragdollAnimationParentMap(rigidBodies.size());
+		for (int rb = 0; rb < rigidBodies.size(); rb++)
+		{
+			string rb_name = hkRigidBodies[rb]->getName();
+			size_t offset = sizeof("Ragdoll_") - 1;
+			string animation_name = rb_name.substr(offset, rb_name.size() - offset);
+			for (int ab = 0; ab < hkSkeleton->m_bones.getSize(); ab++)
+			{
+				auto& bone = hkSkeleton->m_bones[ab];
+				if (strcmp(bone.m_name, animation_name.c_str()) == 0)
+				{
+					ragdollAnimationParentMap[rb] = ab;
+					break;
+				}
+			}
+		}
+
+		//vector<int> animationRagdollParentMap;
+
+		hkaSkeletonMapperData* fromRagdollToSkeletonMapping = new hkaSkeletonMapperData();
+		fromRagdollToSkeletonMapping->m_simpleMappings.setSize(rigidBodies.size());
+		fromRagdollToSkeletonMapping->m_skeletonA = hkRagdollSkeleton;
+		fromRagdollToSkeletonMapping->m_skeletonB = hkSkeleton;
+		set<int> mappedBones;
+		for (size_t i = 0; i < rigidBodies.size(); i++) {
+			hkaSkeletonMapperData::SimpleMapping& mapping = fromRagdollToSkeletonMapping->m_simpleMappings[i];
+			mapping.m_boneA = i;
+			mapping.m_boneB = ragdollAnimationParentMap[i];
+			mappedBones.insert(ragdollAnimationParentMap[i]);
+
+			//Absolute transform
+			int findroot = ragdoll_skeleton->m_parentIndices[i];
+			hkQsTransform ragdollBoneTransform = hkRagdollSkeleton->m_referencePose[i];
+			while (findroot != -1) {
+				ragdollBoneTransform.setMul(hkRagdollSkeleton->m_referencePose[findroot], ragdollBoneTransform);
+				findroot = ragdoll_skeleton->m_parentIndices[findroot];
+			}
+
+			int animationBone = ragdollAnimationParentMap[i];
+			findroot = skeleton->m_parentIndices[animationBone];
+			hkQsTransform animationBoneTransform = skeleton->m_referencePose[animationBone];
+			while (findroot != -1) {
+				animationBoneTransform.setMul(hkSkeleton->m_referencePose[findroot], animationBoneTransform);
+				findroot = skeleton->m_parentIndices[findroot];
+			}
+
+			mapping.m_aFromBTransform.setMulInverseMul(ragdollBoneTransform, animationBoneTransform);
+		}
+
+		for (int i = 0; i < skeleton->m_bones.getSize(); i++) {
+			if (mappedBones.find(i) == mappedBones.end())
+				fromRagdollToSkeletonMapping->m_unmappedBones.pushBack(i);
+		}
+
+
+		Log::Info("Build Mappings Skeleton -> Ragdoll\n");
+
+		hkaSkeletonMapperData* fromSkeletonToRagdollMapping = new hkaSkeletonMapperData();
+		fromSkeletonToRagdollMapping->m_simpleMappings.setSize(rigidBodies.size());
+		fromSkeletonToRagdollMapping->m_skeletonA = hkSkeleton;
+		fromSkeletonToRagdollMapping->m_skeletonB = hkRagdollSkeleton;
+
+		for (size_t i = 0; i < rigidBodies.size(); i++) {
+			hkaSkeletonMapperData::SimpleMapping& mapping = fromSkeletonToRagdollMapping->m_simpleMappings[i];
+			mapping.m_boneA = ragdollAnimationParentMap[i];
+			mapping.m_boneB = i;
+			mappedBones.insert(ragdollAnimationParentMap[i]);
+
+			//Absolute transform
+			int findroot = ragdoll_skeleton->m_parentIndices[i];
+			hkQsTransform ragdollBoneTransform = hkRagdollSkeleton->m_referencePose[i];
+			while (findroot != -1) {
+				ragdollBoneTransform.setMul(hkRagdollSkeleton->m_referencePose[findroot], ragdollBoneTransform);
+				findroot = ragdoll_skeleton->m_parentIndices[findroot];
+			}
+
+			int animationBone = ragdollAnimationParentMap[i];
+			findroot = skeleton->m_parentIndices[animationBone];
+			hkQsTransform animationBoneTransform = skeleton->m_referencePose[animationBone];
+			while (findroot != -1) {
+				animationBoneTransform.setMul(hkSkeleton->m_referencePose[findroot], animationBoneTransform);
+				findroot = skeleton->m_parentIndices[findroot];
+			}
+
+			mapping.m_aFromBTransform.setMulInverseMul(animationBoneTransform, ragdollBoneTransform);
+		}
+
 		hkaAnimationContainer anim_container;
 		hkMemoryResourceContainer mem_container;
 		
 		anim_container.m_skeletons.pushBack(skeleton);
 		anim_container.m_skeletons.pushBack(ragdoll_skeleton);
 
+		hkpPhysicsData physics_data;
+		physics_data.addPhysicsSystem(physic_entities);
+
+		hkRefPtr<hkaSkeletonMapper> ragdollToAnimationMapper = new hkaSkeletonMapper(*fromRagdollToSkeletonMapping);
+		hkRefPtr<hkaSkeletonMapper> animationToRagdollMapper = new hkaSkeletonMapper(*fromSkeletonToRagdollMapping);
+
 		hkRootLevelContainer container;
 		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Merged Animation Container", &anim_container, &anim_container.staticClass()));
 		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Resource Data", &mem_container, &mem_container.staticClass()));
+		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Physics Data", &physics_data, &physics_data.staticClass()));
 		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("RagdollInstance", ragdoll, &ragdoll->staticClass()));
+		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", ragdollToAnimationMapper.val(), &ragdollToAnimationMapper->staticClass()));
+		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", animationToRagdollMapper.val(), &animationToRagdollMapper->staticClass()));
 
 		hkPackFormat pkFormat = HKPF_DEFAULT;
 		hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
@@ -1831,11 +2001,15 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 		}
 		hkRefPtr<hkpConstraintInstance> instance = 
 			new hkpConstraintInstance(entity_a, entity_b, data);
+		instance->setName(entity_a->getName());
 		constraints.insert(instance);
+		physic_entities->addConstraint(instance);
 		return instance;
 	}
 	return NULL;
 }
+
+
 
 hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
@@ -1870,19 +2044,46 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	hkRefPtr<hkpRigidBody> hk_body = new hkpRigidBody(body_cinfo);
 	string name = body->GetName();
 	name = name.substr(0, name.size() - 3);
-	name = "Ragdoll_"+unsanitizeString(name);
+	if (string(body->GetName()).find("_sp") == string::npos)
+		name = "Ragdoll_"+unsanitizeString(name);
+	else
+	{
+		name = unsanitizeString(name);
+		hk_body->setAllowedPenetrationDepth(340282001837565597733306976381245063168.000000);
+	}
 	hk_body->setName(name.c_str());
 	hk_body->setShape(body_cinfo.m_shape);
-	
+	hk_body->m_npData = 0;
+
+	if (physic_entities == NULL)
+	{
+		physic_entities = new hkpPhysicsSystem();
+		physic_entities->setName("Default Physics System");
+		physic_entities->setActive(true);
+	}
+	//recalculate the rigid bodies with real values, not scaled values for nifs
+	hkpRigidBodyCinfo body_cinfo_unscaled;
+	body_cinfo_unscaled.setTransform(getTransform(body, true));
+
+	hkpMassProperties unscaled_properties;
+	body_cinfo_unscaled.m_shape = HKXWrapper::build_shape(mesh_child, geometry_meshes, unscaled_properties, 1.0, body, body_cinfo_unscaled);
+	body_cinfo_unscaled.setMassProperties(unscaled_properties);
+	hkRefPtr<hkpRigidBody> hk_body_unscaled = new hkpRigidBody(body_cinfo_unscaled);
+	hk_body_unscaled->setName(name.c_str());
+	hk_body_unscaled->setShape(body_cinfo_unscaled.m_shape);
+	hk_body_unscaled->m_npData = 0;
 	if (string(body->GetName()).find("_sp") == string::npos)
 	{
-		bodies[body] = hk_body;
-		hk_body->addReference();
-		rigidBodies.push_back(hk_body);
+		bodies[body] = hk_body_unscaled;
+		hk_body_unscaled->addReference();
+		rigidBodies.push_back(hk_body_unscaled);
 		for (auto con : constraint_childs)
 			build_constraint(con);
 	}
-
+	else {
+		hk_body_unscaled->setAllowedPenetrationDepth(340282001837565597733306976381245063168.000000);
+	}
+	physic_entities->addRigidBody(hk_body_unscaled);
 	return hk_body;
 }
 
