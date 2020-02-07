@@ -312,7 +312,7 @@ hkTransform getTransform(const FbxVector4& lT, const FbxQuaternion& lR) {
 	return b;
 }
 
-hkTransform getTransform(FbxNode* pNode, bool absolute = false) {
+hkTransform getTransform(FbxNode* pNode, bool absolute = false, bool inverse = false) {
 	hkQsTransform hk_trans;
 	FbxAMatrix localMatrix;
 	if (absolute)
@@ -321,7 +321,7 @@ hkTransform getTransform(FbxNode* pNode, bool absolute = false) {
 		localMatrix = pNode->EvaluateLocalTransform();
 
 	const FbxVector4 lT = localMatrix.GetT();
-	const FbxQuaternion lR = localMatrix.GetQ();
+	FbxQuaternion lR = localMatrix.GetQ(); lR.Inverse();
 
 	hk_trans.setTranslation(hkVector4(lT[0], lT[1], lT[2]));
 	hk_trans.setRotation(::hkQuaternion(lR[0], lR[1], lR[2], lR[3]));
@@ -1966,6 +1966,11 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 	}
 }
 
+set<tuple<FbxNode*, FbxNode*, hkpConstraintInstance*>> constraints_table;
+
+const set<tuple<FbxNode*, FbxNode*, hkpConstraintInstance*>>&  HKXWrapper::get_constraints_table() {
+	return constraints_table;
+}
 
 hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 {
@@ -1976,17 +1981,19 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 		FbxConstraintParent* fbx_constraint = body->RootProperty.GetSrcObject<FbxConstraintParent>(FbxCriteria::ObjectType(FbxConstraintParent::ClassId));
 		FbxNode* target = (FbxNode*)fbx_constraint->GetConstrainedObject();
 		auto rotation = fbx_constraint->GetRotationOffset(body);
-		FbxQuaternion qrotation; qrotation.ComposeSphericalXYZ(rotation);
+		FbxQuaternion qrotation; qrotation.ComposeSphericalXYZ(rotation); qrotation.Inverse();
+		
 		auto translation = fbx_constraint->GetTranslationOffset(body);
+		auto source = body->GetParent();
 
 		hkRefPtr<hkpRigidBody> entity_b = bodies[body->GetParent()];
 		hkRefPtr<hkpRigidBody> entity_a = bodies[target];
 		hkTransform transform_a = getTransform(translation, qrotation);
-		hkTransform transform_b = getTransform(body);
+		hkTransform transform_b = getTransform(body, false, true);
 
 		hkpConstraintData* data = NULL;
 		//Entity A is the child 
-		if (fbx_constraint->AffectRotationZ) {
+		if (fbx_constraint->AffectRotationZ.Get() == false) {
 			//ragdoll
 			hkpRagdollConstraintData* temp = new hkpRagdollConstraintData();
 			temp->m_atoms.m_transforms.m_transformA = transform_a;
@@ -1999,11 +2006,13 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 			temp->m_atoms.m_transforms.m_transformB = transform_b;
 			data = temp;
 		}
+
 		hkRefPtr<hkpConstraintInstance> instance = 
 			new hkpConstraintInstance(entity_a, entity_b, data);
 		instance->setName(entity_a->getName());
 		constraints.insert(instance);
 		physic_entities->addConstraint(instance);
+		constraints_table.insert({ target, body->GetParent(), instance });
 		return instance;
 	}
 	return NULL;

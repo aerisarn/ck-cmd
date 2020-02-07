@@ -84,6 +84,7 @@ bool ImportRig::InternalRunCommand(map<string, docopt::value> parsedArgs)
 
 	InitializeHavok();
 	FBXWrangler wrangler;
+	wrangler.setExportRig();
 	if (wrangler.ImportScene(importSkeleton.c_str()))
 	{
 		fs::path out_path = outputDir / fs::path(importSkeleton).filename().replace_extension(".nif");

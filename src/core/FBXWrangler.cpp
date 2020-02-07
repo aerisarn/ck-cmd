@@ -1849,10 +1849,10 @@ public:
 			Vector4 row4 = descriptor.pivotA * bhkScaleFactor;
 			row4.w = 1;
 
-			Matrix44 matA = Matrix44(
-				row1[0], row2[1], row3[2], row4[0],
-				row1[0], row2[1], row2[2], row4[1],
-				row1[0], row2[1], row3[2], row4[2],
+			Matrix44 matA(
+				row1.x, row2.x, row3.x, row4.x,
+				row1.y, row2.y, row3.y, row4.y,
+				row1.z, row2.z, row3.z, row4.z,
 				0.0f, 0.0f, 0.0f, row4[3]
 			);
 
@@ -1862,10 +1862,10 @@ public:
 			Vector4 row4b = descriptor.pivotB * bhkScaleFactor;
 			row4b.w = 1;
 
-			Matrix44 matB = Matrix44(
-				row1b[0], row2b[1], row2b[2], row4b[0],
-				row1b[0], row2b[1], row2b[2], row4b[1],
-				row1b[0], row2b[1], row2b[2], row4b[2],
+			Matrix44 matB(
+				row1b.x, row2b.x, row3b.x, row4b.x,
+				row1b.y, row2b.y, row3b.y, row4b.y,
+				row1b.z, row2b.z, row3b.z, row4b.z,
 				0.0f, 0.0f, 0.0f, row4b[3]
 			);
 
@@ -1873,7 +1873,7 @@ public:
 			parent->AddChild(setMatTransform(matB, constraint_node));
 
 
-			Quaternion rotation = matA.GetRotation().AsQuaternion();
+			Quaternion rotation = matA.GetRot().AsQuaternion();
 			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
 			EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
 			FbxVector4 fbx_rotation = FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z));
@@ -1923,10 +1923,10 @@ public:
 			Vector4 row4 = descriptor.pivotA * bhkScaleFactor;
 			row4.w = 1;
 
-			Matrix44 matA = Matrix44(
-				row1[0], row2[1], row3[2], row4[0],
-				row1[0], row2[1], row2[2], row4[1],
-				row1[0], row2[1], row3[2], row4[2],
+			Matrix44 matA(
+				row1.x, row2.x, row3.x, row4.x,
+				row1.y, row2.y, row3.y, row4.y,
+				row1.z, row2.z, row3.z, row4.z,
 				0.0f, 0.0f, 0.0f, row4[3]
 			);
 
@@ -1936,10 +1936,10 @@ public:
 			Vector4 row4b = descriptor.pivotB * bhkScaleFactor;
 			row4b.w = 1;
 
-			Matrix44 matB = Matrix44(
-				row1b[0], row2b[1], row2b[2], row4b[0],
-				row1b[0], row2b[1], row2b[2], row4b[1],
-				row1b[0], row2b[1], row2b[2], row4b[2],
+			Matrix44 matB(
+				row1b.x, row2b.x, row3b.x, row4b.x,
+				row1b.y, row2b.y, row3b.y, row4b.y,
+				row1b.z, row2b.z, row3b.z, row4b.z,
 				0.0f, 0.0f, 0.0f, row4b[3]
 			);
 
@@ -1970,10 +1970,10 @@ public:
 			Vector4 row4 = descriptor.pivotA * bhkScaleFactor;
 			row4.w = 1;
 
-			Matrix44 matA = Matrix44(
-				row1[0], row2[1], row3[2], row4[0],
-				row1[0], row2[1], row2[2], row4[1],
-				row1[0], row2[1], row3[2], row4[2],
+			Matrix44 matA(
+				row1.x, row2.x, row3.x, row4.x,
+				row1.y, row2.y, row3.y, row4.y,
+				row1.z, row2.z, row3.z, row4.z,
 				0.0f, 0.0f, 0.0f, row4[3]
 			);
 
@@ -1983,10 +1983,10 @@ public:
 			Vector4 row4b = descriptor.pivotB * bhkScaleFactor;
 			row4b.w = 1;
 
-			Matrix44 matB = Matrix44(
-				row1b[0], row2b[1], row2b[2], row4b[0],
-				row1b[0], row2b[1], row2b[2], row4b[1],
-				row1b[0], row2b[1], row2b[2], row4b[2],
+			Matrix44 matB(
+				row1b.x, row2b.x, row3b.x, row4b.x,
+				row1b.y, row2b.y, row3b.y, row4b.y,
+				row1b.z, row2b.z, row3b.z, row4b.z,
 				0.0f, 0.0f, 0.0f, row4b[3]
 			);
 	
@@ -4488,6 +4488,8 @@ FbxNode* FBXWrangler::find_animated_parent(FbxNode* rigid_body)
 	return NULL;
 }
 
+
+
 NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
 	NiCollisionObjectRef return_collision = NULL;
@@ -4536,7 +4538,7 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 			//the fix is in
 			body_layer.filter.layer_sk = SKYL_ANIMSTATIC;
 		}
-		if (body_layer.filter.layer_sk == SKYL_ANIMSTATIC)
+		if (body_layer.filter.layer_sk == SKYL_ANIMSTATIC || body_layer.filter.layer_sk == SKYL_BIPED)
 		{
 			body->SetMotionSystem(MO_SYS_BOX_INERTIA);
 			body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
@@ -4559,6 +4561,16 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		}
 		body->SetHavokFilter(body_layer.filter);
 		body->SetHavokFilterCopy(body->GetHavokFilter());
+		//if (hk_body->getNumConstraints() > 0) {
+		//	vector<bhkSerializableRef> constraints;
+		//	for (int c = 0; c < hk_body->getNumConstraints(); c++)
+		//	{
+		//		constraints.push_back(convert_from_hk(hk_body->getConstraint(c), hk_body, body));
+		//	}
+		//	body->SetConstraints(constraints);
+		//}
+		conversion_Map[rigid_body] = body;
+
 		collision->SetBody(StaticCast<bhkWorldObject>(body));
 		return_collision = StaticCast<NiCollisionObject>(collision);
 	}
@@ -4582,6 +4594,78 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 	return_collision->SetTarget(DynamicCast<NiAVObject>(conversion_Map[rigid_body->GetParent()]));
 	return return_collision;
 }
+
+bhkSerializableRef FBXWrangler::convert_from_hk(const hkpConstraintInstance* constraint, const bhkRigidBodyRef entity_a, const bhkRigidBodyRef entity_b)
+{
+	bhkSerializableRef out = NULL;
+	float bhkScaleFactorInverse = 0.01428f;
+	const hkpConstraintData* data = constraint->getData();
+	if (data->getType() == hkpConstraintData::CONSTRAINT_TYPE_RAGDOLL)
+	{
+		bhkRagdollConstraintRef con = new bhkRagdollConstraint();
+		
+		const hkpRagdollConstraintData* hk_data = dynamic_cast<const hkpRagdollConstraintData*>(data);
+		/// \param constraintFrameA Column 0 = twist axis, Column 1 = plane, Column 2 = twist cross plane.
+		//void getConstraintFrameA(hkMatrix3& constraintFrameA) const;
+		auto transformA = hk_data->m_atoms.m_transforms.m_transformA;
+		auto transformB = hk_data->m_atoms.m_transforms.m_transformB;
+		auto& data = con->GetRagdoll();
+		
+		data.twistA = TOVECTOR4(transformA.getColumn(0));
+		data.planeA = TOVECTOR4(transformA.getColumn(1));
+		data.motorA = TOVECTOR4(transformA.getColumn(2));
+		data.pivotA = TOVECTOR4(transformA.getColumn(3), bhkScaleFactorInverse);
+
+		data.twistB = TOVECTOR4(transformB.getColumn(0));
+		data.planeB = TOVECTOR4(transformB.getColumn(1));
+		data.motorB = TOVECTOR4(transformB.getColumn(2));
+		data.pivotB = TOVECTOR4(transformB.getColumn(3), bhkScaleFactorInverse);
+
+		data.coneMaxAngle = hk_data->m_atoms.m_coneLimit.m_maxAngle;
+		data.planeMinAngle = hk_data->m_atoms.m_planesLimit.m_minAngle;
+		data.planeMaxAngle = hk_data->m_atoms.m_planesLimit.m_maxAngle;
+		data.twistMinAngle = hk_data->m_atoms.m_twistLimit.m_minAngle;
+		data.twistMaxAngle = hk_data->m_atoms.m_twistLimit.m_maxAngle;
+
+		data.maxFriction = hk_data->m_atoms.m_angFriction.m_maxFrictionTorque;
+
+		auto entities = con->GetEntities();
+		entities.push_back(entity_a);
+		entities.push_back(entity_b);
+		con->SetEntities(entities);
+
+		con->SetRagdoll(data);
+		out = con;
+	}
+	else if (data->getType() == hkpConstraintData::CONSTRAINT_TYPE_HINGE)
+	{
+		bhkHingeConstraintRef con = new bhkHingeConstraint();
+		auto& data = con->GetHinge();
+
+		auto entities = con->GetEntities();
+		entities.push_back(entity_a);
+		entities.push_back(entity_b);
+		con->SetEntities(entities);
+
+		con->SetHinge(data);
+		out = con;
+	}
+	else if (data->getType() == hkpConstraintData::CONSTRAINT_TYPE_LIMITEDHINGE)
+	{
+		bhkLimitedHingeConstraintRef con = new bhkLimitedHingeConstraint();
+		auto& data = con->GetLimitedHinge();
+		
+		auto entities = con->GetEntities();
+		entities.push_back(entity_a);
+		entities.push_back(entity_b);
+		con->SetEntities(entities);
+
+		con->SetLimitedHinge(data);
+		out = con;
+	}
+	return out;
+}
+
 
 void FBXWrangler::buildCollisions()
 {
@@ -4658,6 +4742,18 @@ void FBXWrangler::buildCollisions()
 		}
 		NiAVObjectRef ni_parent = DynamicCast<NiAVObject>(conversion_Map[rb->GetParent()]);
 		ni_parent->SetCollisionObject(build_physics(rb, meshes));
+	}
+}
+
+void FBXWrangler::buildConstraints()
+{
+	const set<tuple<FbxNode*, FbxNode*, hkpConstraintInstance*>>& table = HKXWrapper::get_constraints_table();
+	for (const auto& entry : table) {
+		bhkRigidBodyRef entity_a = DynamicCast<bhkRigidBody>(conversion_Map[get<0>(entry)]);
+		bhkRigidBodyRef entity_b = DynamicCast<bhkRigidBody>(conversion_Map[get<1>(entry)]);
+		auto& to_add = entity_a->GetConstraints();
+		to_add.push_back(convert_from_hk(get<2>(entry), entity_a, entity_b));
+		entity_a->SetConstraints(to_add);
 	}
 }
 
@@ -4942,6 +5038,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		buildCollisions();
 		//rig
 		hkxWrapper.build_skeleton_from_ragdoll();
+		buildConstraints();
 
 
 	}

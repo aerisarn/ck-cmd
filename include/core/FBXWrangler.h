@@ -75,7 +75,8 @@ namespace FBX {
 		void checkAnimatedNodes();
 		void buildKF();
 		void buildCollisions();
-		bhkShapeRef FBXWrangler::convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_layer);
+		void buildConstraints();
+		bhkSerializableRef convert_from_hk(const hkpConstraintInstance* constraint, const bhkRigidBodyRef entity_a, const bhkRigidBodyRef entity_b); bhkShapeRef convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_layer);
 		NiCollisionObjectRef build_physics(FbxNode* rigid_body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
 		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start, double last_stop);
 		void convertSkins(FbxMesh* m, NiTriShapeRef shape, const map<int,int>& cp);
@@ -108,6 +109,8 @@ namespace FBX {
 		//// Recursively add bones to the skeleton in a depth-first manner
 		//FbxNode* AddLimb(NifFile* nif, NiNode* nifBone);
 		//void AddLimbChildren(FbxNode* node, NifFile* nif, NiNode* nifBone);
+
+		void setExportRig(bool _export_rig = true) { export_rig = _export_rig; }
 
 		void AddNif(NifFile& nif);
 		//void AddSkinning(AnimInfo* anim, const std::string& shapeName = "");

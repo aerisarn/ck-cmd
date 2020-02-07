@@ -176,6 +176,7 @@ namespace ckcmd {
 
 			static hkRefPtr<hkpRigidBody> build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes);
 			void build_skeleton_from_ragdoll();
+			static const set<tuple<FbxNode*, FbxNode*, hkpConstraintInstance*>>&  get_constraints_table();
 			static hkRefPtr<hkpConstraintInstance> build_constraint(FbxNode* body);
 			static hkRefPtr<hkpRigidBody> check_body(bhkRigidBodyRef body, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes);
 			static hkRefPtr<hkpShape> build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, FbxNode* body, hkpRigidBodyCinfo& hk_body);
