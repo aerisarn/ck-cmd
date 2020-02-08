@@ -321,7 +321,9 @@ hkTransform getTransform(FbxNode* pNode, bool absolute = false, bool inverse = f
 		localMatrix = pNode->EvaluateLocalTransform();
 
 	const FbxVector4 lT = localMatrix.GetT();
-	FbxQuaternion lR = localMatrix.GetQ(); lR.Inverse();
+	FbxQuaternion lR = localMatrix.GetQ(); 
+	if (inverse)
+		lR.Inverse();
 
 	hk_trans.setTranslation(hkVector4(lT[0], lT[1], lT[2]));
 	hk_trans.setRotation(::hkQuaternion(lR[0], lR[1], lR[2], lR[3]));
@@ -1963,6 +1965,15 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 		{
 			Log::Error("Havok reports save failed.");
 		}
+		hkPackFormat pkFormat2 = HKPF_AMD64;
+		fs::path final_out_path2 = "./skeleton_se.hkx";
+		hkPackfileWriter::Options packFileOptions2 = GetWriteOptionsFromFormat(pkFormat2);
+		hkOstream stream2(final_out_path2.string().c_str());
+		res = hkSerializeUtilSave(pkFormat2, root, stream2, flags, packFileOptions2);
+		if (res != HK_SUCCESS)
+		{
+			Log::Error("Havok reports save failed.");
+		}
 	}
 }
 
@@ -1981,6 +1992,8 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 		FbxConstraintParent* fbx_constraint = body->RootProperty.GetSrcObject<FbxConstraintParent>(FbxCriteria::ObjectType(FbxConstraintParent::ClassId));
 		FbxNode* target = (FbxNode*)fbx_constraint->GetConstrainedObject();
 		auto rotation = fbx_constraint->GetRotationOffset(body);
+		HMatrix M;
+		Eul_ToHMatrix({ deg2rad(rotation[0]), deg2rad(rotation[1]), deg2rad(rotation[2]), EulOrdXYZs }, M);
 		FbxQuaternion qrotation; qrotation.ComposeSphericalXYZ(rotation); qrotation.Inverse();
 		
 		auto translation = fbx_constraint->GetTranslationOffset(body);
@@ -1988,7 +2001,11 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 
 		hkRefPtr<hkpRigidBody> entity_b = bodies[body->GetParent()];
 		hkRefPtr<hkpRigidBody> entity_a = bodies[target];
-		hkTransform transform_a = getTransform(translation, qrotation);
+		hkTransform transform_a; transform_a.setIdentity(); //= getTransform(translation, qrotation);
+		transform_a(0, 0) = M[0][0]; transform_a(0, 1) = M[1][0]; transform_a(0, 2) = M[2][0]; transform_a(0, 3) = translation[0];
+		transform_a(1, 0) = M[0][1]; transform_a(1, 1) = M[1][1]; transform_a(1, 2) = M[2][1]; transform_a(1, 3) = translation[1];
+		transform_a(2, 0) = M[0][2]; transform_a(2, 1) = M[1][2]; transform_a(2, 2) = M[2][2]; transform_a(2, 3) = translation[2];
+
 		hkTransform transform_b = getTransform(body, false, true);
 
 		hkpConstraintData* data = NULL;

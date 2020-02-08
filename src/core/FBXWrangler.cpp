@@ -1853,7 +1853,7 @@ public:
 				row1.x, row2.x, row3.x, row4.x,
 				row1.y, row2.y, row3.y, row4.y,
 				row1.z, row2.z, row3.z, row4.z,
-				0.0f, 0.0f, 0.0f, row4[3]
+				0.0f, 0.0f, 0.0f, row4.w
 			);
 
 			Vector4 row1b = descriptor.twistB;
@@ -1866,14 +1866,14 @@ public:
 				row1b.x, row2b.x, row3b.x, row4b.x,
 				row1b.y, row2b.y, row3b.y, row4b.y,
 				row1b.z, row2b.z, row3b.z, row4b.z,
-				0.0f, 0.0f, 0.0f, row4b[3]
+				0.0f, 0.0f, 0.0f, row4b.w
 			);
 
 			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName()) + "_attach_point").c_str());
 			parent->AddChild(setMatTransform(matB, constraint_node));
 
 
-			Quaternion rotation = matA.GetRot().AsQuaternion();
+			Quaternion rotation = matA.GetRotation().AsQuaternion();
 			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
 			EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
 			FbxVector4 fbx_rotation = FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z));
@@ -4609,58 +4609,93 @@ bhkSerializableRef FBXWrangler::convert_from_hk(const hkpConstraintInstance* con
 		//void getConstraintFrameA(hkMatrix3& constraintFrameA) const;
 		auto transformA = hk_data->m_atoms.m_transforms.m_transformA;
 		auto transformB = hk_data->m_atoms.m_transforms.m_transformB;
-		auto& data = con->GetRagdoll();
+		auto& bhk_data = con->GetRagdoll();
 		
-		data.twistA = TOVECTOR4(transformA.getColumn(0));
-		data.planeA = TOVECTOR4(transformA.getColumn(1));
-		data.motorA = TOVECTOR4(transformA.getColumn(2));
-		data.pivotA = TOVECTOR4(transformA.getColumn(3), bhkScaleFactorInverse);
+		bhk_data.twistA = TOVECTOR4(transformA.getColumn(0));
+		bhk_data.planeA = TOVECTOR4(transformA.getColumn(1));
+		bhk_data.motorA = TOVECTOR4(transformA.getColumn(2));
+		bhk_data.pivotA = TOVECTOR4(transformA.getColumn(3), bhkScaleFactorInverse);
 
-		data.twistB = TOVECTOR4(transformB.getColumn(0));
-		data.planeB = TOVECTOR4(transformB.getColumn(1));
-		data.motorB = TOVECTOR4(transformB.getColumn(2));
-		data.pivotB = TOVECTOR4(transformB.getColumn(3), bhkScaleFactorInverse);
+		bhk_data.twistB = TOVECTOR4(transformB.getColumn(0));
+		bhk_data.planeB = TOVECTOR4(transformB.getColumn(1));
+		bhk_data.motorB = TOVECTOR4(transformB.getColumn(2));
+		bhk_data.pivotB = TOVECTOR4(transformB.getColumn(3), bhkScaleFactorInverse);
 
-		data.coneMaxAngle = hk_data->m_atoms.m_coneLimit.m_maxAngle;
-		data.planeMinAngle = hk_data->m_atoms.m_planesLimit.m_minAngle;
-		data.planeMaxAngle = hk_data->m_atoms.m_planesLimit.m_maxAngle;
-		data.twistMinAngle = hk_data->m_atoms.m_twistLimit.m_minAngle;
-		data.twistMaxAngle = hk_data->m_atoms.m_twistLimit.m_maxAngle;
+		bhk_data.coneMaxAngle = hk_data->m_atoms.m_coneLimit.m_maxAngle;
+		bhk_data.planeMinAngle = hk_data->m_atoms.m_planesLimit.m_minAngle;
+		bhk_data.planeMaxAngle = hk_data->m_atoms.m_planesLimit.m_maxAngle;
+		bhk_data.twistMinAngle = hk_data->m_atoms.m_twistLimit.m_minAngle;
+		bhk_data.twistMaxAngle = hk_data->m_atoms.m_twistLimit.m_maxAngle;
 
-		data.maxFriction = hk_data->m_atoms.m_angFriction.m_maxFrictionTorque;
+		bhk_data.maxFriction = hk_data->m_atoms.m_angFriction.m_maxFrictionTorque;
 
 		auto entities = con->GetEntities();
 		entities.push_back(entity_a);
 		entities.push_back(entity_b);
 		con->SetEntities(entities);
 
-		con->SetRagdoll(data);
+		con->SetRagdoll(bhk_data);
 		out = con;
 	}
 	else if (data->getType() == hkpConstraintData::CONSTRAINT_TYPE_HINGE)
 	{
 		bhkHingeConstraintRef con = new bhkHingeConstraint();
-		auto& data = con->GetHinge();
 
 		auto entities = con->GetEntities();
 		entities.push_back(entity_a);
 		entities.push_back(entity_b);
 		con->SetEntities(entities);
 
-		con->SetHinge(data);
+		const hkpHingeConstraintData* hk_data = dynamic_cast<const hkpHingeConstraintData*>(data);
+
+		auto transformA = hk_data->m_atoms.m_transforms.m_transformA;
+		auto transformB = hk_data->m_atoms.m_transforms.m_transformB;
+		auto& bhk_data = con->GetHinge();
+
+		bhk_data.axleA = TOVECTOR4(transformA.getColumn(0));
+		bhk_data.perp2AxleInA1 = TOVECTOR4(transformA.getColumn(1));
+		bhk_data.perp2AxleInA2 = TOVECTOR4(transformA.getColumn(2));
+		bhk_data.pivotA = TOVECTOR4(transformA.getColumn(3), bhkScaleFactorInverse);
+
+		bhk_data.axleB = TOVECTOR4(transformB.getColumn(0));
+		bhk_data.perp2AxleInB1 = TOVECTOR4(transformB.getColumn(1));
+		bhk_data.perp2AxleInB2 = TOVECTOR4(transformB.getColumn(2));
+		bhk_data.pivotB = TOVECTOR4(transformB.getColumn(3), bhkScaleFactorInverse);
+
+		con->SetHinge(bhk_data);
 		out = con;
 	}
 	else if (data->getType() == hkpConstraintData::CONSTRAINT_TYPE_LIMITEDHINGE)
 	{
 		bhkLimitedHingeConstraintRef con = new bhkLimitedHingeConstraint();
-		auto& data = con->GetLimitedHinge();
 		
 		auto entities = con->GetEntities();
 		entities.push_back(entity_a);
 		entities.push_back(entity_b);
 		con->SetEntities(entities);
 
-		con->SetLimitedHinge(data);
+		const hkpLimitedHingeConstraintData* hk_data = dynamic_cast<const hkpLimitedHingeConstraintData*>(data);
+		/// \param constraintFrameA Column 0 = twist axis, Column 1 = plane, Column 2 = twist cross plane.
+		//void getConstraintFrameA(hkMatrix3& constraintFrameA) const;
+		auto transformA = hk_data->m_atoms.m_transforms.m_transformA;
+		auto transformB = hk_data->m_atoms.m_transforms.m_transformB;
+		auto& bhk_data = con->GetLimitedHinge();
+
+		bhk_data.axleA = TOVECTOR4(transformA.getColumn(0));
+		bhk_data.perp2AxleInA1 = TOVECTOR4(transformA.getColumn(1));
+		bhk_data.perp2AxleInA2 = TOVECTOR4(transformA.getColumn(2));
+		bhk_data.pivotA = TOVECTOR4(transformA.getColumn(3), bhkScaleFactorInverse);
+
+		bhk_data.axleB = TOVECTOR4(transformB.getColumn(0));
+		bhk_data.perp2AxleInB1 = TOVECTOR4(transformB.getColumn(1));
+		bhk_data.perp2AxleInB2 = TOVECTOR4(transformB.getColumn(2));
+		bhk_data.pivotB = TOVECTOR4(transformB.getColumn(3), bhkScaleFactorInverse);
+
+		bhk_data.maxAngle = hk_data->m_atoms.m_angLimit.m_maxAngle;
+		bhk_data.minAngle = hk_data->m_atoms.m_angLimit.m_minAngle;
+		bhk_data.maxFriction = hk_data->m_atoms.m_angFriction.m_maxFrictionTorque;
+
+		con->SetLimitedHinge(bhk_data);
 		out = con;
 	}
 	return out;
