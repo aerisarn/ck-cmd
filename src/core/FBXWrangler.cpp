@@ -663,6 +663,8 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	double bhkScaleFactor = 1.0;
 	HKXWrapper& hkxWrapper;
 
+	vector<BoneLOD > bone_lod_info;
+
 	FbxFileTexture* create_texture(const char* texture_type, const string& texture_path, const FbxFileTexture::ETextureUse use = FbxTexture::eStandard)
 	{
 		FbxFileTexture* lTexture = FbxFileTexture::Create(&scene, texture_type);
@@ -1001,18 +1003,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				m->EndPolygon();
 			}
 		}
-
-		//if (parent == parent->GetScene()->GetRootNode())
-		//{
-		//	//seems like FBX doesn't like meshes added to root
-		//	string dummy_name = shapeName + "_support";
-		//	FbxNode* dummy = FbxNode::Create(&scene, dummy_name.c_str());
-		//	dummy->AddNodeAttribute(m);
-		//	parent->AddChild(dummy);
-		//}
-		//else {
-		//	parent->AddNodeAttribute(m);
-		//}
 		local_parent->AddNodeAttribute(m);
 		return parent;
 	}
@@ -1444,6 +1434,17 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		}
 	}
 
+	void processBoneLodInfo() {
+		for (const auto& info : bone_lod_info) {
+			string name = info.boneName;
+			sanitizeString(name);
+			FbxNode* bone = scene.FindNodeByName(name.c_str());
+			if (bone != NULL) {
+				set_property(bone, "lod_distance", info.distance, FbxIntDT);
+			}
+		}
+	}
+
 public:
 
 	FBXBuilderVisitor(NifFile& nif, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info, const string& texture_path, bool export_rig, HKXWrapper& hkxWrapper) :
@@ -1468,6 +1469,7 @@ public:
 			rootNode->accept(*this, info);
 			processSkins();
 			buildManagers();
+			processBoneLodInfo();
 		}
 	}
 
@@ -1489,8 +1491,8 @@ public:
 			FbxNode* node = visit_new_object(obj);
 			if (node != NULL)
 				build_stack.push_front(node);
-			else
-				build_stack.push_front(build_stack.front());
+			//else
+			//	build_stack.push_front(build_stack.front());
 		}
 	}
 
@@ -1573,6 +1575,13 @@ public:
 
 	template<>
 	FbxNode* visit_new_object(BSBound& obj) {
+		FbxNode* parent = build_stack.front();
+		bhkBoxShapeRef box = new bhkBoxShape();
+		box->SetDimensions((obj.GetDimensions()/ bhkScaleFactor));
+		FbxNode* node = FbxNode::Create(&scene, "BoundingBox");
+		node->LclTranslation.Set(TOFBXVECTOR3(obj.GetCenter()));
+		parent->AddChild(node);
+		recursive_convert(StaticCast<bhkShape>(box), node, HavokFilter());
 		alreadyVisitedNodes.insert(&obj);
 		return NULL;
 	}
@@ -1580,6 +1589,38 @@ public:
 	//TODO: add them to build KF
 	template<>
 	FbxNode* visit_new_object(NiTextKeyExtraData& obj) {
+		alreadyVisitedNodes.insert(&obj);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiIntegerExtraData& obj) {
+		FbxNode* parent = build_stack.front();
+		set_property(parent, ("ed_" + obj.GetName()).c_str(), obj.GetIntegerData(), FbxIntDT);
+		alreadyVisitedNodes.insert(&obj);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiBooleanExtraData& obj) {
+		FbxNode* parent = build_stack.front();
+		set_property(parent, ("ed_" + obj.GetName()).c_str(), obj.GetBooleanData(), FbxBoolDT);
+		alreadyVisitedNodes.insert(&obj);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiStringExtraData& obj) {
+		FbxNode* parent = build_stack.front();
+		set_property(parent, ("ed_" + obj.GetName()).c_str(), obj.GetStringData(), FbxStringDT);
+		alreadyVisitedNodes.insert(&obj);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(BSBoneLODExtraData& obj) {
+		FbxNode* parent = build_stack.front();
+		bone_lod_info = obj.GetBonelodInfo();
 		alreadyVisitedNodes.insert(&obj);
 		return NULL;
 	}

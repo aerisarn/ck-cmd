@@ -1715,7 +1715,10 @@ void HKXWrapper::add_bone(FbxNode* bone)
 
 	skeleton->m_parentIndices[bone_index] = parent_index;
 	skeleton->m_bones[bone_index].m_name = bone_name.c_str();
-	skeleton->m_bones[bone_index].m_lockTranslation = true;
+	if (parent_index == 0 && string(skeleton->m_bones[bone_index].m_name).find("Camera Control") == string::npos)
+		skeleton->m_bones[bone_index].m_lockTranslation = false;
+	else
+		skeleton->m_bones[bone_index].m_lockTranslation = true;
 	auto transform = getTransform(bone);
 	skeleton->m_referencePose[bone_index].setTranslation(transform.getTranslation());
 	skeleton->m_referencePose[bone_index].setRotation(transform.getRotation());
