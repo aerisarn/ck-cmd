@@ -658,8 +658,10 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 	set<NiControllerManager*>& managers;
 	NifFile& nif_file;
 	FbxAnimStack* lAnimStack = NULL;
+	bool export_rig = false;
 	string root_name;
 	double bhkScaleFactor = 1.0;
+	HKXWrapper& hkxWrapper;
 
 	FbxFileTexture* create_texture(const char* texture_type, const string& texture_path, const FbxFileTexture::ETextureUse use = FbxTexture::eStandard)
 	{
@@ -1444,14 +1446,16 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 public:
 
-	FBXBuilderVisitor(NifFile& nif, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info, const string& texture_path) :
+	FBXBuilderVisitor(NifFile& nif, FbxNode& sceneNode, FbxScene& scene, const NifInfo& info, const string& texture_path, bool export_rig, HKXWrapper& hkxWrapper) :
 		RecursiveFieldVisitor(*this, info),
 		nif_file(nif),
 		alreadyVisitedNodes(set<void*>()),
 		this_info(info),
 		scene(scene),
 		managers(set<NiControllerManager*>()),
-		texturePath(texture_path)
+		texturePath(texture_path),
+		export_rig(export_rig),
+		hkxWrapper(hkxWrapper)
 	{
 		bhkScaleFactor = nif.GetBhkScaleFactor();
 		NiNodeRef rootNode = DynamicCast<NiNode>(nif.GetRoot());
@@ -2063,13 +2067,6 @@ public:
 								constraint_position = visit(DynamicCast<bhkStiffSpringConstraint>(constraint)->GetStiffSpring(), parent, holder);
 							else
 								throw new runtime_error("Unimplemented constraint type!");
-
-							//FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_position, string(string(parent->GetName()) + "_con_" + string(holder->GetName())).c_str());
-							//fbx_constraint->SetConstrainedObject(holder);
-							//fbx_constraint->AddConstraintSource(constraint_position);
-							//fbx_constraint->AffectRotationX = false;
-							//fbx_constraint->AffectRotationY = false;
-							//fbx_constraint->AffectRotationZ = false;
 						}
 					}
 				}	
@@ -2103,12 +2100,18 @@ public:
 
 		/*if (obj->IsSameType(bhkRigidBodyT::TYPE))
 		{*/
+		if (export_rig)
+		{
+			hkxWrapper.setExternalSkeletonPose(rb_node);
+		}
+		else {
 			Vector4 translation = obj->GetTranslation();
 			rb_node->LclTranslation.Set(FbxDouble3(translation.x*bhkScaleFactor, translation.y*bhkScaleFactor, translation.z*bhkScaleFactor));
 			Niflib::hkQuaternion rotation = obj->GetRotation();
 			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
 			EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
 			rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+		}
 		//}
 		recursive_convert(obj->GetShape(), rb_node, obj->GetHavokFilter());
 
@@ -2146,7 +2149,7 @@ public:
 		rb_node->SetShadingMode(FbxNode::EShadingMode::eWireFrame);
 
 		Matrix44 transform = obj->GetTransform();
-		//Following nifskope, this is 
+		//Following nifskope, this is irrelevant
 		//setMatTransform(transform, rb_node, bhkScaleFactor);
 		recursive_convert(obj->GetShape(), rb_node, obj->GetHavokFilter());
 
@@ -2224,7 +2227,7 @@ public:
 };
 
 void FBXWrangler::AddNif(NifFile& nif) {
-	FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo(), texture_path);
+	FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo(), texture_path, export_rig, hkxWrapper);
 }
 
 bool FBXWrangler::ExportScene(const std::string& fileName) {

@@ -2,6 +2,9 @@
 
 #include <Common\Base\Types\Geometry\hkGeometry.h>
 
+#include <Physics\Utilities\CharacterControl\CharacterRigidBody\hkpCharacterRigidBody.h>
+#include <Physics\Utilities\CharacterControl\CharacterRigidBody\hkpCharacterRigidBodyCinfo.h>
+
 // Physics
 #include <Physics/Dynamics/Entity/hkpRigidBody.h>
 #include <Physics/Collide/Shape/Convex/Box/hkpBoxShape.h>
@@ -19,7 +22,7 @@
 
 #include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
 #include <Physics\Dynamics\World\hkpPhysicsSystem.h>
-#include <Physics\Utilities\Serialize\hkpPhysicsData.h>
+
 
 // Animation
 #include <Animation/Animation/hkaAnimationContainer.h>
@@ -34,6 +37,7 @@
 #include <Animation/Animation/Animation/SplineCompressed/hkaSplineCompressedAnimation.h>
 #include <Animation/Animation/Animation/Quantized/hkaQuantizedAnimation.h>
 #include <Animation/Animation/Animation/Util/hkaAdditiveAnimationUtility.h>
+#include <Animation/Animation/Mapper/hkaSkeletonMapperUtils.h>
 
 #include <hkbProjectStringData_1.h>
 #include <hkbProjectData_2.h>
@@ -1132,13 +1136,9 @@ vector<FbxNode*> HKXWrapper::load_skeleton(const fs::path& path, FbxNode* scene_
 	hkArray<hkVariant> objects;
 	read(path, objects);
 	hkaAnimationContainer* anim_container;
-	hkpPhysicsData* physics_data;
 	hkaRagdollInstance* ragdoll_instance;
 	vector<hkaSkeleton*> skeletons;
 	vector<hkaSkeletonMapper*> mappers;
-
-	hkaSkeleton* animation_skeleton;
-	hkaSkeleton* ragdoll_skeleton;
 
 	for (const auto& variant : objects) {
 		//read skeletons
@@ -1839,9 +1839,7 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 			hkConstraints.pushBack(con); 
 		hkaRagdollUtils::reorderAndAlignForRagdoll(hkRigidBodies, hkConstraints);
 		hkaSkeleton* ragdoll_skeleton = hkaRagdollUtils::constructSkeletonForRagdoll(hkRigidBodies, hkConstraints);
-
 		auto ragdoll = hkaRagdollUtils::createRagdollInstanceFromSkeleton(ragdoll_skeleton, hkRigidBodies, hkConstraints);
-
 		hkaSkeleton* hkRagdollSkeleton = ragdoll_skeleton;
 		hkaSkeleton* hkSkeleton = skeleton;
 		Log::Info("Build Mappings Ragdoll -> Skeleton\n");
@@ -1954,7 +1952,7 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", ragdollToAnimationMapper.val(), &ragdollToAnimationMapper->staticClass()));
 		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", animationToRagdollMapper.val(), &animationToRagdollMapper->staticClass()));
 
-		hkPackFormat pkFormat = HKPF_DEFAULT;
+		hkPackFormat pkFormat = HKPF_TAGXML;
 		hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
 		hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
 		fs::path final_out_path = "./skeleton.hkx";
@@ -2037,9 +2035,11 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 
 
 
+
 hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
 	double bhkScaleFactorInverse = 0.01428; // 1 skyrim unit = 0,01428m
+
 	hkpRigidBodyCinfo body_cinfo;
 	body_cinfo.setTransform(getTransform(body, true));
 	//search for the mesh children
@@ -2067,15 +2067,25 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	hkpMassProperties properties;
 	body_cinfo.m_shape = HKXWrapper::build_shape(mesh_child, geometry_meshes, properties, bhkScaleFactorInverse, body, body_cinfo);
 	body_cinfo.setMassProperties(properties);
+	if (string(body->GetName()).find("_sp") != string::npos)
+	{
+		body_cinfo.m_motionType = hkpMotion::MotionType::MOTION_FIXED;
+	}
+	else {
+		body_cinfo.m_qualityType = hkpCollidableQualityType::HK_COLLIDABLE_QUALITY_MOVING;
+	}
+
 	hkRefPtr<hkpRigidBody> hk_body = new hkpRigidBody(body_cinfo);
 	string name = body->GetName();
 	name = name.substr(0, name.size() - 3);
 	if (string(body->GetName()).find("_sp") == string::npos)
-		name = "Ragdoll_"+unsanitizeString(name);
+	{
+		name = "Ragdoll_" + unsanitizeString(name);
+	}
 	else
 	{
 		name = unsanitizeString(name);
-		hk_body->setAllowedPenetrationDepth(340282001837565597733306976381245063168.000000);
+		hk_body->setAllowedPenetrationDepth(340282001837565597733306976381245063168.000000);		
 	}
 	hk_body->setName(name.c_str());
 	hk_body->setShape(body_cinfo.m_shape);
@@ -2094,7 +2104,15 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	hkpMassProperties unscaled_properties;
 	body_cinfo_unscaled.m_shape = HKXWrapper::build_shape(mesh_child, geometry_meshes, unscaled_properties, 1.0, body, body_cinfo_unscaled);
 	body_cinfo_unscaled.setMassProperties(unscaled_properties);
+	if (string(body->GetName()).find("_sp") != string::npos)
+	{
+		body_cinfo_unscaled.m_motionType = hkpMotion::MotionType::MOTION_FIXED;
+	}
+	else {
+		body_cinfo.m_qualityType = hkpCollidableQualityType::HK_COLLIDABLE_QUALITY_MOVING;
+	}
 	hkRefPtr<hkpRigidBody> hk_body_unscaled = new hkpRigidBody(body_cinfo_unscaled);
+	//hk_body_unscaled->m_motion.getMotionState
 	hk_body_unscaled->setName(name.c_str());
 	hk_body_unscaled->setShape(body_cinfo_unscaled.m_shape);
 	hk_body_unscaled->m_npData = 0;
@@ -2107,7 +2125,33 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 			build_constraint(con);
 	}
 	else {
+		float cradius;
+			hkpCharacterRigidBody* characterRigidBody;
+			{
+				auto t = getTransform(body, true);
+				hkpCharacterRigidBodyCinfo info;
+				{
+					
+					info.m_shape = HKXWrapper::build_shape(mesh_child, geometry_meshes, properties, 1.0, body, body_cinfo);
+					info.m_mass = 100.0f;
+					info.m_up.set(0.0f, 0.0f, 1.0f);
+					info.m_position = t.getTranslation();
+					info.m_rotation = ::hkQuaternion(t.getRotation());
+					//info.m_position.set(0.0f, 0.0f, 0.0f);
+					info.m_maxSlope = HK_REAL_PI * 0.33f;
+					info.m_supportDistance = 0.1f;
+					info.m_hardSupportDistance = 0.01f;
+					
+				}
+				characterRigidBody = new hkpCharacterRigidBody(info);
+				
+				hk_body_unscaled = characterRigidBody->getRigidBody();
+				hk_body_unscaled->setName(name.c_str());
+				hk_body_unscaled->m_motion.m_type = hkpMotion::MotionType::MOTION_FIXED;
+			}
+		
 		hk_body_unscaled->setAllowedPenetrationDepth(340282001837565597733306976381245063168.000000);
+
 	}
 	physic_entities->addRigidBody(hk_body_unscaled);
 	return hk_body;
@@ -2638,6 +2682,24 @@ hkRefPtr<hkpShape> HKXWrapper::check_shape(bhkShapeRef shape_root, bhkRigidBodyR
 	//	}
 	//}
 	return NULL;
+}
+
+void HKXWrapper::setExternalSkeletonPose(FbxNode* rb_node) {
+	if (NULL == physics_data) return;
+	string name = rb_node->GetName();
+	name = unsanitizeString(name);
+	if (name.find("_sp") == string::npos) {
+		name = "Ragdoll_" + name;
+	}
+	name = name.substr(0, name.length() - 3);
+	auto rb = physics_data->findRigidBodyByName(name.c_str());
+	auto transform = rb->getTransform();
+	auto translation = transform.getTranslation();
+	auto rotation = ::hkQuaternion(transform.getRotation());
+	rb_node->LclTranslation.Set({ (double)translation(0), (double)translation(1), (double)translation(2) });
+	Quat QuatRotNew = { rotation.m_vec.getSimdAt(0), rotation.m_vec.getSimdAt(1), rotation.m_vec.getSimdAt(2), rotation.m_vec.getSimdAt(3) };
+	EulerAngles inAngs = Eul_FromQuat(QuatRotNew, EulOrdXYZs);
+	rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
 }
 
 string HKXWrapperCollection::wrap(const string& out_name, const string& out_path, const string& out_path_root, const string& prefix, const set<string>& sequences_names)

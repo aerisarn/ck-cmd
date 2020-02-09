@@ -103,7 +103,7 @@ bool BeginConversion(const string& importSkeleton, const string& importSkeletonN
 	wrangler.NewScene();
 
 
-
+	wrangler.setExportRig(true);
 	vector<FbxProperty> floats;
 	vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, floats);
 

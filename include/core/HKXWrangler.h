@@ -44,6 +44,7 @@ namespace fs = std::experimental::filesystem;
 #include <Physics/Collide/Shape\hkpShape.h>
 #include <Physics\Dynamics\Entity\hkpRigidBody.h>
 #include <Common\GeometryUtilities\Inertia\hkInertiaTensorComputer.h>
+#include <Physics\Utilities\Serialize\hkpPhysicsData.h>
 
 bool isShapeFbxNode(FbxNode* node);
 
@@ -91,6 +92,10 @@ namespace ckcmd {
 			string prefix;
 
 			hkaSkeleton* skeleton = NULL;
+
+			hkaSkeleton* animation_skeleton;
+			hkaSkeleton* ragdoll_skeleton;
+			hkpPhysicsData* physics_data;
 
 			map<fs::path, hkRootLevelContainer> out_data;
 			map<string, int> float_map;
@@ -154,6 +159,7 @@ namespace ckcmd {
 
 			void create_skeleton(FbxNode* bone);
 			void add_bone(FbxNode* bone);
+			void setExternalSkeletonPose(FbxNode* body);
 
 			set<string> create_animations(
 				const string& skeleton_name,
