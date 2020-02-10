@@ -1647,14 +1647,18 @@ std::set< hkpConstraintInstance*> constraints;
 
 void HKXWrapper::create_skeleton(FbxNode* bone)
 {
-	skeleton = new hkaSkeleton();
+	if (skeleton == NULL)
+		skeleton = new hkaSkeleton();
 	string root_name = "NPC Root [Root]";
 	sanitizeString(root_name);
 	skeleton->m_name = "NPC Root [Root]";
 	bone->SetName(root_name.c_str());
-	skeleton->m_parentIndices.setSize(1);
-	skeleton->m_bones.setSize(1);
-	skeleton->m_referencePose.setSize(1);
+	if (skeleton->m_parentIndices.getSize()<1)
+		skeleton->m_parentIndices.setSize(1);
+	if (skeleton->m_bones.getSize() < 1)
+		skeleton->m_bones.setSize(1);
+	if (skeleton->m_referencePose.getSize() < 1)
+		skeleton->m_referencePose.setSize(1);
 	skeleton->m_parentIndices[0] = -1;
 	skeleton->m_bones[0].m_name = "NPC Root [Root]";
 	skeleton->m_bones[0].m_lockTranslation = false;
@@ -1682,6 +1686,8 @@ void HKXWrapper::create_skeleton(FbxNode* bone)
 void HKXWrapper::add_bone(FbxNode* bone)
 {
 	//find parent
+	if (skeleton == NULL)
+		skeleton = new hkaSkeleton();
 	string parent_name = bone->GetParent()->GetName();
 	parent_name = unsanitizeString(parent_name);
 	string bone_name = bone->GetName();
