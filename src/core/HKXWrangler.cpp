@@ -1987,6 +1987,9 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 			Log::Error("Havok reports save failed.");
 		}
 	}
+	else {
+		Log::Error("Wrong number of constraints in the model.");
+	}
 }
 
 set<tuple<FbxNode*, FbxNode*, hkpConstraintInstance*>> constraints_table;
@@ -1999,68 +2002,101 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 {
 
 	int numConstraints = body->RootProperty.GetSrcObjectCount(FbxCriteria::ObjectType(FbxConstraintParent::ClassId));
-	if (numConstraints > 0)
+	FbxConstraintParent* fbx_constraint = NULL;
+	hkTransform transform_b = getTransform(body, false, true);
+	hkTransform transform_a; transform_a.setIdentity();
+	hkRefPtr<hkpRigidBody> entity_b = bodies[body->GetParent()];
+	hkRefPtr<hkpRigidBody> entity_a;
+	FbxNode* entity_a_fbx = NULL;
+	hkpConstraintData* data = NULL;
+
+	if (numConstraints == 0)
 	{
-		FbxConstraintParent* fbx_constraint = body->RootProperty.GetSrcObject<FbxConstraintParent>(FbxCriteria::ObjectType(FbxConstraintParent::ClassId));
-		FbxNode* target = (FbxNode*)fbx_constraint->GetConstrainedObject();
+		string name = body->GetName();
+		name = name.substr(0, name.length() - sizeof("_attach_point") + 1);
+		int pos = name.find("_con_");
+		if (pos == string::npos) return NULL;
+		string entity_a_name = name.substr(0, pos);
+		string entity_b_name = name.substr(pos+5, name.length());
+		entity_a_fbx = body->GetScene()->FindNodeByName(entity_b_name.c_str());
+		if (entity_a_fbx == NULL) return NULL;
+		entity_a = bodies[body->GetScene()->FindNodeByName(entity_b_name.c_str())];
+
+		auto trans_1 = entity_a_fbx->EvaluateGlobalTransform(FbxTime(0.0));
+		auto trans_2 = body->GetParent()->EvaluateGlobalTransform(FbxTime(0.0));
+
+		auto trans_b_to_a = trans_1.Inverse() * trans_2;
+		auto trans_a_calc = trans_b_to_a * body->EvaluateLocalTransform(FbxTime(0.0));
+
+		transform_a(0, 0) = trans_a_calc[0][0]; transform_a(0, 1) = trans_a_calc[1][0]; transform_a(0, 2) = trans_a_calc[2][0]; transform_a(0, 3) = trans_a_calc[3][0];
+		transform_a(1, 0) = trans_a_calc[0][1]; transform_a(1, 1) = trans_a_calc[1][1]; transform_a(1, 2) = trans_a_calc[2][1]; transform_a(1, 3) = trans_a_calc[3][1];
+		transform_a(2, 0) = trans_a_calc[0][2]; transform_a(2, 1) = trans_a_calc[1][2]; transform_a(2, 2) = trans_a_calc[2][2]; transform_a(2, 3) = trans_a_calc[3][2];
+
+	}
+	else
+	{
+		fbx_constraint = body->RootProperty.GetSrcObject<FbxConstraintParent>(FbxCriteria::ObjectType(FbxConstraintParent::ClassId));
+		if (fbx_constraint == NULL) return NULL;
+		entity_a_fbx = (FbxNode*)fbx_constraint->GetConstrainedObject();
 		auto rotation = fbx_constraint->GetRotationOffset(body);
 		HMatrix M;
 		Eul_ToHMatrix({ deg2rad(rotation[0]), deg2rad(rotation[1]), deg2rad(rotation[2]), EulOrdXYZs }, M);
 		FbxQuaternion qrotation; qrotation.ComposeSphericalXYZ(rotation); qrotation.Inverse();
-		
+
 		auto translation = fbx_constraint->GetTranslationOffset(body);
 		auto source = body->GetParent();
 
-		hkRefPtr<hkpRigidBody> entity_b = bodies[body->GetParent()];
-		hkRefPtr<hkpRigidBody> entity_a = bodies[target];
-		hkTransform transform_a; transform_a.setIdentity(); //= getTransform(translation, qrotation);
+		entity_b = bodies[body->GetParent()];
+		entity_a = bodies[entity_a_fbx];
+		
 		transform_a(0, 0) = M[0][0]; transform_a(0, 1) = M[1][0]; transform_a(0, 2) = M[2][0]; transform_a(0, 3) = translation[0];
 		transform_a(1, 0) = M[0][1]; transform_a(1, 1) = M[1][1]; transform_a(1, 2) = M[2][1]; transform_a(1, 3) = translation[1];
 		transform_a(2, 0) = M[0][2]; transform_a(2, 1) = M[1][2]; transform_a(2, 2) = M[2][2]; transform_a(2, 3) = translation[2];
 
-		hkTransform transform_b = getTransform(body, false, true);
-
-		hkpConstraintData* data = NULL;
-		//Entity A is the child 
-		if (fbx_constraint->AffectRotationZ.Get() == false) {
-			//ragdoll
-			hkpRagdollConstraintData* temp = new hkpRagdollConstraintData();
-			temp->m_atoms.m_transforms.m_transformA = transform_a;
-			temp->m_atoms.m_transforms.m_transformB = transform_b;
-
-			temp->m_atoms.m_coneLimit.m_maxAngle = get_property(body, "coneMaxAngle", temp->m_atoms.m_coneLimit.m_maxAngle);
-			temp->m_atoms.m_planesLimit.m_minAngle = get_property(body, "planeMinAngle", temp->m_atoms.m_planesLimit.m_minAngle);
-			temp->m_atoms.m_planesLimit.m_maxAngle = get_property(body, "planeMaxAngle", temp->m_atoms.m_planesLimit.m_maxAngle);
-			temp->m_atoms.m_twistLimit.m_minAngle = get_property(body, "twistMinAngle", temp->m_atoms.m_twistLimit.m_minAngle);
-			temp->m_atoms.m_twistLimit.m_maxAngle = get_property(body, "twistMaxAngle", temp->m_atoms.m_twistLimit.m_maxAngle);
-
-			temp->m_atoms.m_angFriction.m_maxFrictionTorque = get_property(body, "maxFriction", temp->m_atoms.m_angFriction.m_maxFrictionTorque);
-
-			data = temp;
-		}
-		else {
-			hkpLimitedHingeConstraintData* temp = new hkpLimitedHingeConstraintData();
-			temp->m_atoms.m_transforms.m_transformA = transform_a;
-			temp->m_atoms.m_transforms.m_transformB = transform_b;
-
-
-			temp->m_atoms.m_angLimit.m_maxAngle = get_property(body, "maxAngle", temp->m_atoms.m_angLimit.m_maxAngle);
-			temp->m_atoms.m_angLimit.m_minAngle = get_property(body, "minAngle", temp->m_atoms.m_angLimit.m_minAngle);
-
-			temp->m_atoms.m_angFriction.m_maxFrictionTorque = get_property(body, "maxFriction", temp->m_atoms.m_angFriction.m_maxFrictionTorque);
-
-			data = temp;
-		}
-
-		hkRefPtr<hkpConstraintInstance> instance = 
-			new hkpConstraintInstance(entity_a, entity_b, data);
-		instance->setName(entity_a->getName());
-		constraints.insert(instance);
-		physic_entities->addConstraint(instance);
-		constraints_table.insert({ target, body->GetParent(), instance });
-		return instance;
 	}
-	return NULL;
+
+	string type = (const char*)get_property<FbxString>(body, "type", FbxString(""));
+
+	//Entity A is the child 
+	if ((fbx_constraint != NULL && fbx_constraint->AffectRotationZ.Get() == false) 
+		|| type == "Ragdoll") {
+		//ragdoll
+		hkpRagdollConstraintData* temp = new hkpRagdollConstraintData();
+		temp->m_atoms.m_transforms.m_transformA = transform_a;
+		temp->m_atoms.m_transforms.m_transformB = transform_b;
+
+		temp->m_atoms.m_coneLimit.m_maxAngle = get_property(body, "coneMaxAngle", temp->m_atoms.m_coneLimit.m_maxAngle);
+		temp->m_atoms.m_planesLimit.m_minAngle = get_property(body, "planeMinAngle", temp->m_atoms.m_planesLimit.m_minAngle);
+		temp->m_atoms.m_planesLimit.m_maxAngle = get_property(body, "planeMaxAngle", temp->m_atoms.m_planesLimit.m_maxAngle);
+		temp->m_atoms.m_twistLimit.m_minAngle = get_property(body, "twistMinAngle", temp->m_atoms.m_twistLimit.m_minAngle);
+		temp->m_atoms.m_twistLimit.m_maxAngle = get_property(body, "twistMaxAngle", temp->m_atoms.m_twistLimit.m_maxAngle);
+
+		temp->m_atoms.m_angFriction.m_maxFrictionTorque = get_property(body, "maxFriction", temp->m_atoms.m_angFriction.m_maxFrictionTorque);
+
+		data = temp;
+	}
+	else {
+		hkpLimitedHingeConstraintData* temp = new hkpLimitedHingeConstraintData();
+		temp->m_atoms.m_transforms.m_transformA = transform_a;
+		temp->m_atoms.m_transforms.m_transformB = transform_b;
+
+
+		temp->m_atoms.m_angLimit.m_maxAngle = get_property(body, "maxAngle", temp->m_atoms.m_angLimit.m_maxAngle);
+		temp->m_atoms.m_angLimit.m_minAngle = get_property(body, "minAngle", temp->m_atoms.m_angLimit.m_minAngle);
+
+		temp->m_atoms.m_angFriction.m_maxFrictionTorque = get_property(body, "maxFriction", temp->m_atoms.m_angFriction.m_maxFrictionTorque);
+
+		data = temp;
+	}
+
+	hkRefPtr<hkpConstraintInstance> instance = 
+		new hkpConstraintInstance(entity_a, entity_b, data);
+	instance->setName(entity_a->getName());
+	constraints.insert(instance);
+	physic_entities->addConstraint(instance);
+	constraints_table.insert({ entity_a_fbx, body->GetParent(), instance });
+	return instance;
+
 }
 
 hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)

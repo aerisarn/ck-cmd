@@ -1846,6 +1846,8 @@ public:
 			set_property(constraint_node, "twistMaxAngle", descriptor.twistMaxAngle, FbxFloatDT);
 			set_property(constraint_node, "maxFriction", descriptor.maxFriction, FbxFloatDT);
 
+			set_property(constraint_node, "type", FbxString("Ragdoll"), FbxStringDT);
+
 			return constraint_node;
 		}
 		FbxNode* visit(PrismaticDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
@@ -1916,6 +1918,7 @@ public:
 			fbx_constraint->SetRotationOffset(constraint_node, fbx_rotation);
 			fbx_constraint->SetTranslationOffset(constraint_node, TOFBXVECTOR3(matA.GetTrans()));
 
+			set_property(constraint_node, "type", FbxString("Hinge"), FbxStringDT);
 
 			fbx_constraint->AffectRotationX = false;
 
@@ -1972,6 +1975,7 @@ public:
 			set_property(constraint_node, "minAngle", descriptor.minAngle, FbxFloatDT);
 			set_property(constraint_node, "maxFriction", descriptor.maxFriction, FbxFloatDT);
 
+			set_property(constraint_node, "type", FbxString("LimitedHinge"), FbxStringDT);
 
 			return NULL;
 		}
