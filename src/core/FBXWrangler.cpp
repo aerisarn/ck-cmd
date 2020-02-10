@@ -1045,6 +1045,11 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		return NULL;
 	}
 
+	void camel(string& name)
+	{
+		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+		name[0] = ::toupper(name[0]);
+	}
 
 	template<>
 	inline FbxNode* getBuiltNode(NiNode*& node) {
@@ -1059,6 +1064,13 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		FbxNode* result = scene.FindNodeByName(name.c_str());
 		if (result == NULL)
 			result = scene.FindNodeByName(sanitized.c_str());
+		if (result == NULL) {
+			string camel_name = sanitized;
+			camel(camel_name);
+			result = scene.FindNodeByName(camel_name.c_str());
+			if (result)
+				result->SetName(sanitized.c_str());
+		}
 		if (result == NULL)
 			result = scene.FindNodeByName((sanitized + "_support").c_str());
 		return result;
@@ -1072,6 +1084,13 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		FbxNode* result = scene.FindNodeByName(name.c_str());
 		if (result == NULL)
 			result = scene.FindNodeByName(sanitized.c_str());
+		if (result == NULL) {
+			string camel_name = sanitized;
+			camel(camel_name);
+			result = scene.FindNodeByName(camel_name.c_str());
+			if (result)
+				result->SetName(sanitized.c_str());
+		}
 		if (result == NULL)
 			result = scene.FindNodeByName((sanitized + "_support").c_str());
 		return result;
@@ -1462,14 +1481,13 @@ public:
 		NiNodeRef rootNode = DynamicCast<NiNode>(nif.GetRoot());
 		if (rootNode != NULL)
 		{
-
 			build_stack.push_front(&sceneNode);
 			root_name = rootNode->GetName();
 			scene.GetRootNode()->SetName(root_name.c_str());
 			rootNode->accept(*this, info);
 			processSkins();
 			buildManagers();
-			processBoneLodInfo();
+			processBoneLodInfo();			
 		}
 	}
 
@@ -1627,6 +1645,14 @@ public:
 	FbxNode* visit_new_object(NiStringExtraData& obj) {
 		FbxNode* parent = build_stack.front();
 		set_property(parent, ("ed_" + obj.GetName()).c_str(), FbxString(obj.GetStringData().c_str()), FbxStringDT);
+		alreadyVisitedNodes.insert(&obj);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiFloatExtraData& obj) {
+		FbxNode* parent = build_stack.front();
+		set_property(parent, ("ed_" + obj.GetName()).c_str(), obj.GetFloatData(), FbxFloatDT);
 		alreadyVisitedNodes.insert(&obj);
 		return NULL;
 	}
@@ -2290,6 +2316,33 @@ bool FBXWrangler::ExportScene(const std::string& fileName) {
 	if (!iExporter->Initialize(fileName.c_str(), -1, sdkManager->GetIOSettings())) {
 		iExporter->Destroy();
 		return false;
+	}
+
+
+
+	if (export_rig)
+	{
+		FbxNode* skeleton = NULL;
+		vector<FbxNode*> skeleton_order;
+
+		auto root = scene->GetRootNode();
+		while (root->GetChildCount() > 0) {
+			if (root->GetChild(0)->GetChildCount() > 0) {
+				if (string(root->GetChild(0)->GetChild(0)->GetName()).find("Root") != string::npos)
+				{
+					skeleton_order.insert(skeleton_order.begin(), root->RemoveChild(root->GetChild(0)));
+				}
+				else
+					skeleton_order.push_back(root->RemoveChild(root->GetChild(0)));
+			} else
+				skeleton_order.push_back(root->RemoveChild(root->GetChild(0)));
+		}
+
+		for (const auto ptr : skeleton_order)
+		{
+			root->AddChild(ptr);
+		}
+
 	}
 
 	// Export options determine what kind of data is to be imported.
@@ -4635,6 +4688,7 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 	else if (name.find("_sp") != string::npos) {
 		bhkSPCollisionObjectRef phantom_collision = new bhkSPCollisionObject();
 		bhkSimpleShapePhantomRef phantom = new bhkSimpleShapePhantom();
+		phantom->SetBroadPhaseType(BroadPhaseType::BROAD_PHASE_PHANTOM);
 		bhkCMSDMaterial phantom_layer;
 		size_t depth = 0;
 		Vector3 center;
@@ -4643,6 +4697,7 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 			return NULL;
 		hkpRigidBodyCinfo body_cinfo; hk_body->getCinfo(body_cinfo);
 		phantom->SetShape(convert_from_hk(body_cinfo.m_shape, phantom_layer));
+		phantom->SetHavokFilter(phantom_layer.filter);
 		phantom_collision->SetBody(StaticCast<bhkWorldObject>(phantom));
 		return_collision = StaticCast<NiCollisionObject>(phantom_collision);
 	}
@@ -4943,6 +4998,13 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 					data->SetBooleanData(ed_property.Get<FbxBool>());
 					ed_list.push_back(StaticCast<NiExtraData>(data));
 				}
+				else if (ed_property.GetPropertyDataType().GetType() == EFbxType::eFbxFloat)
+				{
+					NiFloatExtraDataRef data = new NiFloatExtraData();
+					data->SetName(name);
+					data->SetFloatData(ed_property.Get<FbxFloat>());
+					ed_list.push_back(StaticCast<NiExtraData>(data));
+				}
 				else if (ed_property.GetPropertyDataType().GetType() == EFbxType::eFbxString)
 				{
 					NiStringExtraDataRef data = new NiStringExtraData();
@@ -4979,6 +5041,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				FbxVector4 min, max, center;
 				child->GetChild(0)->EvaluateGlobalBoundingBoxMinMaxCenter(min, max, center);
 				auto nif_bound = new BSBound();
+				nif_bound->SetName(IndexString("BBX"));
 				FbxVector4 dimensions = (max - min) / 2;
 				nif_bound->SetCenter({ (float)center.mData[0], (float)center.mData[1], (float)center.mData[2] });
 				nif_bound->SetDimensions({ (float)dimensions.mData[0], (float)dimensions.mData[1], (float)dimensions.mData[2] });
@@ -4987,6 +5050,12 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				parent->SetExtraDataList(ed_list);
 				continue;
 			}
+			if (child_name.find("x_") != string::npos)
+			{
+				hkxWrapper.add_bone(child);
+				continue;
+			}
+
 			if (nif_child == NULL) {
 				nif_child = new NiNode();
 				nif_child->SetName(unsanitizeString(string(child->GetName())));
@@ -5178,6 +5247,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		if (!bone_lod_info.empty()) {
 			auto list = conversion_root->GetExtraDataList();
 			BSBoneLODExtraDataRef lod_list = new BSBoneLODExtraData();
+			lod_list->SetName(IndexString("BSBoneLOD"));
 			lod_list->SetBonelodInfo(bone_lod_info);
 			list.insert(list.begin(), StaticCast<NiExtraData>(lod_list));
 			conversion_root->SetExtraDataList(list);
@@ -5220,6 +5290,15 @@ bool FBXWrangler::SaveNif(const string& fileName) {
 		bref->SetIntegerData(calculated_flags.to_ulong());
 		auto& list = conversion_root->GetExtraDataList();
 		list.push_back(StaticCast<NiExtraData>(bref));
+
+		if (export_rig)
+		{
+			NiIntegerExtraDataRef data = new NiIntegerExtraData();
+			data->SetName(IndexString("SkeletonID"));
+			data->SetIntegerData(207579012);
+			list.push_back(StaticCast<NiExtraData>(data));
+		}
+
 		conversion_root->SetExtraDataList(list);
 	}
 	HKXWrapperCollection wrappers;
@@ -5240,6 +5319,16 @@ bool FBXWrangler::SaveNif(const string& fileName) {
 		havokp->SetControlsBaseSkeleton(false);
 		list.insert(list.begin(), StaticCast<NiExtraData>(havokp));
 		conversion_root->SetExtraDataList(list);
+	}
+
+	if (export_rig)
+	{
+		for (auto object : objects) {
+			if (object->IsDerivedType(NiNode::TYPE))
+			{
+				DynamicCast<NiNode>(object)->SetFlags(524302);
+			}
+		}
 	}
 
 	NifFile out(info, objects);

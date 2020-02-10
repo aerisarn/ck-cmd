@@ -1073,7 +1073,7 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 		EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
 		BaseJoint->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
 
-		scene_root->GetScene()->GetRootNode()->AddChild(BaseJoint);
+		//scene_root->GetScene()->GetRootNode()->AddChild(BaseJoint);
 		conversion_map[b] = BaseJoint;
 	}
 
@@ -1090,7 +1090,12 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 			FbxNode* CurrentJointNode = conversion_map[c];
 			ParentJointNode->AddChild(CurrentJointNode);
 		}
+		else {
+			FbxNode* CurrentJointNode = conversion_map[c];
+			scene_root->AddChild(CurrentJointNode);
+		}
 	}
+
 
 	//add floats properties
 	int float_size = skeleton->m_floatSlots.getSize();
