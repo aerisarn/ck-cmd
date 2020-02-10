@@ -2027,12 +2027,28 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 			hkpRagdollConstraintData* temp = new hkpRagdollConstraintData();
 			temp->m_atoms.m_transforms.m_transformA = transform_a;
 			temp->m_atoms.m_transforms.m_transformB = transform_b;
+
+			temp->m_atoms.m_coneLimit.m_maxAngle = get_property(body, "coneMaxAngle", temp->m_atoms.m_coneLimit.m_maxAngle);
+			temp->m_atoms.m_planesLimit.m_minAngle = get_property(body, "planeMinAngle", temp->m_atoms.m_planesLimit.m_minAngle);
+			temp->m_atoms.m_planesLimit.m_maxAngle = get_property(body, "planeMaxAngle", temp->m_atoms.m_planesLimit.m_maxAngle);
+			temp->m_atoms.m_twistLimit.m_minAngle = get_property(body, "twistMinAngle", temp->m_atoms.m_twistLimit.m_minAngle);
+			temp->m_atoms.m_twistLimit.m_maxAngle = get_property(body, "twistMaxAngle", temp->m_atoms.m_twistLimit.m_maxAngle);
+
+			temp->m_atoms.m_angFriction.m_maxFrictionTorque = get_property(body, "maxFriction", temp->m_atoms.m_angFriction.m_maxFrictionTorque);
+
 			data = temp;
 		}
 		else {
 			hkpLimitedHingeConstraintData* temp = new hkpLimitedHingeConstraintData();
 			temp->m_atoms.m_transforms.m_transformA = transform_a;
 			temp->m_atoms.m_transforms.m_transformB = transform_b;
+
+
+			temp->m_atoms.m_angLimit.m_maxAngle = get_property(body, "maxAngle", temp->m_atoms.m_angLimit.m_maxAngle);
+			temp->m_atoms.m_angLimit.m_minAngle = get_property(body, "minAngle", temp->m_atoms.m_angLimit.m_minAngle);
+
+			temp->m_atoms.m_angFriction.m_maxFrictionTorque = get_property(body, "maxFriction", temp->m_atoms.m_angFriction.m_maxFrictionTorque);
+
 			data = temp;
 		}
 
@@ -2046,9 +2062,6 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 	}
 	return NULL;
 }
-
-
-
 
 hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
@@ -2167,6 +2180,7 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 		hk_body_unscaled->setAllowedPenetrationDepth(340282001837565597733306976381245063168.000000);
 
 	}
+
 	physic_entities->addRigidBody(hk_body_unscaled);
 	return hk_body;
 }

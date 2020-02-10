@@ -348,140 +348,6 @@ public:
 	}
 };
 
-
-//class ConstraintVisitor {
-//protected:
-//	vector<bhkBlendCollisionObjectRef>& nifBodies;
-//	hkArray<hkpRigidBody*>& hkBodies;
-//
-//	hkpRigidBody* getEntity(Ref<bhkEntity> e) {
-//		int index = find_if(nifBodies.begin(), nifBodies.end(), [e](bhkBlendCollisionObjectRef b) -> bool { return &(*b->GetBody()) == &*e; }) - nifBodies.begin();
-//		if (index < 0 || index >= hkBodies.getSize()) throw runtime_error("Invalid entity into constraint!");
-//		return hkBodies[index];
-//	}
-//public:
-//	virtual hkpConstraintData* visit(RagdollDescriptor& constraint) = 0;
-//	virtual hkpConstraintData* visit(PrismaticDescriptor& constraint) = 0;
-//	virtual hkpConstraintData* visit(MalleableDescriptor& constraint) = 0;
-//	virtual hkpConstraintData* visit(HingeDescriptor& constraint) = 0;
-//	virtual hkpConstraintData* visit(LimitedHingeDescriptor& constraint) = 0;
-//	virtual hkpConstraintData* visit(BallAndSocketDescriptor& constraint) = 0;
-//	virtual hkpConstraintData* visit(StiffSpringDescriptor& constraint) = 0;
-//
-//	virtual hkpConstraintInstance* visitConstraint(bhkConstraintRef constraint) {
-//		hkpConstraintData* data = NULL;
-//		if (constraint)
-//		{
-//			if (constraint->IsSameType(bhkRagdollConstraint::TYPE))
-//				data = visit(DynamicCast<bhkRagdollConstraint>(constraint)->GetRagdoll());
-//			else if (constraint->IsSameType(bhkPrismaticConstraint::TYPE))
-//				data = visit(DynamicCast<bhkPrismaticConstraint>(constraint)->GetPrismatic());
-//			else if (constraint->IsSameType(bhkMalleableConstraint::TYPE))
-//				data = visit(DynamicCast<bhkMalleableConstraint>(constraint)->GetMalleable());
-//			else if (constraint->IsSameType(bhkHingeConstraint::TYPE))
-//				data = visit(DynamicCast<bhkHingeConstraint>(constraint)->GetHinge());
-//			else if (constraint->IsSameType(bhkLimitedHingeConstraint::TYPE))
-//				data = visit(DynamicCast<bhkLimitedHingeConstraint>(constraint)->GetLimitedHinge());
-//			else if (constraint->IsSameType(bhkBallAndSocketConstraint::TYPE))
-//				data = visit(DynamicCast<bhkBallAndSocketConstraint>(constraint)->GetBallAndSocket());
-//			else if (constraint->IsSameType(bhkStiffSpringConstraint::TYPE))
-//				data = visit(DynamicCast<bhkStiffSpringConstraint>(constraint)->GetStiffSpring());
-//			else
-//				throw new runtime_error("Unimplemented constraint type!");
-//			return new hkpConstraintInstance(getEntity(constraint->GetEntities()[0]), getEntity(constraint->GetEntities()[1]), data);
-//		}
-//	}
-//
-//	ConstraintVisitor(vector<bhkBlendCollisionObjectRef>& nbodies, hkArray<hkpRigidBody*>& hkbodies) : nifBodies(nbodies), hkBodies(hkbodies) {}
-//};
-//
-//class FBXConstraintBuilder : public ConstraintVisitor {
-//public:
-//
-//	virtual hkpConstraintData* visit(BallAndSocketDescriptor& constraint)
-//	{
-//		hkpBallAndSocketConstraintData* data = new hkpBallAndSocketConstraintData();
-//		return data;
-//	}
-//
-//	virtual hkpConstraintData* visit(StiffSpringDescriptor& constraint)
-//	{
-//		hkpStiffSpringConstraintData* data = new hkpStiffSpringConstraintData();
-//		return data;
-//	}
-//
-//	virtual hkpConstraintData* visit(RagdollDescriptor& descriptor) {
-//		hkpRagdollConstraintData* data = new hkpRagdollConstraintData();
-//		data->setInBodySpace(
-//			TOVECTOR4(descriptor.pivotA * 7),
-//			TOVECTOR4(descriptor.pivotB * 7),
-//			TOVECTOR4(descriptor.planeA),
-//			TOVECTOR4(descriptor.planeB),
-//			TOVECTOR4(descriptor.twistA),
-//			TOVECTOR4(descriptor.twistB)
-//		);
-//		return data;
-//	}
-//
-//	virtual hkpConstraintData* visit(PrismaticDescriptor& descriptor) {
-//		//hkpPrismaticConstraintData* data = new hkpPrismaticConstraintData();
-//		//data->setInBodySpace(
-//		//	TOVECTOR4(descriptor.pivotA * 7),
-//		//	TOVECTOR4(descriptor.pivotB * 7),
-//		//	);
-//		//);
-//
-//		//return new hkpConstraintInstance(getEntity(constraint.GetEntities()[0]), getEntity(constraint.GetEntities()[1]), data);
-//		return NULL;
-//	}
-//
-//	virtual hkpConstraintData* visit(MalleableDescriptor& descriptor) {
-//		switch (descriptor.type) {
-//			case BALLANDSOCKET:
-//				return visit(descriptor.ballAndSocket);
-//			case HINGE:
-//				return visit(descriptor.hinge);
-//			case LIMITED_HINGE:
-//				return visit(descriptor.limitedHinge);
-//			case PRISMATIC:
-//				return visit(descriptor.prismatic);
-//			case RAGDOLL:
-//				return visit(descriptor.ragdoll);
-//			case STIFFSPRING:
-//				return visit(descriptor.stiffSpring);
-//			case MALLEABLE:
-//				break;
-//		}
-//		
-//		return NULL;
-//	}
-//
-//	virtual hkpConstraintData* visit(HingeDescriptor& descriptor) {
-//		hkpHingeConstraintData* data = new hkpHingeConstraintData();
-//		data->setInBodySpace(
-//			TOVECTOR4(descriptor.pivotA * 7),
-//			TOVECTOR4(descriptor.pivotB * 7),
-//			TOVECTOR4(descriptor.axleA),
-//			TOVECTOR4(descriptor.axleB)
-//		);
-//		return data;
-//	}
-//	virtual hkpConstraintData* visit(LimitedHingeDescriptor& descriptor){
-//		hkpLimitedHingeConstraintData* data = new hkpLimitedHingeConstraintData();
-//		data->setInBodySpace(
-//			TOVECTOR4(descriptor.pivotA * 7),
-//			TOVECTOR4(descriptor.pivotB * 7),
-//			TOVECTOR4(descriptor.axleA),
-//			TOVECTOR4(descriptor.axleB),
-//			TOVECTOR4(descriptor.perp2AxleInA1),
-//			TOVECTOR4(descriptor.perp2AxleInB1)
-//		);
-//		return data;
-//	}
-//
-//	ConstraintBuilder(vector<bhkBlendCollisionObjectRef>& nbodies, hkArray<hkpRigidBody*>& hkbodies) : ConstraintVisitor(nbodies,hkbodies) {}
-//};
-
 bool valid = false;
 
 enum gl_blend_modes {
@@ -1973,6 +1839,13 @@ public:
 			fbx_constraint->AffectRotationY = false;
 			fbx_constraint->AffectRotationZ = false;
 
+			set_property(constraint_node, "coneMaxAngle", descriptor.coneMaxAngle, FbxFloatDT);
+			set_property(constraint_node, "planeMinAngle", descriptor.planeMinAngle, FbxFloatDT);
+			set_property(constraint_node, "planeMaxAngle", descriptor.planeMaxAngle, FbxFloatDT);
+			set_property(constraint_node, "twistMinAngle", descriptor.twistMinAngle, FbxFloatDT);
+			set_property(constraint_node, "twistMaxAngle", descriptor.twistMaxAngle, FbxFloatDT);
+			set_property(constraint_node, "maxFriction", descriptor.maxFriction, FbxFloatDT);
+
 			return constraint_node;
 		}
 		FbxNode* visit(PrismaticDescriptor& descriptor, FbxNode* parent, FbxNode* child) 
@@ -2040,8 +1913,9 @@ public:
 			FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_node, string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
 			fbx_constraint->SetConstrainedObject(child);
 			fbx_constraint->AddConstraintSource(constraint_node);
-			//fbx_constraint->SetRotationOffset(constraint_node, fbx_rotation);
-			//fbx_constraint->SetTranslationOffset(constraint_node, TOFBXVECTOR3(matA.GetTrans()));
+			fbx_constraint->SetRotationOffset(constraint_node, fbx_rotation);
+			fbx_constraint->SetTranslationOffset(constraint_node, TOFBXVECTOR3(matA.GetTrans()));
+
 
 			fbx_constraint->AffectRotationX = false;
 
@@ -2093,6 +1967,10 @@ public:
 
 			fbx_constraint->AffectRotationX = false;
 			fbx_constraint->AffectRotationY = false;
+
+			set_property(constraint_node, "maxAngle", descriptor.maxAngle, FbxFloatDT);
+			set_property(constraint_node, "minAngle", descriptor.minAngle, FbxFloatDT);
+			set_property(constraint_node, "maxFriction", descriptor.maxFriction, FbxFloatDT);
 
 
 			return NULL;
@@ -4672,14 +4550,6 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 		}
 		body->SetHavokFilter(body_layer.filter);
 		body->SetHavokFilterCopy(body->GetHavokFilter());
-		//if (hk_body->getNumConstraints() > 0) {
-		//	vector<bhkSerializableRef> constraints;
-		//	for (int c = 0; c < hk_body->getNumConstraints(); c++)
-		//	{
-		//		constraints.push_back(convert_from_hk(hk_body->getConstraint(c), hk_body, body));
-		//	}
-		//	body->SetConstraints(constraints);
-		//}
 		conversion_Map[rigid_body] = body;
 
 		collision->SetBody(StaticCast<bhkWorldObject>(body));

@@ -61,14 +61,14 @@ void set_property(FbxObject* material, const char* name, input value, PropertyTy
 };
 
 template<typename Output>
-Output get_property(FbxObject* material, const char* name)
+Output get_property(FbxObject* material, const char* name, const Output& default_value = Output())
 {
 	FbxProperty p = material->FindProperty(name);
 	if (p.IsValid())
 	{
 		return p.Get<Output>();
 	}
-	return Output();
+	return default_value;
 };
 
 
