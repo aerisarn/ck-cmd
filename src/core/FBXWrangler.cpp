@@ -1839,12 +1839,12 @@ public:
 			fbx_constraint->AffectRotationY = false;
 			fbx_constraint->AffectRotationZ = false;
 
-			set_property(constraint_node, "coneMaxAngle", descriptor.coneMaxAngle, FbxFloatDT);
-			set_property(constraint_node, "planeMinAngle", descriptor.planeMinAngle, FbxFloatDT);
-			set_property(constraint_node, "planeMaxAngle", descriptor.planeMaxAngle, FbxFloatDT);
-			set_property(constraint_node, "twistMinAngle", descriptor.twistMinAngle, FbxFloatDT);
-			set_property(constraint_node, "twistMaxAngle", descriptor.twistMaxAngle, FbxFloatDT);
-			set_property(constraint_node, "maxFriction", descriptor.maxFriction, FbxFloatDT);
+			set_property(constraint_node, "coneMaxAngle", FbxString(descriptor.coneMaxAngle), FbxStringDT);
+			set_property(constraint_node, "planeMinAngle", FbxString(descriptor.planeMinAngle), FbxStringDT);
+			set_property(constraint_node, "planeMaxAngle", FbxString(descriptor.planeMaxAngle), FbxStringDT);
+			set_property(constraint_node, "twistMinAngle", FbxString(descriptor.twistMinAngle), FbxStringDT);
+			set_property(constraint_node, "twistMaxAngle", FbxString(descriptor.twistMaxAngle), FbxStringDT);
+			set_property(constraint_node, "maxFriction", FbxString(descriptor.maxFriction), FbxStringDT);
 
 			set_property(constraint_node, "type", FbxString("Ragdoll"), FbxStringDT);
 
@@ -1971,9 +1971,9 @@ public:
 			fbx_constraint->AffectRotationX = false;
 			fbx_constraint->AffectRotationY = false;
 
-			set_property(constraint_node, "maxAngle", descriptor.maxAngle, FbxFloatDT);
-			set_property(constraint_node, "minAngle", descriptor.minAngle, FbxFloatDT);
-			set_property(constraint_node, "maxFriction", descriptor.maxFriction, FbxFloatDT);
+			set_property(constraint_node, "maxAngle", FbxString(descriptor.maxAngle), FbxStringDT);
+			set_property(constraint_node, "minAngle", FbxString(descriptor.minAngle), FbxStringDT);
+			set_property(constraint_node, "maxFriction", FbxString(descriptor.maxFriction), FbxStringDT);
 
 			set_property(constraint_node, "type", FbxString("LimitedHinge"), FbxStringDT);
 
@@ -2010,6 +2010,8 @@ public:
 							{
 								FbxAnimStack* lAnimStack = FbxAnimStack::Create(scene, "Take 001");
 								FbxAnimLayer* layer = FbxAnimLayer::Create(scene, "Default");
+								lAnimStack->AddMember(layer);
+								scene->SetCurrentAnimationStack(lAnimStack);
 							}
 
 							FbxNode* constraint_position = NULL;
@@ -2240,7 +2242,7 @@ bool FBXWrangler::ExportScene(const std::string& fileName) {
 	ios->SetBoolProp(EXP_FBX_ANIMATION, true);
 	ios->SetBoolProp(EXP_FBX_GLOBAL_SETTINGS, true);
 
-	iExporter->SetFileExportVersion(FBX_2014_00_COMPATIBLE, FbxSceneRenamer::eNone);
+	iExporter->SetFileExportVersion(FBX_FILE_VERSION_7000, FbxSceneRenamer::eNone);
 
 	sdkManager->CreateMissingBindPoses(scene);
 

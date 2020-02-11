@@ -98,6 +98,22 @@
 using namespace ckcmd::HKX;
 using namespace ckcmd::NIF;
 
+template<>
+void setKeyProperty(FbxObject* material, FbxProperty& p, float value) {
+	//seems like maya wants these keyed anyway
+	p.ModifyFlag(FbxPropertyFlags::eAnimatable, true);
+	p.SetMinLimit(-2.0);
+	p.SetMaxLimit(2.0);
+	FbxAnimCurve* curve = p.GetCurve(material->GetScene()->GetCurrentAnimationStack()->GetMember<FbxAnimLayer>(0), true);
+	if (curve != NULL)
+	{
+		curve->KeyModifyBegin();
+		auto lKeyIndex = curve->KeyAdd(FBXSDK_TIME_ZERO);
+		curve->KeySet(lKeyIndex, FBXSDK_TIME_ZERO, FbxFloat(value), FbxAnimCurveDef::eInterpolationConstant);
+		curve->KeyModifyEnd();
+	}
+}
+
 bool isShapeFbxNode(FbxNode* node)
 {
 	string node_name = node->GetName();
@@ -2065,13 +2081,13 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 		temp->m_atoms.m_transforms.m_transformA = transform_a;
 		temp->m_atoms.m_transforms.m_transformB = transform_b;
 
-		temp->m_atoms.m_coneLimit.m_maxAngle = get_property(body, "coneMaxAngle", temp->m_atoms.m_coneLimit.m_maxAngle);
-		temp->m_atoms.m_planesLimit.m_minAngle = get_property(body, "planeMinAngle", temp->m_atoms.m_planesLimit.m_minAngle);
-		temp->m_atoms.m_planesLimit.m_maxAngle = get_property(body, "planeMaxAngle", temp->m_atoms.m_planesLimit.m_maxAngle);
-		temp->m_atoms.m_twistLimit.m_minAngle = get_property(body, "twistMinAngle", temp->m_atoms.m_twistLimit.m_minAngle);
-		temp->m_atoms.m_twistLimit.m_maxAngle = get_property(body, "twistMaxAngle", temp->m_atoms.m_twistLimit.m_maxAngle);
+		temp->m_atoms.m_coneLimit.m_maxAngle = std::atof(get_property<FbxString>(body, "coneMaxAngle", FbxString(temp->m_atoms.m_coneLimit.m_maxAngle)).Buffer());
+		temp->m_atoms.m_planesLimit.m_minAngle = std::atof(get_property<FbxString>(body, "planeMinAngle", temp->m_atoms.m_planesLimit.m_minAngle).Buffer());
+		temp->m_atoms.m_planesLimit.m_maxAngle = std::atof(get_property<FbxString>(body, "planeMaxAngle", temp->m_atoms.m_planesLimit.m_maxAngle).Buffer());
+		temp->m_atoms.m_twistLimit.m_minAngle = std::atof(get_property<FbxString>(body, "twistMinAngle", temp->m_atoms.m_twistLimit.m_minAngle).Buffer());
+		temp->m_atoms.m_twistLimit.m_maxAngle = std::atof(get_property<FbxString>(body, "twistMaxAngle", temp->m_atoms.m_twistLimit.m_maxAngle).Buffer());
 
-		temp->m_atoms.m_angFriction.m_maxFrictionTorque = get_property(body, "maxFriction", temp->m_atoms.m_angFriction.m_maxFrictionTorque);
+		temp->m_atoms.m_angFriction.m_maxFrictionTorque = std::atof(get_property<FbxString>(body, "maxFriction", temp->m_atoms.m_angFriction.m_maxFrictionTorque).Buffer());
 
 		data = temp;
 	}
@@ -2081,10 +2097,10 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 		temp->m_atoms.m_transforms.m_transformB = transform_b;
 
 
-		temp->m_atoms.m_angLimit.m_maxAngle = get_property(body, "maxAngle", temp->m_atoms.m_angLimit.m_maxAngle);
-		temp->m_atoms.m_angLimit.m_minAngle = get_property(body, "minAngle", temp->m_atoms.m_angLimit.m_minAngle);
+		temp->m_atoms.m_angLimit.m_maxAngle = std::atof(get_property<FbxString>(body, "maxAngle", temp->m_atoms.m_angLimit.m_maxAngle).Buffer());
+		temp->m_atoms.m_angLimit.m_minAngle = std::atof(get_property<FbxString>(body, "minAngle", temp->m_atoms.m_angLimit.m_minAngle).Buffer());
 
-		temp->m_atoms.m_angFriction.m_maxFrictionTorque = get_property(body, "maxFriction", temp->m_atoms.m_angFriction.m_maxFrictionTorque);
+		temp->m_atoms.m_angFriction.m_maxFrictionTorque = std::atof(get_property<FbxString>(body, "maxFriction", temp->m_atoms.m_angFriction.m_maxFrictionTorque).Buffer());
 
 		data = temp;
 	}

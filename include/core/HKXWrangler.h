@@ -48,8 +48,15 @@ namespace fs = std::experimental::filesystem;
 
 bool isShapeFbxNode(FbxNode* node);
 
+
+template<typename T> 
+void setKeyProperty(FbxObject* material, FbxProperty& p, T value) {}
+
+template<>
+void setKeyProperty(FbxObject* material, FbxProperty& p, float value);
+
 template<typename PropertyType, typename input>
-void set_property(FbxObject* material, const char* name, input value, PropertyType T)
+FbxProperty set_property(FbxObject* material, const char* name, input value, PropertyType T)
 {
 	FbxProperty p = material->FindProperty(name);
 	if (!p.IsValid())
@@ -58,6 +65,7 @@ void set_property(FbxObject* material, const char* name, input value, PropertyTy
 		p.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
 	}
 	p.Set(value);
+	return p;
 };
 
 template<typename Output>
