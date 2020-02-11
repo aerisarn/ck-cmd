@@ -1817,6 +1817,10 @@ public:
 			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName()) + "_attach_point").c_str());
 			parent->AddChild(setMatTransform(matB, constraint_node));
 
+			FbxSkeleton* lSkeletonLimbNodeAttribute1 = FbxSkeleton::Create(constraint_node->GetScene(), constraint_node->GetName());
+			lSkeletonLimbNodeAttribute1->SetSkeletonType(FbxSkeleton::eLimbNode);
+			lSkeletonLimbNodeAttribute1->Size.Set(1.0);
+			constraint_node->SetNodeAttribute(lSkeletonLimbNodeAttribute1);
 
 			Quaternion rotation = matA.GetRotation().AsQuaternion();
 			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
@@ -4823,18 +4827,21 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			}
 		}
 
-		for (int i = 0; i < root->GetNodeAttributeCount(); i++)
+		if (string(root->GetName()).find("_attach_") == string::npos)
 		{
-			if (root->GetNodeAttributeByIndex(i) != NULL && root->GetNodeAttributeByIndex(i)->GetAttributeType() == FbxNodeAttribute::eSkeleton) {
-				FbxSkeleton* bone = (FbxSkeleton*)root->GetNodeAttributeByIndex(i);
-				if (bone->GetSkeletonType() == FbxSkeleton::eRoot)
-				{
-					hkxWrapper.create_skeleton(root);
+			for (int i = 0; i < root->GetNodeAttributeCount(); i++)
+			{
+				if (root->GetNodeAttributeByIndex(i) != NULL && root->GetNodeAttributeByIndex(i)->GetAttributeType() == FbxNodeAttribute::eSkeleton) {
+					FbxSkeleton* bone = (FbxSkeleton*)root->GetNodeAttributeByIndex(i);
+					if (bone->GetSkeletonType() == FbxSkeleton::eRoot)
+					{
+						hkxWrapper.create_skeleton(root);
+					}
+					else {
+						hkxWrapper.add_bone(root);
+					}
+					break;
 				}
-				else {
-					hkxWrapper.add_bone(root);
-				}
-				break;
 			}
 		}
 
