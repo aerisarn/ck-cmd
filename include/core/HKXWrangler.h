@@ -47,7 +47,7 @@ namespace fs = std::experimental::filesystem;
 #include <Physics\Utilities\Serialize\hkpPhysicsData.h>
 
 bool isShapeFbxNode(FbxNode* node);
-
+void inline to_upper(string& name);
 
 template<typename T> 
 void setKeyProperty(FbxObject* material, FbxProperty& p, T value) {}

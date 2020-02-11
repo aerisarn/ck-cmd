@@ -4871,6 +4871,13 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				else if (ed_property.GetPropertyDataType().GetType() == EFbxType::eFbxFloat)
 				{
 					NiFloatExtraDataRef data = new NiFloatExtraData();
+					if (name.find("Shield") != string::npos || name.find("Weapon") != string::npos)
+					{
+						string tag = name.substr(name.length() - 6, 6);
+						string before = name.substr(0, name.length() - 6);
+						to_upper(tag);
+						name = before + tag;
+					}
 					data->SetName(name);
 					data->SetFloatData(ed_property.Get<FbxFloat>());
 					ed_list.push_back(StaticCast<NiExtraData>(data));
