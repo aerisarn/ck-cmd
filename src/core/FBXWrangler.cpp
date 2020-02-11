@@ -911,12 +911,6 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		return NULL;
 	}
 
-	void camel(string& name)
-	{
-		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-		name[0] = ::toupper(name[0]);
-	}
-
 	template<>
 	inline FbxNode* getBuiltNode(NiNode*& node) {
 		return getBuiltNode(string(node->GetName().c_str()));

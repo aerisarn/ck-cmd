@@ -94,6 +94,17 @@
 #include <boundingmesh.h>
 #include <core/NifFile.h>
 
+void camel(string& name)
+{
+	std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+	name[0] = ::toupper(name[0]);
+}
+
+void inline to_upper(string& name)
+{
+	std::transform(name.begin(), name.end(), name.begin(), ::toupper);
+}
+
 
 using namespace ckcmd::HKX;
 using namespace ckcmd::NIF;
@@ -1129,6 +1140,11 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 			sanitizeString(parent);
 			track_name = track_name.substr(0, index);
 			FbxNode* parent_node = ordered_skeleton[0]->GetScene()->FindNodeByName(parent.c_str());
+			//this was facked up by beth Shield <-> SHIELD
+			if (parent == "Shield" || parent == "Weapon")
+			{
+				to_upper(parent);
+			}
 			if (parent_node != NULL)
 			{
 				float_tracks[i] = FbxProperty::Create(parent_node, FbxFloatDT, track_name.c_str());

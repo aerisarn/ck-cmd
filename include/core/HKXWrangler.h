@@ -68,6 +68,7 @@ FbxProperty set_property(FbxObject* material, const char* name, input value, Pro
 	return p;
 };
 
+void camel(string& name);
 template<typename Output>
 Output get_property(FbxObject* material, const char* name, const Output& default_value = Output())
 {
