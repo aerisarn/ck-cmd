@@ -1758,7 +1758,7 @@ void HKXWrapper::add_bone(FbxNode* bone)
 
 	skeleton->m_parentIndices[bone_index] = parent_index;
 	skeleton->m_bones[bone_index].m_name = bone_name.c_str();
-	if (parent_index == 0 && string(skeleton->m_bones[bone_index].m_name).find("Camera Control") == string::npos)
+	if (parent_index == 0 && string(skeleton->m_bones[bone_index].m_name).find("Camera Control") == string::npos && string(skeleton->m_bones[bone_index].m_name).find("AnimObject") == string::npos)
 		skeleton->m_bones[bone_index].m_lockTranslation = false;
 	else
 		skeleton->m_bones[bone_index].m_lockTranslation = true;
@@ -2164,8 +2164,8 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 					
 				}
 				characterRigidBody = new hkpCharacterRigidBody(info);
-				
 				hk_body_unscaled = characterRigidBody->getRigidBody();
+				hk_body_unscaled->m_properties.clear();
 				hk_body_unscaled->setName(name.c_str());
 				hk_body_unscaled->m_motion.m_type = hkpMotion::MotionType::MOTION_FIXED;
 			}
@@ -2173,6 +2173,8 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 		hk_body_unscaled->setAllowedPenetrationDepth(340282001837565597733306976381245063168.000000);
 
 	}
+
+	hk_body_unscaled->m_motion.m_savedQualityTypeIndex = 0;
 
 	physic_entities->addRigidBody(hk_body_unscaled);
 	return hk_body;
