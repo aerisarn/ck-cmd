@@ -1369,8 +1369,8 @@ public:
 			FbxNode* node = visit_new_object(obj);
 			if (node != NULL)
 				build_stack.push_front(node);
-			//else
-			//	build_stack.push_front(build_stack.front());
+			else
+				build_stack.push_front(build_stack.front());
 		}
 	}
 
@@ -1489,7 +1489,7 @@ public:
 	FbxNode* visit_new_object(NiIntegerExtraData& obj) {
 		FbxNode* parent = build_stack.front();
 		set_property(parent, ("ed_" + obj.GetName()).c_str(), obj.GetIntegerData(), FbxIntDT);
-		alreadyVisitedNodes.insert(&obj);
+		//alreadyVisitedNodes.insert(&obj);
 		return NULL;
 	}
 
@@ -1497,7 +1497,7 @@ public:
 	FbxNode* visit_new_object(NiBooleanExtraData& obj) {
 		FbxNode* parent = build_stack.front();
 		set_property(parent, ("ed_" + obj.GetName()).c_str(), obj.GetBooleanData(), FbxBoolDT);
-		alreadyVisitedNodes.insert(&obj);
+		//alreadyVisitedNodes.insert(&obj);
 		return NULL;
 	}
 
@@ -1505,7 +1505,7 @@ public:
 	FbxNode* visit_new_object(NiStringExtraData& obj) {
 		FbxNode* parent = build_stack.front();
 		set_property(parent, ("ed_" + obj.GetName()).c_str(), FbxString(obj.GetStringData().c_str()), FbxStringDT);
-		alreadyVisitedNodes.insert(&obj);
+		//alreadyVisitedNodes.insert(&obj);
 		return NULL;
 	}
 
@@ -1513,7 +1513,7 @@ public:
 	FbxNode* visit_new_object(NiFloatExtraData& obj) {
 		FbxNode* parent = build_stack.front();
 		set_property(parent, ("ed_" + obj.GetName()).c_str(), obj.GetFloatData(), FbxFloatDT);
-		alreadyVisitedNodes.insert(&obj);
+		//alreadyVisitedNodes.insert(&obj);
 		return NULL;
 	}
 

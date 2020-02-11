@@ -1923,7 +1923,7 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", ragdollToAnimationMapper.val(), &ragdollToAnimationMapper->staticClass()));
 		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", animationToRagdollMapper.val(), &animationToRagdollMapper->staticClass()));
 
-		hkPackFormat pkFormat = HKPF_TAGXML;
+		hkPackFormat pkFormat = HKPF_DEFAULT;
 		hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
 		hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
 		fs::path final_out_path = "./skeleton.hkx";
