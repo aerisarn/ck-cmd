@@ -100,7 +100,7 @@ void camel(string& name)
 	name[0] = ::toupper(name[0]);
 }
 
-void inline to_upper(string& name)
+void to_upper(string& name)
 {
 	std::transform(name.begin(), name.end(), name.begin(), ::toupper);
 }
@@ -1793,86 +1793,6 @@ void HKXWrapper::add_bone(FbxNode* bone)
 hkpPhysicsSystem* physic_entities = NULL;
 hkaSkeletonMapperData* fromRagdollToSkeletonMapping = NULL;
 
-//		Log::Info("Build Mappings Ragdoll -> Skeleton\n");
-//
-//		hkaSkeletonMapperData* fromRagdollToSkeletonMapping = new hkaSkeletonMapperData();
-//		fromRagdollToSkeletonMapping->m_simpleMappings.setSize(rigidBodies.size());
-//		fromRagdollToSkeletonMapping->m_skeletonA = hkRagdollSkeleton;
-//		fromRagdollToSkeletonMapping->m_skeletonB = hkSkeleton;
-//		set<int> mappedBones;
-//		for (size_t i = 0; i < rigidBodies.size(); i++) {
-//			hkaSkeletonMapperData::SimpleMapping& mapping = fromRagdollToSkeletonMapping->m_simpleMappings[i];
-//			mapping.m_boneA = i;
-//			mapping.m_boneB = ragdollAnimationParentMap[i];
-//			mappedBones.insert(ragdollAnimationParentMap[i]);
-//
-//			//Absolute transform
-//			int findroot = ragdollParentMap[i];
-//			hkQsTransform ragdollBoneTransform = hkRagdollSkeleton->m_referencePose[i];
-//			while (findroot != -1) {
-//				ragdollBoneTransform.setMul(hkRagdollSkeleton->m_referencePose[findroot], ragdollBoneTransform);
-//				findroot = ragdollParentMap[findroot];
-//			}
-//
-//			NiNodeRef animationBone = bones[ragdollAnimationParentMap[i]];
-//
-//			hkQsTransform animationBoneTransform;
-//			double scale = 1.0;
-//			animationBoneTransform.setTranslation(TOVECTOR4(animationBone->GetWorldTransform().GetTranslation()*scale));
-//			animationBoneTransform.setRotation(TOQUAT(animationBone->GetWorldTransform().GetRotation().AsQuaternion()));
-//			animationBoneTransform.setScale(hkVector4(animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale()));
-//
-//			mapping.m_aFromBTransform.setMulInverseMul(ragdollBoneTransform, animationBoneTransform);
-//		}
-//
-//		for (int i = 0; i < bones.size(); i++) {
-//			if (mappedBones.find(i) == mappedBones.end())
-//				fromRagdollToSkeletonMapping->m_unmappedBones.pushBack(i);
-//		}
-//
-//		hkRefPtr<hkaSkeletonMapper> ragdollToAnimationMapper = new hkaSkeletonMapper(*fromRagdollToSkeletonMapping);
-//
-//		rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", ragdollToAnimationMapper.val(), &ragdollToAnimationMapper->staticClass()));
-//
-//
-//		Log::Info("Build Mappings Skeleton -> Ragdoll\n");
-//
-//		hkaSkeletonMapperData* fromSkeletonToRagdollMapping = new hkaSkeletonMapperData();
-//		fromSkeletonToRagdollMapping->m_simpleMappings.setSize(rigidBodies.size());
-//		fromSkeletonToRagdollMapping->m_skeletonA = hkSkeleton;
-//		fromSkeletonToRagdollMapping->m_skeletonB = hkRagdollSkeleton;
-//
-//		for (size_t i = 0; i < rigidBodies.size(); i++) {
-//			hkaSkeletonMapperData::SimpleMapping& mapping = fromSkeletonToRagdollMapping->m_simpleMappings[i];
-//			mapping.m_boneA = ragdollAnimationParentMap[i];
-//			mapping.m_boneB = i;
-//			mappedBones.insert(ragdollAnimationParentMap[i]);
-//
-//			//Absolute transform
-//			int findroot = ragdollParentMap[i];
-//			hkQsTransform ragdollBoneTransform = hkRagdollSkeleton->m_referencePose[i];
-//			while (findroot != -1) {
-//				ragdollBoneTransform.setMul(hkRagdollSkeleton->m_referencePose[findroot], ragdollBoneTransform);
-//				findroot = ragdollParentMap[findroot];
-//			}
-//
-//			NiNodeRef animationBone = bones[ragdollAnimationParentMap[i]];
-//
-//			hkQsTransform animationBoneTransform;
-//			double scale = 1.0;
-//			animationBoneTransform.setTranslation(TOVECTOR4(animationBone->GetWorldTransform().GetTranslation()*scale));
-//			animationBoneTransform.setRotation(TOQUAT(animationBone->GetWorldTransform().GetRotation().AsQuaternion()));
-//			animationBoneTransform.setScale(hkVector4(animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale()));
-//
-//			mapping.m_aFromBTransform.setMulInverseMul(animationBoneTransform, ragdollBoneTransform);
-//		}
-//
-//		hkRefPtr<hkaSkeletonMapper> animationToRagdollMapper = new hkaSkeletonMapper(*fromSkeletonToRagdollMapping);
-//
-//		rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", animationToRagdollMapper.val(), &animationToRagdollMapper->staticClass()));
-//
-
-
 void HKXWrapper::build_skeleton_from_ragdoll()
 {
 	if (constraints.size() == rigidBodies.size() - 1)
@@ -1914,6 +1834,9 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 		fromRagdollToSkeletonMapping->m_simpleMappings.setSize(rigidBodies.size());
 		fromRagdollToSkeletonMapping->m_skeletonA = hkRagdollSkeleton;
 		fromRagdollToSkeletonMapping->m_skeletonB = hkSkeleton;
+		fromRagdollToSkeletonMapping->m_mappingType = hkaSkeletonMapperData::MappingType::HK_RAGDOLL_MAPPING;
+
+
 		set<int> mappedBones;
 		for (size_t i = 0; i < rigidBodies.size(); i++) {
 			hkaSkeletonMapperData::SimpleMapping& mapping = fromRagdollToSkeletonMapping->m_simpleMappings[i];
@@ -1952,6 +1875,7 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 		fromSkeletonToRagdollMapping->m_simpleMappings.setSize(rigidBodies.size());
 		fromSkeletonToRagdollMapping->m_skeletonA = hkSkeleton;
 		fromSkeletonToRagdollMapping->m_skeletonB = hkRagdollSkeleton;
+		fromSkeletonToRagdollMapping->m_mappingType = hkaSkeletonMapperData::MappingType::HK_RAGDOLL_MAPPING;
 
 		for (size_t i = 0; i < rigidBodies.size(); i++) {
 			hkaSkeletonMapperData::SimpleMapping& mapping = fromSkeletonToRagdollMapping->m_simpleMappings[i];
@@ -1989,6 +1913,7 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 
 		hkRefPtr<hkaSkeletonMapper> ragdollToAnimationMapper = new hkaSkeletonMapper(*fromRagdollToSkeletonMapping);
 		hkRefPtr<hkaSkeletonMapper> animationToRagdollMapper = new hkaSkeletonMapper(*fromSkeletonToRagdollMapping);
+
 
 		hkRootLevelContainer container;
 		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Merged Animation Container", &anim_container, &anim_container.staticClass()));
