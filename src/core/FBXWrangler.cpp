@@ -2068,7 +2068,7 @@ public:
 			fbx_constraint->SetRotationOffset(constraint_node, fbx_rotation);
 			fbx_constraint->SetTranslationOffset(constraint_node, TOFBXVECTOR3(matA.GetTrans()));
 
-			set_property(constraint_node, "constratype", FbxString("Hinge"), FbxStringDT);
+			set_property(constraint_node, "constraint_type", FbxString("Hinge"), FbxStringDT);
 
 			fbx_constraint->AffectRotationX = false;
 

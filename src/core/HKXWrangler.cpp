@@ -1389,7 +1389,7 @@ hkGeometry extract_bounding_geometry(FbxNode* shape_root, set<pair<FbxAMatrix, F
 		for (const auto& geom : geometry_by_material)
 		{
 			hkReal volume = hkGeometryUtils::computeVolume(geom);
-			double density = 1.0; //TODO;
+			double density = 1020; //kg/m3;
 			properties.m_mass += volume * density;
 		}
 	}
@@ -1977,17 +1977,17 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 		string entity_b_name = name.substr(pos+5, name.length());
 		entity_a_fbx = body->GetScene()->FindNodeByName(entity_b_name.c_str());
 		if (entity_a_fbx == NULL) return NULL;
-		entity_a = bodies[body->GetScene()->FindNodeByName(entity_b_name.c_str())];
+		entity_a = bodies[entity_a_fbx];
 
-		auto trans_1 = entity_a_fbx->EvaluateGlobalTransform(FbxTime(0.0));
-		auto trans_2 = body->GetParent()->EvaluateGlobalTransform(FbxTime(0.0));
+		auto trans_parent = body->GetParent()->EvaluateGlobalTransform(FbxTime(0.0)); //parent
+		auto trans_child = entity_a_fbx->EvaluateGlobalTransform(FbxTime(0.0)); //child
 
-		auto trans_b_to_a = trans_1.Inverse() * trans_2;
-		auto trans_a_calc = trans_b_to_a * body->EvaluateLocalTransform(FbxTime(0.0));
+		auto trans_parent_to_child = trans_child.Inverse() * trans_parent;
+		auto trans_a_calc = (body->EvaluateLocalTransform(FbxTime(0.0)) * trans_parent.Inverse() *trans_child);
 
-		transform_a(0, 0) = trans_a_calc[0][0]; transform_a(0, 1) = trans_a_calc[1][0]; transform_a(0, 2) = trans_a_calc[2][0]; transform_a(0, 3) = trans_a_calc[3][0];
-		transform_a(1, 0) = trans_a_calc[0][1]; transform_a(1, 1) = trans_a_calc[1][1]; transform_a(1, 2) = trans_a_calc[2][1]; transform_a(1, 3) = trans_a_calc[3][1];
-		transform_a(2, 0) = trans_a_calc[0][2]; transform_a(2, 1) = trans_a_calc[1][2]; transform_a(2, 2) = trans_a_calc[2][2]; transform_a(2, 3) = trans_a_calc[3][2];
+		transform_a(0, 0) = trans_a_calc[0][0]; transform_a(1, 0) = trans_a_calc[1][0]; transform_a(2, 0) = trans_a_calc[2][0]; transform_a(0, 3) = trans_a_calc[0][3];
+		transform_a(0, 1) = trans_a_calc[0][1]; transform_a(1, 1) = trans_a_calc[1][1]; transform_a(2, 1) = trans_a_calc[2][1]; transform_a(1, 3) = trans_a_calc[0][3];
+		transform_a(0, 2) = trans_a_calc[0][2]; transform_a(1, 2) = trans_a_calc[1][2]; transform_a(2, 2) = trans_a_calc[2][2]; transform_a(2, 3) = trans_a_calc[0][3];
 
 	}
 	else
@@ -2003,8 +2003,8 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 		auto translation = fbx_constraint->GetTranslationOffset(body);
 		auto source = body->GetParent();
 
-		entity_b = bodies[body->GetParent()];
-		entity_a = bodies[entity_a_fbx];
+		entity_b = bodies[body->GetParent()]; //parent
+		entity_a = bodies[entity_a_fbx]; //child
 		
 		transform_a(0, 0) = M[0][0]; transform_a(0, 1) = M[1][0]; transform_a(0, 2) = M[2][0]; transform_a(0, 3) = translation[0];
 		transform_a(1, 0) = M[0][1]; transform_a(1, 1) = M[1][1]; transform_a(1, 2) = M[2][1]; transform_a(1, 3) = translation[1];
@@ -2022,7 +2022,7 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 		temp->m_atoms.m_transforms.m_transformA = transform_a;
 		temp->m_atoms.m_transforms.m_transformB = transform_b;
 
-		temp->m_atoms.m_coneLimit.m_maxAngle = std::atof(get_property<FbxString>(body, "coneMaxAngle", FbxString(temp->m_atoms.m_coneLimit.m_maxAngle)).Buffer());
+		temp->m_atoms.m_coneLimit.m_maxAngle = std::atof(get_property<FbxString>(body, "coneMaxAngle", temp->m_atoms.m_coneLimit.m_maxAngle).Buffer());
 		temp->m_atoms.m_planesLimit.m_minAngle = std::atof(get_property<FbxString>(body, "planeMinAngle", temp->m_atoms.m_planesLimit.m_minAngle).Buffer());
 		temp->m_atoms.m_planesLimit.m_maxAngle = std::atof(get_property<FbxString>(body, "planeMaxAngle", temp->m_atoms.m_planesLimit.m_maxAngle).Buffer());
 		temp->m_atoms.m_twistLimit.m_minAngle = std::atof(get_property<FbxString>(body, "twistMinAngle", temp->m_atoms.m_twistLimit.m_minAngle).Buffer());
