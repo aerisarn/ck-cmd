@@ -2012,7 +2012,7 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 
 	}
 
-	string type = (const char*)get_property<FbxString>(body, "type", FbxString(""));
+	string type = (const char*)get_property<FbxString>(body, "constraint_type", FbxString(""));
 
 	//Entity A is the child 
 	if ((fbx_constraint != NULL && fbx_constraint->AffectRotationZ.Get() == false) 

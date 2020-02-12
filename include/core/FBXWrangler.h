@@ -73,6 +73,8 @@ namespace FBX {
 		
 		set<FbxNode*> FBXWrangler::buildBonesList();
 		void checkAnimatedNodes();
+		void handleInlineTracks(FbxProperty& track, NiNode& parent, const string& ed_name);
+		void handleVisibility(FbxProperty& track, NiNode& parent);
 		void buildKF();
 		void buildCollisions();
 		void buildConstraints();

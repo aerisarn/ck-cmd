@@ -1240,7 +1240,47 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				}
 			}
 		}
+	}	
+	
+	template<typename T>
+	void addKeys(const KeyGroup<T >& holder, FbxProperty& property, FbxAnimLayer *lAnimLayer) {
+		if (!holder.keys.empty()) {
+			FbxAnimCurve* curve = property.GetCurve(lAnimLayer, true);
+			FbxAnimCurveDef::EInterpolationType translation_interpolation_type = FbxAnimCurveDef::eInterpolationLinear;
+
+			if (getFieldIsValid(&holder, KeyGroup<float>::FIELDS::interpolation)) {
+				switch (holder.interpolation) {
+				case CONST_KEY:
+					translation_interpolation_type = FbxAnimCurveDef::eInterpolationConstant;
+					break;
+				case LINEAR_KEY:
+					translation_interpolation_type = FbxAnimCurveDef::eInterpolationLinear;
+					break;
+				case QUADRATIC_KEY:
+					translation_interpolation_type = FbxAnimCurveDef::eInterpolationCubic;
+					break;
+				}
+			}
+
+			for (const Key<T>& key : holder.keys) {
+				FbxTime lTime;
+				//key.time
+				lTime.SetSecondDouble(key.time);
+
+				curve->KeyModifyBegin();
+				int lKeyIndex = curve->KeyAdd(lTime);
+				curve->KeySetValue(lKeyIndex, float(key.data));
+				curve->KeySetInterpolation(lKeyIndex, translation_interpolation_type);
+				if (translation_interpolation_type == FbxAnimCurveDef::eInterpolationCubic)
+				{
+					curve->KeySetTangentMode(lKeyIndex, FbxAnimCurveDef::ETangentMode::eTangentBreak);
+				}
+				curve->KeyModifyEnd();
+				
+			}
+		}
 	}
+
 	template<>
 	void addTrack(NiTransformInterpolator& interpolator, FbxNode* node, FbxAnimLayer *lAnimLayer) {
 		//here we have an initial transform to be applied and a set of keys
@@ -1509,10 +1549,122 @@ public:
 		return NULL;
 	}
 
+	template<typename T>
+	void handleInterpolator(T& interpolator, FbxProperty& track, FbxAnimLayer* layer)
+	{
+		auto data = interpolator.GetData();
+		if (data != NULL)
+		{
+			alreadyVisitedNodes.insert(&*data);
+			addKeys(data->GetData(), track, layer);
+		}
+	}
+
+	void handleInterpolator(NiInterpolatorRef interpolator, FbxProperty& track, FbxAnimLayer* layer)
+	{
+		if (NULL != interpolator)
+		{
+			if (interpolator->IsDerivedType(NiFloatInterpolator::TYPE))
+			{
+				handleInterpolator(*DynamicCast<NiFloatInterpolator>(interpolator), track, layer);
+			}
+			else if (interpolator->IsDerivedType(NiBoolInterpolator::TYPE))
+			{
+				handleInterpolator(*DynamicCast<NiBoolInterpolator>(interpolator), track, layer);
+			}
+		}
+	}
+
+	void setPropertyAnimationOnDefaultStack(NiSingleInterpController& obj, FbxProperty& track)
+	{
+		FbxAnimStack* lAnimStack = scene.GetCurrentAnimationStack();
+		if (NULL == lAnimStack)
+		{
+			lAnimStack = FbxAnimStack::Create(&scene, "Take 001");
+			scene.SetCurrentAnimationStack(lAnimStack);
+		}
+		FbxAnimLayer* layer = lAnimStack->GetMember<FbxAnimLayer>(0);
+		if (layer == NULL) {
+			layer = FbxAnimLayer::Create(&scene, "Default");
+			lAnimStack->AddMember(layer);
+		}
+		track.ModifyFlag(FbxPropertyFlags::eAnimatable, true);
+
+		FbxTimeSpan span = lAnimStack->GetLocalTimeSpan();
+
+		if (span.GetStart() > obj.GetStartTime())
+			span.SetStart(obj.GetStartTime());
+		if (span.GetStop() < obj.GetStopTime())
+			span.SetStart(obj.GetStopTime());
+
+		lAnimStack->SetLocalTimeSpan(span);
+
+		if (obj.GetInterpolator() != NULL)
+		{
+			alreadyVisitedNodes.insert(&*obj.GetInterpolator());
+			handleInterpolator(obj.GetInterpolator(), track, layer);
+		}
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiFloatExtraDataController& obj) {
+		FbxNode* parent = build_stack.front();
+		string track_name = obj.GetExtraDataName();
+		int index = track_name.find(":");
+		if (index != string::npos)
+		{
+			track_name = track_name.substr(0, index);
+		}
+		FbxProperty track = parent->FindProperty(track_name.c_str());
+		if (!track.IsValid()) {
+			Log::Warn("Unable to import animation controller for property %s over %s", track_name.c_str(), parent->GetName());
+			return NULL;
+		}
+		setPropertyAnimationOnDefaultStack(obj, track);
+		return NULL;
+	}
+
+	template<>
+	FbxNode* visit_new_object(NiVisController& obj) {
+		FbxNode* parent = build_stack.front();
+		FbxProperty& track = parent->Visibility;
+		if (!track.IsValid()) {
+			Log::Warn("Unable to import animation controller for property %s over %s", track.GetNameAsCStr(), parent->GetName());
+			return NULL;
+		}
+		setPropertyAnimationOnDefaultStack(obj, track);
+		return NULL;
+	}
+
 	template<>
 	FbxNode* visit_new_object(NiFloatExtraData& obj) {
 		FbxNode* parent = build_stack.front();
-		set_property(parent, ("ed_" + obj.GetName()).c_str(), obj.GetFloatData(), FbxFloatDT);
+		//special properties: float tracks
+		string name = obj.GetName();
+		int index = name.find(":");
+		if (index != string::npos)
+		{
+			string parent_name = name.substr(index + 1, name.size());
+			sanitizeString(parent_name);
+			string track_name = name.substr(0, index);
+			if (parent_name == "Shield" || parent_name == "Weapon")
+			{
+				to_upper(parent_name);
+			}
+			FbxNode* parent_node = scene.FindNodeByName(parent_name.c_str());
+			if (NULL != parent_node)
+			{
+				//this is actually a float slot
+				if (parent_node != parent)
+				{
+					Log::Warn("Found a bone float track for %s over another bode, %s", parent_node->GetName(), parent->GetName());
+				}
+				set_property(parent_node, track_name.c_str(), obj.GetFloatData(), FbxFloatDT);
+			}
+		}
+		else {
+			set_property(parent, ("ed_" + obj.GetName()).c_str(), obj.GetFloatData(), FbxFloatDT);
+		}
 		//alreadyVisitedNodes.insert(&obj);
 		return NULL;
 	}
@@ -1844,7 +1996,7 @@ public:
 			set_property(constraint_node, "twistMaxAngle", FbxString(descriptor.twistMaxAngle), FbxStringDT);
 			set_property(constraint_node, "maxFriction", FbxString(descriptor.maxFriction), FbxStringDT);
 
-			set_property(constraint_node, "type", FbxString("Ragdoll"), FbxStringDT);
+			set_property(constraint_node, "constraint_type", FbxString("Ragdoll"), FbxStringDT);
 
 			return constraint_node;
 		}
@@ -1916,7 +2068,7 @@ public:
 			fbx_constraint->SetRotationOffset(constraint_node, fbx_rotation);
 			fbx_constraint->SetTranslationOffset(constraint_node, TOFBXVECTOR3(matA.GetTrans()));
 
-			set_property(constraint_node, "type", FbxString("Hinge"), FbxStringDT);
+			set_property(constraint_node, "constratype", FbxString("Hinge"), FbxStringDT);
 
 			fbx_constraint->AffectRotationX = false;
 
@@ -1973,7 +2125,7 @@ public:
 			set_property(constraint_node, "minAngle", FbxString(descriptor.minAngle), FbxStringDT);
 			set_property(constraint_node, "maxFriction", FbxString(descriptor.maxFriction), FbxStringDT);
 
-			set_property(constraint_node, "type", FbxString("LimitedHinge"), FbxStringDT);
+			set_property(constraint_node, "constraint_type", FbxString("LimitedHinge"), FbxStringDT);
 
 			return NULL;
 		}
@@ -3289,9 +3441,10 @@ KeyType collect_times(FbxAnimCurve* curveX, set<double>& times, KeyType fixed_ty
 	return type;
 }
 
-void AdjustBezier(float fLastValue, float fLastTime,
-	float& fLastOut, float fNextValue, float fNextTime, float& fNextIn,
-	float fNewTime, float fNewValue, float& fNewIn, float& fNewOut)
+template<typename T>
+void AdjustBezier(T fLastValue, float fLastTime,
+	T& fLastOut, T fNextValue, float fNextTime, T& fNextIn,
+	float fNewTime, T fNewValue, T& fNewIn, T& fNewOut)
 {
 	// Find the coefficients of a cubic polynomial that fits the given 
 	// values and slopes.
@@ -3408,7 +3561,8 @@ public:
 	}
 };
 
-int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offset, bool deg_to_rad)
+template<typename T>
+int pack_float_key(FbxAnimCurve* curveI, KeyGroup<T>& keys, float time_offset, bool deg_to_rad)
 {
 	int IkeySize = 0;
 	KeyType type = CONST_KEY;
@@ -3435,11 +3589,11 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 					Log::Warn("Found an FbxAnimCurve with mixed types of interpolation, NIF doesn't support that for translations!");
 				}
 				type = new_type;
-				Key<float> new_key;
+				Key<T> new_key;
 				if (fbx_key.GetTime().GetSecondDouble() == time_offset)
 					has_key_in_time_offset = true;
 				new_key.time = fbx_key.GetTime().GetSecondDouble() - time_offset;
-				new_key.data = fbx_key.GetValue();
+				new_key.data = (T)fbx_key.GetValue();
 				new_key.forward_tangent = 0;
 				new_key.backward_tangent = 0;
 				if (deg_to_rad)
@@ -3452,7 +3606,7 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 			{
 				key_in_time_offset_added = true;
 				IkeySize += 1;
-				Key<float> new_key;
+				Key<T> new_key;
 				new_key.time = 0.0;
 				FbxTime ttime; ttime.SetSecondDouble(time_offset);
 				new_key.data = curveI->Evaluate(time_offset);
@@ -3470,13 +3624,13 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<float>& keys, float time_offse
 		}
 		if (type == QUADRATIC_KEY)
 		{
-			vector<Key<float > >& keyvalues = keys.keys;
+			vector<Key<T > >& keyvalues = keys.keys;
 			//int i = key_in_time_offset_added == false ? 1 : 2;
 			for (int i=1; i < keyvalues.size() - 1; i++)
 			{
-				Key<float >& prev = keyvalues[i - 1];
-				Key<float >& current = keyvalues[i];
-				Key<float >& next = keyvalues[i + 1];
+				Key<T >& prev = keyvalues[i - 1];
+				Key<T >& current = keyvalues[i];
+				Key<T >& next = keyvalues[i + 1];
 
 				AdjustBezier(prev.data, prev.time, prev.backward_tangent,
 					next.data, next.time, next.forward_tangent,
@@ -3848,68 +4002,6 @@ set<float> convert_rigid_animation(NiTransformInterpolatorRef interpolator, FbxA
 	return key_times;
 }
 
-//double FBXWrangler::convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_root_name, double last_start, double last_stop)
-//{
-//	// Display general curves.
-//	vector<ControlledBlock > blocks = sequence->GetControlledBlocks();
-//	for (FbxNode* pNode : unskinned_bones)
-//	{
-//		NiTransformInterpolatorRef interpolator = new NiTransformInterpolator();
-//		NiQuatTransform trans;
-//		unsigned int float_min = 0xFF7FFFFF;
-//		float* lol = (float*)&float_min;
-//
-//		trans.translation = Vector3(*lol, *lol, *lol);
-//		trans.rotation = Quaternion(*lol, *lol, *lol, *lol);
-//		trans.scale = *lol;
-//		interpolator->SetTransform(trans);
-//
-//		set<float> keys = convert_rigid(interpolator, pAnimLayer, pNode, last_start);
-//		if (keys.empty())
-//			continue;
-//
-//		NiObjectRef target = conversion_Map[pNode];
-//		targets.insert(target);
-//		if (target->IsDerivedType(NiNode::TYPE))
-//		{
-//			DynamicCast<NiNode>(target)->SetFlags(142);
-//		}
-//
-//		ControlledBlock block;
-//		block.interpolator = interpolator;
-//		block.nodeName = DynamicCast<NiAVObject>(conversion_Map[pNode])->GetName();
-//		block.controllerType = "NiTransformController";
-//		block.controller = multiController;
-//
-//		blocks.push_back(block);
-//
-//		sequence->SetControlledBlocks(blocks);
-//
-//		sequence->SetStartTime(0.0);
-//		sequence->SetStopTime(last_stop-last_start);
-//		sequence->SetManager(manager);
-//		sequence->SetAccumRootName(accum_root_name);
-//
-//		NiTextKeyExtraDataRef extra_data = new NiTextKeyExtraData();
-//		extra_data->SetName(string(""));
-//		Key<IndexString> start_key;
-//		start_key.time = 0.0;
-//		start_key.data = "start";
-//
-//		Key<IndexString> end_key;
-//		end_key.time = last_stop - last_start;
-//		end_key.data = "end";
-//
-//		extra_data->SetTextKeys({ start_key,end_key });
-//		extra_data->SetNextExtraData(NULL);
-//
-//		sequence->SetTextKeys(extra_data);
-//
-//		sequence->SetFrequency(1.0);
-//		sequence->SetCycleType(CYCLE_CLAMP);
-//	}
-//	return 0.0;
-//}
 
 //build embedded KF animations, for anything unskinned
 void FBXWrangler::buildKF() {
@@ -4074,7 +4166,7 @@ vector<size_t> getParentChain(const vector<int>& parentMap, const size_t node) {
 	int current_node = node;
 	if (current_node > 0 && current_node < parentMap.size())
 	{
-		//his better not be a graph
+		//this better not be a graph
 		while (current_node != -1) {
 			vresult.insert(vresult.begin(),current_node);
 			current_node = parentMap[current_node];
@@ -4779,6 +4871,99 @@ void FBXWrangler::buildConstraints()
 	}
 }
 
+void FBXWrangler::handleInlineTracks(FbxProperty& track, NiNode& parent, const string& ed_name)
+{
+	FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(0);
+	if (NULL == lAnimStack) return;
+	scene->SetCurrentAnimationStack(lAnimStack);
+	//could contain more than a layer, but by convention we wean just the first
+	FbxAnimLayer* lAnimLayer = lAnimStack->GetMember<FbxAnimLayer>(0);
+	if (NULL == lAnimLayer) return;
+	FbxTimeSpan local = lAnimStack->GetLocalTimeSpan();
+
+	NiFloatExtraDataControllerRef controller = new NiFloatExtraDataController();
+
+	controller->SetFlags(76);
+	controller->SetFrequency(1.0);
+	controller->SetPhase(0.0);
+	controller->SetExtraDataName(ed_name);
+	controller->SetStartTime(local.GetStart().GetSecondDouble());
+	controller->SetStopTime(local.GetStop().GetSecondDouble());
+	controller->SetTarget(StaticCast<NiObjectNET>(&parent));
+
+	NiFloatInterpolatorRef interpolator = new NiFloatInterpolator();
+	NiFloatDataRef data = new NiFloatData();
+	KeyGroup<float > tkeys;
+
+	auto curve = track.GetCurve(lAnimLayer);
+	if (NULL != curve)
+	{
+		int IkeySize = pack_float_key(curve, tkeys, 0.0, false);
+		if (IkeySize > 0) {
+			data->SetData(tkeys);
+			interpolator->SetData(data);
+			controller->SetInterpolator(StaticCast<NiInterpolator>(interpolator));
+			if (parent.GetController() == NULL)
+			{
+				parent.SetController(StaticCast<NiTimeController>(controller));
+			}
+			else {
+				NiTimeControllerRef lastController = parent.GetController();
+				while (lastController->GetNextController() != NULL)
+					lastController = lastController->GetNextController();
+				lastController->SetNextController(StaticCast<NiTimeController>(controller));
+			}
+		}
+	}
+}
+
+void FBXWrangler::handleVisibility(FbxProperty& track, NiNode& parent)
+{
+	FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(0);
+	if (NULL == lAnimStack) return;
+	scene->SetCurrentAnimationStack(lAnimStack);
+	//could contain more than a layer, but by convention we wean just the first
+	FbxAnimLayer* lAnimLayer = lAnimStack->GetMember<FbxAnimLayer>(0);
+	if (NULL == lAnimLayer) return;
+	FbxTimeSpan local = lAnimStack->GetLocalTimeSpan();
+
+	NiVisControllerRef controller = new NiVisController();
+
+	controller->SetFlags(76);
+	controller->SetFrequency(1.0);
+	controller->SetPhase(0.0);
+	controller->SetStartTime(local.GetStart().GetSecondDouble());
+	controller->SetStopTime(local.GetStop().GetSecondDouble());
+	controller->SetTarget(StaticCast<NiObjectNET>(&parent));
+
+	NiBoolInterpolatorRef interpolator = new NiBoolInterpolator();
+	NiBoolDataRef data = new NiBoolData();
+	KeyGroup<byte > tkeys;
+
+	auto curve = track.GetCurve(lAnimLayer);
+	if (NULL != curve)
+	{
+		int IkeySize = pack_float_key(curve, tkeys, 0.0, false);
+		if (IkeySize > 0) {
+			data->SetData(tkeys);
+			interpolator->SetData(data);
+			controller->SetInterpolator(StaticCast<NiInterpolator>(interpolator));
+			if (parent.GetController() == NULL)
+			{
+				parent.SetController(StaticCast<NiTimeController>(controller));
+			}
+			else {
+				NiTimeControllerRef lastController = parent.GetController();
+				while (lastController->GetNextController() != NULL)
+					lastController = lastController->GetNextController();
+				lastController->SetNextController(StaticCast<NiTimeController>(controller));
+			}
+		}
+	}
+}
+
+
+
 bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	if (!scene)
 		return false;
@@ -4855,12 +5040,27 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		FbxProperty ed_property = root->GetFirstProperty();
 		auto ed_list = parent->GetExtraDataList();
 		while (ed_property.IsValid()) {
-			if (string(ed_property.GetNameAsCStr()).find("ed_") != string::npos)
+			string name = ed_property.GetNameAsCStr();
+			string ed_name;
+			if (name.find("hk") == 0) {
+				name = name + ":" + unsanitizeString(string(root->GetName()));
+				NiFloatExtraDataRef data = new NiFloatExtraData();
+				if (name.find("Shield") != string::npos || name.find("Weapon") != string::npos)
+				{
+					string tag = name.substr(name.length() - 6, 6);
+					string before = name.substr(0, name.length() - 6);
+					to_upper(tag);
+					name = before + tag;
+				}
+				data->SetName(name);
+				ed_name = name;
+				data->SetFloatData(ed_property.Get<FbxFloat>());
+				ed_list.push_back(StaticCast<NiExtraData>(data));
+			}
+			else if (name.find("ed_") != string::npos)
 			{
-				
-				string name = ed_property.GetNameAsCStr();
 				name = name.substr(3, name.length());
-
+				ed_name = name;
 				if (ed_property.GetPropertyDataType().GetType() == EFbxType::eFbxInt)
 				{
 					NiIntegerExtraDataRef data = new NiIntegerExtraData();
@@ -4898,9 +5098,13 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 					ed_list.push_back(StaticCast<NiExtraData>(data));
 				}
 			}
+			if (ed_property.IsAnimated() && ed_property != root->Visibility) {
+				handleInlineTracks(ed_property, *parent, ed_name);
+			}
 			ed_property = root->GetNextProperty(ed_property);
 		}
 		parent->SetExtraDataList(ed_list);
+		handleVisibility(root->Visibility, *parent);
 
 		for (int i = 0; i < root->GetChildCount(); i++) {
 			FbxNode* child = root->GetChild(i);
