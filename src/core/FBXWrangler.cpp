@@ -2214,6 +2214,7 @@ public:
 		if (export_rig)
 		{
 			hkxWrapper.setExternalSkeletonPose(rb_node);
+			set_property(rb_node, "body_part", FbxString(obj->GetHavokFilter().flagsAndPartNumber), FbxStringDT);
 		}
 		else {
 			Vector4 translation = obj->GetTranslation();
@@ -3571,14 +3572,17 @@ int pack_float_key(FbxAnimCurve* curveI, KeyGroup<T>& keys, float time_offset, b
 			for (int i = 0; i < IkeySize; i++) {
 				FbxAnimCurveKey fbx_key = curveI->KeyGet(i);
 				KeyType new_type = CONST_KEY;
-				switch (fbx_key.GetInterpolation())
+				if (typeid(T) != typeid(Niflib::byte))
 				{
-				case FbxAnimCurveDef::EInterpolationType::eInterpolationConstant:
-					break;
-				case FbxAnimCurveDef::EInterpolationType::eInterpolationLinear:
-					new_type = LINEAR_KEY;
-				case FbxAnimCurveDef::EInterpolationType::eInterpolationCubic:
-					new_type = QUADRATIC_KEY;
+					switch (fbx_key.GetInterpolation())
+					{
+					case FbxAnimCurveDef::EInterpolationType::eInterpolationConstant:
+						break;
+					case FbxAnimCurveDef::EInterpolationType::eInterpolationLinear:
+						new_type = LINEAR_KEY;
+					case FbxAnimCurveDef::EInterpolationType::eInterpolationCubic:
+						new_type = QUADRATIC_KEY;
+					}
 				}
 				if (i > 0 && type != new_type)
 				{
@@ -4625,6 +4629,8 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 			body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
 			body->SetQualityType(MO_QUAL_FIXED);
 			collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL | BHKCO_SYNC_ON_UPDATE));
+			if (body_layer.filter.layer_sk == SKYL_BIPED)
+				body_layer.filter.flagsAndPartNumber = std::atoi(get_property<FbxString>(rigid_body, "body_part", "2"));
 		}
 		else if (body_layer.filter.layer_sk == SKYL_CLUTTER)
 		{
