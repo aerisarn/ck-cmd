@@ -1389,7 +1389,7 @@ hkGeometry extract_bounding_geometry(FbxNode* shape_root, set<pair<FbxAMatrix, F
 		for (const auto& geom : geometry_by_material)
 		{
 			hkReal volume = hkGeometryUtils::computeVolume(geom);
-			double density = 1020; //kg/m3;
+			double density = 1000; //kg/m3;
 			properties.m_mass += volume * density;
 		}
 	}
@@ -2123,7 +2123,8 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 
 	hkpMassProperties unscaled_properties;
 	body_cinfo_unscaled.m_shape = HKXWrapper::build_shape(mesh_child, geometry_meshes, unscaled_properties, 1.0, body, body_cinfo_unscaled);
-	body_cinfo_unscaled.setMassProperties(unscaled_properties);
+	//in skyrim units but with properties in kg
+	body_cinfo_unscaled.setMassProperties(properties);
 	if (string(body->GetName()).find("_sp") != string::npos)
 	{
 		body_cinfo_unscaled.m_motionType = hkpMotion::MotionType::MOTION_FIXED;
@@ -2173,9 +2174,7 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 		hk_body_unscaled->setAllowedPenetrationDepth(340282001837565597733306976381245063168.000000);
 
 	}
-
 	hk_body_unscaled->m_motion.m_savedQualityTypeIndex = 0;
-
 	physic_entities->addRigidBody(hk_body_unscaled);
 	return hk_body;
 }

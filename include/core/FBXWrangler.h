@@ -75,6 +75,7 @@ namespace FBX {
 		void checkAnimatedNodes();
 		void handleInlineTracks(FbxProperty& track, NiNode& parent, const string& ed_name);
 		void handleVisibility(FbxProperty& track, NiNode& parent);
+		bool hasCurve(FbxProperty& track);
 		void buildKF();
 		void buildCollisions();
 		void buildConstraints();

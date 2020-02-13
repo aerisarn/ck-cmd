@@ -1642,7 +1642,7 @@ public:
 		//special properties: float tracks
 		string name = obj.GetName();
 		int index = name.find(":");
-		if (index != string::npos)
+		if (index != string::npos && name.find("Phoneme") == string::npos)
 		{
 			string parent_name = name.substr(index + 1, name.size());
 			sanitizeString(parent_name);
@@ -1663,7 +1663,7 @@ public:
 			}
 		}
 		else {
-			set_property(parent, ("ed_" + obj.GetName()).c_str(), obj.GetFloatData(), FbxFloatDT);
+			set_property(parent, ("ed_f_" + obj.GetName()).c_str(), FbxString(obj.GetFloatData()), FbxStringDT);
 		}
 		//alreadyVisitedNodes.insert(&obj);
 		return NULL;
@@ -1908,6 +1908,7 @@ public:
 			FbxVector4* points = m->GetControlPoints();
 
 			for (int i = 0; i < m->GetControlPointsCount(); i++) {
+				//m / (su/m)
 				points[i] = TOFBXVECTOR4(geom.m_vertices[i])*bhkScaleFactor;
 			}
 
@@ -1968,11 +1969,6 @@ public:
 
 			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName()) + "_attach_point").c_str());
 			parent->AddChild(setMatTransform(matB, constraint_node));
-
-			FbxSkeleton* lSkeletonLimbNodeAttribute1 = FbxSkeleton::Create(constraint_node->GetScene(), constraint_node->GetName());
-			lSkeletonLimbNodeAttribute1->SetSkeletonType(FbxSkeleton::eLimbNode);
-			lSkeletonLimbNodeAttribute1->Size.Set(1.0);
-			constraint_node->SetNodeAttribute(lSkeletonLimbNodeAttribute1);
 
 			Quaternion rotation = matA.GetRotation().AsQuaternion();
 			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
@@ -4871,6 +4867,19 @@ void FBXWrangler::buildConstraints()
 	}
 }
 
+bool FBXWrangler::hasCurve(FbxProperty& track) {
+	FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(0);
+	if (NULL == lAnimStack) return false;
+	scene->SetCurrentAnimationStack(lAnimStack);
+	//could contain more than a layer, but by convention we wean just the first
+	FbxAnimLayer* lAnimLayer = lAnimStack->GetMember<FbxAnimLayer>(0);
+	if (NULL == lAnimLayer) return false;
+	FbxTimeSpan local = lAnimStack->GetLocalTimeSpan();
+
+	auto curve = track.GetCurve(lAnimLayer);
+	return (NULL != curve);
+}
+
 void FBXWrangler::handleInlineTracks(FbxProperty& track, NiNode& parent, const string& ed_name)
 {
 	FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(0);
@@ -5055,7 +5064,8 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				data->SetName(name);
 				ed_name = name;
 				data->SetFloatData(ed_property.Get<FbxFloat>());
-				ed_list.push_back(StaticCast<NiExtraData>(data));
+				if (hasCurve(ed_property)|| name.find("Phoneme")!= string::npos)
+					ed_list.push_back(StaticCast<NiExtraData>(data));
 			}
 			else if (name.find("ed_") != string::npos)
 			{
@@ -5091,11 +5101,28 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				}
 				else if (ed_property.GetPropertyDataType().GetType() == EFbxType::eFbxString)
 				{
-					NiStringExtraDataRef data = new NiStringExtraData();
-					data->SetName(name);
-					string data_string = (const char*)ed_property.Get<FbxString>();
-					data->SetStringData(IndexString(data_string));
-					ed_list.push_back(StaticCast<NiExtraData>(data));
+					if (name.find("_f_") == 0)
+					{
+						name = name.substr(3, name.length());
+						NiFloatExtraDataRef data = new NiFloatExtraData();
+						if (name.find("Shield") != string::npos || name.find("Weapon") != string::npos)
+						{
+							string tag = name.substr(name.length() - 6, 6);
+							string before = name.substr(0, name.length() - 6);
+							to_upper(tag);
+							name = before + tag;
+						}
+						data->SetName(name);
+						data->SetFloatData(std::atof(ed_property.Get<FbxString>().Buffer()));
+						ed_list.push_back(StaticCast<NiExtraData>(data));
+					}
+					else {
+						NiStringExtraDataRef data = new NiStringExtraData();
+						data->SetName(name);
+						string data_string = (const char*)ed_property.Get<FbxString>();
+						data->SetStringData(IndexString(data_string));
+						ed_list.push_back(StaticCast<NiExtraData>(data));
+					}
 				}
 			}
 			if (ed_property.IsAnimated() && ed_property != root->Visibility) {
