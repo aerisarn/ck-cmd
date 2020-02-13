@@ -1663,7 +1663,7 @@ public:
 			}
 		}
 		else {
-			set_property(parent, ("ed_f_" + obj.GetName()).c_str(), FbxString(obj.GetFloatData()), FbxStringDT);
+			set_property(parent, ("ed__f_" + obj.GetName()).c_str(), FbxString(obj.GetFloatData()), FbxStringDT);
 		}
 		//alreadyVisitedNodes.insert(&obj);
 		return NULL;
