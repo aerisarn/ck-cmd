@@ -46,6 +46,8 @@ namespace fs = std::experimental::filesystem;
 #include <Common\GeometryUtilities\Inertia\hkInertiaTensorComputer.h>
 #include <Physics\Utilities\Serialize\hkpPhysicsData.h>
 
+#include <core/AnimationCache.h>
+
 bool isShapeFbxNode(FbxNode* node);
 void to_upper(string& name);
 
@@ -94,6 +96,22 @@ namespace ckcmd {
 		using namespace std;
 		using namespace Niflib;
 
+		struct RootMovement
+		{
+			vector<tuple<hkReal, hkVector4>> translations;
+			vector<tuple<hkReal, ::hkQuaternion>> rotations;
+
+			vector<float> getData(string data);
+			RootMovement() {}
+
+			RootMovement(
+				const std::vector<std::string>& in_translations,
+				const std::vector<std::string>& in_rotations);
+
+			bool IsValid() const { return !translations.empty() || !rotations.empty(); }
+
+		};
+
 		class HKXWrapper {
 			string out_name;
 			string out_path;
@@ -133,7 +151,7 @@ namespace ckcmd {
 			void create_behavior(const set<string>& kf_sequences_names, const set<string>& havok_sequences_names);
 
 			vector<FbxNode*> add(hkaSkeleton* skeleton, FbxNode* root, vector<FbxProperty>& float_tracks);
-			void add(const string& name, hkaAnimation* animation, hkaAnimationBinding* binding, vector<FbxNode*>& ordered_skeleton, vector<FbxProperty>& float_tracks);
+			void add(const string& name, hkaAnimation* animation, hkaAnimationBinding* binding, vector<FbxNode*>& ordered_skeleton, vector<FbxProperty>& float_tracks, RootMovement& root_movements);
 
 		public:
 
@@ -144,6 +162,12 @@ namespace ckcmd {
 			template<typename hkRootType>
 			hkRefPtr<hkRootType> load(const fs::path& path, hkRootLevelContainer* root) {
 				root = read(path);
+				return root->findObject<hkRootType>();
+			}
+
+			template<typename hkRootType>
+			hkRefPtr<hkRootType> load(const fs::path& path, hkRootLevelContainer* root, hkArray<hkVariant>& objects) {
+				root = read(path, objects);
 				return root->findObject<hkRootType>();
 			}
 
@@ -182,7 +206,7 @@ namespace ckcmd {
 			);
 
 			vector<FbxNode*> load_skeleton(const fs::path& path, FbxNode* scene_root, vector<FbxProperty>& float_tracks);
-			void load_animation(const fs::path& path, vector<FbxNode*>&, vector<FbxProperty>& float_tracks);
+			void load_animation(const fs::path& path, vector<FbxNode*>&, vector<FbxProperty>& float_tracks, RootMovement& root_movements);
 
 			void write_animations(const string& out_path, const set<string>& havok_sequences_names);
 		
@@ -196,6 +220,14 @@ namespace ckcmd {
 			static hkRefPtr<hkpRigidBody> check_body(bhkRigidBodyRef body, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes);
 			static hkRefPtr<hkpShape> build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, FbxNode* body, hkpRigidBodyCinfo& hk_body);
 			static hkRefPtr<hkpShape> check_shape(bhkShapeRef shape_root, bhkRigidBodyRef bhkBody, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, hkpRigidBodyCinfo& hk_body);
+
+			void GetClipsMovements(
+				vector<fs::path> animation_files,
+				CacheEntry& entry,
+				CreatureCacheEntry& creature_entry,
+				const fs::path& behaviorFolder,
+				std::map< fs::path, RootMovement>& map
+			);
 
 		};
 

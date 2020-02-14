@@ -815,7 +815,7 @@ string HKXWrapper::write_project(const string& out_name, const string& out_path,
 	return GetPath();
 }
 
-void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBinding* binding, vector<FbxNode*>& ordered_skeleton, vector<FbxProperty>& float_tracks)
+void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBinding* binding, vector<FbxNode*>& ordered_skeleton, vector<FbxProperty>& float_tracks, RootMovement& root_movements)
 {
 	FbxString lAnimStackName;
 	FbxTime lTime;
@@ -1054,6 +1054,97 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 			}
 		}
 	}
+
+	//add root movement, if any
+	if (root_movements.IsValid()) {
+
+		auto root_joint = ordered_skeleton[1];
+
+		auto lCurve_Trans_X = root_joint->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+		auto lCurve_Trans_Y = root_joint->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+		auto lCurve_Trans_Z = root_joint->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+
+		auto lCurve_Rot_X = root_joint->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
+		auto lCurve_Rot_Y = root_joint->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
+		auto lCurve_Rot_Z = root_joint->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+
+		if (root_movements.translations.size() >= 1)
+		{
+			float lTime = get<0>(root_movements.translations[0]);
+			if (lTime > 0.0) {
+				root_movements.translations.insert(
+					root_movements.translations.begin(),
+					{ 0.0,hkVector4(0.0,0.0,0.0)}
+				);
+			}
+		}
+
+		if (root_movements.rotations.size() >= 1)
+		{
+			float lTime = get<0>(root_movements.rotations[0]);
+			if (lTime > 0.0) {
+				root_movements.rotations.insert(
+					root_movements.rotations.begin(),
+					{ 0.0,::hkQuaternion(0.0,0.0,0.0,1.0) }
+				);
+			}
+		}
+
+		for (const auto& translation : root_movements.translations) {
+
+			float lTime = get<0>(translation);
+			const hkVector4& anim_pos = get<1>(translation);
+
+			// Translation first
+			lCurve_Trans_X->KeyModifyBegin();
+			lKeyIndex = lCurve_Trans_X->KeyAdd(lTime);
+			lCurve_Trans_X->KeySetValue(lKeyIndex, anim_pos.getSimdAt(0));
+			lCurve_Trans_X->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
+			lCurve_Trans_X->KeyModifyEnd();
+
+			lCurve_Trans_Y->KeyModifyBegin();
+			lKeyIndex = lCurve_Trans_Y->KeyAdd(lTime);
+			lCurve_Trans_Y->KeySetValue(lKeyIndex, anim_pos.getSimdAt(1));
+			lCurve_Trans_Y->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
+			lCurve_Trans_Y->KeyModifyEnd();
+
+			lCurve_Trans_Z->KeyModifyBegin();
+			lKeyIndex = lCurve_Trans_Z->KeyAdd(lTime);
+			lCurve_Trans_Z->KeySetValue(lKeyIndex, anim_pos.getSimdAt(2));
+			lCurve_Trans_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
+			lCurve_Trans_Z->KeyModifyEnd();
+		}
+
+
+		for (const auto& rotation : root_movements.rotations) {
+
+			float lTime = get<0>(rotation);
+			const ::hkQuaternion& anim_rot = get<1>(rotation);
+
+			// Rotation
+			Quat QuatRotNew = { anim_rot.m_vec.getSimdAt(0), anim_rot.m_vec.getSimdAt(1), anim_rot.m_vec.getSimdAt(2), anim_rot.m_vec.getSimdAt(3) };
+			EulerAngles inAngs_Animation = Eul_FromQuat(QuatRotNew, EulOrdXYZs);
+
+			lCurve_Rot_X->KeyModifyBegin();
+			lKeyIndex = lCurve_Rot_X->KeyAdd(lTime);
+			lCurve_Rot_X->KeySetValue(lKeyIndex, float(rad2deg(inAngs_Animation.x)));
+			lCurve_Rot_X->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
+			lCurve_Rot_X->KeyModifyEnd();
+
+			lCurve_Rot_Y->KeyModifyBegin();
+			lKeyIndex = lCurve_Rot_Y->KeyAdd(lTime);
+			lCurve_Rot_Y->KeySetValue(lKeyIndex, float(rad2deg(inAngs_Animation.y)));
+			lCurve_Rot_Y->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
+			lCurve_Rot_Y->KeyModifyEnd();
+
+			lCurve_Rot_Z->KeyModifyBegin();
+			lKeyIndex = lCurve_Rot_Z->KeyAdd(lTime);
+			lCurve_Rot_Z->KeySetValue(lKeyIndex, float(rad2deg(inAngs_Animation.z)));
+			lCurve_Rot_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
+			lCurve_Rot_Z->KeyModifyEnd();
+
+		}
+	}
 }
 
 vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vector<FbxProperty>& float_tracks)
@@ -1219,7 +1310,7 @@ vector<FbxNode*> HKXWrapper::load_skeleton(const fs::path& path, FbxNode* scene_
 	return add(animation_skeleton, scene_root, float_tracks);
 }
 
-void HKXWrapper::load_animation(const fs::path& path, vector<FbxNode*>& ordered_skeleton, vector<FbxProperty>& float_tracks)
+void HKXWrapper::load_animation(const fs::path& path, vector<FbxNode*>& ordered_skeleton, vector<FbxProperty>& float_tracks, RootMovement& root_movements)
 {
 	hkArray<hkVariant> objects;
 	read(path, objects);
@@ -1246,7 +1337,7 @@ void HKXWrapper::load_animation(const fs::path& path, vector<FbxNode*>& ordered_
 
 	const string debug = path.filename().string();
 	const string name = path.filename().replace_extension("").string();
-	add(name, animation, binding, ordered_skeleton, float_tracks);
+	add(name, animation, binding, ordered_skeleton, float_tracks, root_movements);
 
 }
 
@@ -2731,6 +2822,148 @@ string HKXWrapperCollection::wrap(const string& out_name, const string& out_path
 		wrappers[sequences_names] = move(HKXWrapper(out_name, out_path, out_path_root, prefix, sequences_names));
 	}
 	return wrappers[sequences_names].GetPath();
+}
+
+bool iequals(const string& a, const string& b)
+{
+	return std::equal(a.begin(), a.end(),
+		b.begin(), b.end(),
+		[](char a, char b) {
+			return tolower(a) == tolower(b);
+		});
+}
+
+struct filename_compare : public std::unary_function<std::string, bool>
+{
+	explicit filename_compare(const fs::path &baseline) : baseline(baseline) {}
+	bool operator() (const fs::path &arg)
+	{
+		return iequals(arg.filename().string(), baseline.filename().string())
+				&& iequals(arg.parent_path().filename().string(), baseline.parent_path().filename().string());
+	}
+	const fs::path &baseline;
+};
+
+struct cache_block_compare : public std::unary_function<std::string, bool>
+{
+	explicit cache_block_compare(const string& name) : name(name) {}
+	bool operator() (const AnimData::ClipGeneratorBlock &arg)
+	{
+		return name == arg.getName();
+	}
+	const string& name;
+};
+
+struct cache_movement_compare : public std::unary_function<std::string, bool>
+{
+	explicit cache_movement_compare(int index) : index(index) {}
+	bool operator() (const AnimData::ClipMovementData &arg)
+	{
+		return index == arg.getCacheIndex();
+	}
+	int index;
+};
+
+vector<float> RootMovement::getData(string data) {
+	vector<float> out;
+	istringstream ss(data);
+	do {
+		// Read a word 
+		float value;
+		ss >> value;
+
+		out.push_back(value);
+
+		// While there is more to read 
+	} while (ss);
+	return out;
+}
+
+RootMovement::RootMovement(
+	const std::vector<std::string>& in_translations,
+	const std::vector<std::string>& in_rotations )
+{
+	for (const auto& translation : in_translations)
+	{
+		vector<float> values = getData(translation);
+		translations.push_back(
+			{values[0],
+			hkVector4(values[1],values[2],values[3])}
+		);
+	}
+	for (const auto& rotation : in_rotations)
+	{
+		vector<float> values = getData(rotation);
+		rotations.push_back(
+			{ values[0],
+			::hkQuaternion(values[1],values[2],values[3], values[4]) }
+		);
+	}
+}
+
+
+void HKXWrapper::GetClipsMovements(
+	vector<fs::path> animation_files,
+	CacheEntry& entry,
+	CreatureCacheEntry& creature_entry,
+	const fs::path& behaviorFolder,
+	std::map< fs::path, RootMovement>& map
+) {
+	vector<fs::path> behavior_files;
+	auto& cache_clips = entry.block.getClips();
+	auto& cache_movements = entry.movements.getMovementData();
+	find_files(behaviorFolder, ".hkx", behavior_files);
+	for (const auto& behavior_file : behavior_files)
+	{
+		hkRootLevelContainer* broot = NULL;
+		hkArray<hkVariant> objects;
+		hkRefPtr<hkbBehaviorGraph> bhkroot = load<hkbBehaviorGraph>(behavior_file, broot, objects);
+		Log::Info("Graph: %s", bhkroot->m_name);
+		for (const auto& object : objects)
+		{
+			if (hkbClipGenerator::staticClass().getSignature() == object.m_class->getSignature())
+			{
+				hkRefPtr<hkbClipGenerator> clip = (hkbClipGenerator*)object.m_object;
+				//Log::Info("Clip: %s, animation: %s", clip->m_name, clip->m_animationName);
+				fs::path clip_animation_filename = string(clip->m_animationName);
+				auto it = find_if(animation_files.begin(), animation_files.end(), filename_compare(clip_animation_filename));
+				if (it != animation_files.end())
+				{
+					Log::Info("Found Clip Generator %s", clip->m_name);
+					string clip_generator_name = clip->m_name;
+					auto cache_block_it = find_if(cache_clips.begin(), cache_clips.end(), cache_block_compare(clip_generator_name));
+					if (cache_block_it == cache_clips.end())
+					{
+						Log::Error("Cannot find %s into project cache", clip->m_name);
+						continue;
+					}
+					size_t index = cache_block_it->getCacheIndex();
+					auto movements_block_it = find_if(cache_movements.begin(), cache_movements.end(), cache_movement_compare(index));
+					if (movements_block_it == cache_movements.end())
+					{
+						Log::Error("Cannot find %s movements of index %d into project cache", clip->m_name, index);
+						continue;
+					}
+					map[*it] = RootMovement(
+						movements_block_it->getTraslations().getStrings(),
+						movements_block_it->getRotations().getStrings()
+					);
+				}
+			}
+			if (map.size() == animation_files.size())
+				break;
+		}
+		if (map.size() == animation_files.size())
+			break;
+	}
+	if (map.size() != animation_files.size())
+	{
+		Log::Warn("Not all clip entries were found used inside the behavior!");
+		for (const auto& animation_file : animation_files) {
+			if (map.find(animation_file) == map.end())
+				Log::Warn("Clip not found: %s!", animation_file.string().c_str());
+		}
+	}
 }
 
 

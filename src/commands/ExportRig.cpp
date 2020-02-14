@@ -20,7 +20,7 @@ using namespace ckcmd::FBX;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 
-static bool BeginConversion(const string& importSkeleton, const string& importSkeletonNif, const string& animationsPath, const string& exportPath);
+static bool BeginConversion(const string& importSkeleton, const string& importSkeletonNif, const string& animationsPath, const string& additionalNifPath, const string& cacheFilePath, const string& behaviorFolder, const string& exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
@@ -46,7 +46,8 @@ string ExportRig::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd importanimation
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> <path_to_skeleton_nif> [-a <path_to_animations>] [-e <path_to_export>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + 
+		" <path_to_skeleton_hkx> <path_to_skeleton_nif> [-a <path_to_animations>] [-b <path_to_behavior_folder>] [-c <path_to_cache_file>] [-n <path_to_additional_nifs>] [-e <path_to_export>]\r\n";
 
 	const char help[] =
 		R"(Converts an HKX skeleton to FBX.
@@ -55,6 +56,9 @@ string ExportRig::GetHelp() const
 			<path_to_skeleton_hkx> the animation skeleton in hkx format
 			<path_to_skeleton_nif> the SAME animation skeleton in NIF format
 			-a <path_to_animations>, --animations <path_to_animations>  optional animations to load on the rig
+			-n <path_to_additional_nifs>, --nifs <path_to_additional_nifs>  optional meshes to load on the rig
+			-c <path_to_cache_file>, --cache <path_to_cache_file> necessary to extract root motion into animations
+			-b <path_to_behavior_folder>, --behavior <path_to_behavior_folder> necessary to extract root motion
 			-e <path_to_export>, --export-dir <path_to_export>  optional export path
 
 		)";
@@ -69,22 +73,48 @@ string ExportRig::GetHelpShort() const
 bool ExportRig::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
-	string importSkeleton, importSkeletonNif, animationsPath, exportPath;
+	string importSkeleton, 
+		importSkeletonNif, 
+		animationsPath, 
+		exportPath, 
+		additionalNifPath,
+		cacheFilePath,
+		behaviorFolder;
 
 	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
 	importSkeletonNif = parsedArgs["<path_to_skeleton_nif>"].asString();
 	if (parsedArgs["-a"].asBool())
 		animationsPath = parsedArgs["<path_to_animations>"].asString();
+	if (parsedArgs["-n"].asBool())
+		additionalNifPath = parsedArgs["<path_to_additional_nifs>"].asString();
+	if (parsedArgs["-c"].asBool())
+		cacheFilePath = parsedArgs["<path_to_cache_file>"].asString();
+	if (parsedArgs["-b"].asBool())
+		behaviorFolder = parsedArgs["<path_to_behavior_folder>"].asString();
 	if (parsedArgs["-e"].asBool())
 		exportPath = parsedArgs["<path_to_export>"].asString();
 
 	InitializeHavok();
-	BeginConversion(importSkeleton, importSkeletonNif, animationsPath, exportPath);
+	BeginConversion(
+		importSkeleton, 
+		importSkeletonNif, 
+		animationsPath, 
+		additionalNifPath,
+		cacheFilePath,
+		behaviorFolder,
+		exportPath);
 	CloseHavok();
 	return true;
 }
 
-bool BeginConversion(const string& importSkeleton, const string& importSkeletonNif, const string& animationsPath, const string& exportPath) {
+bool BeginConversion(const string& importSkeleton, 
+	const string& importSkeletonNif, 
+	const string& animationsPath, 
+	const string& additionalNifPath, 
+	const string& cacheFilePath, 
+	const string& behaviorFolder,
+	const string& exportPath
+) {
 	if (!fs::exists(importSkeleton) || !fs::is_regular_file(importSkeleton)) {
 		Log::Error("Invalid file: %s", importSkeleton.c_str());
 		return false;
@@ -110,13 +140,65 @@ bool BeginConversion(const string& importSkeleton, const string& importSkeletonN
 	vector<fs::path> animation_files;
 	if (fs::exists(animationsPath) && fs::is_directory(animationsPath))
 	{
+		CacheEntry entry;
+		CreatureCacheEntry creature_entry;
+		std::map< fs::path, RootMovement> map;
+
 		find_files(animationsPath, ".hkx", animation_files);
+		if (fs::exists(cacheFilePath) && !fs::is_directory(cacheFilePath) &&
+			fs::exists(behaviorFolder) && fs::is_directory(behaviorFolder))
+		{
+			AnimationCache::get_entries(entry, creature_entry, cacheFilePath);
+			Log::Info("Loaded animation cache info from %s", cacheFilePath.c_str());
+			HKXWrapper wrap;
+			wrap.GetClipsMovements(
+				animation_files,
+				entry,
+				creature_entry,
+				behaviorFolder,
+				map
+			);
+		
+		}
+
 		for (const auto& anim : animation_files)
-			wrangler.importAnimationOnSkeleton(anim.string(), ordered_skeleton, floats);
+		{
+			FBXWrangler anim_wrangler;
+			anim_wrangler.NewScene();
+			auto root_movement = map.find(anim);
+			fs::path out_path = anim;  out_path.replace_extension(".fbx");
+			vector<FbxProperty> floats;
+			vector<FbxNode*> ordered_skeleton = anim_wrangler.importExternalSkeleton(importSkeleton, floats);
+			
+			if (root_movement != map.end())
+			{
+				anim_wrangler.importAnimationOnSkeleton(
+					anim.string(),
+					ordered_skeleton,
+					floats,
+					root_movement->second);
+			}
+			else {
+				anim_wrangler.importAnimationOnSkeleton(
+					anim.string(),
+					ordered_skeleton,
+					floats,
+					RootMovement());
+			}
+			anim_wrangler.ExportScene(out_path.string().c_str());
+		}
 	}
 
 	NifFile mesh(importSkeletonNif.c_str());
 	wrangler.AddNif(mesh);
+
+	vector<fs::path> nif_files;
+	if (fs::exists(additionalNifPath) && fs::is_directory(additionalNifPath))
+	{
+		find_files(additionalNifPath, ".nif", nif_files);
+		for (const auto& nif : nif_files)
+			wrangler.AddNif(NifFile(nif.string().c_str()));
+	}
 
 	fs::path out_path = outputDir / fs::path(importSkeleton).filename().replace_extension(".fbx");
 	fs::create_directories(outputDir);

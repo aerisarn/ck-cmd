@@ -5462,7 +5462,12 @@ vector<FbxNode*> FBXWrangler::importExternalSkeleton(const string& external_skel
 	return hkxWrapper.load_skeleton(external_skeleton_path, scene->GetRootNode(), float_tracks);
 }
 
-void FBXWrangler::importAnimationOnSkeleton(const string& external_skeleton_path, vector<FbxNode*>& skeleton, vector<FbxProperty>& float_tracks)
+void FBXWrangler::importAnimationOnSkeleton(
+	const string& external_skeleton_path,
+	vector<FbxNode*>& skeleton,
+	vector<FbxProperty>& float_tracks,
+	RootMovement& root_movements
+)
 {
-	hkxWrapper.load_animation(external_skeleton_path, skeleton, float_tracks);
+	hkxWrapper.load_animation(external_skeleton_path, skeleton, float_tracks, root_movements);
 }

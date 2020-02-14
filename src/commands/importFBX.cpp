@@ -22,50 +22,6 @@ static bool BeginConversion(string importPath, string exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
-
-struct AnimationCache {
-    AnimData::AnimDataFile animationData;
-    AnimData::AnimSetDataFile animationSetData;
-
-    AnimationCache(const string&  animationDataContent, const string&  animationSetDataContent) {
-        animationData.parse(animationDataContent);
-        animationSetData.parse(animationSetDataContent);
-    }
-
-    void printInfo() {
-        Log::Info("Parsed correctly %d havok projects", animationData.getProjectList().getStrings().size());
-        Log::Info("Found %d creatures:", animationSetData.getProjectsList().getStrings().size());
-        set<string> creatures;
-        int index = 0;
-        for (string creature : animationSetData.getProjectsList().getStrings()) {
-            string creature_project_name = fs::path(creature).filename().replace_extension("").string();
-            if (creature_project_name.find("Project") != string::npos)
-                creature_project_name = creature_project_name.substr(0, creature_project_name.find("Project"));
-            Log::Info("\t%d: %s", index++, creature_project_name.c_str());
-            creatures.insert(creature_project_name);
-        }
-        index = 0;
-        int misc_index = 0;
-        Log::Info("Found %d misc projects:", animationData.getProjectList().getStrings().size() - animationSetData.getProjectsList().getStrings().size());
-        for (string misc : animationData.getProjectList().getStrings()) {
-            string misc_project_name = fs::path(misc).filename().replace_extension("").string();
-            if (!animationData.getProjectBlock(index).getHasAnimationCache()) {
-                Log::Info("\t%d: %s", misc_index++, misc_project_name.c_str());
-            }
-            index++;
-            //if (misc_project_name.find("Project") != string::npos)
-            //	misc_project_name = misc_project_name.substr(0, misc_project_name.find("Project"));
-            //bool is_misc = true;
-            //for (string creature : creatures)
-            //	if (misc_project_name.find(creature) != string::npos)
-            //		is_misc = false;
-            //if(is_misc)
-
-        }
-    }
-};
-
-
 REGISTER_COMMAND_CPP(ImportFBX)
 
 ImportFBX::ImportFBX()

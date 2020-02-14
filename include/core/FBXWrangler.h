@@ -93,7 +93,7 @@ namespace FBX {
 		void setExternalSkeletonPath(const string& external_skeleton_path);
 		vector<FbxNode*> importExternalSkeleton(const string& external_skeleton_path, vector<FbxProperty>& float_tracks);
 		void setExternalSkeletonPose();
-		void importAnimationOnSkeleton(const string& external_skeleton_path, vector<FbxNode*>& skeleton, vector<FbxProperty>& float_tracks);
+		void importAnimationOnSkeleton(const string& external_skeleton_path, vector<FbxNode*>& skeleton, vector<FbxProperty>& float_tracks, RootMovement& root_movements);
 		bool SaveAnimation(const string& fileName);
 
 

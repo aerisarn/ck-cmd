@@ -250,6 +250,43 @@ struct AnimationCache {
 		return creature_entries.size();
 	}
 
+	static void get_entries(
+		CacheEntry& entry,
+		CreatureCacheEntry& creature_entry,
+		const string& cacheFile
+	) {
+		if (!fs::exists(cacheFile) || !fs::is_regular_file(cacheFile))
+			return;
+
+		fs::path name = cacheFile;
+		name = name.filename().replace_extension("");
+		entry.name = name.string();
+
+		string block_content;
+		ifstream t(cacheFile);
+		t.seekg(0, std::ios::end);
+		block_content.reserve(t.tellg());
+		t.seekg(0, std::ios::beg);
+		block_content.assign((std::istreambuf_iterator<char>(t)),
+			std::istreambuf_iterator<char>());
+		scannerpp::Scanner p(block_content);
+		entry.block.parseBlock(p);
+
+		if (entry.block.getHasAnimationCache())
+		{
+			auto movement_path = fs::path(cacheFile).parent_path() / "boundanims" / string("anims_" + name.string() + ".txt");
+			ifstream t(movement_path.string());
+			string movement_content;
+			t.seekg(0, std::ios::end);
+			block_content.reserve(t.tellg());
+			t.seekg(0, std::ios::beg);
+			movement_content.assign((std::istreambuf_iterator<char>(t)),
+				std::istreambuf_iterator<char>());
+			scannerpp::Scanner p(movement_content);
+			entry.movements.parseBlock(p);
+		}
+	}
+
 	static void create_entry(
 		CacheEntry& entry,
 		const ckcmd::BSA::BSAFile& bsa_file,

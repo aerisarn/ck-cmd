@@ -112,7 +112,8 @@ bool BeginConversion(const string& importSkeleton, const string& importHKX, cons
 		FbxNode* skeleton_root = NULL;
 		vector<FbxProperty> floats;
 		vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, floats);
-		wrangler.importAnimationOnSkeleton(importHKX, ordered_skeleton, floats);
+		//TODO
+		wrangler.importAnimationOnSkeleton(importHKX, ordered_skeleton, floats, RootMovement());
 
 		fs::path out_path = outputDir / fs::path(importHKX).filename().replace_extension(".fbx");
 
@@ -128,7 +129,8 @@ bool BeginConversion(const string& importSkeleton, const string& importHKX, cons
 			FbxNode* skeleton_root = NULL;
 			vector<FbxProperty> floats;
 			vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, floats);
-			wrangler.importAnimationOnSkeleton(fbx.string(), ordered_skeleton, floats);
+			//TODO
+			wrangler.importAnimationOnSkeleton(fbx.string(), ordered_skeleton, floats, RootMovement());
 			fs::path parent_path = fbx.parent_path();
 			fs::path rel_path = "";
 			while (parent_path != importHKX)
