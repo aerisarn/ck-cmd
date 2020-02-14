@@ -1970,7 +1970,7 @@ public:
 			FbxNode* constraint_node = FbxNode::Create(parent->GetScene(), string(string(parent->GetName()) + "_con_" + string(child->GetName()) + "_attach_point").c_str());
 			parent->AddChild(setMatTransform(matB, constraint_node));
 
-			Quaternion rotation = matA.GetRotation().AsQuaternion();
+			/*Quaternion rotation = matA.GetRotation().AsQuaternion();
 			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
 			EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
 			FbxVector4 fbx_rotation = FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z));
@@ -1983,7 +1983,7 @@ public:
 
 			fbx_constraint->AffectRotationX = false;
 			fbx_constraint->AffectRotationY = false;
-			fbx_constraint->AffectRotationZ = false;
+			fbx_constraint->AffectRotationZ = false;*/
 
 			set_property(constraint_node, "coneMaxAngle", FbxString(descriptor.coneMaxAngle), FbxStringDT);
 			set_property(constraint_node, "planeMinAngle", FbxString(descriptor.planeMinAngle), FbxStringDT);
@@ -2053,7 +2053,7 @@ public:
 			parent->AddChild(setMatTransform(matB, constraint_node));
 
 
-			Quaternion rotation = matA.GetRotation().AsQuaternion();
+			/*Quaternion rotation = matA.GetRotation().AsQuaternion();
 			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
 			EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
 			FbxVector4 fbx_rotation = FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z));
@@ -2063,10 +2063,10 @@ public:
 			fbx_constraint->AddConstraintSource(constraint_node);
 			fbx_constraint->SetRotationOffset(constraint_node, fbx_rotation);
 			fbx_constraint->SetTranslationOffset(constraint_node, TOFBXVECTOR3(matA.GetTrans()));
-
+*/
 			set_property(constraint_node, "constraint_type", FbxString("Hinge"), FbxStringDT);
 
-			fbx_constraint->AffectRotationX = false;
+			//fbx_constraint->AffectRotationX = false;
 
 			return NULL;
 		}
@@ -2102,20 +2102,20 @@ public:
 			parent->AddChild(setMatTransform(matB, constraint_node));
 
 
-			Quaternion rotation = matA.GetRotation().AsQuaternion();
+			/*Quaternion rotation = matA.GetRotation().AsQuaternion();
 			Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
 			EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
 			FbxVector4 fbx_rotation = FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z));
+*/
+			//FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_node, string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
+			//fbx_constraint->SetConstrainedObject(child);
+			//fbx_constraint->AddConstraintSource(constraint_node);
+			//fbx_constraint->SetRotationOffset(constraint_node, fbx_rotation);
+			//fbx_constraint->SetTranslationOffset(constraint_node, TOFBXVECTOR3(matA.GetTrans()));
 
-			FbxConstraintParent * fbx_constraint = FbxConstraintParent::Create(constraint_node, string(string(parent->GetName()) + "_con_" + string(child->GetName())).c_str());
-			fbx_constraint->SetConstrainedObject(child);
-			fbx_constraint->AddConstraintSource(constraint_node);
-			fbx_constraint->SetRotationOffset(constraint_node, fbx_rotation);
-			fbx_constraint->SetTranslationOffset(constraint_node, TOFBXVECTOR3(matA.GetTrans()));
 
-
-			fbx_constraint->AffectRotationX = false;
-			fbx_constraint->AffectRotationY = false;
+			//fbx_constraint->AffectRotationX = false;
+			//fbx_constraint->AffectRotationY = false;
 
 			set_property(constraint_node, "maxAngle", FbxString(descriptor.maxAngle), FbxStringDT);
 			set_property(constraint_node, "minAngle", FbxString(descriptor.minAngle), FbxStringDT);

@@ -1959,7 +1959,7 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 {
 
 	int numConstraints = body->RootProperty.GetSrcObjectCount(FbxCriteria::ObjectType(FbxConstraintParent::ClassId));
-	FbxConstraintParent* fbx_constraint = NULL;
+	//FbxConstraintParent* fbx_constraint = NULL;
 	hkTransform transform_b = getTransform(body, false, true);
 	hkTransform transform_a; transform_a.setIdentity();
 	hkRefPtr<hkpRigidBody> entity_b = bodies[body->GetParent()];
@@ -1967,8 +1967,8 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 	FbxNode* entity_a_fbx = NULL;
 	hkpConstraintData* data = NULL;
 
-	if (numConstraints == 0)
-	{
+	/*if (numConstraints == 0)
+	{*/
 		string name = body->GetName();
 		name = name.substr(0, name.length() - sizeof("_attach_point") + 1);
 		int pos = name.find("_con_");
@@ -1989,34 +1989,34 @@ hkRefPtr<hkpConstraintInstance> HKXWrapper::build_constraint(FbxNode* body)
 		transform_a(0, 1) = trans_a_calc[0][1]; transform_a(1, 1) = trans_a_calc[1][1]; transform_a(2, 1) = trans_a_calc[2][1]; transform_a(1, 3) = trans_a_calc[0][3];
 		transform_a(0, 2) = trans_a_calc[0][2]; transform_a(1, 2) = trans_a_calc[1][2]; transform_a(2, 2) = trans_a_calc[2][2]; transform_a(2, 3) = trans_a_calc[0][3];
 
-	}
-	else
-	{
-		fbx_constraint = body->RootProperty.GetSrcObject<FbxConstraintParent>(FbxCriteria::ObjectType(FbxConstraintParent::ClassId));
-		if (fbx_constraint == NULL) return NULL;
-		entity_a_fbx = (FbxNode*)fbx_constraint->GetConstrainedObject();
-		auto rotation = fbx_constraint->GetRotationOffset(body);
-		HMatrix M;
-		Eul_ToHMatrix({ deg2rad(rotation[0]), deg2rad(rotation[1]), deg2rad(rotation[2]), EulOrdXYZs }, M);
-		FbxQuaternion qrotation; qrotation.ComposeSphericalXYZ(rotation); qrotation.Inverse();
+	//}
+	//else
+	//{
+	//	fbx_constraint = body->RootProperty.GetSrcObject<FbxConstraintParent>(FbxCriteria::ObjectType(FbxConstraintParent::ClassId));
+	//	if (fbx_constraint == NULL) return NULL;
+	//	entity_a_fbx = (FbxNode*)fbx_constraint->GetConstrainedObject();
+	//	auto rotation = fbx_constraint->GetRotationOffset(body);
+	//	HMatrix M;
+	//	Eul_ToHMatrix({ deg2rad(rotation[0]), deg2rad(rotation[1]), deg2rad(rotation[2]), EulOrdXYZs }, M);
+	//	FbxQuaternion qrotation; qrotation.ComposeSphericalXYZ(rotation); qrotation.Inverse();
 
-		auto translation = fbx_constraint->GetTranslationOffset(body);
-		auto source = body->GetParent();
+	//	auto translation = fbx_constraint->GetTranslationOffset(body);
+	//	auto source = body->GetParent();
 
-		entity_b = bodies[body->GetParent()]; //parent
-		entity_a = bodies[entity_a_fbx]; //child
-		
-		transform_a(0, 0) = M[0][0]; transform_a(0, 1) = M[1][0]; transform_a(0, 2) = M[2][0]; transform_a(0, 3) = translation[0];
-		transform_a(1, 0) = M[0][1]; transform_a(1, 1) = M[1][1]; transform_a(1, 2) = M[2][1]; transform_a(1, 3) = translation[1];
-		transform_a(2, 0) = M[0][2]; transform_a(2, 1) = M[1][2]; transform_a(2, 2) = M[2][2]; transform_a(2, 3) = translation[2];
+	//	entity_b = bodies[body->GetParent()]; //parent
+	//	entity_a = bodies[entity_a_fbx]; //child
+	//	
+	//	transform_a(0, 0) = M[0][0]; transform_a(0, 1) = M[1][0]; transform_a(0, 2) = M[2][0]; transform_a(0, 3) = translation[0];
+	//	transform_a(1, 0) = M[0][1]; transform_a(1, 1) = M[1][1]; transform_a(1, 2) = M[2][1]; transform_a(1, 3) = translation[1];
+	//	transform_a(2, 0) = M[0][2]; transform_a(2, 1) = M[1][2]; transform_a(2, 2) = M[2][2]; transform_a(2, 3) = translation[2];
 
-	}
+	//}
 
 	string type = (const char*)get_property<FbxString>(body, "constraint_type", FbxString(""));
 
 	//Entity A is the child 
-	if ((fbx_constraint != NULL && fbx_constraint->AffectRotationZ.Get() == false) 
-		|| type == "Ragdoll") {
+	if (/*(fbx_constraint != NULL && fbx_constraint->AffectRotationZ.Get() == false) 
+		||*/ type == "Ragdoll") {
 		//ragdoll
 		hkpRagdollConstraintData* temp = new hkpRagdollConstraintData();
 		temp->m_atoms.m_transforms.m_transformA = transform_a;
