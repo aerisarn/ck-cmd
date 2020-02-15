@@ -956,7 +956,7 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 		// todo support for anything else beside 30 fps?
 		lTime.SetSecondDouble(time);
 
-		for (int i = 0; i<TrackNumber; ++i)
+		for (int i = root_movements.IsValid()?1:0; i<TrackNumber; ++i)
 		{
 			FbxNode* CurrentJointNode = binding->m_transformTrackToBoneIndices.getSize() > 0 ?
 				ordered_skeleton[binding->m_transformTrackToBoneIndices[i]] :
@@ -1058,7 +1058,7 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 	//add root movement, if any
 	if (root_movements.IsValid()) {
 
-		auto root_joint = ordered_skeleton[1];
+		auto root_joint = ordered_skeleton[0];
 
 		auto lCurve_Trans_X = root_joint->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
 		auto lCurve_Trans_Y = root_joint->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
@@ -1092,7 +1092,7 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 
 		for (const auto& translation : root_movements.translations) {
 
-			float lTime = get<0>(translation);
+			FbxTime lTime; lTime.SetSecondDouble(get<0>(translation));
 			const hkVector4& anim_pos = get<1>(translation);
 
 			// Translation first
@@ -1118,7 +1118,7 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 
 		for (const auto& rotation : root_movements.rotations) {
 
-			float lTime = get<0>(rotation);
+			FbxTime lTime; lTime.SetSecondDouble(get<0>(rotation));
 			const ::hkQuaternion& anim_rot = get<1>(rotation);
 
 			// Rotation

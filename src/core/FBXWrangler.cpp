@@ -2389,7 +2389,7 @@ bool FBXWrangler::ExportScene(const std::string& fileName) {
 	ios->SetBoolProp(EXP_FBX_ANIMATION, true);
 	ios->SetBoolProp(EXP_FBX_GLOBAL_SETTINGS, true);
 
-	iExporter->SetFileExportVersion(FBX_FILE_VERSION_7000, FbxSceneRenamer::eNone);
+	iExporter->SetFileExportVersion(FBX_2013_00_COMPATIBLE, FbxSceneRenamer::eNone);
 
 	sdkManager->CreateMissingBindPoses(scene);
 
