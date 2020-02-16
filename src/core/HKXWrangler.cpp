@@ -26,7 +26,6 @@
 
 // Animation
 #include <Animation/Animation/hkaAnimationContainer.h>
-#include <Animation/Animation/Mapper/hkaSkeletonMapper.h>
 #include <Animation/Animation/Playback/Control/Default/hkaDefaultAnimationControl.h>
 #include <Animation/Animation/Playback/hkaAnimatedSkeleton.h>
 #include <Animation/Animation/Rig/hkaPose.h>
@@ -1346,6 +1345,14 @@ vector<FbxNode*> HKXWrapper::load_skeleton(const fs::path& path, FbxNode* scene_
 	Log::Info("Animation Skeleton: %s", animation_skeleton->m_name.cString());
 	if (ragdoll_instance != NULL)
 		Log::Info("Ragdoll Skeleton: %s", ragdoll_skeleton->m_name.cString());
+
+	for (const auto& mapper : mappers) {
+		if (mapper->m_mapping.m_skeletonA == animation_skeleton)
+		{
+			animation_to_ragdoll_mapper = mapper;
+		}
+	}
+
 	return add(animation_skeleton, scene_root, float_tracks);
 }
 
@@ -2836,8 +2843,8 @@ hkRefPtr<hkpShape> HKXWrapper::check_shape(bhkShapeRef shape_root, bhkRigidBodyR
 	return NULL;
 }
 
-void HKXWrapper::setExternalSkeletonPose(FbxNode* rb_node) {
-	if (NULL == physics_data) return;
+int HKXWrapper::setExternalSkeletonPose(FbxNode* rb_node) {
+	if (NULL == physics_data) return 0;
 	string name = rb_node->GetName();
 	name = unsanitizeString(name);
 	if (name.find("_sp") == string::npos) {
@@ -2845,13 +2852,43 @@ void HKXWrapper::setExternalSkeletonPose(FbxNode* rb_node) {
 	}
 	name = name.substr(0, name.length() - 3);
 	auto rb = physics_data->findRigidBodyByName(name.c_str());
-	auto transform = rb->getTransform();
-	auto translation = transform.getTranslation();
-	auto rotation = ::hkQuaternion(transform.getRotation());
-	rb_node->LclTranslation.Set({ (double)translation(0), (double)translation(1), (double)translation(2) });
-	Quat QuatRotNew = { rotation.m_vec.getSimdAt(0), rotation.m_vec.getSimdAt(1), rotation.m_vec.getSimdAt(2), rotation.m_vec.getSimdAt(3) };
-	EulerAngles inAngs = Eul_FromQuat(QuatRotNew, EulOrdXYZs);
-	rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+	if (NULL == rb && NULL != animation_to_ragdoll_mapper) 
+	{
+		string node_name = rb_node->GetName();
+		node_name = unsanitizeString(node_name);
+		node_name = node_name.substr(0, node_name.length() - 3);
+		int animation_index = -1;
+		for (int i = 0; i < animation_skeleton->m_bones.getSize(); i++)
+		{
+			if (string(animation_skeleton->m_bones[i].m_name) == node_name) {
+				animation_index = i;
+				break;
+			}
+		}
+		if (animation_index != -1) {
+			const auto& mappings = animation_to_ragdoll_mapper->m_mapping.m_simpleMappings;
+			for (int k = 0; k < mappings.getSize(); k++) {
+				if (mappings[k].m_boneA == animation_index)
+				{
+					rb = physics_data->findRigidBodyByName(ragdoll_skeleton->m_bones[mappings[k].m_boneB].m_name);
+					break;
+				}
+			}
+		}
+	}
+	if (NULL != rb)
+	{
+
+		auto transform = rb->getTransform();
+		auto translation = transform.getTranslation();
+		auto rotation = ::hkQuaternion(transform.getRotation());
+		rb_node->LclTranslation.Set({ (double)translation(0), (double)translation(1), (double)translation(2) });
+		Quat QuatRotNew = { rotation.m_vec.getSimdAt(0), rotation.m_vec.getSimdAt(1), rotation.m_vec.getSimdAt(2), rotation.m_vec.getSimdAt(3) };
+		EulerAngles inAngs = Eul_FromQuat(QuatRotNew, EulOrdXYZs);
+		rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+		return 1;
+	}
+	return 0;
 }
 
 string HKXWrapperCollection::wrap(const string& out_name, const string& out_path, const string& out_path_root, const string& prefix, const set<string>& sequences_names)

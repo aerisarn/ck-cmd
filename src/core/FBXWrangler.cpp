@@ -2213,7 +2213,14 @@ public:
 		{*/
 		if (export_rig)
 		{
-			hkxWrapper.setExternalSkeletonPose(rb_node);
+			if (!hkxWrapper.setExternalSkeletonPose(rb_node)) {
+				Vector4 translation = obj->GetTranslation();
+				rb_node->LclTranslation.Set(FbxDouble3(translation.x*bhkScaleFactor, translation.y*bhkScaleFactor, translation.z*bhkScaleFactor));
+				Niflib::hkQuaternion rotation = obj->GetRotation();
+				Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
+				EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+				rb_node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+			}
 			set_property(rb_node, "body_part", FbxString(obj->GetHavokFilter().flagsAndPartNumber), FbxStringDT);
 		}
 		else {

@@ -39,6 +39,7 @@ namespace fs = std::experimental::filesystem;
 #include <Common/Serialize/Util/hkSerializeUtil.h>
 
 #include <Animation/Animation/Rig/hkaSkeleton.h>
+#include <Animation/Animation/Mapper/hkaSkeletonMapper.h>
 #include <Animation/Animation/Animation/hkaAnimation.h>
 #include <Animation/Animation/Animation/hkaAnimationBinding.h>
 #include <Physics/Collide/Shape\hkpShape.h>
@@ -125,6 +126,7 @@ namespace ckcmd {
 			hkaSkeleton* animation_skeleton;
 			hkaSkeleton* ragdoll_skeleton;
 			hkpPhysicsData* physics_data;
+			hkaSkeletonMapper* animation_to_ragdoll_mapper;
 
 			map<fs::path, hkRootLevelContainer> out_data;
 			map<string, int> float_map;
@@ -194,7 +196,7 @@ namespace ckcmd {
 
 			void create_skeleton(FbxNode* bone);
 			void add_bone(FbxNode* bone);
-			void setExternalSkeletonPose(FbxNode* body);
+			int setExternalSkeletonPose(FbxNode* body);
 
 			set<string> create_animations(
 				const string& skeleton_name,
