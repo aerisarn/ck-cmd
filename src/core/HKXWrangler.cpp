@@ -885,6 +885,8 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 				hkaAnnotationTrack::Annotation& this_hk_ann = a_track.m_annotations[i];
 				string hk_value = this_hk_ann.m_text.cString();
 				size_t index = 0;
+				if (hk_value.size() <= 0)
+					continue;
 				for (index = hk_value.size()-1; index >= 0; index--)
 				{
 					if (::isupper(hk_value[index]))
@@ -933,9 +935,20 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 	vector<FbxProperty> floats_properties;
 
 	for (int k = 0; k < FloatNumber; k++) {
-		FbxProperty this_p = binding->m_floatTrackToFloatSlotIndices.getSize() > 0 ?
-			float_tracks[binding->m_floatTrackToFloatSlotIndices[k]] :
-			float_tracks[k];
+		FbxProperty this_p;
+		int size = binding->m_floatTrackToFloatSlotIndices.getSize();
+		if (binding->m_floatTrackToFloatSlotIndices.getSize())
+		{
+			int index = binding->m_floatTrackToFloatSlotIndices[k];
+			if (index >= float_tracks.size())
+			{
+				Log::Warn("Animation is referring a float slot out of index!");
+				continue;
+			}
+			this_p = float_tracks[index];
+		}
+		else
+			this_p = float_tracks[k];
 		FbxAnimCurve* curve = this_p.GetCurve(lAnimLayer, true);
 
 		if (this_p.IsValid() && curve != NULL)
@@ -947,7 +960,12 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 	// loop through keyframes
 	for (hkReal time = 0.0; time<AnimDuration; time += incrFrame)
 	{
-		animation->samplePartialTracks(time, TrackNumber, transformOut.begin(), FloatNumber, floatsOut.begin(), NULL);
+		try {
+			animation->samplePartialTracks(time, TrackNumber, transformOut.begin(), FloatNumber, floatsOut.begin(), NULL);
+		}
+		catch (...) {
+			continue;
+		}
 		hkaSkeletonUtils::normalizeRotations(transformOut.begin(), TrackNumber);
 
 		// assume 1-to-1 transforms
@@ -956,7 +974,7 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 		// todo support for anything else beside 30 fps?
 		lTime.SetSecondDouble(time);
 
-		for (int i = root_movements.IsValid()?1:0; i<TrackNumber; ++i)
+		for (int i = root_movements.HasMovements()?1:0; i<TrackNumber; ++i)
 		{
 			FbxNode* CurrentJointNode = binding->m_transformTrackToBoneIndices.getSize() > 0 ?
 				ordered_skeleton[binding->m_transformTrackToBoneIndices[i]] :
@@ -1044,6 +1062,8 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 		}
 
 		for (int k = 0; k < FloatNumber; k++) {
+			if (k >= floats_properties.size())
+				continue;
 			FbxAnimCurve* curve = floats_properties[k].GetCurve(lAnimLayer, true);
 			if (curve != NULL)
 			{
@@ -1077,6 +1097,12 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 					{ 0.0,hkVector4(0.0,0.0,0.0)}
 				);
 			}
+			lTime = get<0>(root_movements.translations[root_movements.translations.size() - 1]);
+			if (lTime < 0.0) {
+				root_movements.translations.push_back(
+					{ 0.0,hkVector4(0.0,0.0,0.0) }
+				);
+			}
 		}
 
 		if (root_movements.rotations.size() >= 1)
@@ -1085,6 +1111,12 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 			if (lTime > 0.0) {
 				root_movements.rotations.insert(
 					root_movements.rotations.begin(),
+					{ 0.0,::hkQuaternion(0.0,0.0,0.0,1.0) }
+				);
+			}
+			lTime = get<0>(root_movements.rotations[root_movements.rotations.size()-1]);
+			if (lTime < 0.0) {
+				root_movements.rotations.push_back(
 					{ 0.0,::hkQuaternion(0.0,0.0,0.0,1.0) }
 				);
 			}
@@ -1143,6 +1175,13 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 			lCurve_Rot_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
 			lCurve_Rot_Z->KeyModifyEnd();
 
+		}
+
+		for (const auto& event : root_movements.events) 
+		{
+			string ev_name = "event_" + get<1>(event);
+			auto root_joint = ordered_skeleton[0];
+			set_property(root_joint, ev_name.c_str(), FbxString(get<0>(event)), FbxStringDT);
 		}
 	}
 }
@@ -2881,7 +2920,8 @@ vector<float> RootMovement::getData(string data) {
 
 RootMovement::RootMovement(
 	const std::vector<std::string>& in_translations,
-	const std::vector<std::string>& in_rotations )
+	const std::vector<std::string>& in_rotations,
+	const std::vector<std::string>& in_events)
 {
 	for (const auto& translation : in_translations)
 	{
@@ -2899,9 +2939,16 @@ RootMovement::RootMovement(
 			::hkQuaternion(values[1],values[2],values[3], values[4]) }
 		);
 	}
+	for (const auto& event : in_events)
+	{
+		int index = event.find(':');
+		string eventName = event.substr(0, index);
+		float value = std::atof(event.substr(index + 1, event.size()).c_str());
+		events.push_back({ value, eventName });
+	}
 }
 
-
+//this is O(Grayskull), needs simplification
 void HKXWrapper::GetClipsMovements(
 	vector<fs::path> animation_files,
 	CacheEntry& entry,
@@ -2946,7 +2993,8 @@ void HKXWrapper::GetClipsMovements(
 					}
 					map[*it] = RootMovement(
 						movements_block_it->getTraslations().getStrings(),
-						movements_block_it->getRotations().getStrings()
+						movements_block_it->getRotations().getStrings(),
+						cache_block_it->getEvents().getStrings()
 					);
 				}
 			}

@@ -9,8 +9,10 @@ namespace AnimData {
 	class ProjectAttackBlock : public BlockObject {
 
 		std::string animVersion = "V3";
-		StringListBlock unkEventList;
-		UnkEventData unkEventData;
+		//behavior data
+		StringListBlock unkEventList; //Used only when multiple sets of animations can swap istantly, list of events that can change the set
+		//behavior data
+		UnkEventData unkEventData; //in case of swap of equipped stuff, sets new values to the variable used by the attack set
 		ClipAttacksBlock attackData;
 		ClipFilesCRC32Block crc32Data;
 	public:

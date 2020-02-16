@@ -100,16 +100,18 @@ namespace ckcmd {
 		{
 			vector<tuple<hkReal, hkVector4>> translations;
 			vector<tuple<hkReal, ::hkQuaternion>> rotations;
+			vector<tuple<hkReal, string>> events;
 
 			vector<float> getData(string data);
 			RootMovement() {}
 
 			RootMovement(
 				const std::vector<std::string>& in_translations,
-				const std::vector<std::string>& in_rotations);
+				const std::vector<std::string>& in_rotations,
+				const std::vector<std::string>& in_events);
 
-			bool IsValid() const { return !translations.empty() || !rotations.empty(); }
-
+			bool IsValid() const { return !translations.empty() || !rotations.empty() || !events.empty(); }
+			bool HasMovements() const { return !translations.empty() || !rotations.empty(); }
 		};
 
 		class HKXWrapper {
