@@ -60,6 +60,10 @@
 
 #include <Physics\Utilities\Collide\ShapeUtils\ShapeConverter\hkpShapeConverter.h>
 
+//motion extraction
+#include <Animation\Animation\Motion\Default\hkaDefaultAnimatedReferenceFrame.h>
+#include <Animation\Animation\Motion\hkaAnimatedReferenceFrameUtils.h>
+
 //collisions
 #include <Physics\Collide\Shape\Misc\Transform\hkpTransformShape.h>
 #include <Physics\Collide\Shape\Compound\Collection\List\hkpListShape.h>
@@ -630,7 +634,8 @@ set<string> HKXWrapper::create_animations(
 	const vector<uint32_t>& transform_track_to_bone_indices,
 	set<FbxProperty>& annotations,
 	vector<FbxProperty>& floats,
-	const vector<uint32_t>& transform_track_to_float_indices
+	const vector<uint32_t>& transform_track_to_float_indices,
+	bool extract_motion
 	)
 {
 
@@ -645,10 +650,15 @@ set<string> HKXWrapper::create_animations(
 		hkRefPtr<hkaInterleavedUncompressedAnimation> tempAnim = new hkaInterleavedUncompressedAnimation();
 
 
-		FbxTimeSpan animTimeSpan = stack->GetLocalTimeSpan();
 
 		// Find the time offset (in the "time space" of the FBX file) of the first animation frame
-		FbxTime timePerFrame; timePerFrame.SetTime(0, 0, 0, 1, 0, timeMode);
+		FbxTime timePerFrame; 
+		if (skeleton[0]->GetScene()->GetGlobalSettings().GetTimeMode() == FbxTime::EMode::eCustom)
+			timePerFrame.SetSecondDouble(skeleton[0]->GetScene()->GetGlobalSettings().GetCustomFrameRate());
+		else
+			timePerFrame.SetTime(0, 0, 0, 1, 0, timeMode);
+
+		FbxTimeSpan animTimeSpan = stack->GetLocalTimeSpan();
 
 		const FbxTime startTime = animTimeSpan.GetStart();
 		const FbxTime endTime = animTimeSpan.GetStop();
@@ -661,6 +671,10 @@ set<string> HKXWrapper::create_animations(
 
 		size_t numTracks = skeleton.size();
 		hkReal duration = endTimeSeconds - startTimeSeconds;
+
+		hkReal hktimePerFrame = static_cast<hkReal>(timePerFrame.GetSecondDouble());
+		hkReal incr = duration / hktimePerFrame;
+
 		size_t numFrames = 0;
 		bool staticNode = true;
 
@@ -716,20 +730,29 @@ set<string> HKXWrapper::create_animations(
 				a_track.m_annotations.pushBack(ann);
 		}
 
+		hkArray<hkQsTransform> root_track;
+
 		// Sample each animation frame
-		for (FbxTime time = startTime, priorSampleTime = endTime;
-			time <= endTime;
-			priorSampleTime = time, time += timePerFrame, ++numFrames)
+		for (float time = startTime.GetSecondDouble();
+			time <= endTime.GetSecondDouble() + timePerFrame.GetSecondDouble()/2;
+			time += timePerFrame.GetSecondDouble(), ++numFrames)
 		{
+			FbxTime fbx_time;  fbx_time.SetSecondDouble(time);
 			for (FbxNode* bone : skeleton)
 			{
-				tempAnim->m_transforms.pushBack(getBoneTransform(bone, time));
+				if (bone == skeleton[0])
+					root_track.pushBack(getBoneTransform(bone, fbx_time));
+				tempAnim->m_transforms.pushBack(getBoneTransform(bone, fbx_time));
 			}
 			for (FbxProperty& float_track : floats)
 			{
-				tempAnim->m_floats.pushBack(getFloatTrackValue(float_track, time));
+				tempAnim->m_floats.pushBack(getFloatTrackValue(float_track, fbx_time));
 			}
 		}
+
+		auto last = skeleton[0]->EvaluateGlobalTransform(endTime);
+
+		hkQsTransform last_root = root_track[root_track.getSize() - 1];
 
 		if (!transform_track_to_bone_indices.empty()) {
 			for (const auto& index : transform_track_to_bone_indices)
@@ -742,6 +765,40 @@ set<string> HKXWrapper::create_animations(
 		}
 
 		hkaSkeletonUtils::normalizeRotations(tempAnim->m_transforms.begin(), tempAnim->m_transforms.getSize());
+		hkaSkeletonUtils::normalizeRotations(root_track.begin(), root_track.getSize());
+
+		if (extract_motion) {
+			//Assume that the reference frame is actually the first bone
+			hkaDefaultAnimatedReferenceFrame::MotionExtractionOptions options;
+			options.m_numReferenceFrameTransforms = root_track.getSize();
+			options.m_referenceFrameTransforms = &root_track[0];
+			options.m_allowUpDown = true;
+			options.m_allowFrontBack = true;
+			options.m_allowRightLeft = true;
+			options.m_allowTurning = true;
+			options.m_numSamples = tempAnim->getNumOriginalFrames();
+			options.m_referenceFrameDuration = tempAnim->m_duration;
+			//options.m_forward = hkVector4(0.0, 1.0, 0.0);
+
+			hkaDefaultAnimatedReferenceFrame reference(options);
+			hkaAnimatedReferenceFrameUtils::transformIntoAnimatedReferenceFrame(
+				&reference,
+				&tempAnim->m_transforms[0],
+				tempAnim->m_numberOfTransformTracks,
+				skeleton.size()
+			);
+			Log::Info("Motion extracted!");
+			for (int i = 0; i < reference.m_referenceFrameSamples.getSize(); i++)
+			{
+				hkVector4 test = reference.m_referenceFrameSamples[i];
+				Log::Info("Motion extracted: (%f,%f,%f,%f)", 
+					(float)reference.m_referenceFrameSamples[i].getSimdAt(0), 
+					(float)reference.m_referenceFrameSamples[i].getSimdAt(1), 
+					(float)reference.m_referenceFrameSamples[i].getSimdAt(2), 
+					(float)reference.m_referenceFrameSamples[i].getSimdAt(3));
+			}
+		}
+
 
 		// create the animation with default settings
 		{
@@ -836,10 +893,13 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 	int FloatNumber = animation->m_numberOfFloatTracks;
 
 	float AnimDuration = animation->m_duration;
-	hkReal incrFrame = animation->m_duration / (hkReal)(FrameNumber -1);
-	double framerate = FrameNumber / AnimDuration;
+	hkReal incrFrame = animation->m_duration / (hkReal)(FrameNumber-1);
+	float framerate = (FrameNumber-1) / AnimDuration;
 
-	lTime.SetGlobalTimeMode(FbxTime::EMode::eCustom, framerate);
+	auto emmode = FbxTime::ConvertFrameRateToTimeMode(framerate);
+
+	ordered_skeleton[0]->GetScene()->GetGlobalSettings().SetTimeMode(emmode);
+
 	FbxTime startTime; startTime.SetSecondDouble(0.0);
 	FbxTime stopTime; stopTime.SetSecondDouble(AnimDuration);
 	lAnimStack->SetLocalTimeSpan(FbxTimeSpan(startTime, stopTime));
@@ -956,11 +1016,15 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 		}
 	}
 
+
+
+	float local_time = 0.0; 
 	// loop through keyframes
-	for (hkReal time = 0.0; time<AnimDuration; time += incrFrame)
+	for (int frame = 0; frame<= FrameNumber; frame++)
 	{
+		local_time = frame * incrFrame;
 		try {
-			animation->samplePartialTracks(time, TrackNumber, transformOut.begin(), FloatNumber, floatsOut.begin(), NULL);
+			animation->samplePartialTracks(local_time, TrackNumber, transformOut.begin(), FloatNumber, floatsOut.begin(), NULL);
 		}
 		catch (...) {
 			continue;
@@ -971,7 +1035,7 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 		// loop through animated bones
 
 		// todo support for anything else beside 30 fps?
-		lTime.SetSecondDouble(time);
+		lTime.SetSecondDouble(local_time);
 
 		for (int i = root_movements.HasMovements()?1:0; i<TrackNumber; ++i)
 		{
@@ -1068,7 +1132,7 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 			{
 				curve->KeyModifyBegin();
 				lKeyIndex = curve->KeyAdd(lTime);
-				curve->KeySet(lKeyIndex, time, floatsOut[k], FbxAnimCurveDef::eInterpolationConstant);
+				curve->KeySet(lKeyIndex, lTime, floatsOut[k], FbxAnimCurveDef::eInterpolationConstant);
 				curve->KeyModifyEnd();
 			}
 		}

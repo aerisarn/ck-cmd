@@ -206,7 +206,8 @@ namespace ckcmd {
 				const vector<uint32_t>& transform_track_to_bone_indices = {},
 				set<FbxProperty>& annotations = set<FbxProperty>(),
 				vector<FbxProperty>& floats = vector<FbxProperty>(),
-				const vector<uint32_t>& transform_track_to_float_indices = {}
+				const vector<uint32_t>& transform_track_to_float_indices = {},
+				bool extract_motion = true
 			);
 
 			vector<FbxNode*> load_skeleton(const fs::path& path, FbxNode* scene_root, vector<FbxProperty>& float_tracks);

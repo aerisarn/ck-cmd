@@ -71,7 +71,7 @@ bool ImportAnimation::InternalRunCommand(map<string, docopt::value> parsedArgs)
 
 	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
 	importFBX = parsedArgs["<path_to_fbx_animation>"].asString();
-	exportPath = parsedArgs["<path_to_export>"].asString();
+	//exportPath = parsedArgs["<path_to_export>"].asString();
 
 	InitializeHavok();
 	BeginConversion(importSkeleton, importFBX, exportPath);

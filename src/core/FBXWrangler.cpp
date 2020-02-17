@@ -5301,7 +5301,16 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				//get back the ordered skeleton
 				vector<FbxNode*> hkskeleton = hkxWrapper.create_skeleton("skeleton", skeleton);
 				//create the sequences
-				havok_sequences = hkxWrapper.create_animations("skeleton", hkskeleton, skinned_animations, scene->GetGlobalSettings().GetTimeMode());
+				havok_sequences = hkxWrapper.create_animations(
+					"skeleton", 
+					hkskeleton, 
+					skinned_animations, 
+					scene->GetGlobalSettings().GetTimeMode(), 
+					{}, 
+					set<FbxProperty>(),
+					vector<FbxProperty>(), 
+					{}, 
+					false);
 			}
 			else {
 
