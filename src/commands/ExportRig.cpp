@@ -47,7 +47,7 @@ string ExportRig::GetHelp() const
 
 	// Usage: ck-cmd importanimation
 	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + 
-		" <path_to_skeleton_hkx> <path_to_skeleton_nif> [--a=<path_to_animations>] [--b=<path_to_behavior_folder>] [--c=<path_to_cache_file>] [--n=<path_to_additional_nifs>] [--e=<path_to_export>]\r\n";
+		" <path_to_skeleton_hkx> [<path_to_skeleton_nif>] [--a=<path_to_animations>] [--b=<path_to_behavior_folder>] [--c=<path_to_cache_file>] [--n=<path_to_additional_nifs>] [--e=<path_to_export>]\r\n";
 
 	const char help[] =
 		R"(Converts an HKX skeleton to FBX.
@@ -82,7 +82,8 @@ bool ExportRig::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		behaviorFolder;
 
 	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
-	importSkeletonNif = parsedArgs["<path_to_skeleton_nif>"].asString();
+	if (parsedArgs["<path_to_skeleton_nif>"].isString())
+		importSkeletonNif = parsedArgs["<path_to_skeleton_nif>"].asString();
 	if (parsedArgs["--a"].isString())
 		animationsPath = parsedArgs["--a"].asString();
 	if (parsedArgs["--n"].isString())
@@ -116,10 +117,6 @@ bool BeginConversion(const string& importSkeleton,
 	const string& exportPath
 ) {
 	if (!fs::exists(importSkeleton) || !fs::is_regular_file(importSkeleton)) {
-		Log::Error("Invalid file: %s", importSkeleton.c_str());
-		return false;
-	}
-	if (!fs::exists(importSkeletonNif) || !fs::is_regular_file(importSkeletonNif)) {
 		Log::Error("Invalid file: %s", importSkeleton.c_str());
 		return false;
 	}
@@ -198,8 +195,11 @@ bool BeginConversion(const string& importSkeleton,
 		}
 	}
 
-	NifFile mesh(importSkeletonNif.c_str());
-	wrangler.AddNif(mesh);
+	if (fs::exists(importSkeletonNif) && fs::is_regular_file(importSkeletonNif))
+	{
+		NifFile mesh(importSkeletonNif.c_str());
+		wrangler.AddNif(mesh);
+	}
 
 	wrangler.setExportRig(false);
 	vector<fs::path> nif_files;

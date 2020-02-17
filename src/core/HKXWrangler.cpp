@@ -164,6 +164,15 @@ void HKXWrapper::write(hkRootLevelContainer& rootCont, string subfolder, string 
 	{
 		Log::Error("Havok reports save failed.");
 	}
+	packFileOptions = GetWriteOptionsFromFormat(HKPF_AMD64);
+	fs::path final_out_path_se = fs::path(out_path_abs) / subfolder / string(name + "_se.hkx");
+	fs::create_directories(final_out_path_se.parent_path());
+	hkOstream stream_se(final_out_path_se.string().c_str());
+	res = hkSerializeUtilSave(HKPF_AMD64, root, stream_se, flags, packFileOptions);
+	if (res != HK_SUCCESS)
+	{
+		Log::Error("Havok reports save failed.");
+	}
 }
 
 hkRootLevelContainer* HKXWrapper::read(const fs::path& path, hkArray<hkVariant>& objects) {
@@ -753,6 +762,17 @@ set<string> HKXWrapper::create_animations(
 				if (bone == skeleton[0])
 				{
 					root_track.pushBack(getBoneTransform(bone, fbx_time));
+					Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
+						(float)time,
+						(float)root_track[root_track.getSize()-1].getTranslation().getSimdAt(0),
+						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(1),
+						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(2),
+						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(3),
+						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(0),
+						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(1),
+						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(2),
+						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(3)
+					);
 					root_track_times.pushBack((hkReal)time);
 				}
 				tempAnim->m_transforms.pushBack(getBoneTransform(bone, fbx_time));
@@ -777,8 +797,8 @@ set<string> HKXWrapper::create_animations(
 				binding->m_floatTrackToFloatSlotIndices.pushBack(index);
 		}
 
-		hkaSkeletonUtils::normalizeRotations(tempAnim->m_transforms.begin(), tempAnim->m_transforms.getSize());
-		hkaSkeletonUtils::normalizeRotations(root_track.begin(), root_track.getSize());
+		//hkaSkeletonUtils::normalizeRotations(tempAnim->m_transforms.begin(), tempAnim->m_transforms.getSize());
+		//hkaSkeletonUtils::normalizeRotations(root_track.begin(), root_track.getSize());
 
 		if (extract_motion) {
 			//Assume that the reference frame is actually the first bone
@@ -791,15 +811,20 @@ set<string> HKXWrapper::create_animations(
 			options.m_allowTurning = true;
 			options.m_numSamples = tempAnim->getNumOriginalFrames();
 			options.m_referenceFrameDuration = tempAnim->m_duration;
-			//options.m_forward = hkVector4(0.0, 1.0, 0.0);
+			options.m_forward = hkVector4(0.0, 1.0, 0.0);
 
 			hkaDefaultAnimatedReferenceFrame reference(options);
 			hkaAnimatedReferenceFrameUtils::transformIntoAnimatedReferenceFrame(
 				&reference,
-				&tempAnim->m_transforms[0],
-				tempAnim->m_numberOfTransformTracks,
-				skeleton.size()
+				&root_track[1],
+				root_track.getSize(),
+				1
 			);
+
+			for (int i = 0; i < root_track.getSize(); i++) {
+				tempAnim->m_transforms[i*skeleton.size()].setIdentity();
+			}
+
 			Log::Info("Motion extracted!");
 			hkVector4 null(0.0, 0.0, 0.0, 0.0);
 			for (int i = 0; i < reference.m_referenceFrameSamples.getSize(); i++)
@@ -814,15 +839,15 @@ set<string> HKXWrapper::create_animations(
 
 
 
-				if ((float)reference.m_referenceFrameSamples[i].getSimdAt(0) == 0.0 &&
-					(float)reference.m_referenceFrameSamples[i].getSimdAt(1) == 0.0 &&
-					(float)reference.m_referenceFrameSamples[i].getSimdAt(2) == 0.0 &&
-					(float)reference.m_referenceFrameSamples[i].getSimdAt(3) == 0.0)
+				if (abs((float)reference.m_referenceFrameSamples[i].getSimdAt(0)) < 10 ^ -10 &&
+					abs((float)reference.m_referenceFrameSamples[i].getSimdAt(1)) < 10 ^ -10 &&
+					abs((float)reference.m_referenceFrameSamples[i].getSimdAt(2)) < 10 ^ -10 &&
+					abs((float)reference.m_referenceFrameSamples[i].getSimdAt(3)) < 10 ^ -10)
 					continue;
 
-				if ((float)reference.m_referenceFrameSamples[i].getSimdAt(0) != 0.0 ||
-					(float)reference.m_referenceFrameSamples[i].getSimdAt(1) != 0.0 ||
-					(float)reference.m_referenceFrameSamples[i].getSimdAt(2) != 0.0)
+				if (abs((float)reference.m_referenceFrameSamples[i].getSimdAt(0)) > 10 ^ -10 ||
+					abs((float)reference.m_referenceFrameSamples[i].getSimdAt(1)) > 10 ^ -10 ||
+					abs((float)reference.m_referenceFrameSamples[i].getSimdAt(2)) > 10 ^ -10)
 				{
 					root_info.translations.push_back({
 						root_track_times[i],
@@ -834,7 +859,7 @@ set<string> HKXWrapper::create_animations(
 					});
 				}
 
-				if ((float)reference.m_referenceFrameSamples[i].getSimdAt(3) != 0.0)
+				if (abs((float)reference.m_referenceFrameSamples[i].getSimdAt(3)) > 10 ^ -10)
 				{
 					hkReal z_euler_rotation_radians = reference.m_referenceFrameSamples[i].getSimdAt(3);
 					EulerAngles ang = Eul_(0.0, 0.0, z_euler_rotation_radians, EulOrdXYZs);
@@ -849,22 +874,22 @@ set<string> HKXWrapper::create_animations(
 						)
 					});
 				}
+			}
 
-				if (root_info.translations.empty()) {
-					root_info.translations.push_back
-					({
-						duration,
-						hkVector4(0.0, 0.0, 0.0) 
+			if (root_info.translations.empty()) {
+				root_info.translations.push_back
+				({
+					duration,
+					hkVector4(0.0, 0.0, 0.0)
 					});
-				}
+			}
 
-				if (root_info.rotations.empty()) {
-					root_info.rotations.push_back
-					({
-						duration,
-						::hkQuaternion(0.0, 0.0, 0.0, 1.0)
+			if (root_info.rotations.empty()) {
+				root_info.rotations.push_back
+				({
+					duration,
+					::hkQuaternion(0.0, 0.0, 0.0, 1.0)
 					});
-				}
 			}
 
 			//finally, events
@@ -889,6 +914,8 @@ set<string> HKXWrapper::create_animations(
 			sort(root_info.events.begin(), root_info.events.end(), less_than_event());
 		}
 
+		hkaSkeletonUtils::normalizeRotations(tempAnim->m_transforms.begin(), tempAnim->m_transforms.getSize());
+
 		// create the animation with default settings
 		{
 			hkaSplineCompressedAnimation::TrackCompressionParams tparams;
@@ -897,7 +924,7 @@ set<string> HKXWrapper::create_animations(
 			tparams.m_rotationTolerance = 0.001f;
 			tparams.m_rotationQuantizationType = hkaSplineCompressedAnimation::TrackCompressionParams::THREECOMP40;
 
-			hkRefPtr<hkaSplineCompressedAnimation> outAnim = new hkaSplineCompressedAnimation(*tempAnim.val(), tparams, aparams);
+			auto outAnim = new hkaSplineCompressedAnimation(*tempAnim.val(), tparams, aparams);
 			binding->m_animation = outAnim;
 			binding->m_originalSkeletonName = skeleton_name.c_str();
 
