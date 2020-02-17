@@ -919,7 +919,7 @@ set<string> HKXWrapper::create_animations(
 	return move(sequences_names);
 }
 
-void HKXWrapper::write_animations(const string& out_path, const set<string>& havok_sequences_names)
+map<fs::path, RootMovement>& HKXWrapper::write_animations(const string& out_path, const set<string>& havok_sequences_names)
 {
 	if (havok_sequences_names.size() == 1)
 	{
@@ -940,6 +940,7 @@ void HKXWrapper::write_animations(const string& out_path, const set<string>& hav
 			write(out_data.begin()->second, "", asset.first.string());
 		}
 	}
+	return out_root_data;
 }
 
 string HKXWrapper::write_project(const string& out_name, const string& out_path, const string& out_path_abs,
@@ -3137,6 +3138,9 @@ RootMovement::RootMovement(
 		events.push_back({ value, eventName });
 	}
 }
+
+
+
 
 //this is O(Grayskull), needs simplification
 void HKXWrapper::GetClipsMovements(

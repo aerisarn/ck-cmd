@@ -215,7 +215,7 @@ namespace ckcmd {
 			vector<FbxNode*> load_skeleton(const fs::path& path, FbxNode* scene_root, vector<FbxProperty>& float_tracks);
 			void load_animation(const fs::path& path, vector<FbxNode*>&, vector<FbxProperty>& float_tracks, RootMovement& root_movements);
 
-			void write_animations(const string& out_path, const set<string>& havok_sequences_names);
+			map<fs::path, RootMovement>& write_animations(const string& out_path, const set<string>& havok_sequences_names);
 		
 			string write_project(const string& out_name, const string& out_path, const string& out_path_abs,
 				const string& prefix, const set<string>& kf_sequences_names, const set<string>& havok_sequences_names);

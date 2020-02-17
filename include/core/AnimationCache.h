@@ -168,7 +168,28 @@ struct AnimationCache {
 	vector<CreatureCacheEntry> creature_entries;
 	vector<CacheEntry>		   misc_entries;
 
+
+	AnimationCache(const fs::path& animationDataPath, const  fs::path&  animationSetDataPath) {
+		string animationDataContent;
+		{
+			std::ifstream t(animationDataPath.string());
+			animationDataContent = string((std::istreambuf_iterator<char>(t)),
+				std::istreambuf_iterator<char>());
+		}
+		string animationSetDataContent;
+		{
+			std::ifstream t(animationSetDataPath.string());
+			animationSetDataContent = string((std::istreambuf_iterator<char>(t)),
+				std::istreambuf_iterator<char>());
+		}
+		build(animationDataContent, animationSetDataContent);
+	}
+
 	AnimationCache(const string&  animationDataContent, const string&  animationSetDataContent) {
+		build(animationDataContent, animationSetDataContent);
+	}
+	
+	void build(const string&  animationDataContent, const string&  animationSetDataContent) {
 
 		AnimData::AnimDataFile animationData;
 		AnimData::AnimSetDataFile animationSetData;
@@ -205,7 +226,7 @@ struct AnimationCache {
 		}
 
 		printInfo();
-
+#ifdef __TEST__
 		AnimData::AnimDataFile newAnimationData;
 
 		for (auto& entry : creature_entries)
@@ -244,6 +265,7 @@ struct AnimationCache {
 		}
 		if (new_set_content != animationSetDataContent)
 			Log::Error("round trip error!");
+#endif
 	}
 
 	size_t getNumCreatureProjects(){

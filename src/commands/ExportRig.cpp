@@ -55,11 +55,11 @@ string ExportRig::GetHelp() const
 		Arguments:
 			<path_to_skeleton_hkx> the animation skeleton in hkx format
 			<path_to_skeleton_nif> the SAME animation skeleton in NIF format
-			-a <path_to_animations>, --animations <path_to_animations>  optional animations to load on the rig
-			-n <path_to_additional_nifs>, --nifs <path_to_additional_nifs>  optional meshes to load on the rig
-			-c <path_to_cache_file>, --cache <path_to_cache_file> necessary to extract root motion into animations
-			-b <path_to_behavior_folder>, --behavior <path_to_behavior_folder> necessary to extract root motion
-			-e <path_to_export>, --export-dir <path_to_export>  optional export path
+			--a=<path_to_animations>, --animations <path_to_animations>  optional animations to load on the rig
+			--n=<path_to_additional_nifs>, --nifs <path_to_additional_nifs>  optional meshes to load on the rig
+			--c=<path_to_cache_file>, --cache <path_to_cache_file> necessary to extract root motion into animations
+			--b=<path_to_behavior_folder>, --behavior <path_to_behavior_folder> necessary to extract root motion
+			--e=<path_to_export>, --export-dir <path_to_export>  optional export path
 
 		)";
 	return usage + help;

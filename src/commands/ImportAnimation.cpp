@@ -19,7 +19,7 @@ using namespace ckcmd::FBX;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 
-static bool BeginConversion(const string& importSkeleton, const string& importFBX, const string& exportPath);
+static bool BeginConversion(const string& importSkeleton, const string& importFBX, const string& cacheFilePath, const string& behaviorFolder, const string& exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
@@ -45,7 +45,7 @@ string ImportAnimation::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd importanimation
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> <path_to_fbx_animation> [-e <path_to_export>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> <path_to_fbx_animation> [--b=<path_to_behavior_folder>] [--c=<path_to_cache_file>] [--e=<path_to_export>]\r\n";
 
 	const char help[] =
 		R"(Converts a FBX animation to NIF. Requires a preexisting HKX skeleton
@@ -53,7 +53,9 @@ string ImportAnimation::GetHelp() const
 		Arguments:
 			<path_to_skeleton_hkx> the animation skeleton in hkx format
 			<path_to_fbx_animation> the FBX animation to convert
-			<path_to_export> path to the output directory
+			--c=<path_to_cache_file>, --cache <path_to_cache_file> necessary to extract root motion into animations
+			--b=<path_to_behavior_folder>, --behavior <path_to_behavior_folder> necessary to extract root motion
+			--e=<path_to_export> path to the output directory
 
 		)";
 	return usage + help;
@@ -67,19 +69,25 @@ string ImportAnimation::GetHelpShort() const
 bool ImportAnimation::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
-	string importFBX, importSkeleton, exportPath;
+	string importFBX, importSkeleton, exportPath, cacheFilePath,
+		behaviorFolder;;
 
 	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
 	importFBX = parsedArgs["<path_to_fbx_animation>"].asString();
 	//exportPath = parsedArgs["<path_to_export>"].asString();
-
+	if (parsedArgs["--c"].isString())
+		cacheFilePath = parsedArgs["--c"].asString();
+	if (parsedArgs["--b"].isString())
+		behaviorFolder = parsedArgs["--b"].asString();
+	if (parsedArgs["--e"].isString())
+		exportPath = parsedArgs["--e"].asString();
 	InitializeHavok();
-	BeginConversion(importSkeleton, importFBX, exportPath);
+	BeginConversion(importSkeleton, importFBX, cacheFilePath, behaviorFolder, exportPath);
 	CloseHavok();
 	return true;
 }
 
-bool BeginConversion(const string& importSkeleton, const string& importFBX, const string& exportPath) {
+bool BeginConversion(const string& importSkeleton, const string& importFBX, const string& cacheFilePath, const string& behaviorFolder, const string& exportPath) {
 	bool batch = false;
 	fs::path fbxModelpath = fs::path(importFBX);
 	if (!fs::exists(importSkeleton) || !fs::is_regular_file(importSkeleton)) {
@@ -113,13 +121,22 @@ bool BeginConversion(const string& importSkeleton, const string& importFBX, cons
 
 		fs::path out_path = outputDir / fbxModelpath.filename().replace_extension(".hkx");
 		fs::create_directories(outputDir);
-		wrangler.SaveAnimation(out_path.string());
+		auto root_info = wrangler.SaveAnimation(out_path.string());
+		if (fs::exists(cacheFilePath) && !fs::is_directory(cacheFilePath) &&
+			fs::exists(behaviorFolder) && fs::is_directory(behaviorFolder))
+		{
+			fs::path animDataPath = fs::path(cacheFilePath).parent_path().parent_path() / "animationdatasinglefile.txt";
+			fs::path animDataSetPath = fs::path(cacheFilePath).parent_path().parent_path() / "animationsetdatasinglefile.txt";
+			Log::Info("Adjusting cache, loading %s and %s", animDataPath.string().c_str(), animDataSetPath.string().c_str());
+			AnimationCache cache(animDataPath, animDataPath);
+			Log::Info("Loaded");
+		}
 	}
 	else {
 		vector<fs::path> fbxs;
 		find_files(importFBX, ".fbx", fbxs);
 		for (const auto& fbx : fbxs) {
-			Log::Info("Exporting: %s, using current_dir", fbx.string().c_str());
+			Log::Info("Importing: %s, using current_dir", fbx.string().c_str());
 			FBXWrangler wrangler;
 			wrangler.setExternalSkeletonPath(importSkeleton);
 			wrangler.ImportScene(fbx.string().c_str());

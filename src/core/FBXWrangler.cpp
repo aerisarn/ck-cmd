@@ -5403,25 +5403,27 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		//collisions
 		buildCollisions();
 		//rig
-		hkxWrapper.build_skeleton_from_ragdoll();
-		buildConstraints();
+		if (export_rig)
+		{
+			hkxWrapper.build_skeleton_from_ragdoll();
+			buildConstraints();
 
-		if (!bone_lod_info.empty()) {
-			auto list = conversion_root->GetExtraDataList();
-			BSBoneLODExtraDataRef lod_list = new BSBoneLODExtraData();
-			lod_list->SetName(IndexString("BSBoneLOD"));
-			lod_list->SetBonelodInfo(bone_lod_info);
-			list.insert(list.begin(), StaticCast<NiExtraData>(lod_list));
-			conversion_root->SetExtraDataList(list);
+			if (!bone_lod_info.empty()) {
+				auto list = conversion_root->GetExtraDataList();
+				BSBoneLODExtraDataRef lod_list = new BSBoneLODExtraData();
+				lod_list->SetName(IndexString("BSBoneLOD"));
+				lod_list->SetBonelodInfo(bone_lod_info);
+				list.insert(list.begin(), StaticCast<NiExtraData>(lod_list));
+				conversion_root->SetExtraDataList(list);
+			}
 		}
 	}
 
 	return true;
 }
 
-bool FBXWrangler::SaveAnimation(const string& fileName) {
-	hkxWrapper.write_animations(fileName, havok_sequences);
-	return true;
+map<fs::path, RootMovement>& FBXWrangler::SaveAnimation(const string& fileName) {
+	return hkxWrapper.write_animations(fileName, havok_sequences);
 }
 
 bool FBXWrangler::SaveSkin(const string& fileName) {
