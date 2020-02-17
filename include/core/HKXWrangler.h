@@ -129,6 +129,7 @@ namespace ckcmd {
 			hkaSkeletonMapper* animation_to_ragdoll_mapper;
 
 			map<fs::path, hkRootLevelContainer> out_data;
+			map<fs::path, RootMovement> out_root_data;
 			map<string, int> float_map;
 
 			void write(hkRootLevelContainer& rootCont, string subfolder = "", string name = "");
@@ -207,7 +208,8 @@ namespace ckcmd {
 				set<FbxProperty>& annotations = set<FbxProperty>(),
 				vector<FbxProperty>& floats = vector<FbxProperty>(),
 				const vector<uint32_t>& transform_track_to_float_indices = {},
-				bool extract_motion = true
+				bool extract_motion = true,
+				RootMovement& root_info = RootMovement()
 			);
 
 			vector<FbxNode*> load_skeleton(const fs::path& path, FbxNode* scene_root, vector<FbxProperty>& float_tracks);

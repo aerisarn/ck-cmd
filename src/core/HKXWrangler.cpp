@@ -622,6 +622,14 @@ vector<FbxNode*> HKXWrapper::create_skeleton(const string& name, const set<FbxNo
 	return move(ordered_bones);
 }
 
+struct less_than_event
+{
+	inline bool operator() (const tuple<hkReal, string>& struct1, const tuple < hkReal, string>& struct2)
+	{
+		return (get<0>(struct1)< get<0>(struct2));
+	}
+};
+
 bool annotation_sorter(hkaAnnotationTrack::Annotation const& lhs, hkaAnnotationTrack::Annotation const& rhs) {
 	return lhs.m_time < rhs.m_time;
 }
@@ -635,7 +643,8 @@ set<string> HKXWrapper::create_animations(
 	set<FbxProperty>& annotations,
 	vector<FbxProperty>& floats,
 	const vector<uint32_t>& transform_track_to_float_indices,
-	bool extract_motion
+	bool extract_motion,
+	RootMovement& root_info
 	)
 {
 
@@ -731,6 +740,7 @@ set<string> HKXWrapper::create_animations(
 		}
 
 		hkArray<hkQsTransform> root_track;
+		hkArray<hkReal> root_track_times;
 
 		// Sample each animation frame
 		for (float time = startTime.GetSecondDouble();
@@ -741,7 +751,10 @@ set<string> HKXWrapper::create_animations(
 			for (FbxNode* bone : skeleton)
 			{
 				if (bone == skeleton[0])
+				{
 					root_track.pushBack(getBoneTransform(bone, fbx_time));
+					root_track_times.pushBack((hkReal)time);
+				}
 				tempAnim->m_transforms.pushBack(getBoneTransform(bone, fbx_time));
 			}
 			for (FbxProperty& float_track : floats)
@@ -788,17 +801,93 @@ set<string> HKXWrapper::create_animations(
 				skeleton.size()
 			);
 			Log::Info("Motion extracted!");
+			hkVector4 null(0.0, 0.0, 0.0, 0.0);
 			for (int i = 0; i < reference.m_referenceFrameSamples.getSize(); i++)
 			{
 				hkVector4 test = reference.m_referenceFrameSamples[i];
-				Log::Info("Motion extracted: (%f,%f,%f,%f)", 
+				Log::Info("Motion extracted %fs: (%f,%f,%f,%f)",
+					(float)root_track_times[i],
 					(float)reference.m_referenceFrameSamples[i].getSimdAt(0), 
 					(float)reference.m_referenceFrameSamples[i].getSimdAt(1), 
 					(float)reference.m_referenceFrameSamples[i].getSimdAt(2), 
 					(float)reference.m_referenceFrameSamples[i].getSimdAt(3));
-			}
-		}
 
+
+
+				if ((float)reference.m_referenceFrameSamples[i].getSimdAt(0) == 0.0 &&
+					(float)reference.m_referenceFrameSamples[i].getSimdAt(1) == 0.0 &&
+					(float)reference.m_referenceFrameSamples[i].getSimdAt(2) == 0.0 &&
+					(float)reference.m_referenceFrameSamples[i].getSimdAt(3) == 0.0)
+					continue;
+
+				if ((float)reference.m_referenceFrameSamples[i].getSimdAt(0) != 0.0 ||
+					(float)reference.m_referenceFrameSamples[i].getSimdAt(1) != 0.0 ||
+					(float)reference.m_referenceFrameSamples[i].getSimdAt(2) != 0.0)
+				{
+					root_info.translations.push_back({
+						root_track_times[i],
+						hkVector4(
+							reference.m_referenceFrameSamples[i].getSimdAt(0),
+							reference.m_referenceFrameSamples[i].getSimdAt(1),
+							reference.m_referenceFrameSamples[i].getSimdAt(2)
+						)
+					});
+				}
+
+				if ((float)reference.m_referenceFrameSamples[i].getSimdAt(3) != 0.0)
+				{
+					hkReal z_euler_rotation_radians = reference.m_referenceFrameSamples[i].getSimdAt(3);
+					EulerAngles ang = Eul_(0.0, 0.0, z_euler_rotation_radians, EulOrdXYZs);
+					Quat qq = Eul_ToQuat(ang);
+					root_info.rotations.push_back({
+						root_track_times[i],
+						::hkQuaternion(
+							qq.x,
+							qq.y,
+							qq.z,
+							qq.w
+						)
+					});
+				}
+
+				if (root_info.translations.empty()) {
+					root_info.translations.push_back
+					({
+						duration,
+						hkVector4(0.0, 0.0, 0.0) 
+					});
+				}
+
+				if (root_info.rotations.empty()) {
+					root_info.rotations.push_back
+					({
+						duration,
+						::hkQuaternion(0.0, 0.0, 0.0, 1.0)
+					});
+				}
+			}
+
+			//finally, events
+			FbxProperty root_property = skeleton[0]->GetFirstProperty();
+			while (root_property.IsValid())
+			{
+				string prop_name = root_property.GetNameAsCStr();
+				int index = prop_name.find("event_");
+				if (index != string::npos) {
+					string ev_name = prop_name.substr(6, prop_name.length());
+					float time = std::atof(root_property.Get<FbxString>().Buffer());
+					root_info.events.push_back(
+						{
+							time,
+							ev_name
+						}
+					);
+				}
+				root_property = skeleton[0]->GetNextProperty(root_property);
+			}
+
+			sort(root_info.events.begin(), root_info.events.end(), less_than_event());
+		}
 
 		// create the animation with default settings
 		{
@@ -824,7 +913,7 @@ set<string> HKXWrapper::create_animations(
 
 		sequences_names.insert(stack->GetName());
 		out_data[fs::path(ANIMATIONS_SUBFOLDER) / stack->GetName()] = container;
-
+		out_root_data[fs::path(ANIMATIONS_SUBFOLDER) / stack->GetName()] = root_info;
 	}
 	starting_stack->GetScene()->SetCurrentAnimationStack(starting_stack);
 	return move(sequences_names);
