@@ -47,7 +47,7 @@ string ExportRig::GetHelp() const
 
 	// Usage: ck-cmd importanimation
 	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + 
-		" <path_to_skeleton_hkx> <path_to_skeleton_nif> [-a <path_to_animations>] [-b <path_to_behavior_folder>] [-c <path_to_cache_file>] [-n <path_to_additional_nifs>] [-e <path_to_export>]\r\n";
+		" <path_to_skeleton_hkx> <path_to_skeleton_nif> [--a=<path_to_animations>] [--b=<path_to_behavior_folder>] [--c=<path_to_cache_file>] [--n=<path_to_additional_nifs>] [--e=<path_to_export>]\r\n";
 
 	const char help[] =
 		R"(Converts an HKX skeleton to FBX.
@@ -83,16 +83,16 @@ bool ExportRig::InternalRunCommand(map<string, docopt::value> parsedArgs)
 
 	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
 	importSkeletonNif = parsedArgs["<path_to_skeleton_nif>"].asString();
-	if (parsedArgs["-a"].asBool())
-		animationsPath = parsedArgs["<path_to_animations>"].asString();
-	if (parsedArgs["-n"].asBool())
-		additionalNifPath = parsedArgs["<path_to_additional_nifs>"].asString();
-	if (parsedArgs["-c"].asBool())
-		cacheFilePath = parsedArgs["<path_to_cache_file>"].asString();
-	if (parsedArgs["-b"].asBool())
-		behaviorFolder = parsedArgs["<path_to_behavior_folder>"].asString();
-	if (parsedArgs["-e"].asBool())
-		exportPath = parsedArgs["<path_to_export>"].asString();
+	if (parsedArgs["--a"].isString())
+		animationsPath = parsedArgs["--a"].asString();
+	if (parsedArgs["--n"].isString())
+		additionalNifPath = parsedArgs["--n"].asString();
+	if (parsedArgs["--c"].isString())
+		cacheFilePath = parsedArgs["--c"].asString();
+	if (parsedArgs["--b"].isString())
+		behaviorFolder = parsedArgs["--b"].asString();
+	if (parsedArgs["--e"].isString())
+		exportPath = parsedArgs["--e"].asString();
 
 	InitializeHavok();
 	BeginConversion(
@@ -185,6 +185,15 @@ bool BeginConversion(const string& importSkeleton,
 					floats,
 					RootMovement());
 			}
+
+			vector<fs::path> nif_files;
+			if (fs::exists(additionalNifPath) && fs::is_directory(additionalNifPath))
+			{
+				find_files(additionalNifPath, ".nif", nif_files);
+				for (const auto& nif : nif_files)
+					anim_wrangler.AddNif(NifFile(nif.string().c_str()));
+			}
+
 			anim_wrangler.ExportScene(out_path.string().c_str());
 		}
 	}
@@ -192,6 +201,7 @@ bool BeginConversion(const string& importSkeleton,
 	NifFile mesh(importSkeletonNif.c_str());
 	wrangler.AddNif(mesh);
 
+	wrangler.setExportRig(false);
 	vector<fs::path> nif_files;
 	if (fs::exists(additionalNifPath) && fs::is_directory(additionalNifPath))
 	{

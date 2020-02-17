@@ -968,6 +968,22 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			vector<BoneData>& bonelistdata = data->GetBoneList();
 			std::string shapeSkin = shapeName + "_skin";
 
+			FbxAMatrix shape_transform;
+			Vector3 shape_translation = mesh->GetTranslation();
+			Quaternion shape_rotation = mesh->GetRotation().AsQuaternion();
+			float shape_scale = mesh->GetScale();
+			shape_transform.SetT(FbxDouble3(shape_translation.x, shape_translation.y, shape_translation.z));
+			shape_transform.SetQ({ shape_rotation.x, shape_rotation.y, shape_rotation.z, shape_rotation.w });
+			shape_transform.SetS(FbxDouble3(shape_scale, shape_scale, shape_scale));
+
+			Vector3 translation = data->GetSkinTransform().translation;
+			Quaternion rotation = data->GetSkinTransform().rotation.AsQuaternion();
+			float scale = data->GetSkinTransform().scale;
+
+			FbxAMatrix global_transform;
+			global_transform.SetT(FbxDouble3(translation.x, translation.y, translation.z));
+			global_transform.SetQ({ rotation.x, rotation.y, rotation.z, rotation.w });
+			global_transform.SetS(FbxDouble3(scale, scale, scale));
 
 			vector<NiNode * > data_bonelist = skin.first->GetBones();
 
@@ -976,6 +992,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			{
 				FbxSkin* fbx_skin = FbxSkin::Create(&scene, shapeSkin.c_str());
 				map<unsigned short, FbxCluster*> clusters;
+				FbxNode* skin_parent = fbx_meshes_skin_parent[skin.first]; scene.FindNodeByName(shapeName.c_str());
 				//create clusters
 				for (unsigned short bone_index : part_data.bones) {
 					NiNode* bone = skin.first->GetBones()[bone_index];
@@ -984,21 +1001,28 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 						std::string boneSkin = bone->GetName() + "_cluster";
 						FbxCluster* aCluster = FbxCluster::Create(&scene, boneSkin.c_str());
 						aCluster->SetLink(jointNode);
-						aCluster->SetLinkMode(FbxCluster::eTotalOne);
+						aCluster->SetLinkMode(FbxCluster::eNormalize);
 
-						Vector3 translation = data->GetSkinTransform().translation;
-						Quaternion rotation = data->GetSkinTransform().rotation.AsQuaternion();
-						float scale = data->GetSkinTransform().scale;
 
-						FbxAMatrix global_transform;
-						global_transform.SetT(FbxDouble3(translation.x, translation.y, translation.z));
-						global_transform.SetQ({ rotation.x, rotation.y, rotation.z, rotation.w });
-						global_transform.SetS(FbxDouble3(scale, scale, scale));
+						auto bone_list_data = bonelistdata[bone_index];
+
+						Vector3 translation = bone_list_data.skinTransform.translation;
+						Quaternion rotation = bone_list_data.skinTransform.rotation.AsQuaternion();
+						float scale = bone_list_data.skinTransform.scale;
+
+						FbxAMatrix bone_mesh_transform;
+						bone_mesh_transform.SetT(FbxDouble3(translation.x, translation.y, translation.z));
+						bone_mesh_transform.SetQ({ rotation.x, rotation.y, rotation.z, rotation.w });
+						bone_mesh_transform.SetS(FbxDouble3(scale, scale, scale));
+
 
 						FbxAMatrix joint_transform = jointNode->EvaluateGlobalTransform();
-
-						aCluster->SetTransformLinkMatrix(joint_transform);
-						aCluster->SetTransformMatrix(global_transform.Inverse());
+						//joint transform, in world space
+						aCluster->SetTransformLinkMatrix(getTransform(bone));
+						//mesh transform, in bone space
+						//aCluster->SetTransformMatrix(bone_mesh_transform);
+						//mesh transform
+						//aCluster->SetTransformAssociateModelMatrix(global_transform.Inverse());
 
 						clusters[bone_index] = aCluster;
 					}
@@ -1020,7 +1044,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				{
 					fbx_skin->AddCluster(cluster.second);
 				}
-				FbxNode* skin_parent = fbx_meshes_skin_parent[skin.first]; scene.FindNodeByName(mesh->GetName().c_str());
+				
 				if (NULL != skin_parent)
 				{
 					string dummy_name = shapeName + "_support";
@@ -1028,6 +1052,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					auto skin_support = skin_parent->FindChild(dummy_name.c_str(), false);
 					if (skin_support != NULL)
 						skin_parent = skin_support;
+					//setTransform(mesh, skin_parent);
 					for (int i = 0; i < skin_parent->GetNodeAttributeCount(); i++)
 					{
 						if (FbxNodeAttribute::eMesh == skin_parent->GetNodeAttributeByIndex(i)->GetAttributeType())
