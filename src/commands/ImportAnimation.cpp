@@ -128,8 +128,23 @@ bool BeginConversion(const string& importSkeleton, const string& importFBX, cons
 			fs::path animDataPath = fs::path(cacheFilePath).parent_path().parent_path() / "animationdatasinglefile.txt";
 			fs::path animDataSetPath = fs::path(cacheFilePath).parent_path().parent_path() / "animationsetdatasinglefile.txt";
 			Log::Info("Adjusting cache, loading %s and %s", animDataPath.string().c_str(), animDataSetPath.string().c_str());
-			AnimationCache cache(animDataPath, animDataPath);
+			AnimationCache cache(animDataPath, animDataSetPath);
 			Log::Info("Loaded");
+			string project = fs::path(cacheFilePath).filename().replace_extension("").string();
+			CacheEntry* entry = cache.find(project);
+			if (entry)
+			{
+				Log::Info("Found Project %s", entry->name.c_str());
+				//auto creature_entry = dynamic_cast<CreatureCacheEntry*>(entry);
+				wrangler.hkx_wrapper().PutClipMovement(
+					fbxModelpath.replace_extension(".hkx"),
+					*entry,
+					behaviorFolder,
+					root_info.begin()->second
+				);
+
+				cache.save_creature(project, "animationdatasinglefile.txt", "animationsetdatasinglefile.txt");
+			}
 		}
 	}
 	else {

@@ -912,6 +912,8 @@ set<string> HKXWrapper::create_animations(
 			}
 
 			sort(root_info.events.begin(), root_info.events.end(), less_than_event());
+			root_info.duration = tempAnim->m_duration;
+
 		}
 
 		hkaSkeletonUtils::normalizeRotations(tempAnim->m_transforms.begin(), tempAnim->m_transforms.getSize());
@@ -3090,6 +3092,12 @@ bool iequals(const string& a, const string& b)
 		});
 }
 
+bool clip_equals(const fs::path &arg, const fs::path &baseline)
+{
+	return iequals(arg.filename().string(), baseline.filename().string())
+		&& iequals(arg.parent_path().filename().string(), baseline.parent_path().filename().string());
+}
+
 struct filename_compare : public std::unary_function<std::string, bool>
 {
 	explicit filename_compare(const fs::path &baseline) : baseline(baseline) {}
@@ -3137,10 +3145,13 @@ vector<float> RootMovement::getData(string data) {
 }
 
 RootMovement::RootMovement(
+	float duration,
 	const std::vector<std::string>& in_translations,
 	const std::vector<std::string>& in_rotations,
 	const std::vector<std::string>& in_events)
 {
+	this->duration = duration;
+
 	for (const auto& translation : in_translations)
 	{
 		vector<float> values = getData(translation);
@@ -3166,8 +3177,111 @@ RootMovement::RootMovement(
 	}
 }
 
+AnimData::StringListBlock RootMovement::getClipEvents() const
+{
+	AnimData::StringListBlock out;
+	stringvector temp;
+	for (const auto& event : events)
+	{
+		temp.push_back(get<1>(event) + ":" + to_string(get<0>(event)));
+	}
+	out.setStrings(temp);
+	return out;
+}
+
+AnimData::StringListBlock RootMovement::getClipTranslations() const {
+	AnimData::StringListBlock out;
+	stringvector temp;
+	for (const auto& translation : translations)
+	{
+		float time = get<0>(translation);
+		hkVector4 trans = get<1>(translation);
+		temp.push_back(
+			to_string(time) +
+			" " + to_string(trans.getSimdAt(0)) +
+			" " + to_string(trans.getSimdAt(1)) +
+			" " + to_string(trans.getSimdAt(2))
+		);
+	}
+	out.setStrings(temp);
+	return out;
+}
+
+AnimData::StringListBlock RootMovement::getClipRotations() const {
+	AnimData::StringListBlock out;
+	stringvector temp;
+	for (const auto& rotation : rotations)
+	{
+		float time = get<0>(rotation);
+		::hkQuaternion rot = get<1>(rotation);
+		temp.push_back(
+			to_string(time) +
+			" " + to_string(rot.m_vec.getSimdAt(0)) +
+			" " + to_string(rot.m_vec.getSimdAt(1)) +
+			" " + to_string(rot.m_vec.getSimdAt(2)) +
+			" " + to_string(rot.m_vec.getSimdAt(3)) 
+		);
+	}
+	out.setStrings(temp);
+	return out;
+}
 
 
+void HKXWrapper::PutClipMovement(
+	const fs::path& animation_file,
+	CacheEntry& entry,
+	const fs::path& behaviorFolder,
+	const RootMovement& root_info
+) {
+	vector<fs::path> behavior_files;
+	auto& cache_clips = entry.block.getClips();
+	auto& cache_movements = entry.movements.getMovementData();
+	find_files(behaviorFolder, ".hkx", behavior_files);
+	for (const auto& behavior_file : behavior_files)
+	{
+		hkRootLevelContainer* broot = NULL;
+		hkArray<hkVariant> objects;
+		hkRefPtr<hkbBehaviorGraph> bhkroot = load<hkbBehaviorGraph>(behavior_file, broot, objects);
+		Log::Info("Graph: %s", bhkroot->m_name);
+		for (const auto& object : objects)
+		{
+			if (hkbClipGenerator::staticClass().getSignature() == object.m_class->getSignature())
+			{
+				hkRefPtr<hkbClipGenerator> clip = (hkbClipGenerator*)object.m_object;
+				//Log::Info("Clip: %s, animation: %s", clip->m_name, clip->m_animationName);
+				fs::path clip_animation_filename = string(clip->m_animationName);
+				bool found = clip_equals(clip_animation_filename, animation_file);
+				if (found)
+				{
+					Log::Info("Found Clip Generator %s", clip->m_name);
+					string clip_generator_name = clip->m_name;
+					auto cache_block_it = find_if(cache_clips.begin(), cache_clips.end(), cache_block_compare(clip_generator_name));
+					if (cache_block_it == cache_clips.end())
+					{
+						Log::Error("Cannot find %s into project cache", clip->m_name);
+						continue;
+					}
+					size_t index = cache_block_it->getCacheIndex();
+					auto movements_block_it = find_if(cache_movements.begin(), cache_movements.end(), cache_movement_compare(index));
+					if (movements_block_it == cache_movements.end())
+					{
+						Log::Error("Cannot find %s movements of index %d into project cache", clip->m_name, index);
+						continue;
+					}
+
+					cache_block_it->setEvents(root_info.getClipEvents());
+					movements_block_it->setDuration(to_string(root_info.duration));
+					movements_block_it->setTraslations(root_info.getClipTranslations());
+					movements_block_it->setRotations(root_info.getClipRotations());
+					
+					entry.block.setClips(cache_clips);
+					entry.movements.setMovementData(cache_movements);
+					return;
+				}
+			}
+		}
+	}
+}
 
 //this is O(Grayskull), needs simplification
 void HKXWrapper::GetClipsMovements(
@@ -3213,6 +3327,7 @@ void HKXWrapper::GetClipsMovements(
 						continue;
 					}
 					map[*it] = RootMovement(
+						std::atof(movements_block_it->getDuration().c_str()),
 						movements_block_it->getTraslations().getStrings(),
 						movements_block_it->getRotations().getStrings(),
 						cache_block_it->getEvents().getStrings()

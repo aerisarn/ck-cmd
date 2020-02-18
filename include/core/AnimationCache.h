@@ -8,6 +8,7 @@
 #include <bs/AnimSetDataFile.h>
 #include <filesystem>
 #include <memory>
+#include <algorithm>
 
 namespace fs = std::experimental::filesystem;
 
@@ -141,21 +142,23 @@ public:
 struct CacheEntry
 {
 	string name;
-	AnimData::ProjectBlock block;
-	AnimData::ProjectDataBlock movements;
+	AnimData::ProjectBlock& block;
+	AnimData::ProjectDataBlock& movements;
 
-	CacheEntry() {}
-	CacheEntry(const string& name, const AnimData::ProjectBlock& block, const AnimData::ProjectDataBlock& movements) : name(name), block(block), movements(movements) {}
+	CacheEntry() : block(AnimData::ProjectBlock()) , movements(AnimData::ProjectDataBlock()){}
+	CacheEntry(const string& name, AnimData::ProjectBlock& block, AnimData::ProjectDataBlock& movements) : name(name), block(block), movements(movements) {}
 
 	bool hasCache() { return block.getHasAnimationCache(); }
+
+	virtual void none() {}
 };
 
 struct CreatureCacheEntry : public CacheEntry
 {
-	AnimData::ProjectAttackListBlock sets;
+	AnimData::ProjectAttackListBlock& sets;
 
-	CreatureCacheEntry() {}
-	CreatureCacheEntry(const string& name, const AnimData::ProjectBlock& block, const AnimData::ProjectDataBlock& movements, AnimData::ProjectAttackListBlock& sets) :
+	CreatureCacheEntry() : sets(AnimData::ProjectAttackListBlock()) {}
+	CreatureCacheEntry(const string& name, AnimData::ProjectBlock& block, AnimData::ProjectDataBlock& movements, AnimData::ProjectAttackListBlock& sets) :
 		CacheEntry(name, block, movements), sets(sets) {}
 };
 
@@ -168,6 +171,16 @@ struct AnimationCache {
 	vector<CreatureCacheEntry> creature_entries;
 	vector<CacheEntry>		   misc_entries;
 
+	AnimData::AnimDataFile animationData;
+	AnimData::AnimSetDataFile animationSetData;
+
+	map<string, CacheEntry*> projects_index;
+
+	CacheEntry* find(const string& name) {
+		if (projects_index.find(name)!= projects_index.end())
+			return projects_index[name];
+		return NULL;
+	}
 
 	AnimationCache(const fs::path& animationDataPath, const  fs::path&  animationSetDataPath) {
 		string animationDataContent;
@@ -188,11 +201,41 @@ struct AnimationCache {
 	AnimationCache(const string&  animationDataContent, const string&  animationSetDataContent) {
 		build(animationDataContent, animationSetDataContent);
 	}
+
+	void save(const fs::path& animationDataPath, const  fs::path&  animationSetDataPath) {
+		std::ofstream outstream;
+		outstream.open(animationDataPath.string()); // append instead of overwrite
+		outstream << animationData.toString();
+		outstream.close();
+		outstream.open(animationSetDataPath.string());
+		outstream << animationSetData.toString();
+		outstream.close();
+	}
+
+	void save_creature(const string& project, const fs::path& animationDataPath, const  fs::path&  animationSetDataPath) {
+		fs::create_directories("animationdata");
+
+		CacheEntry* project_entry = find(project);
+		if (project_entry) {
+
+			std::ofstream outstream;
+			outstream.open(fs::path("animationdata") / string(project + ".txt"));
+			outstream << project_entry->block.getBlock();
+			outstream.close();
+			if (project_entry->hasCache())
+			{
+				fs::create_directories(fs::path("animationdata")/"boundanims");
+				outstream.open(fs::path("animationdata") / "boundanims" / string("anims_" + project + ".txt"));
+				outstream << project_entry->movements.getBlock();
+				outstream.close();
+			}
+			save(animationDataPath, animationSetDataPath);
+		}
+
+
+	}
 	
 	void build(const string&  animationDataContent, const string&  animationSetDataContent) {
-
-		AnimData::AnimDataFile animationData;
-		AnimData::AnimSetDataFile animationSetData;
 
 		animationData.parse(animationDataContent);
 		animationSetData.parse(animationSetDataContent);
@@ -212,6 +255,7 @@ struct AnimationCache {
 						animationSetData.getProjectAttackBlock(creature_index)
 					)
 				);
+				
 			}
 			else {
 				misc_entries.push_back(
@@ -223,6 +267,18 @@ struct AnimationCache {
 				);
 			}
 			index++;
+		}
+		for (auto& entry : creature_entries)
+		{
+			string lower = entry.name;
+			transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return tolower(c); });
+			projects_index[lower] = &entry;
+		}
+		for (auto& entry : misc_entries)
+		{
+			string lower = entry.name;
+			transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return tolower(c); });
+			projects_index[lower] = &entry;
 		}
 
 		printInfo();

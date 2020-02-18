@@ -99,14 +99,20 @@ namespace ckcmd {
 
 		struct RootMovement
 		{
+			float duration;
+
 			vector<tuple<hkReal, hkVector4>> translations;
 			vector<tuple<hkReal, ::hkQuaternion>> rotations;
 			vector<tuple<hkReal, string>> events;
 
 			vector<float> getData(string data);
-			RootMovement() {}
+			AnimData::StringListBlock getClipEvents() const;
+			AnimData::StringListBlock getClipTranslations() const;
+			AnimData::StringListBlock getClipRotations() const;
 
+			RootMovement() {}
 			RootMovement(
+				float duration,
 				const std::vector<std::string>& in_translations,
 				const std::vector<std::string>& in_rotations,
 				const std::vector<std::string>& in_events);
@@ -234,8 +240,14 @@ namespace ckcmd {
 				CreatureCacheEntry& creature_entry,
 				const fs::path& behaviorFolder,
 				std::map< fs::path, RootMovement>& map
+			); 
+				
+			void PutClipMovement(
+				const fs::path& animation_file,
+				CacheEntry& entry,
+				const fs::path& behaviorFolder,
+				const RootMovement& root_info
 			);
-
 		};
 
 		typedef map<set<string>, HKXWrapper> wrap_map;
