@@ -212,10 +212,9 @@ struct AnimationCache {
 		outstream.close();
 	}
 
-	void save_creature(const string& project, const fs::path& animationDataPath, const  fs::path&  animationSetDataPath) {
+	void save_creature(const string& project, CacheEntry* project_entry,  const fs::path& animationDataPath, const  fs::path&  animationSetDataPath) {
 		fs::create_directories("animationdata");
 
-		CacheEntry* project_entry = find(project);
 		if (project_entry) {
 
 			std::ofstream outstream;

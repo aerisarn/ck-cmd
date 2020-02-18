@@ -143,7 +143,7 @@ bool BeginConversion(const string& importSkeleton, const string& importFBX, cons
 					root_info.begin()->second
 				);
 
-				cache.save_creature(project, "animationdatasinglefile.txt", "animationsetdatasinglefile.txt");
+				cache.save_creature(project, entry, "animationdatasinglefile.txt", "animationsetdatasinglefile.txt");
 			}
 		}
 	}

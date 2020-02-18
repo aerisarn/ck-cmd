@@ -184,6 +184,7 @@ hkRootLevelContainer* HKXWrapper::read(const fs::path& path, hkArray<hkVariant>&
 	{
 		return resource->getContents<hkRootLevelContainer>();
 	}
+	throw runtime_error(string("Unable to load ")+ path.string() +"! verify that is a valid havok 2010 32 bit (skyrim LE) file!");
 	return NULL;
 }
 
@@ -830,24 +831,31 @@ set<string> HKXWrapper::create_animations(
 			for (int i = 0; i < reference.m_referenceFrameSamples.getSize(); i++)
 			{
 				hkVector4 test = reference.m_referenceFrameSamples[i];
+				auto abs_x = abs(test.getSimdAt(0));
+				auto abs_y = abs(test.getSimdAt(1));
+				auto abs_z = abs(test.getSimdAt(2));
+				auto abs_w = abs(test.getSimdAt(3));
+				float threshold = 1.0e-10;
+
+
 				Log::Info("Motion extracted %fs: (%f,%f,%f,%f)",
 					(float)root_track_times[i],
-					(float)reference.m_referenceFrameSamples[i].getSimdAt(0), 
-					(float)reference.m_referenceFrameSamples[i].getSimdAt(1), 
-					(float)reference.m_referenceFrameSamples[i].getSimdAt(2), 
+					(float)reference.m_referenceFrameSamples[i].getSimdAt(0),
+					(float)reference.m_referenceFrameSamples[i].getSimdAt(1),
+					(float)reference.m_referenceFrameSamples[i].getSimdAt(2),
 					(float)reference.m_referenceFrameSamples[i].getSimdAt(3));
 
 
 
-				if (abs((float)reference.m_referenceFrameSamples[i].getSimdAt(0)) < 10 ^ -10 &&
-					abs((float)reference.m_referenceFrameSamples[i].getSimdAt(1)) < 10 ^ -10 &&
-					abs((float)reference.m_referenceFrameSamples[i].getSimdAt(2)) < 10 ^ -10 &&
-					abs((float)reference.m_referenceFrameSamples[i].getSimdAt(3)) < 10 ^ -10)
+				if (abs_x < threshold &&
+					abs_y < threshold &&
+					abs_z < threshold &&
+					abs_w < threshold)
 					continue;
 
-				if (abs((float)reference.m_referenceFrameSamples[i].getSimdAt(0)) > 10 ^ -10 ||
-					abs((float)reference.m_referenceFrameSamples[i].getSimdAt(1)) > 10 ^ -10 ||
-					abs((float)reference.m_referenceFrameSamples[i].getSimdAt(2)) > 10 ^ -10)
+				if (abs_x > threshold ||
+					abs_y > threshold ||
+					abs_z > threshold )
 				{
 					root_info.translations.push_back({
 						root_track_times[i],
@@ -859,7 +867,7 @@ set<string> HKXWrapper::create_animations(
 					});
 				}
 
-				if (abs((float)reference.m_referenceFrameSamples[i].getSimdAt(3)) > 10 ^ -10)
+				if (abs_w > threshold)
 				{
 					hkReal z_euler_rotation_radians = reference.m_referenceFrameSamples[i].getSimdAt(3);
 					EulerAngles ang = Eul_(0.0, 0.0, z_euler_rotation_radians, EulOrdXYZs);
