@@ -3269,7 +3269,8 @@ void HKXWrapper::PutClipMovement(
 						continue;
 					}
 
-					cache_block_it->setEvents(root_info.getClipEvents());
+					if (!root_info.getClipEvents().getStrings().empty() || cache_block_it->getEvents().getStrings().empty())
+						cache_block_it->setEvents(root_info.getClipEvents());
 					movements_block_it->setDuration(to_string(root_info.duration));
 					movements_block_it->setTraslations(root_info.getClipTranslations());
 					movements_block_it->setRotations(root_info.getClipRotations());
