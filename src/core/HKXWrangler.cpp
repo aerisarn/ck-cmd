@@ -803,49 +803,35 @@ set<string> HKXWrapper::create_animations(
 
 		if (extract_motion) {
 			//Assume that the reference frame is actually the first bone
-			hkaDefaultAnimatedReferenceFrame::MotionExtractionOptions options;
-			options.m_numReferenceFrameTransforms = root_track.getSize();
-			options.m_referenceFrameTransforms = &root_track[0];
-			options.m_allowUpDown = true;
-			options.m_allowFrontBack = true;
-			options.m_allowRightLeft = true;
-			options.m_allowTurning = true;
-			options.m_numSamples = tempAnim->getNumOriginalFrames();
-			options.m_referenceFrameDuration = tempAnim->m_duration;
-			options.m_forward = hkVector4(0.0, 1.0, 0.0);
+			//hkaDefaultAnimatedReferenceFrame::MotionExtractionOptions options;
+			//options.m_numReferenceFrameTransforms = root_track.getSize();
+			//options.m_referenceFrameTransforms = &root_track[0];
+			//options.m_allowUpDown = true;
+			//options.m_allowFrontBack = true;
+			//options.m_allowRightLeft = true;
+			//options.m_allowTurning = true;
+			//options.m_numSamples = tempAnim->getNumOriginalFrames();
+			//options.m_referenceFrameDuration = tempAnim->m_duration;
+			//options.m_forward = hkVector4(0.0, 1.0, 0.0);
 
-			hkaDefaultAnimatedReferenceFrame reference(options);
-			hkaAnimatedReferenceFrameUtils::transformIntoAnimatedReferenceFrame(
-				&reference,
-				&root_track[1],
-				root_track.getSize(),
-				1
-			);
+			//hkaDefaultAnimatedReferenceFrame reference(options);
+			//hkaAnimatedReferenceFrameUtils::transformIntoAnimatedReferenceFrame(
+			//	&reference,
+			//	&root_track[1],
+			//	root_track.getSize(),
+			//	1
+			//);
 
-			for (int i = 0; i < root_track.getSize(); i++) {
-				tempAnim->m_transforms[i*skeleton.size()].setIdentity();
-			}
-
-			Log::Info("Motion extracted!");
-			hkVector4 null(0.0, 0.0, 0.0, 0.0);
-			for (int i = 0; i < reference.m_referenceFrameSamples.getSize(); i++)
+			for (int i = 0; i < root_track.getSize(); i++)
 			{
-				hkVector4 test = reference.m_referenceFrameSamples[i];
-				auto abs_x = abs(test.getSimdAt(0));
-				auto abs_y = abs(test.getSimdAt(1));
-				auto abs_z = abs(test.getSimdAt(2));
-				auto abs_w = abs(test.getSimdAt(3));
+				hkVector4 test_trans = root_track[i].getTranslation();
+				::hkQuaternion test_rot = root_track[i].getRotation();
+				auto abs_x = abs(test_trans.getSimdAt(0));
+				auto abs_y = abs(test_trans.getSimdAt(1));
+				auto abs_z = abs(test_trans.getSimdAt(2));
+
+				auto abs_w = abs(test_rot.m_vec.getSimdAt(3));
 				float threshold = 1.0e-10;
-
-
-				Log::Info("Motion extracted %fs: (%f,%f,%f,%f)",
-					(float)root_track_times[i],
-					(float)reference.m_referenceFrameSamples[i].getSimdAt(0),
-					(float)reference.m_referenceFrameSamples[i].getSimdAt(1),
-					(float)reference.m_referenceFrameSamples[i].getSimdAt(2),
-					(float)reference.m_referenceFrameSamples[i].getSimdAt(3));
-
-
 
 				if (abs_x < threshold &&
 					abs_y < threshold &&
@@ -860,29 +846,30 @@ set<string> HKXWrapper::create_animations(
 					root_info.translations.push_back({
 						root_track_times[i],
 						hkVector4(
-							reference.m_referenceFrameSamples[i].getSimdAt(0),
-							reference.m_referenceFrameSamples[i].getSimdAt(1),
-							reference.m_referenceFrameSamples[i].getSimdAt(2)
+							test_trans.getSimdAt(0),
+							test_trans.getSimdAt(1),
+							test_trans.getSimdAt(2)
 						)
 					});
 				}
 
 				if (abs_w > threshold)
 				{
-					hkReal z_euler_rotation_radians = reference.m_referenceFrameSamples[i].getSimdAt(3);
-					EulerAngles ang = Eul_(0.0, 0.0, z_euler_rotation_radians, EulOrdXYZs);
-					Quat qq = Eul_ToQuat(ang);
 					root_info.rotations.push_back({
 						root_track_times[i],
 						::hkQuaternion(
-							qq.x,
-							qq.y,
-							qq.z,
-							qq.w
+							test_rot.m_vec.getSimdAt(0),
+							test_rot.m_vec.getSimdAt(1),
+							test_rot.m_vec.getSimdAt(2),
+							test_rot.m_vec.getSimdAt(3)
 						)
 					});
 				}
+
+				tempAnim->m_transforms[i*skeleton.size()].setIdentity();
 			}
+
+			//TODO: linear analysis
 
 			if (root_info.translations.empty()) {
 				root_info.translations.push_back
