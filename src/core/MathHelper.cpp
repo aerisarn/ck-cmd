@@ -50,6 +50,21 @@ void find_files(fs::path startingDir, string extension, vector<fs::path>& result
 	}
 }
 
+void find_files_non_recursive(fs::path startingDir, string extension, vector<fs::path>& results) {
+	if (!exists(startingDir) || !is_directory(startingDir)) return;
+	for (auto& dirEntry : std::experimental::filesystem::directory_iterator(startingDir))
+	{
+		if (is_directory(dirEntry.path()))
+			continue;
+
+		std::string entry_extension = dirEntry.path().extension().string();
+		transform(entry_extension.begin(), entry_extension.end(), entry_extension.begin(), ::tolower);
+		if (entry_extension == extension) {
+			results.push_back(dirEntry.path().string());
+		}
+	}
+}
+
 fs::path relative_to(const fs::path& p, const fs::path& base) {
 	fs::path in = p;
 	fs::path out;

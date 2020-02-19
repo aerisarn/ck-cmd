@@ -129,10 +129,10 @@ namespace ckcmd {
 
 			hkaSkeleton* skeleton = NULL;
 
-			hkaSkeleton* animation_skeleton;
-			hkaSkeleton* ragdoll_skeleton;
-			hkpPhysicsData* physics_data;
-			hkaSkeletonMapper* animation_to_ragdoll_mapper;
+			hkaSkeleton* animation_skeleton = NULL;
+			hkaSkeleton* ragdoll_skeleton = NULL;
+			hkpPhysicsData* physics_data = NULL;
+			hkaSkeletonMapper* animation_to_ragdoll_mapper = NULL;
 
 			map<fs::path, hkRootLevelContainer> out_data;
 			map<fs::path, RootMovement> out_root_data;
@@ -171,13 +171,13 @@ namespace ckcmd {
 			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix, const set<string>& sequences_names);
 
 			template<typename hkRootType>
-			hkRefPtr<hkRootType> load(const fs::path& path, hkRootLevelContainer* root) {
+			hkRefPtr<hkRootType> load(const fs::path& path, hkRootLevelContainer*& root) {
 				root = read(path);
 				return root->findObject<hkRootType>();
 			}
 
 			template<typename hkRootType>
-			hkRefPtr<hkRootType> load(const fs::path& path, hkRootLevelContainer* root, hkArray<hkVariant>& objects) {
+			hkRefPtr<hkRootType> load(const fs::path& path, hkRootLevelContainer*& root, hkArray<hkVariant>& objects) {
 				root = read(path, objects);
 				return root->findObject<hkRootType>();
 			}
@@ -248,6 +248,8 @@ namespace ckcmd {
 				const fs::path& behaviorFolder,
 				const RootMovement& root_info
 			);
+
+			void write(hkRootLevelContainer* rootCont, const fs::path& out);
 		};
 
 		typedef map<set<string>, HKXWrapper> wrap_map;

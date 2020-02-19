@@ -150,11 +150,25 @@ bool isConstraintFbxNode(FbxNode* node) {
 		
 }
 
+void HKXWrapper::write(hkRootLevelContainer* rootCont, const fs::path& out)
+{
+	hkPackFormat pkFormat = HKPF_AMD64;
+	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
+	hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
+	hkOstream stream(out.string().c_str());
+	hkVariant root = { rootCont, &rootCont->staticClass() };
+	hkResult res = hkSerializeUtilSave(pkFormat, root, stream, flags, packFileOptions);
+	if (res != HK_SUCCESS)
+	{
+		Log::Error("Havok reports save failed.");
+	}
+}
+
 void HKXWrapper::write(hkRootLevelContainer& rootCont, string subfolder, string name) {
 	hkPackFormat pkFormat = HKPF_DEFAULT;
 	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
 	hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
-	fs::path final_out_path = fs::path(out_path_abs) / subfolder / string(name + ".hkx");
+	fs::path final_out_path = fs::path(out_path_abs) / subfolder / string(name + "_le.hkx");
 	//string out = out_path_abs+"\\" + out_name + ".hkx";
 	fs::create_directories(final_out_path.parent_path());
 	hkOstream stream(final_out_path.string().c_str());
@@ -165,7 +179,7 @@ void HKXWrapper::write(hkRootLevelContainer& rootCont, string subfolder, string 
 		Log::Error("Havok reports save failed.");
 	}
 	packFileOptions = GetWriteOptionsFromFormat(HKPF_AMD64);
-	fs::path final_out_path_se = fs::path(out_path_abs) / subfolder / string(name + "_se.hkx");
+	fs::path final_out_path_se = fs::path(out_path_abs) / subfolder / string(name + ".hkx");
 	fs::create_directories(final_out_path_se.parent_path());
 	hkOstream stream_se(final_out_path_se.string().c_str());
 	res = hkSerializeUtilSave(HKPF_AMD64, root, stream_se, flags, packFileOptions);
@@ -2241,7 +2255,7 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 		hkPackFormat pkFormat = HKPF_DEFAULT;
 		hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
 		hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
-		fs::path final_out_path = "./skeleton.hkx";
+		fs::path final_out_path = "./skeleton_le.hkx";
 		hkOstream stream(final_out_path.string().c_str());
 		hkVariant root = { &container, &container.staticClass() };
 		hkResult res = hkSerializeUtilSave(pkFormat, root, stream, flags, packFileOptions);
@@ -2250,7 +2264,7 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 			Log::Error("Havok reports save failed.");
 		}
 		hkPackFormat pkFormat2 = HKPF_AMD64;
-		fs::path final_out_path2 = "./skeleton_se.hkx";
+		fs::path final_out_path2 = "./skeleton.hkx";
 		hkPackfileWriter::Options packFileOptions2 = GetWriteOptionsFromFormat(pkFormat2);
 		hkOstream stream2(final_out_path2.string().c_str());
 		res = hkSerializeUtilSave(pkFormat2, root, stream2, flags, packFileOptions2);

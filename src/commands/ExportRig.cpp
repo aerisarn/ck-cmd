@@ -47,7 +47,7 @@ string ExportRig::GetHelp() const
 
 	// Usage: ck-cmd importanimation
 	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + 
-		" <path_to_skeleton_hkx> [<path_to_skeleton_nif>] [--a=<path_to_animations>] [--b=<path_to_behavior_folder>] [--c=<path_to_cache_file>] [--n=<path_to_additional_nifs>] [--e=<path_to_export>]\r\n";
+		" [<path_to_skeleton_hkx>] [<path_to_skeleton_nif>] [--a=<path_to_animations>] [--b=<path_to_behavior_folder>] [--c=<path_to_cache_file>] [--n=<path_to_additional_nifs>] [--e=<path_to_export>]\r\n";
 
 	const char help[] =
 		R"(Converts an HKX skeleton to FBX.
@@ -81,7 +81,8 @@ bool ExportRig::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		cacheFilePath,
 		behaviorFolder;
 
-	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
+	if (parsedArgs["<path_to_skeleton_hkx>"])
+		importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
 	if (parsedArgs["<path_to_skeleton_nif>"].isString())
 		importSkeletonNif = parsedArgs["<path_to_skeleton_nif>"].asString();
 	if (parsedArgs["--a"].isString())
@@ -117,8 +118,7 @@ bool BeginConversion(const string& importSkeleton,
 	const string& exportPath
 ) {
 	if (!fs::exists(importSkeleton) || !fs::is_regular_file(importSkeleton)) {
-		Log::Error("Invalid file: %s", importSkeleton.c_str());
-		return false;
+		Log::Warn("Invalid HKX skeelton file: %s", importSkeleton.c_str());
 	}
 	fs::path outputDir = fs::path(exportPath);
 	if (!fs::exists(outputDir) || !fs::is_directory(outputDir)) {
@@ -132,66 +132,69 @@ bool BeginConversion(const string& importSkeleton,
 
 	wrangler.setExportRig(true);
 	vector<FbxProperty> floats;
-	vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, floats);
-
-	vector<fs::path> animation_files;
-	if (fs::exists(animationsPath) && fs::is_directory(animationsPath))
+	if (fs::exists(importSkeleton) && fs::is_regular_file(importSkeleton))
 	{
-		CacheEntry entry;
-		CreatureCacheEntry creature_entry;
-		std::map< fs::path, RootMovement> map;
+		vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, floats);
 
-		find_files(animationsPath, ".hkx", animation_files);
-		if (fs::exists(cacheFilePath) && !fs::is_directory(cacheFilePath) &&
-			fs::exists(behaviorFolder) && fs::is_directory(behaviorFolder))
+		vector<fs::path> animation_files;
+		if (fs::exists(animationsPath) && fs::is_directory(animationsPath))
 		{
-			AnimationCache::get_entries(entry, creature_entry, cacheFilePath);
-			Log::Info("Loaded animation cache info from %s", cacheFilePath.c_str());
-			HKXWrapper wrap;
-			wrap.GetClipsMovements(
-				animation_files,
-				entry,
-				creature_entry,
-				behaviorFolder,
-				map
-			);
-		
-		}
+			CacheEntry entry;
+			CreatureCacheEntry creature_entry;
+			std::map< fs::path, RootMovement> map;
 
-		for (const auto& anim : animation_files)
-		{
-			FBXWrangler anim_wrangler;
-			anim_wrangler.NewScene();
-			auto root_movement = map.find(anim);
-			fs::path out_path = anim;  out_path.replace_extension(".fbx");
-			vector<FbxProperty> floats;
-			vector<FbxNode*> ordered_skeleton = anim_wrangler.importExternalSkeleton(importSkeleton, floats);
-			
-			if (root_movement != map.end())
+			find_files(animationsPath, ".hkx", animation_files);
+			if (fs::exists(cacheFilePath) && !fs::is_directory(cacheFilePath) &&
+				fs::exists(behaviorFolder) && fs::is_directory(behaviorFolder))
 			{
-				anim_wrangler.importAnimationOnSkeleton(
-					anim.string(),
-					ordered_skeleton,
-					floats,
-					root_movement->second);
-			}
-			else {
-				anim_wrangler.importAnimationOnSkeleton(
-					anim.string(),
-					ordered_skeleton,
-					floats,
-					RootMovement());
+				AnimationCache::get_entries(entry, creature_entry, cacheFilePath);
+				Log::Info("Loaded animation cache info from %s", cacheFilePath.c_str());
+				HKXWrapper wrap;
+				wrap.GetClipsMovements(
+					animation_files,
+					entry,
+					creature_entry,
+					behaviorFolder,
+					map
+				);
+
 			}
 
-			vector<fs::path> nif_files;
-			if (fs::exists(additionalNifPath) && fs::is_directory(additionalNifPath))
+			for (const auto& anim : animation_files)
 			{
-				find_files(additionalNifPath, ".nif", nif_files);
-				for (const auto& nif : nif_files)
-					anim_wrangler.AddNif(NifFile(nif.string().c_str()));
-			}
+				FBXWrangler anim_wrangler;
+				anim_wrangler.NewScene();
+				auto root_movement = map.find(anim);
+				fs::path out_path = anim;  out_path.replace_extension(".fbx");
+				vector<FbxProperty> floats;
+				vector<FbxNode*> ordered_skeleton = anim_wrangler.importExternalSkeleton(importSkeleton, floats);
 
-			anim_wrangler.ExportScene(out_path.string().c_str());
+				if (root_movement != map.end())
+				{
+					anim_wrangler.importAnimationOnSkeleton(
+						anim.string(),
+						ordered_skeleton,
+						floats,
+						root_movement->second);
+				}
+				else {
+					anim_wrangler.importAnimationOnSkeleton(
+						anim.string(),
+						ordered_skeleton,
+						floats,
+						RootMovement());
+				}
+
+				vector<fs::path> nif_files;
+				if (fs::exists(additionalNifPath) && fs::is_directory(additionalNifPath))
+				{
+					find_files(additionalNifPath, ".nif", nif_files);
+					for (const auto& nif : nif_files)
+						anim_wrangler.AddNif(NifFile(nif.string().c_str()));
+				}
+
+				anim_wrangler.ExportScene(out_path.string().c_str());
+			}
 		}
 	}
 

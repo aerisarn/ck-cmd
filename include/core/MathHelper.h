@@ -21,6 +21,7 @@ void sanitizeString(string& to_sanitize);
 string& unsanitizeString(string& to_unsanitize);
 
 void find_files(fs::path startingDir, string extension, vector<fs::path>& results);
+void find_files_non_recursive(fs::path startingDir, string extension, vector<fs::path>& results);
 
 fs::path relative_to(const fs::path& p, const fs::path& base);
 
