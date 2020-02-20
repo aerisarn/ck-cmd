@@ -27,12 +27,13 @@ namespace AnimData {
 			return -1;
 		}
 
-		void putProjectAttackBlock(const string& name, const ProjectAttackListBlock& block)
+		size_t putProjectAttackBlock(const string& name, const ProjectAttackListBlock& block)
 		{
 			std::vector<std::string>& projects = projectsList.getStrings();
 			projects.push_back(name);
 			projectsList.setStrings(projects);
 			projectAttacks.push_back(block);
+			return projectAttacks.size() - 1;
 		}
 
 		void parse(std::string content) {

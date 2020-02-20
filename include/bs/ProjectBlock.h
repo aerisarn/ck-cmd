@@ -12,6 +12,14 @@ namespace AnimData {
 		std::list<ClipGeneratorBlock> clips;
 
 	public:
+
+		void clear() {
+			hasProjectFiles = false;
+			projectFiles.clear();
+			hasAnimationCache = false;
+			clips.clear();
+		}
+
 		bool getHasAnimationCache() {
 			return hasAnimationCache;
 		}

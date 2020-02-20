@@ -202,6 +202,31 @@ struct AnimationCache {
 		build(animationDataContent, animationSetDataContent);
 	}
 
+	CreatureCacheEntry* cloneCreature(const std::string& source_project, const std::string& destination_project)
+	{
+		CacheEntry* source = find(source_project);
+		if (source == NULL) return NULL;
+		CreatureCacheEntry* creature = dynamic_cast<CreatureCacheEntry*>(source);
+		if (creature == NULL) return NULL;
+		AnimData::ProjectBlock block = creature->block;
+		AnimData::ProjectDataBlock movements = creature->movements;
+		AnimData::ProjectAttackListBlock sets = creature->sets;
+
+		auto index = animationData.putProject(destination_project+".txt", block, movements);
+		auto creature_index = animationSetData.putProjectAttackBlock(destination_project, sets);
+
+		creature_entries.push_back(
+			CreatureCacheEntry(
+				destination_project,
+				animationData.getProjectBlock(index),
+				animationData.getprojectMovementBlock(index),
+				animationSetData.getProjectAttackBlock(creature_index)
+			)
+		);
+		rebuildIndex();
+		return dynamic_cast<CreatureCacheEntry*>(find(destination_project));
+	}
+
 	void save(const fs::path& animationDataPath, const  fs::path&  animationSetDataPath) {
 		std::ofstream outstream;
 		outstream.open(animationDataPath.string()); // append instead of overwrite
@@ -228,10 +253,53 @@ struct AnimationCache {
 				outstream << project_entry->movements.getBlock();
 				outstream.close();
 			}
+			auto creature_ptr = dynamic_cast<CreatureCacheEntry*>(project_entry);
+			if (NULL != creature_ptr)
+			{
+				fs::path set_data_directory = fs::path("animationsetdata") / string(project + "data");
+				fs::create_directories(set_data_directory);
+				auto sets = creature_ptr->sets;
+				auto projects = sets.getProjectFiles().getStrings();
+				auto data = sets.getProjectAttackBlocks();
+				for (int i = 0; i < projects.size(); i++)
+				{
+					string outfile = (set_data_directory / projects[i]).string();
+					transform(outfile.begin(), outfile.end(), outfile.begin(), ::tolower);
+					outstream.open(set_data_directory / projects[i]);
+					outstream << data[i].getBlock();
+					outstream.close();
+				}
+				string outfile = (set_data_directory / string(project + ".txt")).string();
+				transform(outfile.begin(), outfile.end(), outfile.begin(), ::tolower);
+				outstream.open(outfile);
+				for (int i = 0; i < projects.size(); i++)
+				{
+					outstream << projects[i] << endl;
+				}
+				outstream << endl;
+				outstream.close();
+			}
+
 			save(animationDataPath, animationSetDataPath);
 		}
 
 
+	}
+
+	void rebuildIndex()
+	{
+		for (auto& entry : creature_entries)
+		{
+			string lower = entry.name;
+			transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return tolower(c); });
+			projects_index[lower] = &entry;
+		}
+		for (auto& entry : misc_entries)
+		{
+			string lower = entry.name;
+			transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return tolower(c); });
+			projects_index[lower] = &entry;
+		}
 	}
 	
 	void build(const string&  animationDataContent, const string&  animationSetDataContent) {
@@ -267,18 +335,7 @@ struct AnimationCache {
 			}
 			index++;
 		}
-		for (auto& entry : creature_entries)
-		{
-			string lower = entry.name;
-			transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return tolower(c); });
-			projects_index[lower] = &entry;
-		}
-		for (auto& entry : misc_entries)
-		{
-			string lower = entry.name;
-			transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return tolower(c); });
-			projects_index[lower] = &entry;
-		}
+		rebuildIndex();
 
 		printInfo();
 #ifdef __TEST__
@@ -466,7 +523,7 @@ struct AnimationCache {
 			size_t movements = entry.movements.getMovementData().size();
 			set<string> paths;
 			set<string> attacks;
-			std::list<AnimData::ProjectAttackBlock> abs = entry.sets.getProjectAttackBlocks();
+			auto abs = entry.sets.getProjectAttackBlocks();
 			Log::Info("animations sets: %d", abs.size());
 			for (auto& ab : abs)
 			{

@@ -6,19 +6,23 @@ namespace AnimData {
 	class ProjectAttackListBlock : public BlockObject {
 
 		StringListBlock projectFiles;
-		std::list<ProjectAttackBlock> projectAttackBlocks;
+		std::vector<ProjectAttackBlock> projectAttackBlocks;
 
 	public: 
+		void clear() {
+			projectFiles.clear();
+			projectAttackBlocks.clear();
+		}
 		StringListBlock getProjectFiles() {
 			return projectFiles;
 		}
 		void setProjectFiles(StringListBlock projectFiles) {
 			this->projectFiles = projectFiles;
 		}
-		std::list<ProjectAttackBlock> getProjectAttackBlocks() {
+		std::vector<ProjectAttackBlock>& getProjectAttackBlocks() {
 			return projectAttackBlocks;
 		}
-		void setProjectAttackBlocks(std::list<ProjectAttackBlock> projectAttackBlocks) {
+		void setProjectAttackBlocks(const std::vector<ProjectAttackBlock>& projectAttackBlocks) {
 			this->projectAttackBlocks = projectAttackBlocks;
 		}
 

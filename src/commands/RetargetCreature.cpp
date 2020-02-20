@@ -15,10 +15,29 @@
 #include <hkbProjectData_2.h>
 #include <hkbCharacterData_7.h>
 #include <hkbBehaviorGraph_1.h>
+#include <hkbExpressionDataArray_0.h>
+#include <hkbExpressionDataArray_0.h>
 #include <Animation/Animation/hkaAnimationContainer.h>
 
 #include <algorithm>
 #include <vector>
+
+struct ci_less
+{
+	// case-independent (ci) compare_less binary function
+	struct nocase_compare
+	{
+		bool operator() (const unsigned char& c1, const unsigned char& c2) const {
+			return tolower(c1) < tolower(c2);
+		}
+	};
+	bool operator() (const std::string & s1, const std::string & s2) const {
+		return std::lexicographical_compare
+		(s1.begin(), s1.end(),   // source range
+			s2.begin(), s2.end(),   // dest range
+			nocase_compare());  // comparison
+	}
+};
 
 template<typename T>
 typename T::size_type GeneralizedLevensteinDistance(const T &source,
@@ -274,7 +293,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		Log::Error("Unable to load havok project file: %s", project_file.string().c_str());
 		return false;
 	}
-	std::map<string, string> retarget_map;
+	std::map<string, string, ci_less> retarget_map;
 	hkbProjectStringData* sdata = hkroot->m_stringData;
 	fs::path new_char_name;
 	fs::path old_char_file = source_havok_project_folder / fs::path(sdata->m_characterFilenames[0].cString());
@@ -284,6 +303,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		return false;
 	}
 	new_char_name = fs::path(sdata->m_characterFilenames[0].cString()).parent_path() / (output_havok_project_name + ".hkx");
+	retarget_map[string(sdata->m_characterFilenames[0].cString())] = new_char_name.string();
 	Log::Info("Project's character: %s, new name: %s", sdata->m_characterFilenames[0], new_char_name.string().c_str());
 	sdata->m_characterFilenames[0] = new_char_name.string().c_str();
 	wrapper.write(root, output / (output_havok_project_name + "project.hkx"));
@@ -301,18 +321,20 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 
 	string old_behavior_name = hk_ch_root->m_stringData->m_behaviorFilename.cString();
 	fs::path new_behavior_relative_path = fs::path(old_behavior_name).parent_path() / (output_havok_project_name + ".hkx");
+	retarget_map[old_behavior_name] = new_behavior_relative_path.string();
 	fs::path old_behavior_file = fs::path(source_havok_project_folder) / old_behavior_name;
 	hk_ch_root->m_stringData->m_behaviorFilename = new_behavior_relative_path.string().c_str();
 	fs::path old_rig_path = fs::path(source_havok_project_folder) / string(hk_ch_root->m_stringData->m_rigName);
 	//Just upgrade
-	root = NULL;
-	if (NULL == wrapper.load<hkaAnimationContainer>(old_rig_path, root))
+	hkRootLevelContainer* rig_root = NULL;
+	if (NULL == wrapper.load<hkaAnimationContainer>(old_rig_path, rig_root))
 	{
 		Log::Error("Unable to load skeleton file: %s", old_rig_path.string().c_str());
+		return false;
 	}
 	else {
 		fs::create_directories(fs::path(fs::path(output) / string(hk_ch_root->m_stringData->m_rigName)).parent_path());
-		wrapper.write(root, output / string(hk_ch_root->m_stringData->m_rigName));
+		wrapper.write(rig_root, output / string(hk_ch_root->m_stringData->m_rigName));
 	}
 
 	//Check paired
@@ -331,7 +353,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 					new_name.replace(n, old_name.size(), output_havok_project_name);
 					n += output_havok_project_name.size();
 				}
-				Log::Info("Will substitute %s references with %s", name.c_str(), name.c_str());
+				Log::Info("Will substitute %s references with %s", name.c_str(), new_name.c_str());
 				hk_ch_root->m_stringData->m_animationNames[i] = new_name.c_str();
 				retarget_map[name] = new_name;
 				if (fs::exists(fs::path(source_havok_project_folder) / name) &&
@@ -369,6 +391,46 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				wrapper.write(root, output / name);
 			}
 		}
+		// Calculate relative path for crc
+		fs::path abs = fs::canonical(fs::path(source_havok_project_folder) / name).parent_path();
+		fs::path base = source_havok_project_folder;
+		while (base.has_parent_path())
+		{
+			base = base.parent_path();
+			if (base.filename().string() == "meshes")
+				break;
+		}
+		if (base.string().find("meshes") == string::npos) {
+			Log::Error("Cannot find meshes folder into the source_havok_project_folder! Please use the original extracted bsa path fully!");
+			return false;
+		}
+		fs::path relative = "meshes" / relative_to(abs, base);
+		string to_crc = relative.string();
+		transform(to_crc.begin(), to_crc.end(), to_crc.begin(), ::tolower);
+		string::size_type n = 0;
+		while ((n = to_crc.find('/', n)) != string::npos)
+		{
+			to_crc.replace(n, 1, "\\");
+			n += 1;
+		}
+		long long crc = stoll(HkCRC::compute(to_crc),NULL,16);
+		string crc_str = to_string(crc);
+		//new
+		string lower_output = output_havok_project_name;
+		transform(lower_output.begin(), lower_output.end(), lower_output.begin(), ::tolower);
+		string lower_project = fs::path(source_havok_project_folder).filename().string();
+		transform(lower_project.begin(), lower_project.end(), lower_project.begin(), ::tolower);
+		string new_to_crc = to_crc;
+		n = 0;
+		while ((n = new_to_crc.find(lower_project, n)) != string::npos)
+		{
+			new_to_crc.replace(n, lower_project.size(), lower_output);
+			n += lower_output.size();
+		}
+		long long new_crc = stoll(HkCRC::compute(new_to_crc), NULL, 16);
+		string new_crc_str = to_string(new_crc);
+		retarget_map[crc_str] = new_crc_str;
+
 	}
 	fs::create_directories(fs::path(fs::path(output) / new_char_name).parent_path());
 	wrapper.write(root, output / new_char_name);
@@ -377,8 +439,45 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	find_files_non_recursive(old_behavior_dir, ".hkx", behaviors);
 	for (const auto& file : behaviors) {
 		hkArray<hkVariant> objects;
+		hkRootLevelContainer* root = NULL;
 		hkRefPtr<hkbBehaviorGraph> bhkroot = wrapper.load<hkbBehaviorGraph>(file, root, objects);
 		Log::Info("Graph: %s", bhkroot->m_name);
+		Log::Info("Retargeting Events:");
+		for (int i = 0; i < bhkroot->m_data->m_stringData->m_eventNames.getSize(); i++)
+		{
+			string event_name = bhkroot->m_data->m_stringData->m_eventNames[i];
+			if (event_name.find(old_name) != string::npos)
+			{
+				string new_name = event_name;
+				string::size_type n = 0;
+				while ((n = new_name.find(old_name, n)) != string::npos)
+				{
+					new_name.replace(n, old_name.size(), output_havok_project_name);
+					n += output_havok_project_name.size();
+				}
+				Log::Info("Will substitute %s references with %s", event_name.c_str(), new_name.c_str());
+				retarget_map[string(bhkroot->m_data->m_stringData->m_eventNames[i])] = new_name;
+				bhkroot->m_data->m_stringData->m_eventNames[i] = new_name.c_str();
+			}
+		}
+		Log::Info("Retargeting Variables:");
+		for (int i = 0; i < bhkroot->m_data->m_stringData->m_variableNames.getSize(); i++)
+		{
+			string event_name = bhkroot->m_data->m_stringData->m_variableNames[i];
+			if (event_name.find(old_name) != string::npos)
+			{
+				string new_name = event_name;
+				string::size_type n = 0;
+				while ((n = new_name.find(old_name, n)) != string::npos)
+				{
+					new_name.replace(n, old_name.size(), output_havok_project_name);
+					n += output_havok_project_name.size();
+				}
+				Log::Info("Will substitute %s references with %s", event_name.c_str(), new_name.c_str());
+				retarget_map[string(bhkroot->m_data->m_stringData->m_variableNames[i])] = new_name;
+				bhkroot->m_data->m_stringData->m_variableNames[i] = new_name.c_str();				
+			}
+		}
 		for (const auto& object : objects)
 		{
 			if (hkbClipGenerator::staticClass().getSignature() == object.m_class->getSignature())
@@ -388,12 +487,81 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				auto it = retarget_map.find(string(clip->m_animationName));
 				if (it != retarget_map.end())
 				{
-					Log::Info("Retargeting clip: %s, animation: %s", clip->m_name, clip->m_animationName);
+					Log::Info("Retargeting clip: %s, animation: %s to %s", clip->m_name, clip->m_animationName, it->second.c_str());
+					clip->m_animationName = it->second.c_str();
+				}
+			}
+			if (hkbExpressionDataArray::staticClass().getSignature() == object.m_class->getSignature())
+			{
+				hkRefPtr<hkbExpressionDataArray> expression = (hkbExpressionDataArray*)object.m_object;
+				for (int i = 0; i < expression->m_expressionsData.getSize(); i++)
+				{
+					auto data = expression->m_expressionsData[i];
+					string expression_string = expression->m_expressionsData[i].m_expression;
+					if (expression_string.find(old_name) != string::npos)
+					{
+						string new_name = expression_string;
+						string::size_type n = 0;
+						while ((n = new_name.find(old_name, n)) != string::npos)
+						{
+							new_name.replace(n, old_name.size(), output_havok_project_name);
+							n += output_havok_project_name.size();
+						}
+						Log::Info("Will substitute %s expression with %s", expression_string.c_str(), new_name.c_str());
+						expression->m_expressionsData[i].m_expression = new_name.c_str();
+					}
 				}
 			}
 		}
+		string relative = (file.parent_path().filename() / file.filename()).string();
+		auto it = retarget_map.find(string(relative));
+		fs::path behavior_output_file = output;
+		if (it != retarget_map.end())
+			behavior_output_file = behavior_output_file / it->second;
+		else
+			behavior_output_file = behavior_output_file / relative;
+		fs::create_directories(behavior_output_file.parent_path());
+		wrapper.write(root, behavior_output_file);
 	}
 
+	//Now adjust the cache
+	auto cache_ptr = cache.cloneCreature(cache_name, output_havok_project_name + "project");
+	//retarget caches
+	auto block = cache_ptr->block.toASCII();
+	string::size_type n = 0;
+	while ((n = block.find(old_name, n)) != string::npos)
+	{
+		block.replace(n, old_name.size(), output_havok_project_name);
+		n += output_havok_project_name.size();
+	}
+	cache_ptr->block.clear();
+	cache_ptr->block.fromASCII(block);
+	auto set_block = cache_ptr->sets.getBlock();
+	n = 0;
+	while ((n = set_block.find(old_name, n)) != string::npos)
+	{
+		set_block.replace(n, old_name.size(), output_havok_project_name);
+		n += output_havok_project_name.size();
+	}
+	//adjust crc
+	for (const auto& it : retarget_map) {
+		string token = it.first;
+		n = 0;
+		while ((n = set_block.find(token, n)) != string::npos)
+		{
+			set_block.replace(n, token.size(), it.second);
+			n += it.second.size();
+		}
+	}
+	cache_ptr->sets.clear();
+	cache_ptr->sets.parseBlock(scannerpp::Scanner(set_block));
+
+	cache.save_creature(output_havok_project_name + "project", cache_ptr, "animationdatasinglefile.txt", "animationsetdatasinglefile.txt");
+
+
+
+
+	//retarget events inside clips
 
 
 
@@ -402,7 +570,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 
 
 
-	Games& games = Games::Instance();
+	//Games& games = Games::Instance();
 	//Games::Game tes5 = Games::TES5;
 
 	//if (!games.isGameInstalled(tes5)) {
