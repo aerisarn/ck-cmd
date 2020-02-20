@@ -368,7 +368,9 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 						Log::Error("Unable to load havok project file: %s", project_file.string().c_str());
 					}
 					else {
-						wrapper.write(root, new_name);
+						string out = new_name;
+						transform(out.begin(), out.end(), out.begin(), ::tolower);
+						wrapper.write(root, out);
 					}
 					
 					Log::Info("Copied (and upgraded) into %s", fs::canonical(new_name).string().c_str());
@@ -388,7 +390,9 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			}
 			else {
 				fs::create_directories(fs::path(fs::path(output) / name).parent_path());
-				wrapper.write(root, output / name);
+				string out = (output / name).string();
+				transform(out.begin(), out.end(), out.begin(), ::tolower);
+				wrapper.write(root, out);
 			}
 		}
 		// Calculate relative path for crc
@@ -525,7 +529,9 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	}
 
 	//Now adjust the cache
-	auto cache_ptr = cache.cloneCreature(cache_name, output_havok_project_name + "project");
+	string output_havok_project_lower_name = output_havok_project_name;
+	transform(output_havok_project_lower_name.begin(), output_havok_project_lower_name.end(), output_havok_project_lower_name.begin(), ::tolower);
+	auto cache_ptr = cache.cloneCreature(cache_name, output_havok_project_lower_name + "project");
 	//retarget caches
 	auto block = cache_ptr->block.toASCII();
 	string::size_type n = 0;
