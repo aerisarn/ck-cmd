@@ -246,6 +246,9 @@ struct AnimationCache {
 			outstream.open(fs::path("animationdata") / string(project + ".txt"));
 			outstream << project_entry->block.getBlock();
 			outstream.close();
+			outstream.open(fs::path("animationdata") / string("dirlist.txt"));
+			outstream << animationData.getProjectList().getBlock();
+			outstream.close();
 			if (project_entry->hasCache())
 			{
 				fs::create_directories(fs::path("animationdata")/"boundanims");
@@ -258,6 +261,9 @@ struct AnimationCache {
 			{
 				fs::path set_data_directory = fs::path("animationsetdata") / string(project + "data");
 				fs::create_directories(set_data_directory);
+				outstream.open(fs::path("animationsetdata") / string("dirlist.txt"));
+				outstream << animationSetData.getProjectsList().getBlock();
+				outstream.close();
 				auto sets = creature_ptr->sets;
 				auto projects = sets.getProjectFiles().getStrings();
 				auto data = sets.getProjectAttackBlocks();
