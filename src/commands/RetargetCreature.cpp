@@ -18,6 +18,7 @@
 #include <hkbExpressionDataArray_0.h>
 #include <hkbExpressionDataArray_0.h>
 #include <Animation/Animation/hkaAnimationContainer.h>
+#include <BSSynchronizedClipGenerator_1.h>
 
 #include <algorithm>
 #include <vector>
@@ -359,8 +360,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				if (fs::exists(fs::path(source_havok_project_folder) / name) &&
 					fs::is_regular_file(fs::path(source_havok_project_folder) / name))
 				{
-					Log::Info("Found %s", (fs::path(source_havok_project_folder) / name).string().c_str());
-					fs::create_directories(fs::path(new_name).parent_path());
+					Log::Info("Found %s", (fs::path(source_havok_project_folder) / name).string().c_str());					
 					hkRootLevelContainer* root = NULL;
 					hkRefPtr<hkaAnimationContainer> hkroot = wrapper.load<hkaAnimationContainer>(fs::path(source_havok_project_folder) / name, root);
 					if (hkroot == NULL)
@@ -370,6 +370,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 					else {
 						string out = new_name;
 						transform(out.begin(), out.end(), out.begin(), ::tolower);
+						fs::create_directories(fs::path(new_name).parent_path());
 						wrapper.write(root, out);
 					}
 					
@@ -389,9 +390,9 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				Log::Error("Unable to load animation file file: %s", (fs::path(source_havok_project_folder) / name).string().c_str());
 			}
 			else {
-				fs::create_directories(fs::path(fs::path(output) / name).parent_path());
 				string out = (output / name).string();
 				transform(out.begin(), out.end(), out.begin(), ::tolower);
+				fs::create_directories(fs::path(out).parent_path());
 				wrapper.write(root, out);
 			}
 		}
@@ -494,6 +495,27 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 					Log::Info("Retargeting clip: %s, animation: %s to %s", clip->m_name, clip->m_animationName, it->second.c_str());
 					clip->m_animationName = it->second.c_str();
 				}
+				string clip_name = clip->m_name;
+				string::size_type n = 0;
+				while ((n = clip_name.find(old_name, n)) != string::npos)
+				{
+					clip_name.replace(n, old_name.size(), output_havok_project_name);
+					n += output_havok_project_name.size();
+				}
+				clip->m_name = clip_name.c_str();
+			}
+			if (BSSynchronizedClipGenerator::staticClass().getSignature() == object.m_class->getSignature())
+			{
+				hkRefPtr<BSSynchronizedClipGenerator> clip = (BSSynchronizedClipGenerator*)object.m_object;
+
+				string clip_name = clip->m_name;
+				string::size_type n = 0;
+				while ((n = clip_name.find(old_name, n)) != string::npos)
+				{
+					clip_name.replace(n, old_name.size(), output_havok_project_name);
+					n += output_havok_project_name.size();
+				}
+				clip->m_name = clip_name.c_str();
 			}
 			if (hkbExpressionDataArray::staticClass().getSignature() == object.m_class->getSignature())
 			{

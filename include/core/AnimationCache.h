@@ -213,7 +213,7 @@ struct AnimationCache {
 		AnimData::ProjectAttackListBlock sets = creature->sets;
 
 		auto index = animationData.putProject(destination_project+".txt", block, movements);
-		auto creature_index = animationSetData.putProjectAttackBlock(destination_project, sets);
+		auto creature_index = animationSetData.putProjectAttackBlock(destination_project+"Data\\"+ destination_project+".txt", sets);
 
 		creature_entries.push_back(
 			CreatureCacheEntry(
