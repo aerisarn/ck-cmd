@@ -2679,7 +2679,7 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		collection = dynamic_cast<hkpShapeCollection*>(childShape);
 		//create welding info
 		mci.m_enableChunkSubdivision = false;  //  PC version
-
+		auto container = collection->getContainer();
 		pMoppCode = hkpMoppUtility::buildCode(collection->getContainer(), mci);
 		hkRefPtr<hkpMoppBvTreeShape> pMoppBvTree = new hkpMoppBvTreeShape(collection, pMoppCode);
 		hkpMeshWeldingUtility::computeWeldingInfo(collection, pMoppBvTree, hkpWeldingUtility::WELDING_TYPE_TWO_SIDED);
@@ -3294,10 +3294,75 @@ void HKXWrapper::PutClipMovement(
 }
 
 //this is O(Grayskull), needs simplification
+void HKXWrapper::GetStaticClipsMovements(
+	vector<fs::path> animation_files,
+	StaticCacheEntry& entry,
+	const fs::path& behaviorFolder,
+	std::map< fs::path, RootMovement>& map
+) {
+	vector<fs::path> behavior_files;
+	auto& cache_clips = entry.block.getClips();
+	auto& cache_movements = entry.movements.getMovementData();
+	find_files(behaviorFolder, ".hkx", behavior_files);
+	for (const auto& behavior_file : behavior_files)
+	{
+		hkRootLevelContainer* broot = NULL;
+		hkArray<hkVariant> objects;
+		hkRefPtr<hkbBehaviorGraph> bhkroot = load<hkbBehaviorGraph>(behavior_file, broot, objects);
+		Log::Info("Graph: %s", bhkroot->m_name);
+		for (const auto& object : objects)
+		{
+			if (hkbClipGenerator::staticClass().getSignature() == object.m_class->getSignature())
+			{
+				hkRefPtr<hkbClipGenerator> clip = (hkbClipGenerator*)object.m_object;
+				//Log::Info("Clip: %s, animation: %s", clip->m_name, clip->m_animationName);
+				fs::path clip_animation_filename = string(clip->m_animationName);
+				auto it = find_if(animation_files.begin(), animation_files.end(), filename_compare(clip_animation_filename));
+				if (it != animation_files.end())
+				{
+					Log::Info("Found Clip Generator %s", clip->m_name);
+					string clip_generator_name = clip->m_name;
+					auto cache_block_it = find_if(cache_clips.begin(), cache_clips.end(), cache_block_compare(clip_generator_name));
+					if (cache_block_it == cache_clips.end())
+					{
+						Log::Error("Cannot find %s into project cache", clip->m_name);
+						continue;
+					}
+					size_t index = cache_block_it->getCacheIndex();
+					auto movements_block_it = find_if(cache_movements.begin(), cache_movements.end(), cache_movement_compare(index));
+					if (movements_block_it == cache_movements.end())
+					{
+						Log::Error("Cannot find %s movements of index %d into project cache", clip->m_name, index);
+						continue;
+					}
+					map[*it] = RootMovement(
+						std::atof(movements_block_it->getDuration().c_str()),
+						movements_block_it->getTraslations().getStrings(),
+						movements_block_it->getRotations().getStrings(),
+						cache_block_it->getEvents().getStrings()
+					);
+				}
+			}
+			if (map.size() == animation_files.size())
+				break;
+		}
+		if (map.size() == animation_files.size())
+			break;
+	}
+	if (map.size() != animation_files.size())
+	{
+		Log::Warn("Not all clip entries were found used inside the behavior!");
+		for (const auto& animation_file : animation_files) {
+			if (map.find(animation_file) == map.end())
+				Log::Warn("Clip not found: %s!", animation_file.string().c_str());
+		}
+	}
+}
+
+//this is O(Grayskull), needs simplification
 void HKXWrapper::GetClipsMovements(
 	vector<fs::path> animation_files,
 	CacheEntry& entry,
-	CreatureCacheEntry& creature_entry,
 	const fs::path& behaviorFolder,
 	std::map< fs::path, RootMovement>& map
 ) {

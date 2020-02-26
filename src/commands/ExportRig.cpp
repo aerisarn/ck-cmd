@@ -139,21 +139,19 @@ bool BeginConversion(const string& importSkeleton,
 		vector<fs::path> animation_files;
 		if (fs::exists(animationsPath) && fs::is_directory(animationsPath))
 		{
-			CacheEntry entry;
-			CreatureCacheEntry creature_entry;
+			StaticCacheEntry entry;
 			std::map< fs::path, RootMovement> map;
 
 			find_files(animationsPath, ".hkx", animation_files);
 			if (fs::exists(cacheFilePath) && !fs::is_directory(cacheFilePath) &&
 				fs::exists(behaviorFolder) && fs::is_directory(behaviorFolder))
 			{
-				AnimationCache::get_entries(entry, creature_entry, cacheFilePath);
+				AnimationCache::get_entries(entry, cacheFilePath);
 				Log::Info("Loaded animation cache info from %s", cacheFilePath.c_str());
 				HKXWrapper wrap;
-				wrap.GetClipsMovements(
+				wrap.GetStaticClipsMovements(
 					animation_files,
 					entry,
-					creature_entry,
 					behaviorFolder,
 					map
 				);

@@ -153,6 +153,20 @@ struct CacheEntry
 	virtual void none() {}
 };
 
+struct StaticCacheEntry
+{
+	string name;
+	AnimData::ProjectBlock block;
+	AnimData::ProjectDataBlock movements;
+
+	StaticCacheEntry() {}
+	StaticCacheEntry(const string& name, AnimData::ProjectBlock& block, AnimData::ProjectDataBlock& movements) : name(name), block(block), movements(movements) {}
+
+	bool hasCache() { return block.getHasAnimationCache(); }
+
+	virtual void none() {}
+};
+
 struct CreatureCacheEntry : public CacheEntry
 {
 	AnimData::ProjectAttackListBlock& sets;
@@ -391,8 +405,7 @@ struct AnimationCache {
 	}
 
 	static void get_entries(
-		CacheEntry& entry,
-		CreatureCacheEntry& creature_entry,
+		StaticCacheEntry& entry,
 		const string& cacheFile
 	) {
 		if (!fs::exists(cacheFile) || !fs::is_regular_file(cacheFile))

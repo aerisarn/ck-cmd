@@ -234,10 +234,16 @@ namespace ckcmd {
 			static hkRefPtr<hkpShape> build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, FbxNode* body, hkpRigidBodyCinfo& hk_body);
 			static hkRefPtr<hkpShape> check_shape(bhkShapeRef shape_root, bhkRigidBodyRef bhkBody, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, hkpRigidBodyCinfo& hk_body);
 
+			void GetStaticClipsMovements(
+				vector<fs::path> animation_files,
+				StaticCacheEntry& entry,
+				const fs::path& behaviorFolder,
+				std::map< fs::path, RootMovement>& map
+			);
+
 			void GetClipsMovements(
 				vector<fs::path> animation_files,
 				CacheEntry& entry,
-				CreatureCacheEntry& creature_entry,
 				const fs::path& behaviorFolder,
 				std::map< fs::path, RootMovement>& map
 			); 
