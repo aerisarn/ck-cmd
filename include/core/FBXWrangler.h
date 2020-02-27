@@ -102,6 +102,7 @@ namespace FBX {
 		void CloseScene();
 
 		void setExportRig(bool _export_rig = true) { export_rig = _export_rig; }
+		void setExportSkin(bool _export_skin = true) { export_skin = _export_skin; }
 
 		void AddNif(NifFile& nif);
 

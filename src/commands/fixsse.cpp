@@ -145,6 +145,55 @@ static bool containsBones(list<int> a, list<int> b)
 	return true;
 }
 
+#include <algorithm>
+#include <tuple>
+
+template <typename BidirIt, typename... Predicates>
+void trivial_mul_part(BidirIt first, BidirIt last, Predicates... preds)
+{
+	std::sort(first, last,
+		[=](decltype(*first) const&  lhs, decltype(*first) const&  rhs)
+		{
+			return std::make_tuple(preds(lhs)...) > std::make_tuple(preds(rhs)...);
+		});
+}
+
+template <typename BidirIt, typename Out>
+void multi_partition(BidirIt, BidirIt, Out) {}
+
+template <typename BidirIt, typename OutputIterator,
+	typename Pred, typename... Predicates>
+	void multi_partition(BidirIt first, BidirIt last, OutputIterator out,
+		Pred pred, Predicates... preds)
+{
+	auto iter = std::partition(first, last, pred);
+	*out++ = iter;
+	multi_partition<BidirIt>(iter, last, out, preds...);
+}
+
+template <typename T, typename Compare>
+std::vector<std::size_t> sort_permutation(
+	const std::vector<T>& vec,
+	Compare& compare)
+{
+	std::vector<std::size_t> p(vec.size());
+	std::iota(p.begin(), p.end(), 0);
+	std::sort(p.begin(), p.end(),
+		[&](std::size_t i, std::size_t j) { return compare(vec[i], vec[j]); });
+	return p;
+}
+
+template <typename T>
+std::vector<T> apply_permutation(
+	const std::vector<T>& vec,
+	const std::vector<std::size_t>& p)
+{
+	std::vector<T> sorted_vec(vec.size());
+	std::transform(p.begin(), p.end(), sorted_vec.begin(),
+		[&](std::size_t i) { return vec[i]; });
+	return sorted_vec;
+}
+
 //remake partitions after triangulating
 NiTriShapeRef remake_partitions(NiTriBasedGeomRef iShape, int & maxBonesPerPartition, int & maxBonesPerVertex, bool make_strips, bool pad)
 {
@@ -167,728 +216,344 @@ NiTriShapeRef remake_partitions(NiTriBasedGeomRef iShape, int & maxBonesPerParti
 		NiSkinDataRef iSkinData = iSkinInst->GetData();
 		NiSkinPartitionRef iSkinPart = iSkinInst->GetSkinPartition();
 
+		set<size_t> bones;
+
 		if (iSkinPart == NULL)
 			iSkinPart = iSkinData->GetSkinPartition();
 
-		// read in the weights from NiSkinData
+		//bone -> {triangle, weight}
+		auto blocks = iSkinPart->GetSkinPartitionBlocks();
 
-		int numVerts = iData->GetVertices().size(); //nif->get<int>(iData, "Num Vertices");
-		vector<vector<boneweight> > weights(numVerts);
+		typedef std::array< tuple<size_t, size_t, float>,12> triangle_data_t;
 
-		auto& iBoneList = iSkinData->GetBoneList(); //nif->getIndex(iSkinData, "Bone List");
-		int numBones = iBoneList.size();
+		vector<triangle_data_t> global_map;
+		multimap< size_t, size_t> vertex_triangle_map;
 
-		for (int bone = 0; bone < numBones; bone++) {
-			auto& iVertexWeights = iBoneList[bone].vertexWeights;
-			//QModelIndex iVertexWeights = nif->getIndex(iBoneList.child(bone, 0), "Vertex Weights");
+		
+		for (int i=0; i < blocks.size(); i++)
+		{
+			auto& block = blocks[i];
 
-			for (int r = 0; r < iVertexWeights.size(); r++) {
-				int vertex = iVertexWeights[r].index; // nif->get<int>(iVertexWeights.child(r, 0), "Index");
-				float weight = iVertexWeights[r].weight;  //nif->get<float>(iVertexWeights.child(r, 0), "Weight");
+			auto new_triangles = triangulate(block.strips);
+			for (auto& tris : new_triangles)
+				block.triangles.push_back(tris);
+			
+			for (size_t t = 0; t < block.triangles.size(); t++) {
+				
+				triangle_data_t data;
+				
+				size_t v1 = block.triangles[t].v1;
+				size_t v2 = block.triangles[t].v2;
+				size_t v3 = block.triangles[t].v3;
 
-				if (vertex >= weights.size())
-					throw runtime_error("bad NiSkinData - vertex count does not match");
 
-				weights[vertex].push_back(boneweight(bone, weight));
+
+				auto vertexBonesV1 = block.boneIndices[v1];
+				auto vertexWeightsV1 = block.vertexWeights[v1];
+
+				for (size_t bi = 0; bi < vertexWeightsV1.size(); bi++)
+				{
+					float weight = vertexWeightsV1[bi];
+					if (weight > 0.001)
+					{
+						size_t bindex = vertexBonesV1[bi];
+						bones.insert(block.bones[bindex]);
+						data[bi] = { block.vertexMap[v1], block.bones[bindex] , weight };
+					}
+					else {
+						data[bi] = { -1, -1, 0.0 };
+					}
+				}
+
+				auto vertexBonesV2 = block.boneIndices[v2];
+				auto vertexWeightsV2 = block.vertexWeights[v2];
+
+				for (size_t bi = 0; bi < vertexWeightsV2.size(); bi++)
+				{
+					float weight = vertexWeightsV2[bi];
+					if (weight > 0.001)
+					{
+						size_t bindex = vertexBonesV2[bi];
+						bones.insert(block.bones[bindex]);
+						data[bi + 4] = { block.vertexMap[v2], block.bones[bindex] , weight };
+					}
+					else {
+						data[bi + 4] = { -1, -1, 0.0 };
+					}
+				}
+
+				auto vertexBonesV3 = block.boneIndices[v3];
+				auto vertexWeightsV3 = block.vertexWeights[v3];
+
+				for (size_t bi = 0; bi < vertexWeightsV3.size(); bi++)
+				{
+					float weight = vertexWeightsV3[bi];
+					if (weight > 0.001)
+					{
+						size_t bindex = vertexBonesV3[bi];
+						bones.insert(block.bones[bindex]);
+						data[bi + 8] = { block.vertexMap[v3],  block.bones[bindex] , weight };
+					}
+					else {
+						data[bi + 8] = { -1, -1, 0.0 };
+					}
+				}
+
+				global_map.push_back(data);
 			}
 		}
+
+
+
+		size_t last_vertex_index = -1;
+		size_t entries_per_vertex_index = 0;
+		vector<vector<size_t>> influences(blocks.size());
+		
+		
+		set<size_t> visited_vertices;
+		size_t index = 0;
+		//for (auto& partition : global_map)
+		//{
+		//	auto& influence = influences[index];
+		//	for (auto entry = partition.begin(); entry!= partition.end(); entry++)
+		//	{
+		//		auto& ni_partition = new_blocks[index];
+		//		auto this_triangles = vertex_triangle_map.equal_range(get<0>(*entry));
+		//		for (auto triangle_it = this_triangles.first; triangle_it != this_triangles.second; this_triangles++)
+		//		{
+		//			
+		//		}
+
+
+		//		if (influence.size() <= get<0>(*entry))
+		//		{
+		//			influence.resize(get<0>(*entry) + 1, 0);
+		//		}
+		//		influence[get<0>(*entry)]++;
+		//		if (bones.find(get<1>(*entry)) == bones.end())
+		//			bones[get<1>(*entry)] = 0;
+		//		bones[get<1>(*entry)]++;
+		//		if (influence[get<0>(*entry)]>4) {
+		//			Log::Info("Vertex %d has more than 4 bone influences!", get<0>(*entry));
+		//		}
+		//	}
+		//	index++;
+		//}
+
+
+
+		// read in the weights from NiSkinData
+
+		//int numVerts = iData->GetVertices().size(); //nif->get<int>(iData, "Num Vertices");
+		//vector<vector<boneweight> > weights(numVerts);
+
+		//auto& iBoneList = iSkinData->GetBoneList(); //nif->getIndex(iSkinData, "Bone List");
+		//int numBones = iBoneList.size();
+
+		//for (int bone = 0; bone < numBones; bone++) {
+		//	auto& iVertexWeights = iBoneList[bone].vertexWeights;
+		//	//QModelIndex iVertexWeights = nif->getIndex(iBoneList.child(bone, 0), "Vertex Weights");
+
+		//	for (int r = 0; r < iVertexWeights.size(); r++) {
+		//		int vertex = iVertexWeights[r].index; // nif->get<int>(iVertexWeights.child(r, 0), "Index");
+		//		float weight = iVertexWeights[r].weight;  //nif->get<float>(iVertexWeights.child(r, 0), "Weight");
+
+		//		if (vertex >= weights.size())
+		//			throw runtime_error("bad NiSkinData - vertex count does not match");
+
+		//		if (weight > 0.001)
+		//			weights[vertex].push_back(boneweight(bone, weight));
+		//	}
+		//}
+
+		vector<vector<triangle_data_t>::iterator> iters;
+
+		vector < vector < triangle_data_t>> new_partitions;
+
+		
+		do {
+			iters.clear();
+			multi_partition(global_map.begin(), global_map.end(), std::back_inserter(iters),
+				[&new_partitions](triangle_data_t i) {
+					bool result = true;
+					for (int j = 0; j < 12; j++)
+					{
+						if (get<1>(i[j]) == -1)
+							continue;
+						if (get<1>(i[j]) < 60 * (new_partitions.size() + 1))
+							result &= true;
+						else
+							result &= false;
+					}
+					return result;
+				}
+			);
+			size_t it_distance = distance(global_map.begin(), iters[0] );
+			if (it_distance == global_map.size())
+				break;
+			auto it = iters[0]-1;
+			vector <triangle_data_t> temp_partition(distance(global_map.begin(), it));
+			move(global_map.begin(), it, temp_partition.begin());
+			new_partitions.push_back(temp_partition);
+			global_map.erase(global_map.begin(), it);
+		} while (!iters.empty());
+
+		vector < triangle_data_t> temp_partition(distance(global_map.begin(), global_map.end()));
+		move(global_map.begin(), global_map.end(), temp_partition.begin());
+		new_partitions.push_back(temp_partition);
+		global_map.erase(global_map.begin(), global_map.end());
+
+		assert(global_map.empty());
+
+		vector<vector<boneweight> > weights;
+		vector<Niflib::SkinPartition> new_blocks(new_partitions.size());
+		for (size_t p = 0; p < new_partitions.size(); p++)
+		{
+			auto& new_partition = new_partitions[p];
+			auto& new_block = new_blocks[p];
+			for (size_t t = 0; t < new_partition.size(); t++ ) 
+			{
+				auto& data = new_partition[t];
+				Niflib::Triangle tris;
+				for (size_t i = 0; i < 3; i++)
+				{
+					size_t absolute_vertex_index = -1;
+					for (int w = 0; w < 4; w++)
+					{
+						if (get<0>(data[i * 4 + w]) != -1)
+						{
+							absolute_vertex_index = get<0>(data[i * 4 + w]);
+							break;
+						}
+					}
+					size_t relative_vertex_index;
+					if (absolute_vertex_index != -1)
+					{
+						auto it = find(new_block.vertexMap.begin(), new_block.vertexMap.end(), absolute_vertex_index);
+						if (it == new_block.vertexMap.end())
+						{
+							relative_vertex_index = new_block.vertexMap.size();
+							new_block.vertexMap.push_back(absolute_vertex_index);
+						}
+						else {
+							relative_vertex_index = distance(new_block.vertexMap.begin(),it);
+						}
+						tris[i] = relative_vertex_index;
+						for (int w = 0; w < 4; w++)
+						{
+							size_t absolute_bone_index = get<1>(data[i * w]);
+							if (absolute_bone_index != -1)
+							{
+								//relativize later
+								/*size_t relative_bone_index;
+								auto bone_it = find(new_block.bones.begin(), new_block.bones.end(), absolute_bone_index);
+								if (bone_it == new_block.bones.end())
+								{
+									relative_bone_index = new_block.bones.size();
+									new_block.bones.push_back(absolute_bone_index);
+								}
+								else {
+									relative_bone_index = *bone_it;
+								}*/
+								float weight = get<2>(data[i * w]);
+								if (new_block.boneIndices.size() < (relative_vertex_index + 1))
+									new_block.boneIndices.resize(relative_vertex_index + 1);
+								if (new_block.vertexWeights.size() < (relative_vertex_index + 1))
+									new_block.vertexWeights.resize(relative_vertex_index + 1);
+								auto& vertexBones = new_block.boneIndices[relative_vertex_index];
+								auto& vertexWeights = new_block.vertexWeights[relative_vertex_index];
+								if (find(vertexBones.begin(), vertexBones.end(), absolute_bone_index) == vertexBones.end())
+								{
+									vertexBones.push_back(absolute_bone_index);
+									vertexWeights.push_back(weight);
+								}								
+							}
+						}
+					}
+				}
+				new_block.triangles.push_back(tris);
+				new_block.trianglesCopy.push_back(tris);
+			}
+		}
+
+		//reorder by weight
+		for (size_t p = 0; p < new_blocks.size(); p++)
+		{
+			auto& new_block = new_blocks[p];
+			for (int i = 0; i< new_block.vertexWeights.size(); i++)
+			{
+				auto perm = sort_permutation(new_block.vertexWeights[i],
+					[](float const& a, float const& b) { return a > b; });
+
+				new_block.vertexWeights[i] = apply_permutation(new_block.vertexWeights[i], perm);
+				new_block.boneIndices[i] = apply_permutation(new_block.boneIndices[i], perm);
+				assert(new_block.vertexWeights[i].size() == new_block.boneIndices[i].size());
+				while (new_block.vertexWeights[i].size() < 4) {
+					new_block.vertexWeights[i].push_back(0.0);
+					new_block.boneIndices[i].push_back(0);
+				}
+				while (new_block.vertexWeights[i].size() > 4) {
+					new_block.vertexWeights[i].pop_back();
+					new_block.boneIndices[i].pop_back();
+				}
+			}
+		}
+
+		//renormalize
+		for (size_t p = 0; p < new_blocks.size(); p++)
+		{
+			auto& new_block = new_blocks[p];
+			for (int i = 0; i < new_block.vertexWeights.size(); i++)
+			{
+				float sum = 0.0;
+				for (int j = 0; j < new_block.vertexWeights[i].size(); j++)
+				{
+					sum += new_block.vertexWeights[i][j];
+				}
+				if (sum > 0.0)
+				{
+					for (int j = 0; j < new_block.vertexWeights[i].size(); j++)
+					{
+						new_block.vertexWeights[i][j] = new_block.vertexWeights[i][j]/sum;
+					}
+				}
+			}
+		}
+
+		//relativize bone indexes
+		for (size_t p = 0; p < new_blocks.size(); p++)
+		{
+			auto& new_block = new_blocks[p];
+			for (int i = 0; i < new_block.vertexWeights.size(); i++)
+			{
+				for (int j = 0; j < new_block.vertexWeights[i].size(); j++)
+				{
+					if (new_block.vertexWeights[i][j] > 0.0)
+					{
+						size_t absolute_bone_index = new_block.boneIndices[i][j];
+						size_t relative_bone_index;
+						auto bone_it = find(new_block.bones.begin(), new_block.bones.end(), absolute_bone_index);
+						if (bone_it == new_block.bones.end())
+						{
+							relative_bone_index = new_block.bones.size();
+							new_block.bones.push_back(absolute_bone_index);
+						}
+						else {
+							relative_bone_index = distance(new_block.bones.begin(), bone_it);
+						}
+						new_block.boneIndices[i][j] = relative_bone_index;
+					}
+				}
+			}
+			new_block.hasVertexMap = true;
+			new_block.hasBoneIndices = true;
+			new_block.hasVertexWeights = true;
+			new_block.hasFaces = true;
+		}
+		iShape->GetSkinInstance()->GetSkinPartition()->SetSkinPartitionBlocks(new_blocks);
 
 		// count min and max bones per vertex
 
-		int minBones, maxBones;
-		minBones = maxBones = weights[0].size();
-		for (const vector<boneweight> list : weights) {
-			if (list.size() < minBones)
-				minBones = list.size();
-
-			if (list.size() > maxBones)
-				maxBones = list.size();
-		}
-
-		if (minBones <= 0)
-			throw runtime_error("bad NiSkinData - some vertices have no weights at all");
-
-		//query max bones per vertex/partition
-
-		if (maxBonesPerPartition <= 0 || maxBonesPerVertex <= 0) {
-
-			maxBonesPerPartition = 60;
-			maxBonesPerVertex = 4;
-			make_strips = false;
-			pad = false;
-		}
-
-		// reduce vertex influences if necessary
-
-		if (maxBones > maxBonesPerVertex) {
-			vector<vector<boneweight>>::iterator it = weights.begin();
-			int c = 0;
-
-			while (it != weights.end()) {
-				vector<boneweight> & lst = *it;
-				std::sort(lst.begin(), lst.end(), boneweight_equivalence());
-
-				if (lst.size() > maxBonesPerVertex)
-					c++;
-
-				while (lst.size() > maxBonesPerVertex) {
-					lst.erase(lst.end()-1);
-				}
-
-				float totalWeight = 0;
-				for (const auto bw : lst) {
-					totalWeight += bw.second;
-				}
-
-				for (int b = 0; b < lst.size(); b++) {
-					// normalize
-					lst[b].second /= totalWeight;
-				}
-				it++;
-			}
-
-			//				qCWarning( nsSpell ) << Spell::tr( "Reduced %1 vertices to %2 bone influences (maximum number of bones per vertex was %3)" )
-			//					.arg( c )
-			//					.arg( maxBonesPerVertex )
-			//					.arg( maxBones );
-		}
-
-		maxBones = maxBonesPerVertex;
-
-		// reduces bone weights so that the triangles fit into the partitions
-
-		vector<Triangle> triangles;
-
-		if (iShape->IsSameType(NiTriShape::TYPE)) {
-
-			triangles = (DynamicCast<NiTriShapeData>(iData))->GetTriangles(); // nif->getArray<Triangle>(iData, "Triangles").toList();
-		}
-		else if (iShape->IsSameType(NiTriStrips::TYPE)) {
-			// triangulate first (code copied from strippify.cpp)
-			auto& iPoints = (DynamicCast<NiTriStripsData>(iData))->GetPoints();
-
-			vector<vector<unsigned short> > strips;
-			//QModelIndex iPoints = nif->getIndex(iData, "Points");
-
-			for (int s = 0; s < iPoints.size(); s++) {
-				vector<unsigned short> strip;
-				auto& iStrip = iPoints[s];
-
-				for (int p = 0; p < iStrip.size(); p++) {
-					strip.push_back(iStrip[p]);
-				}
-
-				strips.push_back(strip);
-			}
-
-			triangles = triangulate(strips);
-		}
-
-		map<Triangle, unsigned int> trimap;
-		int defaultPart = 0;
-
-		//if (nif->inherits(iSkinInst, "BSDismemberSkinInstance")) {
-		if (iSkinInst->IsDerivedType(BSDismemberSkinInstance::TYPE)) {
-			BSDismemberSkinInstanceRef iBSSkinInst = DynamicCast<BSDismemberSkinInstance>(iSkinInst);
-			// First find a partition to dump dangling faces.  Torso is prefered if available.
-			unsigned int nparts = iBSSkinInst->GetPartitions().size(); // GetNnif->get<uint>(iSkinInst, "Num Partitions");
-			auto& iPartData = iBSSkinInst->GetPartitions();
-
-			for (int i = 0; i < nparts; ++i) {
-				auto& iPart = iPartData[i];
-
-				//if (!iPart.isValid())
-				//	continue;
-
-				if (iPart.bodyPart == 0 /* Torso */) {
-					defaultPart = i;
-					break;
-				}
-			}
-
-			defaultPart = min(nparts - 1, defaultPart);
-
-			// enumerate existing partitions and select faces into same partition
-			unsigned int nskinparts = iSkinPart->GetSkinPartitionBlocks().size(); //"Num Skin Partition Blocks");
-			auto& iPartBlockData = iSkinPart->GetSkinPartitionBlocks();
-
-			for (int i = 0; i < nskinparts; ++i) {
-				auto& iPart = iPartBlockData[i];
-
-				//if (!iPart.isValid())
-				//	continue;
-
-				int finalPart = min(nparts - 1, i);
-
-				auto& vertmap = iPart.vertexMap; // nif->getArray<int>(iPart, "Vertex Map");
-
-				bool hasFaces = iPart.hasFaces; // nif->get<quint8>(iPart, "Has Faces");
-				unsigned short numStrips = iPart.numStrips; // nif->get<quint8>(iPart, "Num Strips");
-				vector<Triangle> partTriangles;
-
-				if (hasFaces && numStrips == 0) {
-					partTriangles = iPart.triangles; // nif->getArray<Triangle>(iPart, "Triangles");
-				}
-				else if (numStrips != 0) {
-					// triangulate first (code copied from strippify.cpp)
-					vector<vector<unsigned short> > strips;
-					auto& iPoints = iPart.strips;
-					//QModelIndex iPoints = nif->getIndex(iPart, "Strips");
-
-					for (int s = 0; s < iPoints.size(); s++) {
-						vector<unsigned short> strip;
-						auto& iStrip = iPoints[s];
-
-						for (int p = 0; p < iStrip.size(); p++) {
-							strip.push_back(iStrip[p]);
-						}
-
-						strips.push_back(strip);
-					}
-
-					partTriangles = triangulate(strips);
-				}
-
-				for (int j = 0; j < partTriangles.size(); ++j) {
-					Triangle t = partTriangles[j];
-					Triangle tri = t;
-
-					if (!vertmap.empty()) {
-						tri[0] = vertmap[tri[0]];
-						tri[1] = vertmap[tri[1]];
-						tri[2] = vertmap[tri[2]];
-					}
-
-					qRotate(tri);
-					trimap[tri] = finalPart;
-				}
-			}
-		}
-
-		multimap<int, int> match;
-		typedef multimap<int, int>::iterator MatchIterator;
-		bool doMatch = true;
-
-		list<int> tribones;
-
-		int cnt = 0;
-
-		for (const Triangle& tri : triangles)
-		{
-			do {
-				//tribones.clear();
-
-				for (int c = 0; c < 3; c++) {
-					for (const auto bw : weights[tri[c]]) {
-						if (find(tribones.begin(), tribones.end(),bw.first) == tribones.end())
-							tribones.push_back(bw.first);
-					}
-				}
-
-				if (tribones.size() > maxBonesPerPartition) {
-					// sum up the weights for each bone
-					// bones with weight == 1 can't be removed
-
-					map<int, float> sum;
-					list<int> nono;
-
-					for (int t = 0; t < 3; t++) {
-						if (weights[tri[t]].size() == 1)
-							nono.push_back(weights[tri[t]].begin()->first);
-
-						for (const auto bw : weights[tri[t]]) {
-							sum[bw.first] += bw.second;
-						}
-					}
-
-					// select the bone to remove
-
-					float minWeight = 5.0;
-					int minBone = -1;
-
-					for (const auto b : sum) {
-						if (find(nono.begin(),nono.end(),b.first)!= nono.end() && sum[b.first] < minWeight) {
-							minWeight = sum[b.first];
-							minBone = b.first;
-						}
-					}
-
-					if (minBone < 0)  // this shouldn't never happen
-						throw runtime_error("internal error 0x01");
-
-					// do a vertex match detect
-
-					if (doMatch) {
-						auto& verts = iData->GetVertices(); // nif->getArray<Vector3>(iData, "Vertices");
-
-						for (int a = 0; a < verts.size(); a++) {
-							match.insert(pair<int, int>({ a, a }));
-
-							for (int b = a + 1; b < verts.size(); b++) {
-								if (verts[a] == verts[b] && weights[a] == weights[b]) {
-									match.insert(pair<int, int>({ a, b }));
-									match.insert(pair<int, int>({ b, a }));
-								}
-							}
-						}
-					}
-
-					// now remove that bone from all vertices of this triangle and from all matching vertices too
-
-					for (int t = 0; t < 3; t++) {
-						bool rem = false;
-						pair<MatchIterator, MatchIterator> val = match.equal_range(tri[t]);
-						for (MatchIterator it = val.first; it != val.second; it++)
-						{
-							auto& v = it->second;
-							vector<boneweight> & bws = weights[v];
-							vector<boneweight>::iterator bit = bws.begin();
-
-							while (bit != bws.end()) {
-								boneweight & bw = *bit; 
-
-								if (bw.first == minBone) {
-									bit = bws.erase(bit);
-									rem = true;
-								}
-								else
-									bit++;
-							}
-
-							float totalWeight = 0;
-							for (const auto bw : bws) {
-								totalWeight += bw.second;
-							}
-
-							if (totalWeight == 0)
-								throw runtime_error("internal error 0x02");
-
-							for (int b = 0; b < bws.size(); b++) {
-								// normalize
-								bws[b].second /= totalWeight;
-							}
-						}
-
-						if (rem)
-							cnt++;
-					}
-				}
-			} while (tribones.size() > maxBonesPerPartition);
-		}
-
-		if (cnt > 0)
-			Log::Info("Removed %d bone influences",cnt);
-
-		// split the triangles into partitions
-
-		bool merged = true;
-
-		vector<Partition> parts;
-
-		if (!trimap.empty()) {
-			vector<Triangle>::iterator it = triangles.begin();
-
-			while (it != triangles.end()) {
-				Triangle& tri = *it;
-				qRotate(tri);
-				map<Triangle, unsigned int> ::iterator partItr = trimap.find(tri);
-				int partIdx = (partItr != trimap.end()) ? partItr->second : defaultPart;
-				bool erase = false;
-				if (partIdx >= 0) {
-					//Triangle & tri = *it;
-
-					// Ensure enough partitions
-					while (partIdx >= int(parts.size()))
-						parts.push_back(Partition());
-
-					Partition & part = parts[partIdx];
-
-					list<int> tribones;
-
-					for (int c = 0; c < 3; c++) {
-						for (const auto bw : weights[tri[c]]) {
-							if (find(tribones.begin(), tribones.end(), bw.first) == tribones.end())
-								tribones.push_back(bw.first);
-						}
-					}
-
-					part.bones = mergeBones(part.bones, tribones);
-					part.triangles.push_back(tri);
-					erase = true;					
-				}
-				if (erase)
-					it = triangles.erase(it);
-				else
-					it++;
-			}
-
-			merged = false; // when explicit mapping enabled, no merging is allowed
-		}
-
-		while (!triangles.empty()) {
-			Partition part;
-
-			unordered_map<int, bool> usedVerts;
-
-			bool addtriangles;
-
-			do {
-				vector<Triangle>::iterator it = triangles.begin();
-
-				while (it != triangles.end()) {
-					Triangle & tri = *it;
-
-					list<int> tribones;
-
-					for (int c = 0; c < 3; c++) {
-						for (const auto bw : weights[tri[c]]) {
-							if (find(tribones.begin(),tribones.end(), bw.first)==tribones.end()) //!tribones.contains(bw.first))
-								tribones.push_back(bw.first);
-						}
-					}
-
-					if (part.bones.empty() || containsBones(part.bones, tribones)) {
-						part.bones = mergeBones(part.bones, tribones);
-						part.triangles.push_back(tri);
-						usedVerts[tri[0]] = true;
-						usedVerts[tri[1]] = true;
-						usedVerts[tri[2]] = true;
-						it = triangles.erase(it);
-					}
-					else {
-						it++;
-					}
-
-				}
-
-				addtriangles = false;
-
-				if (part.bones.size() < maxBonesPerPartition) {
-					// if we have room left in the partition then add an adjacent triangle
-					it = triangles.begin();
-
-					while (it!= triangles.end()) {
-						Triangle & tri = *it;
-
-						if (usedVerts.find(tri[0]) != usedVerts.end() 
-							|| usedVerts.find(tri[1]) != usedVerts.end() 
-							|| usedVerts.find(tri[2]) != usedVerts.end()) {
-							list<int> tribones;
-
-							for (int c = 0; c < 3; c++) {
-								for (const auto bw : weights[tri[c]]) {
-									if (find(tribones.begin(),tribones.end(), bw.first) == tribones.end()) //tribones.contains(bw.first))
-										tribones.push_back(bw.first);
-								}
-							}
-
-							tribones = mergeBones(part.bones, tribones);
-
-							if (tribones.size() <= maxBonesPerPartition) {
-								part.bones = tribones;
-								part.triangles.push_back(tri);
-								usedVerts[tri[0]] = true;
-								usedVerts[tri[1]] = true;
-								usedVerts[tri[2]] = true;
-								it = triangles.erase(it); //.remove();
-								addtriangles = true;
-								//break;
-							}
-							else
-								it++;
-						}
-						else
-							it++;
-					}
-				}
-			} while (addtriangles);
-
-			parts.push_back(part);
-		}
-
-		//qDebug() << parts.count() << "small partitions";
-
-		// merge partitions
-
-		while (merged) {
-			merged = false;
-
-			for (int p1 = 0; p1 < parts.size() && !merged; p1++) {
-				if (parts[p1].bones.size() < maxBonesPerPartition) {
-					for (int p2 = p1 + 1; p2 < parts.size() && !merged; p2++) {
-						list<int> mergedBones = mergeBones(parts[p1].bones, parts[p2].bones);
-
-						if (mergedBones.size() <= maxBonesPerPartition) {
-							parts[p1].bones = mergedBones;
-							parts[p1].triangles.insert(parts[p1].triangles.end(), parts[p2].triangles.begin(), parts[p2].triangles.end());
-							parts.erase(parts.begin() + p2);
-							merged = true;
-						}
-					}
-				}
-			}
-		}
-
-		//qDebug() << parts.count() << "partitions";
-
-		// create the NiSkinPartition if it doesn't exist yet
-
-		if (iSkinPart == NULL) {
-			iSkinPart = new NiSkinPartition(); // nif->insertNiBlock("NiSkinPartition", nif->getBlockNumber(iSkinData) + 1);
-			iSkinInst->SetSkinPartition(iSkinPart);
-			iSkinData->SetSkinPartition(iSkinPart);
-			//nif->setLink(iSkinInst, "Skin Partition", nif->getBlockNumber(iSkinPart));
-			//nif->setLink(iSkinData, "Skin Partition", nif->getBlockNumber(iSkinPart));
-		}
-
-		// start writing NiSkinPartition
-
-		//nif->set<int>(iSkinPart, "Num Skin Partition Blocks", parts.count());
-		vector<SkinPartition >& partitions = iSkinPart->GetPartition();
-		partitions.resize(parts.size());
-		//nif->updateArray(iSkinPart, "Skin Partition Blocks");
-
-		vector<BodyPartList > iBSSkinInstPartData;
-
-		if (iSkinInst->IsDerivedType(BSDismemberSkinInstance::TYPE)) {
-			BSDismemberSkinInstanceRef temp_data = DynamicCast<BSDismemberSkinInstance>(iSkinInst);
-			int nparts = temp_data->GetPartitions().size(); // nif->get<uint>(iSkinInst, "Num Partitions");
-			iBSSkinInstPartData = temp_data->GetPartitions();
-
-			// why is QList.count() signed? cast to squash warning
-			if (nparts != parts.size()) {
-				Log::Warn("BSDismemberSkinInstance partition count does not match Skin Partition count.  Adjusting to fit.");
-				iBSSkinInstPartData.resize(parts.size());
-			}
-		}
-
-		list<int> prevPartBones;
-
-		vector<SkinPartition > pparts = iSkinPart->GetSkinPartitionBlocks();
-		pparts.resize(parts.size());
-
-		for (int p = 0; p < parts.size(); p++) {
-			
-			auto& iPart = pparts[p]; //nif->getIndex(iSkinPart, "Skin Partition Blocks").child(p, 0);
-
-			list<int> bones = parts[p].bones;
-			bones.sort(less<int>());
-			//sort(bones.begin(), bones.end(), less<int>());
-
-			// set partition flags for bs skin instance if present
-			if (!iBSSkinInstPartData.empty() && p < iBSSkinInstPartData.size()) {
-				if (bones != prevPartBones) {
-					prevPartBones = bones;
-					iBSSkinInstPartData[p].partFlag = (BSPartFlag)257;
-					//nif->set<uint>(iBSSkinInstPartData.child(p, 0), "Part Flag", 257);
-				}
-			}
-
-			vector<Triangle> triangles = parts[p].triangles;
-
-			// Create the vertex map
-
-			int idx = 0;
-			vector<int> vidx(numVerts, -1);
-			for (const Triangle& tri : triangles) {
-				for (int t = 0; t < 3; t++) {
-					int v = tri[t];
-
-					if (vidx[v] < 0)
-						vidx[v] = idx++;
-				}
-			}
-			vector<unsigned short> vertices(idx, -1);
-
-			for (int i = 0; i < numVerts; ++i) {
-				int v = vidx[i];
-
-				if (v >= 0) {
-					vertices[v] = i;
-				}
-			}
-
-			// map the vertices
-
-			for (int tri = 0; tri < triangles.size(); tri++) {
-				for (int t = 0; t < 3; t++) {
-					vector<unsigned short>::iterator vit = find(vertices.begin(), vertices.end(), triangles[tri][t]);
-					triangles[tri][t] = distance(vertices.begin(), vit); //  vertices.indexOf(triangles[tri][t]);
-				}
-			}
-
-			// stripify the triangles
-			//vector<vector<unsigned short> > strips;
-			int numTriangles = 0;
-
-			//if (make_strips == true) {
-			//	strips = stripify(triangles);
-
-			//	for (const QVector<quint16>& strip : strips) {
-			//		numTriangles += strip.count() - 2;
-			//	}
-			//}
-			//else {
-				numTriangles = triangles.size();
-			//}
-
-			// fill in counts
-			if (pad) {
-				while (bones.size() < maxBonesPerPartition) {
-					bones.push_back(0);
-				}
-			}
-
-			// resort the bone weights in bone order
-			vector<vector<boneweight> >::iterator it = weights.begin();
-			//QMutableVectorIterator<QList<boneweight> > it(weights);
-
-			while (it != weights.end()) {
-				vector<boneweight> & bw = *it;
-				//check integrity
-				std::set<int> vertices_bw;
-				vector<boneweight>::iterator bwit = bw.begin();
-				while (bwit != bw.end())
-				{
-					if (bwit->second == 0.0 || !vertices_bw.insert(bwit->first).second)
-					{
-						bwit = bw.erase(bwit);
-					}
-					else {
-						bwit++;
-					}
-				}
-
-				std::sort(bw.begin(), bw.end(), boneweight_equivalence());
-				it++;
-			}
-
-			iPart.numVertices = vertices.size();
-			iPart.numTriangles = numTriangles;
-			iPart.numBones = bones.size();
-			iPart.numStrips = 0; //strips.count();
-			iPart.numWeightsPerVertex = maxBones;
-
-			//nif->set<int>(iPart, "Num Vertices", vertices.count());
-			//nif->set<int>(iPart, "Num Triangles", numTriangles);
-			//nif->set<int>(iPart, "Num Bones", bones.count());
-			//nif->set<int>(iPart, "Num Strips", strips.count());
-			//nif->set<int>(iPart, "Num Weights Per Vertex", maxBones);
-
-			// fill in bone map
-			vector<unsigned short> bbones;
-			bbones.insert(bbones.end(), bones.begin(), bones.end());
-			iPart.bones = bbones;
-			//if (!iPart.bones.empty())
-			//	iPart.bones.clear();
-			//for (std::list<int>::iterator bit = bones.begin(); bit != bones.end(); ++bit)
-			//	iPart.bones.push_back(*bit);
-			//iPart.bones.insert(iPart.bones.end(), bones.begin(), bones.end());
-			//QModelIndex iBoneMap = nif->getIndex(iPart, "Bones");
-			//nif->updateArray(iBoneMap);
-			//nif->setArray<int>(iBoneMap, bones.toVector());
-
-			// fill in vertex map
-			iPart.hasVertexMap = true;
-			iPart.vertexMap = vertices;
-			//nif->set<int>(iPart, "Has Vertex Map", 1);
-			//QModelIndex iVertexMap = nif->getIndex(iPart, "Vertex Map");
-			//nif->updateArray(iVertexMap);
-			//nif->setArray<int>(iVertexMap, vertices);
-
-			// fill in vertex weights
-			iPart.hasVertexWeights = true;
-
-			//nif->set<int>(iPart, "Has Vertex Weights", 1);
-			//QModelIndex iVWeights = nif->getIndex(iPart, "Vertex Weights");
-			//nif->updateArray(iVWeights);
-			iPart.vertexWeights.resize(vertices.size());
-
-			for (int v = 0; v < iPart.vertexWeights.size(); v++) {
-				//QModelIndex iVertex = iVWeights.child(v, 0);
-				//nif->updateArray(iVertex);
-				vector<float>& actual = iPart.vertexWeights[v];
-				actual.resize(maxBones);
-				vector<boneweight> list = weights[vertices[v]];
-
-				for (int b = 0; b < maxBones; b++)
-					actual[b] = list.size() > b ? list[b].second : 0.0;
-					//nif->set<float>(iVertex.child(b, 0),);
-			}
-
-			iPart.hasFaces = true;
-
-			//nif->set<int>(iPart, "Has Faces", 1);
-
-			if (make_strips == true) {
-				////Clear out any existing triangle data that might be left over from an existing Skin Partition
-				//QModelIndex iTriangles = nif->getIndex(iPart, "Triangles");
-				//nif->updateArray(iTriangles);
-
-				//// write the strips
-				//QModelIndex iStripLengths = nif->getIndex(iPart, "Strip Lengths");
-				//nif->updateArray(iStripLengths);
-
-				//for (int s = 0; s < nif->rowCount(iStripLengths); s++)
-				//	nif->set<int>(iStripLengths.child(s, 0), strips.value(s).count());
-
-				//QModelIndex iStrips = nif->getIndex(iPart, "Strips");
-				//nif->updateArray(iStrips);
-
-				//for (int s = 0; s < nif->rowCount(iStrips); s++) {
-				//	nif->updateArray(iStrips.child(s, 0));
-				//	nif->setArray<quint16>(iStrips.child(s, 0), strips.value(s));
-				//}
-			}
-			else {
-				//Clear out any existing strip data that might be left over from an existing Skin Partition
-				//QModelIndex iStripLengths = nif->getIndex(iPart, "Strip Lengths");
-				//nif->updateArray(iStripLengths);
-				iPart.stripLengths.clear();
-				iPart.strips.clear();
-
-				//QModelIndex iStrips = nif->getIndex(iPart, "Strips");
-				//nif->updateArray(iStrips);
-
-				iPart.triangles = triangles;
-
-				//QModelIndex iTriangles = nif->getIndex(iPart, "Triangles");
-				//nif->updateArray(iTriangles);
-				//nif->setArray<Triangle>(iTriangles, triangles);
-			}
-
-			// fill in vertex bones
-
-			//nif->set<int>(iPart, "Has Bone Indices", 1);
-			iPart.hasBoneIndices = true;
-
-			//auto& iVBones = iPart.boneIndices; // nif->getIndex(iPart, "Bone Indices");
-			//nif->updateArray(iVBones);
-			iPart.boneIndices.resize(vertices.size());
-
-			for (int v = 0; v < iPart.boneIndices.size(); v++) {
-				//QModelIndex iVertex = iVBones.child(v, 0);
-				//nif->updateArray(iVertex);
-
-				vector<Niflib::byte>& actual = iPart.boneIndices[v];
-				actual.resize(maxBones);
-				vector<boneweight> list = weights[vertices[v]];
-
-				for (int b = 0; b < maxBones; b++)
-				{
-					actual[b] = list.size() > b ? distance(bones.begin(), find(bones.begin(), bones.end(), list[b].first)) : 0;
-				}
-			}
-		}
-
-		// done
-
-		iSkinPart->SetSkinPartitionBlocks(pparts);
-
-		if (iShapeType == "NiTriStrips")
-		{
-			//copy partitions out
-		}
 
 		return out;
 	}

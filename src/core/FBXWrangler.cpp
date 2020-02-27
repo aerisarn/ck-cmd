@@ -206,6 +206,8 @@ void FBXWrangler::NewScene() {
 	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
 	scene->GetGlobalSettings().SetAxisSystem(maxSystem);
 	scene->GetRootNode()->LclScaling.Set(FbxDouble3(1.0, 1.0, 1.0));
+	scene->GetGlobalSettings().SetSystemUnit(FbxSystemUnit::cm);
+
 }
 
 void FBXWrangler::CloseScene() {
@@ -2425,9 +2427,6 @@ bool FBXWrangler::ExportScene(const std::string& fileName) {
 
 	sdkManager->CreateMissingBindPoses(scene);
 
-	//FbxAxisSystem axis(FbxAxisSystem::eMax);
-	//axis.ConvertScene(scene);
-
 	bool status = iExporter->Export(scene);
 	iExporter->Destroy();
 
@@ -2460,6 +2459,10 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
 	maxSystem.ConvertScene(scene);
 
+	auto units = scene->GetGlobalSettings().GetSystemUnit();
+
+
+
 	if (!status) {
 		FbxStatus ist = iImporter->GetStatus();
 		iImporter->Destroy();
@@ -2479,6 +2482,35 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 				exporter_version = p.Get<FbxString>().Buffer();
 			p = scene->GetSceneInfo()->GetNextProperty(p);
 		}
+	}
+
+	if (scene->GetGlobalSettings().GetSystemUnit() != FbxSystemUnit::cm)
+	{
+		const FbxSystemUnit::ConversionOptions lConversionOptions = {
+		  false, /* mConvertRrsNodes */
+		  true, /* mConvertLimits */
+		  true, /* mConvertClusters */
+		  true, /* mConvertLightIntensity */
+		  true, /* mConvertPhotometricLProperties */
+		  true  /* mConvertCameraClipPlanes */
+		};
+
+		// Convert the scene to meters using the defined options.
+		FbxSystemUnit::cm.ConvertScene(scene, lConversionOptions);
+	}
+
+	//Blender sets a 100 factor for no reason
+	if (exporter_name.find("Blender") != string::npos)
+	{
+		const FbxSystemUnit::ConversionOptions lConversionOptions = {
+			false, /* mConvertRrsNodes */
+			true, /* mConvertLimits */
+			true, /* mConvertClusters */
+			true, /* mConvertLightIntensity */
+			true, /* mConvertPhotometricLProperties */
+			true  /* mConvertCameraClipPlanes */
+		};
+		FbxSystemUnit::m.ConvertScene(scene, lConversionOptions);
 	}
 
 	return LoadMeshes(options);
@@ -2617,7 +2649,11 @@ FbxAMatrix getWorldTransform(FbxNode* pNode) {
 }
 
 void setAvTransform(FbxNode* node, NiAVObject* av, bool rotation_only = false, bool absolute = false) {
-	FbxAMatrix tr = node->EvaluateLocalTransform(FBXSDK_TIME_ZERO); //getNodeTransform(node, absolute);
+	FbxAMatrix tr;
+	if (!absolute)
+		tr = node->EvaluateLocalTransform(FBXSDK_TIME_ZERO); //getNodeTransform(node, absolute);
+	else
+		tr = node->EvaluateGlobalTransform(FBXSDK_TIME_ZERO);
 	FbxDouble3 trans = tr.GetT();
 	av->SetTranslation(Vector3(trans[0], trans[1], trans[2]));
 	av->SetRotation(
@@ -2663,7 +2699,7 @@ template<>
 class Accessor<AccessSkin>
 {
 	public:
-		Accessor(FbxMesh* m, const map<int, int>& cp, NiTriShapeRef shape, map<FbxNode*, NiObjectRef>& conversion_Map, NiNodeRef& conversion_root, bool export_skin) {
+		Accessor(FbxMesh* m, const map<int, int>& cp, NiTriShapeRef shape, map<FbxNode*, NiObjectRef>& conversion_Map, NiNodeRef& conversion_root, bool export_skin, set<FbxNode*>& skinned_bones) {
 			if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
 				NiSkinInstanceRef skin;
 				if (export_skin)
@@ -2705,6 +2741,7 @@ class Accessor<AccessSkin>
 							continue;
 
 						FbxNode* bone = cluster->GetLink();
+						skinned_bones.insert(bone);
 						NiNodeRef ni_bone = DynamicCast<NiNode>(conversion_Map[cluster->GetLink()]);
 
 						//find global
@@ -2903,11 +2940,14 @@ class Accessor<AccessSkin>
 };
 
 void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape, const map<int, int>& cp) {
-	Accessor<AccessSkin> do_it(m, cp, shape, conversion_Map, conversion_root, export_skin);
+	Accessor<AccessSkin> do_it(m, cp, shape, conversion_Map, conversion_root, export_skin, skinned_bones);
 	int bones = 60;
 	int weights = 4;
-	if (shape->GetSkinInstance()->GetBones().size() > 60)
-		remake_partitions(StaticCast<NiTriBasedGeom>(shape), bones, weights, false, false);
+	if (export_skin)
+	{
+		if (shape->GetSkinInstance()->GetBones().size() > 60)
+			remake_partitions(StaticCast<NiTriBasedGeom>(shape), bones, weights, false, false);
+	}
 }
 
 string format_texture(string tempString)
@@ -3432,8 +3472,10 @@ void FBXWrangler::importShapes(NiNodeRef parent, FbxNode* child, const FBXImport
 	size_t attributes_size = child->GetNodeAttributeCount();
 	for (int i = 0; i < attributes_size; i++) {
 		if (FbxNodeAttribute::eMesh == child->GetNodeAttributeByIndex(i)->GetAttributeType())
-		{		
-			children.push_back(StaticCast<NiAVObject>(importShape(child->GetNodeAttributeByIndex(i), options)));
+		{	
+			auto result = StaticCast<NiAVObject>(importShape(child->GetNodeAttributeByIndex(i), options));
+			if (!export_rig)
+				children.push_back(result);
 		}
 	}
 	parent->SetChildren(children);
@@ -5104,6 +5146,9 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				data->SetFloatData(ed_property.Get<FbxFloat>());
 				if (hasCurve(ed_property)|| name.find("Phoneme")!= string::npos)
 					ed_list.push_back(StaticCast<NiExtraData>(data));
+				if (ed_property.IsAnimated() && ed_property != root->Visibility) {
+					handleInlineTracks(ed_property, *parent, ed_name);
+				}
 			}
 			else if (name.find("ed_") != string::npos)
 			{
@@ -5162,9 +5207,9 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 						ed_list.push_back(StaticCast<NiExtraData>(data));
 					}
 				}
-			}
-			if (ed_property.IsAnimated() && ed_property != root->Visibility) {
-				handleInlineTracks(ed_property, *parent, ed_name);
+				if (ed_property.IsAnimated() && ed_property != root->Visibility) {
+					handleInlineTracks(ed_property, *parent, ed_name);
+				}
 			}
 			ed_property = root->GetNextProperty(ed_property);
 		}
@@ -5248,6 +5293,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 
 			loadNodeChildren(child);
 		}
+
 		for (int i = 0; i < root->GetNodeAttributeCount(); i++)
 		{
 			if (root->GetNodeAttributeByIndex(i) != NULL && root->GetNodeAttributeByIndex(i)->GetAttributeType() == FbxNodeAttribute::eMesh) {
@@ -5255,18 +5301,24 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				break;
 			}
 		}
+
 	};
 
 	loadNodeChildren(root);
 
 	//skins
+
 	for (const auto& p : skins_Map)
 	{
 		convertSkins(p.first, p.second, skins_control_Points[p.first]);
+		if (deferred_skins.find(StaticCast<NiAVObject>(p.second)) == deferred_skins.end())
+			deferred_skins.insert(StaticCast<NiAVObject>(p.second));
 	}
 
+
+
 	//insertion deferred for skins
-	if (export_skin)
+	if (export_skin && !export_rig)
 	{
 		vector<Ref<NiAVObject > > children = conversion_root->GetChildren();
 		for (const auto& skin_def : deferred_skins)
@@ -5278,13 +5330,13 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 
 	//animations
 	size_t stacks = scene->GetSrcObjectCount<FbxAnimStack>();
-	if (stacks > 0)
+	if (stacks > 0 && !export_skin)
 	{
 		checkAnimatedNodes();
 		//now we have the list of both skinned and unskinned bones and skinned and unskinned stacks of the FBX
-		if (unskinned_animations.size() > 0)
+		if (unskinned_animations.size() > 0 && !export_rig)
 			buildKF();
-		if (skinned_animations.size() > 0) {
+		if (skinned_animations.size() > 0 && !export_rig) {
 
 			if (external_skeleton_path.empty())
 			{
@@ -5299,18 +5351,21 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 					} while (current_node != NULL && current_node != root);
 				}
 				//get back the ordered skeleton
-				vector<FbxNode*> hkskeleton = hkxWrapper.create_skeleton("skeleton", skeleton);
-				//create the sequences
-				havok_sequences = hkxWrapper.create_animations(
-					"skeleton", 
-					hkskeleton, 
-					skinned_animations, 
-					scene->GetGlobalSettings().GetTimeMode(), 
-					{}, 
-					set<FbxProperty>(),
-					vector<FbxProperty>(), 
-					{}, 
-					false);
+				vector<FbxNode*> hkskeleton  = hkxWrapper.create_skeleton("skeleton", skeleton);
+				if (!hkskeleton.empty())
+				{
+					//create the sequences
+					havok_sequences = hkxWrapper.create_animations(
+						"skeleton",
+						hkskeleton,
+						skinned_animations,
+						scene->GetGlobalSettings().GetTimeMode(),
+						{},
+						set<FbxProperty>(),
+						vector<FbxProperty>(),
+						{},
+						false);
+				}
 			}
 			else {
 
@@ -5342,6 +5397,19 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 						string sanitized = external_bones[i];
 						sanitizeString(sanitized);
 						track = scene->FindNodeByName(sanitized.c_str());
+					}
+					if (track == NULL)
+					{
+						Log::Info("Track not present: %s", external_bones[i].c_str());
+						if (i == 0)
+						{
+							if (external_bones[i].find("NPC Root [Root]") != string::npos)
+							{
+								Log::Info("Root track was probably renamed");
+								FbxNode* child_track = scene->FindNodeByName(external_bones[1].c_str());
+								track = child_track->GetParent();
+							}
+						}
 					}
 					if (track == NULL)
 					{
@@ -5405,7 +5473,20 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		//rig
 		if (export_rig)
 		{
-			hkxWrapper.build_skeleton_from_ragdoll();
+			string result = hkxWrapper.build_skeleton_from_ragdoll();
+			if (!result.empty())
+			{
+				auto root_node = scene->FindNodeByName(result.c_str());
+				if (NULL != root_node) {
+					auto nif_node = conversion_Map[root_node];
+					if (NULL != nif_node)
+					{
+						NiAVObjectRef node = DynamicCast< NiAVObject>(nif_node);
+						if (NULL != node)
+							node->SetName(string("NPC Root [Root]"));
+					}
+				}
+			}
 			buildConstraints();
 
 			if (!bone_lod_info.empty()) {

@@ -605,6 +605,9 @@ vector<FbxNode*> HKXWrapper::create_skeleton(const string& name, const set<FbxNo
 	hkRefPtr<hkaAnimationContainer> anim_container = new hkaAnimationContainer();
 	hkRefPtr<hkMemoryResourceContainer> mem_container = new hkMemoryResourceContainer();
 	hkRefPtr<hkaSkeleton> skeleton = new hkaSkeleton();
+	
+	if (this->skeleton != NULL)
+		return {};
 
 	skeleton->m_name = name.c_str();
 	//build ordered set;
@@ -623,6 +626,7 @@ vector<FbxNode*> HKXWrapper::create_skeleton(const string& name, const set<FbxNo
 			skeleton->m_parentIndices[i] = -1;
 			skeleton->m_bones[i].m_lockTranslation = false;
 			root = bone;
+			root->SetName(name.c_str());
 		}
 		else
 		{
@@ -642,6 +646,8 @@ vector<FbxNode*> HKXWrapper::create_skeleton(const string& name, const set<FbxNo
 	//write(container, ASSETS_SUBFOLDER, "skeleton");
 	//not that moving <100 ptrs matters that much, but hey, it's fancy
 	out_data[fs::path(ASSETS_SUBFOLDER) / "skeleton"] = container;
+
+	this->skeleton = skeleton;
 
 	return move(ordered_bones);
 }
@@ -2122,8 +2128,9 @@ void HKXWrapper::add_bone(FbxNode* bone)
 hkpPhysicsSystem* physic_entities = NULL;
 hkaSkeletonMapperData* fromRagdollToSkeletonMapping = NULL;
 
-void HKXWrapper::build_skeleton_from_ragdoll()
+std::string HKXWrapper::build_skeleton_from_ragdoll()
 {
+	string result = "";
 	if (constraints.size() == rigidBodies.size() - 1)
 	{
 		hkArray<hkpRigidBody*> hkRigidBodies;
@@ -2233,6 +2240,13 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 
 		hkaAnimationContainer anim_container;
 		hkMemoryResourceContainer mem_container;
+
+		if (string(hkSkeleton->m_bones[0].m_name).find("NPC Root [Root]") == string::npos)
+		{
+			result = hkSkeleton->m_bones[0].m_name;
+			hkSkeleton->m_bones[0].m_name = "NPC Root [Root]";
+			hkSkeleton->m_name = "NPC Root [Root]";
+		}
 		
 		anim_container.m_skeletons.pushBack(skeleton);
 		anim_container.m_skeletons.pushBack(ragdoll_skeleton);
@@ -2273,9 +2287,47 @@ void HKXWrapper::build_skeleton_from_ragdoll()
 			Log::Error("Havok reports save failed.");
 		}
 	}
+	else if (NULL != skeleton)
+	{
+		hkaAnimationContainer anim_container;
+		if (string(skeleton->m_bones[0].m_name).find("NPC Root [Root]") == string::npos)
+		{
+			result = skeleton->m_bones[0].m_name;
+			skeleton->m_bones[0].m_name = "NPC Root [Root]";
+			skeleton->m_name = "NPC Root [Root]";
+		}
+
+
+		anim_container.m_skeletons.pushBack(skeleton);
+
+		hkRootLevelContainer container;
+		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Merged Animation Container", &anim_container, &anim_container.staticClass()));
+
+		hkPackFormat pkFormat = HKPF_DEFAULT;
+		hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
+		hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
+		fs::path final_out_path = "./skeleton_le.hkx";
+		hkOstream stream(final_out_path.string().c_str());
+		hkVariant root = { &container, &container.staticClass() };
+		hkResult res = hkSerializeUtilSave(pkFormat, root, stream, flags, packFileOptions);
+		if (res != HK_SUCCESS)
+		{
+			Log::Error("Havok reports save failed.");
+		}
+		hkPackFormat pkFormat2 = HKPF_AMD64;
+		fs::path final_out_path2 = "./skeleton.hkx";
+		hkPackfileWriter::Options packFileOptions2 = GetWriteOptionsFromFormat(pkFormat2);
+		hkOstream stream2(final_out_path2.string().c_str());
+		res = hkSerializeUtilSave(pkFormat2, root, stream2, flags, packFileOptions2);
+		if (res != HK_SUCCESS)
+		{
+			Log::Error("Havok reports save failed.");
+		}
+	}
 	else {
 		Log::Error("Wrong number of constraints in the model.");
 	}
+	return result;
 }
 
 set<tuple<FbxNode*, FbxNode*, hkpConstraintInstance*>> constraints_table;

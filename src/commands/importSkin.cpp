@@ -89,6 +89,7 @@ bool BeginConversion(string importFBX, string exportPath) {
 	}
 
 	FBXWrangler wrangler;
+	wrangler.setExportSkin(true);
 	wrangler.ImportScene(fbxModelpath.string().c_str());
 
 	fs::path out_path = outputDir / fbxModelpath.filename().replace_extension(".nif");
