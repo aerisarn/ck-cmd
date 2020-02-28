@@ -64,6 +64,11 @@ using namespace Niflib;
 				Load(stream);
 			}
 
+
+			size_t getNumBlocks() {
+				return blocks.size();
+			}
+
 			NiObjectRef getBlock(unsigned short index) {
 				return blocks[index];
 			}

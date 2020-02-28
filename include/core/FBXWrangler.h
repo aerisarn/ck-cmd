@@ -105,6 +105,7 @@ namespace FBX {
 		void setExportSkin(bool _export_skin = true) { export_skin = _export_skin; }
 
 		void AddNif(NifFile& nif);
+		void ApplySkeletonScaling(NifFile& nif);
 
 		bool ExportScene(const std::string& fileName);
 		bool ImportScene(const std::string& fileName, const FBXImportOptions& options = FBXImportOptions());

@@ -183,6 +183,9 @@ bool BeginConversion(const string& importSkeleton,
 						RootMovement());
 				}
 
+				if (!importSkeletonNif.empty())
+					anim_wrangler.ApplySkeletonScaling(NifFile(importSkeletonNif));
+
 				vector<fs::path> nif_files;
 				if (fs::exists(additionalNifPath) && fs::is_directory(additionalNifPath))
 				{
@@ -200,6 +203,7 @@ bool BeginConversion(const string& importSkeleton,
 	{
 		NifFile mesh(importSkeletonNif.c_str());
 		wrangler.AddNif(mesh);
+		wrangler.ApplySkeletonScaling(mesh);
 	}
 
 	wrangler.setExportRig(false);
@@ -210,6 +214,7 @@ bool BeginConversion(const string& importSkeleton,
 		for (const auto& nif : nif_files)
 			wrangler.AddNif(NifFile(nif.string().c_str()));
 	}
+
 
 	fs::path out_path = outputDir / fs::path(importSkeleton).filename().replace_extension(".fbx");
 	fs::create_directories(outputDir);

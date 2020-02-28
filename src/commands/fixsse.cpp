@@ -194,6 +194,22 @@ std::vector<T> apply_permutation(
 	return sorted_vec;
 }
 
+class AccessBSDismemberedSkin {};
+
+template<>
+class Accessor<AccessBSDismemberedSkin>
+{
+public:
+	Accessor(BSDismemberSkinInstanceRef bsskin) {
+		bsskin->partitions.resize(bsskin->skinPartition->skinPartitionBlocks.size());
+		for (int i = 0; i < bsskin->partitions.size(); i++)
+		{
+			bsskin->partitions[i].bodyPart = SBP_32_BODY;
+			bsskin->partitions[i].partFlag = (BSPartFlag)(PF_EDITOR_VISIBLE | PF_START_NET_BONESET);
+		}
+	}
+};
+
 //remake partitions after triangulating
 NiTriShapeRef remake_partitions(NiTriBasedGeomRef iShape, int & maxBonesPerPartition, int & maxBonesPerVertex, bool make_strips, bool pad)
 {
@@ -303,74 +319,9 @@ NiTriShapeRef remake_partitions(NiTriBasedGeomRef iShape, int & maxBonesPerParti
 			}
 		}
 
-
-
-		size_t last_vertex_index = -1;
-		size_t entries_per_vertex_index = 0;
-		vector<vector<size_t>> influences(blocks.size());
-		
-		
-		set<size_t> visited_vertices;
-		size_t index = 0;
-		//for (auto& partition : global_map)
-		//{
-		//	auto& influence = influences[index];
-		//	for (auto entry = partition.begin(); entry!= partition.end(); entry++)
-		//	{
-		//		auto& ni_partition = new_blocks[index];
-		//		auto this_triangles = vertex_triangle_map.equal_range(get<0>(*entry));
-		//		for (auto triangle_it = this_triangles.first; triangle_it != this_triangles.second; this_triangles++)
-		//		{
-		//			
-		//		}
-
-
-		//		if (influence.size() <= get<0>(*entry))
-		//		{
-		//			influence.resize(get<0>(*entry) + 1, 0);
-		//		}
-		//		influence[get<0>(*entry)]++;
-		//		if (bones.find(get<1>(*entry)) == bones.end())
-		//			bones[get<1>(*entry)] = 0;
-		//		bones[get<1>(*entry)]++;
-		//		if (influence[get<0>(*entry)]>4) {
-		//			Log::Info("Vertex %d has more than 4 bone influences!", get<0>(*entry));
-		//		}
-		//	}
-		//	index++;
-		//}
-
-
-
-		// read in the weights from NiSkinData
-
-		//int numVerts = iData->GetVertices().size(); //nif->get<int>(iData, "Num Vertices");
-		//vector<vector<boneweight> > weights(numVerts);
-
-		//auto& iBoneList = iSkinData->GetBoneList(); //nif->getIndex(iSkinData, "Bone List");
-		//int numBones = iBoneList.size();
-
-		//for (int bone = 0; bone < numBones; bone++) {
-		//	auto& iVertexWeights = iBoneList[bone].vertexWeights;
-		//	//QModelIndex iVertexWeights = nif->getIndex(iBoneList.child(bone, 0), "Vertex Weights");
-
-		//	for (int r = 0; r < iVertexWeights.size(); r++) {
-		//		int vertex = iVertexWeights[r].index; // nif->get<int>(iVertexWeights.child(r, 0), "Index");
-		//		float weight = iVertexWeights[r].weight;  //nif->get<float>(iVertexWeights.child(r, 0), "Weight");
-
-		//		if (vertex >= weights.size())
-		//			throw runtime_error("bad NiSkinData - vertex count does not match");
-
-		//		if (weight > 0.001)
-		//			weights[vertex].push_back(boneweight(bone, weight));
-		//	}
-		//}
-
 		vector<vector<triangle_data_t>::iterator> iters;
-
 		vector < vector < triangle_data_t>> new_partitions;
 
-		
 		do {
 			iters.clear();
 			multi_partition(global_map.begin(), global_map.end(), std::back_inserter(iters),
@@ -445,16 +396,6 @@ NiTriShapeRef remake_partitions(NiTriBasedGeomRef iShape, int & maxBonesPerParti
 							if (absolute_bone_index != -1)
 							{
 								//relativize later
-								/*size_t relative_bone_index;
-								auto bone_it = find(new_block.bones.begin(), new_block.bones.end(), absolute_bone_index);
-								if (bone_it == new_block.bones.end())
-								{
-									relative_bone_index = new_block.bones.size();
-									new_block.bones.push_back(absolute_bone_index);
-								}
-								else {
-									relative_bone_index = *bone_it;
-								}*/
 								float weight = get<2>(data[i * w]);
 								if (new_block.boneIndices.size() < (relative_vertex_index + 1))
 									new_block.boneIndices.resize(relative_vertex_index + 1);
@@ -550,10 +491,11 @@ NiTriShapeRef remake_partitions(NiTriBasedGeomRef iShape, int & maxBonesPerParti
 			new_block.hasVertexWeights = true;
 			new_block.hasFaces = true;
 		}
+
 		iShape->GetSkinInstance()->GetSkinPartition()->SetSkinPartitionBlocks(new_blocks);
-
-		// count min and max bones per vertex
-
+		BSDismemberSkinInstanceRef bsskin = DynamicCast<BSDismemberSkinInstance>(iSkinInst);
+		if (bsskin != NULL)
+			Accessor<AccessBSDismemberedSkin> fix(bsskin);
 
 		return out;
 	}

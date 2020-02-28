@@ -174,6 +174,18 @@ FbxNode* setMatTransform(const Matrix44& av, FbxNode* node, double bake_scale = 
 	return node;
 }
 
+FbxNode* setMatTransform(const NiAVObject& av, FbxNode* node, double bake_scale = 1.0) {
+	Vector3 translation = av.GetTranslation();
+	//
+	node->LclTranslation.Set(FbxDouble3(translation.x * bake_scale, translation.y * bake_scale, translation.z *bake_scale));
+	Quaternion rotation = av.GetRotation().AsQuaternion();
+	Quat QuatTest = { rotation.x, rotation.y, rotation.z, rotation.w };
+	EulerAngles inAngs = Eul_FromQuat(QuatTest, EulOrdXYZs);
+	node->LclRotation.Set(FbxVector4(rad2deg(inAngs.x), rad2deg(inAngs.y), rad2deg(inAngs.z)));
+	node->LclScaling.Set(FbxDouble3(av.GetScale(), av.GetScale(), av.GetScale()));
+	return node;
+}
+
 FbxNode* setMatATransform(const FbxAMatrix& av, FbxNode* node) {
 	node->LclTranslation.Set(av.GetT());
 	node->LclRotation.Set(av.GetR());
@@ -2870,11 +2882,9 @@ class Accessor<AccessSkin>
 
 							vector<byte >& pindex = local_vertices_indices[i_f];
 							if (pindex.size() > 4)
-								Log::Error("Too many indices for bone");
+								Log::Warn("Too many indices: found %d bones influencing for vertex %d", pindex.size(), i_f);
 
 							vector<float >& vweight = local_vertices_weights[i_f];
-							if (vweight.size() > 4)
-								Log::Error("Too many weights for bone");
 
 							//find less influencing bone
 							if (pindex.size() != vweight.size()) {
@@ -5323,7 +5333,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		vector<Ref<NiAVObject > > children = conversion_root->GetChildren();
 		for (const auto& skin_def : deferred_skins)
 		{
-			children.push_back(skin_def);
+			children.insert(children.begin(),skin_def);
 		}
 		conversion_root->SetChildren(children);
 	}
@@ -5594,4 +5604,88 @@ void FBXWrangler::importAnimationOnSkeleton(
 )
 {
 	hkxWrapper.load_animation(external_skeleton_path, skeleton, float_tracks, root_movements);
+}
+
+void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
+{
+	map<FbxNode*, NiNodeRef> nodemap;
+
+	for (size_t i = 0; i < nif.getNumBlocks(); i++)
+	{
+		auto block = nif.getBlock(i);
+		if (block->IsDerivedType(NiNode::TYPE))
+		{
+			NiNodeRef node = DynamicCast<NiNode>(block);
+			string node_name = node->GetName();
+			sanitizeString(node_name);
+			auto fbx_node = scene->FindNodeByName(node_name.c_str());
+			if (NULL != fbx_node)
+			{
+				nodemap[fbx_node] = node;
+			}
+		}
+	}
+
+	std::function<void(FbxNode*, float)> recursiveBakeScale = [&](FbxNode* fbx_node, float parent_scale) {
+		float scale = parent_scale;
+		for (int i = 0; i < fbx_node->GetNodeAttributeCount(); i++)
+		{
+			if (FbxNodeAttribute::eMesh == fbx_node->GetNodeAttributeByIndex(i)->GetAttributeType())
+			{
+				FbxMesh* m = (FbxMesh*)fbx_node->GetNodeAttributeByIndex(i);
+				FbxVector4* points = m->GetControlPoints();
+
+				for (int i = 0; i < m->GetControlPointsCount(); i++) {
+					auto point = m->GetControlPointAt(i);
+					m->SetControlPointAt(
+						{ point[0] * scale, point[1] * scale, point[2] * scale },
+						i
+					);
+				}
+			}
+		}
+		if (nodemap.find(fbx_node) != nodemap.end())
+		{
+			auto trans = fbx_node->LclTranslation.Get();
+			fbx_node->LclTranslation.Set({ trans[0]*scale,  trans[1] * scale,  trans[2] * scale });
+			size_t stacks = scene->GetSrcObjectCount<FbxAnimStack>();
+			for (int s = 0; s < stacks; s++)
+			{
+				FbxAnimStack* lAnimStack = scene->GetSrcObject<FbxAnimStack>(s);
+				//could contain more than a layer, but by convention we use just the first, assuming the animation has been baked
+							
+				for (int l = 0; l < lAnimStack->GetSrcObjectCount<FbxAnimLayer>(); l++)
+				{
+					FbxAnimLayer* lAnimLayer = lAnimStack->GetMember<FbxAnimLayer>(l);
+
+					std::array<FbxAnimCurve*, 3> scaling_curves;
+					scaling_curves[0] = fbx_node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, false);
+					scaling_curves[1] = fbx_node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, false);
+					scaling_curves[2] = fbx_node->LclTranslation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, false);
+
+					for (int j = 0; j < 3; j++)
+					{
+						if (NULL != scaling_curves[j])
+						{
+							auto scaling_curve = scaling_curves[j];
+							size_t keys = scaling_curve->KeyGetCount();
+							for (int k = 0; k < keys; k++)
+							{
+								scaling_curve->KeyModifyBegin();
+								scaling_curve->KeySetValue(k, scaling_curve->KeyGetValue(k)*scale);
+								scaling_curve->KeyModifyEnd();
+							}
+						}
+					}
+				}
+			}
+			scale = nodemap[fbx_node]->GetScale() * parent_scale;
+		}
+		for (int i = 0; i < fbx_node->GetChildCount(); i++) {
+			FbxNode* child = fbx_node->GetChild(i);
+			recursiveBakeScale(child, scale);
+		}
+	};
+
+	recursiveBakeScale(scene->GetRootNode(), 1.0);
 }
