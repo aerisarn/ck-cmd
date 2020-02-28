@@ -5626,6 +5626,9 @@ void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
 		}
 	}
 
+	map<FbxNode*, float> scales;
+	set<FbxMesh*> skins;
+
 	std::function<void(FbxNode*, float)> recursiveBakeScale = [&](FbxNode* fbx_node, float parent_scale) {
 		float scale = parent_scale;
 		for (int i = 0; i < fbx_node->GetNodeAttributeCount(); i++)
@@ -5633,6 +5636,10 @@ void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
 			if (FbxNodeAttribute::eMesh == fbx_node->GetNodeAttributeByIndex(i)->GetAttributeType())
 			{
 				FbxMesh* m = (FbxMesh*)fbx_node->GetNodeAttributeByIndex(i);
+				if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
+					skins.insert(m);
+					continue;
+				}
 				FbxVector4* points = m->GetControlPoints();
 
 				for (int i = 0; i < m->GetControlPointsCount(); i++) {
@@ -5679,6 +5686,7 @@ void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
 					}
 				}
 			}
+			scales[fbx_node] = scale;
 			scale = nodemap[fbx_node]->GetScale() * parent_scale;
 		}
 		for (int i = 0; i < fbx_node->GetChildCount(); i++) {
@@ -5688,4 +5696,27 @@ void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
 	};
 
 	recursiveBakeScale(scene->GetRootNode(), 1.0);
+
+	for (auto skin : skins)
+	{
+		for (int iSkin = 0; iSkin < skin->GetDeformerCount(FbxDeformer::eSkin); iSkin++) {
+			FbxSkin* fbx_skin = (FbxSkin*)skin->GetDeformer(iSkin, FbxDeformer::eSkin);
+			SkinPartition partition;
+
+			for (int iCluster = 0; iCluster < fbx_skin->GetClusterCount(); iCluster++) {
+				FbxCluster* cluster = fbx_skin->GetCluster(iCluster);
+				if (!cluster->GetLink())
+					continue;
+
+				FbxNode* bone = cluster->GetLink();
+				float scale = scales[bone];
+				FbxAMatrix t;
+				cluster->GetTransformLinkMatrix(t);
+				auto trans = t.GetT();
+				t.SetT({ trans[0] * scale, trans[1] * scale, trans[2] * scale });
+				cluster->SetTransformLinkMatrix(t);
+			}
+		}
+	}
+
 }

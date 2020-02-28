@@ -199,11 +199,13 @@ bool BeginConversion(const string& importSkeleton,
 		}
 	}
 
+
+
 	if (fs::exists(importSkeletonNif) && fs::is_regular_file(importSkeletonNif))
 	{
 		NifFile mesh(importSkeletonNif.c_str());
 		wrangler.AddNif(mesh);
-		wrangler.ApplySkeletonScaling(mesh);
+		//wrangler.ApplySkeletonScaling(mesh);
 	}
 
 	wrangler.setExportRig(false);
@@ -215,6 +217,11 @@ bool BeginConversion(const string& importSkeleton,
 			wrangler.AddNif(NifFile(nif.string().c_str()));
 	}
 
+	if (fs::exists(importSkeletonNif) && fs::is_regular_file(importSkeletonNif))
+	{
+		NifFile mesh(importSkeletonNif.c_str());
+		wrangler.ApplySkeletonScaling(mesh);
+	}
 
 	fs::path out_path = outputDir / fs::path(importSkeleton).filename().replace_extension(".fbx");
 	fs::create_directories(outputDir);
