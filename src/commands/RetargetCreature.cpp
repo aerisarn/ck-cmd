@@ -23,6 +23,10 @@
 #include <algorithm>
 #include <vector>
 
+#include <Skyrim/TES5File.h>
+#include <Collection.h>
+#include <ModFile.h>
+
 struct ci_less
 {
 	// case-independent (ci) compare_less binary function
@@ -39,6 +43,18 @@ struct ci_less
 			nocase_compare());  // comparison
 	}
 };
+
+string replace_all(const string& source, const string& pattern, const string& new_pattern)
+{
+	string result = source;
+	string::size_type n = 0;
+	while ((n = result.find(pattern, n)) != string::npos)
+	{
+		result.replace(n, new_pattern.size(), new_pattern);
+		n += new_pattern.size();
+	}
+	return result;
+}
 
 template<typename T>
 typename T::size_type GeneralizedLevensteinDistance(const T &source,
@@ -235,6 +251,7 @@ void extract_clips(BSAFile& bsa_file, const string& behavior_path, const fs::pat
 	}
 }
 
+
 bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	string source_havok_project_cache = "", source_havok_project_folder = "", output_havok_project_name = "";
@@ -321,7 +338,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	hk_ch_root->m_stringData->m_name = output_havok_project_name.c_str();
 
 	string old_behavior_name = hk_ch_root->m_stringData->m_behaviorFilename.cString();
-	fs::path new_behavior_relative_path = fs::path(old_behavior_name).parent_path() / (output_havok_project_name + ".hkx");
+	fs::path new_behavior_relative_path = fs::path(old_behavior_name).parent_path() / fs::path(replace_all(old_behavior_name, old_name, output_havok_project_name)).filename();
 	retarget_map[old_behavior_name] = new_behavior_relative_path.string();
 	fs::path old_behavior_file = fs::path(source_havok_project_folder) / old_behavior_name;
 	hk_ch_root->m_stringData->m_behaviorFilename = new_behavior_relative_path.string().c_str();
@@ -441,6 +458,8 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	wrapper.write(root, output / new_char_name);
 	fs::path old_behavior_dir = source_havok_project_folder / fs::path(old_behavior_name).parent_path();
 	vector<fs::path> behaviors;
+	set<string> retarget_SOUN;
+	set<string> retarget_MOVT;
 	find_files_non_recursive(old_behavior_dir, ".hkx", behaviors);
 	for (const auto& file : behaviors) {
 		hkArray<hkVariant> objects;
@@ -461,6 +480,8 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 					n += output_havok_project_name.size();
 				}
 				Log::Info("Will substitute %s references with %s", event_name.c_str(), new_name.c_str());
+				if (event_name.find("SoundPlay.") == 0)
+					retarget_SOUN.insert(event_name.substr(sizeof("SoundPlay.")-1, event_name.size()));
 				retarget_map[string(bhkroot->m_data->m_stringData->m_eventNames[i])] = new_name;
 				bhkroot->m_data->m_stringData->m_eventNames[i] = new_name.c_str();
 			}
@@ -468,17 +489,21 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		Log::Info("Retargeting Variables:");
 		for (int i = 0; i < bhkroot->m_data->m_stringData->m_variableNames.getSize(); i++)
 		{
-			string event_name = bhkroot->m_data->m_stringData->m_variableNames[i];
-			if (event_name.find(old_name) != string::npos)
+			string variable_name = bhkroot->m_data->m_stringData->m_variableNames[i];
+			if (variable_name.find(old_name) != string::npos)
 			{
-				string new_name = event_name;
+				string new_name = variable_name;
 				string::size_type n = 0;
 				while ((n = new_name.find(old_name, n)) != string::npos)
 				{
 					new_name.replace(n, old_name.size(), output_havok_project_name);
 					n += output_havok_project_name.size();
 				}
-				Log::Info("Will substitute %s references with %s", event_name.c_str(), new_name.c_str());
+				Log::Info("Will substitute %s references with %s", variable_name.c_str(), new_name.c_str());
+				if (variable_name.find("iState_") == 0) {
+					retarget_MOVT.insert(variable_name.substr(sizeof("iState_")-1, variable_name.size()));
+				}
+
 				retarget_map[string(bhkroot->m_data->m_stringData->m_variableNames[i])] = new_name;
 				bhkroot->m_data->m_stringData->m_variableNames[i] = new_name.c_str();				
 			}
@@ -587,24 +612,226 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	cache.save_creature(output_havok_project_name + "project", cache_ptr, "animationdatasinglefile.txt", "animationsetdatasinglefile.txt");
 
 
+	Games& games = Games::Instance();
+	Games::Game tes5 = Games::TES5;
+
+	if (!games.isGameInstalled(tes5)) {
+		Log::Error("This command only works on TES5, and doesn't seem to be installed. Be sure to run the game at least once.");
+		return false;
+	}
+
+	Collection skyrimCollection = Collection((char * const)(games.data(tes5).string().c_str()), 3);
+	ModFlags masterFlags = ModFlags(0xA);
+	ModFlags skyblivionFlags = ModFlags(0xA);
+	ModFile* esm = skyrimCollection.AddMod("Skyrim.esm", masterFlags);
+	ModFile* update = skyrimCollection.AddMod("Update.esm", masterFlags);
+	ModFile* dawnguard = skyrimCollection.AddMod("Dawnguard.esm", masterFlags);
+	ModFile* Hearthfires = skyrimCollection.AddMod("Hearthfires.esm", masterFlags);
+	ModFile* Dragonborn = skyrimCollection.AddMod("Dragonborn.esm", masterFlags);
+	ModFlags espFlags = ModFlags(0x1818);
+	espFlags.IsNoLoad = false;
+	espFlags.IsFullLoad = true;
+	espFlags.IsMinLoad = false;
+	espFlags.IsCreateNew = true;
+	ModFile* skyrimMod = skyrimCollection.AddMod("zombie_template.esp", espFlags);
+
+	char * argvv[4];
+	argvv[0] = new char();
+	argvv[1] = new char();
+	argvv[2] = new char();
+	argvv[3] = new char();
+	logger.init(4, argvv);
+
+	skyrimCollection.Load();
+	auto it = skyrimCollection.FormID_ModFile_Record.equal_range(REV32(IDLE));
+
+	map<string, Sk::MOVTRecord*> movts;
+	map<string, Sk::SNDRRecord*> sndrs;
+	map<string, Sk::IDLERecord*> idles;
+	for (auto idle_record_it = skyrimCollection.FormID_ModFile_Record.begin(); idle_record_it != skyrimCollection.FormID_ModFile_Record.end(); idle_record_it++)
+	{
+		Record* record = idle_record_it->second;
+		if (record->GetType() == REV32(MOVT)) {
+			Sk::MOVTRecord* movt = dynamic_cast<Sk::MOVTRecord*>(record);
+			if (retarget_MOVT.find(string(movt->MNAM.value)) != retarget_MOVT.end())
+				movts[string(movt->EDID.value)]=movt;
+		}
+		if (record->GetType() == REV32(SNDR)) {
+			Sk::SNDRRecord* sndr = dynamic_cast<Sk::SNDRRecord*>(record);
+			string SDless = string(sndr->EDID.value).substr(0, string(sndr->EDID.value).size() - 2);
+			if (retarget_SOUN.find(SDless) != retarget_SOUN.end() || retarget_SOUN.find(string(sndr->EDID.value)) != retarget_SOUN.end())
+				sndrs[string(sndr->EDID.value)] = sndr;
+		}
+		else if (record->GetType() == REV32(IDLE)) {
+			Sk::IDLERecord* idle = dynamic_cast<Sk::IDLERecord*>(record);
+			auto behavior = idle->DNAM.value;
+			if (NULL != behavior && std::string(behavior).find(old_name) != std::string::npos)
+			{
+				idles[string(idle->EDID.value)] = idle;
+				//there are some errors in vanilkla esm regarding behavior assignments, let's try to correct them
+				auto references = idle->ANAM;
+				auto find_it = skyrimCollection.FormID_ModFile_Record.find(references.value.parent);
+				if (find_it != skyrimCollection.FormID_ModFile_Record.end())
+				{
+					if (find_it->second->GetType() == REV32(IDLE)) {
+						Sk::IDLERecord* parent = dynamic_cast<Sk::IDLERecord*>(find_it->second);
+						if (parent) {
+							parent->DNAM = idle->DNAM;
+							idles[string(parent->EDID.value)] = parent;
+						}
+					}
+				}
+				find_it = skyrimCollection.FormID_ModFile_Record.find(references.value.sibling);
+				if (find_it != skyrimCollection.FormID_ModFile_Record.end())
+				{
+					if (find_it->second->GetType() == REV32(IDLE)) {
+						Sk::IDLERecord* sibling = dynamic_cast<Sk::IDLERecord*>(find_it->second);
+						if (sibling) {
+							sibling->DNAM = idle->DNAM;
+							idles[string(sibling->EDID.value)] = sibling;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	std::map<FORMID, FORMID> retargeted;
+	std::vector<Sk::IDLERecord*> new_records;
+
+	for (auto& movt_it : movts) {
+		auto movt = movt_it.second;
+		std::string new_edid = replace_all(movt->EDID.value, old_name, output_havok_project_name);
+		std::string new_MNAM = replace_all(movt->MNAM.value, old_name, output_havok_project_name);
+
+		// declaring character array 
+		char* char_array = new char[new_edid.size() + 1];
+
+		// copying the contents of the 
+		// string to char array 
+		strcpy(char_array, new_edid.c_str());
+
+		Record* to_copy = static_cast<Record*>(movt);
+		Record* result = skyrimCollection.CopyRecord(to_copy, skyrimMod, NULL, NULL, char_array, 0);
+		Sk::MOVTRecord* copied = dynamic_cast<Sk::MOVTRecord*>(result);
+
+		char* mnam_char = new char[new_MNAM.size() + 1];
+		strcpy(mnam_char, new_MNAM.c_str());
+		copied->EDID.value = char_array;
+		copied->MNAM.value = mnam_char;
+		copied->ESPED = movt->ESPED;
+		copied->INAM = movt->INAM;
+
+		result->IsChanged(true);
+		result->IsLoaded(true);
+		FormIDMasterUpdater checker(skyrimMod->FormIDHandler);
+		checker.Accept(result->formID);
+	}
+
+	for (auto& sndr_it : sndrs) {
+		auto sndr = sndr_it.second;
+		std::string new_edid = replace_all(sndr->EDID.value, old_name, output_havok_project_name);
+		if (!ends_with(new_edid, "SD"))
+			new_edid += "SD";
+
+		// declaring character array 
+		char* char_array = new char[new_edid.size() + 1];
+
+		// copying the contents of the 
+		// string to char array 
+		strcpy(char_array, new_edid.c_str());
+
+		Record* to_copy = static_cast<Record*>(sndr);
+		Record* result = skyrimCollection.CopyRecord(to_copy, skyrimMod, NULL, NULL, char_array, 0);
+		Sk::SNDRRecord* copied = dynamic_cast<Sk::SNDRRecord*>(result);
+		copied->EDID.value = char_array;
+		copied->CNAM = sndr->CNAM;
+		copied->GNAM = sndr->GNAM;
+		copied->SNAM = sndr->SNAM;
+		copied->FNAM = sndr->FNAM;
+		copied->ANAM = sndr->ANAM;
+		copied->ONAM = sndr->ONAM;
+		copied->CTDA = sndr->CTDA;
+		copied->LNAM = sndr->LNAM;
+		copied->BNAM = sndr->BNAM;
+
+		result->IsChanged(true);
+		result->IsLoaded(true);
+		FormIDMasterUpdater checker(skyrimMod->FormIDHandler);
+		checker.Accept(result->formID);
+
+	}
+
+	for (auto& idle_it : idles) {
+		auto idle = idle_it.second;
+		std::string new_name = idle->EDID.value;
+		std::string::size_type n = 0;
+		if (new_name.find(old_name) != std::string::npos)
+		{
+			while ((n = new_name.find(old_name, n)) != std::string::npos)
+			{
+				new_name.replace(n, std::string(old_name).size(), output_havok_project_name);
+				n += std::string(output_havok_project_name).size();
+			}
+		}
+		else {
+			new_name = output_havok_project_name + new_name;
+		}
+
+		const int nn = new_name.length();
+
+		// declaring character array 
+		char* char_array = new char[nn + 1];
+
+		// copying the contents of the 
+		// string to char array 
+		strcpy(char_array, new_name.c_str());
+
+		Record* to_copy = static_cast<Record*>(idle);
+
+		Record* result = skyrimCollection.CopyRecord(to_copy, skyrimMod, NULL, NULL, char_array, 0);
+		result->IsChanged(true);
+		Sk::IDLERecord* copied = dynamic_cast<Sk::IDLERecord*>(result);
+		result->IsChanged(true);
+		retargeted[idle->formID] = copied->formID;
+		new_records.push_back(copied);
+		copied->EDID.value = char_array;
+		copied->ANAM = idle->ANAM;
+		copied->CTDA = idle->CTDA;
+		copied->DATA = idle->DATA;
+		copied->ENAM = idle->ENAM;
+
+		std::string temp = replace_all(idle->DNAM.value, old_name, output_havok_project_name);
+		char* behavior_char = new char[temp.size() + 1];
+		strcpy(behavior_char, temp.c_str());
+
+		copied->DNAM.value = behavior_char;
+
+		result->IsChanged(true);
+		result->IsLoaded(true);
+		FormIDMasterUpdater checker(skyrimMod->FormIDHandler);
+		checker.Accept(result->formID);
+
+	}
+
+	for (int i = 0; i < new_records.size(); i++) {
+		auto idle = new_records[i];
+		Sk::IDLEANAM a = idle->ANAM.value;
+		if (retargeted.find(idle->ANAM.value.parent) != retargeted.end())
+			a.parent = retargeted[idle->ANAM.value.parent];
+		if (retargeted.find(idle->ANAM.value.sibling) != retargeted.end())
+			a.sibling = retargeted[idle->ANAM.value.sibling];
+		idle->ANAM.value = a;
+	}
 
 
-	//retarget events inside clips
+	ModSaveFlags skSaveFlags = ModSaveFlags(2);
+	skSaveFlags.IsCleanMasters = true;
+	string esp_name = (output_havok_project_name + ".esp");
+	skyrimCollection.SaveMod(skyrimMod, skSaveFlags, (char* const)esp_name.c_str());
 
 
 
-
-
-
-
-
-	//Games& games = Games::Instance();
-	//Games::Game tes5 = Games::TES5;
-
-	//if (!games.isGameInstalled(tes5)) {
-	//	Log::Error("This command only works on TES5, and doesn't seem to be installed. Be sure to run the game at least once.");
-	//	return false;
-	//}
 	//InitializeHavok();
 
 	//BSAFile bsa_file("C:\\git_ref\\resources\\bsa\\Skyrim - Animations.bsa");
