@@ -162,6 +162,17 @@ FbxAMatrix getTransform(const NiAVObjectRef av)
 	return avm;
 }
 
+FbxAMatrix getTransform(const FbxNode* av)
+{
+	FbxAMatrix avm;
+	avm.SetTRS(
+		av->LclTranslation.Get(),
+		av->LclRotation.Get(),
+		av->LclScaling.Get()
+	);
+	return avm;
+}
+
 FbxNode* setMatTransform(const Matrix44& av, FbxNode* node, double bake_scale = 1.0) {
 	Vector3 translation = av.GetTrans();
 	//
@@ -1034,7 +1045,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 						//joint transform, in world space
 						aCluster->SetTransformLinkMatrix(getTransform(bone));
 						//mesh transform, in bone space
-						//aCluster->SetTransformMatrix(bone_mesh_transform);
+						//aCluster->SetTransformMatrix(bone_mesh_transform.Inverse());
 						//mesh transform
 						//aCluster->SetTransformAssociateModelMatrix(global_transform.Inverse());
 
@@ -5609,6 +5620,9 @@ void FBXWrangler::importAnimationOnSkeleton(
 void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
 {
 	map<FbxNode*, NiNodeRef> nodemap;
+	map<NiNodeRef, NiNodeRef> parent_map;
+	map<NiNodeRef, FbxAMatrix> transforms_map;
+
 
 	for (size_t i = 0; i < nif.getNumBlocks(); i++)
 	{
@@ -5623,11 +5637,33 @@ void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
 			{
 				nodemap[fbx_node] = node;
 			}
+			auto children = node->GetChildren();
+			for (const auto& child : children) {
+				if (child->IsDerivedType(NiNode::TYPE)) {
+					parent_map[DynamicCast<NiNode>(child)] = node;
+				}
+			}
+		}
+	}
+	//compute world transform;
+	for (size_t i = 0; i < nif.getNumBlocks(); i++)
+	{
+		auto block = nif.getBlock(i);
+		if (block->IsDerivedType(NiNode::TYPE))
+		{
+			NiNodeRef node = DynamicCast<NiNode>(block);
+			auto transform = getTransform(StaticCast<NiAVObject>(node));
+			while (parent_map.find(node) != parent_map.end())
+			{
+				transform = getTransform(StaticCast<NiAVObject>(parent_map[node])) * transform;
+				node = parent_map[node];
+			}
+			transforms_map[DynamicCast<NiNode>(block)] = transform;
 		}
 	}
 
 	map<FbxNode*, float> scales;
-	set<FbxMesh*> skins;
+	vector<FbxMesh*> skins;
 
 	std::function<void(FbxNode*, float)> recursiveBakeScale = [&](FbxNode* fbx_node, float parent_scale) {
 		float scale = parent_scale;
@@ -5637,7 +5673,7 @@ void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
 			{
 				FbxMesh* m = (FbxMesh*)fbx_node->GetNodeAttributeByIndex(i);
 				if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
-					skins.insert(m);
+					skins.push_back(m);
 					continue;
 				}
 				FbxVector4* points = m->GetControlPoints();
@@ -5697,10 +5733,20 @@ void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
 
 	recursiveBakeScale(scene->GetRootNode(), 1.0);
 
-	for (auto skin : skins)
+	vector<vector<map<size_t, FbxVector4>>> old_skinned_position_map(skins.size());
+	vector<vector<map<size_t, FbxVector4>>> new_skinned_position_map(skins.size());
+	vector<vector<map<size_t, float>>> weights_map(skins.size());
+
+	//this is going to be fun
+	for (int s = 0; s<skins.size(); s++)
 	{
+		auto skin = skins[s];
 		for (int iSkin = 0; iSkin < skin->GetDeformerCount(FbxDeformer::eSkin); iSkin++) {
 			FbxSkin* fbx_skin = (FbxSkin*)skin->GetDeformer(iSkin, FbxDeformer::eSkin);
+			old_skinned_position_map[s].resize(skin->GetDeformerCount(FbxDeformer::eSkin));
+			weights_map[s].resize(skin->GetDeformerCount(FbxDeformer::eSkin));
+			new_skinned_position_map[s].resize(skin->GetDeformerCount(FbxDeformer::eSkin));
+
 			SkinPartition partition;
 
 			for (int iCluster = 0; iCluster < fbx_skin->GetClusterCount(); iCluster++) {
@@ -5709,14 +5755,75 @@ void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
 					continue;
 
 				FbxNode* bone = cluster->GetLink();
-				float scale = scales[bone];
-				FbxAMatrix t;
-				cluster->GetTransformLinkMatrix(t);
-				auto trans = t.GetT();
-				t.SetT({ trans[0] * scale, trans[1] * scale, trans[2] * scale });
-				cluster->SetTransformLinkMatrix(t);
+				auto old_map = nodemap[bone];
+				FbxAMatrix pose_transform;
+				FbxAMatrix old_pose_transform = transforms_map[nodemap[bone]];
+				cluster->GetTransformLinkMatrix(pose_transform);
+
+				float scale = nodemap[bone]->GetScale() * scales[bone];
+				auto indexes = cluster->GetControlPointIndices();
+				size_t indexes_count = cluster->GetControlPointIndicesCount();
+				auto weights = cluster->GetControlPointWeights();
+				for (size_t h = 0; h < indexes_count; h++)
+				{
+					
+					auto vp_index = indexes[h];
+					auto v = skin->GetControlPointAt(indexes[h]);
+					auto weight = weights[h];
+					FbxVector4 v_in_pose = pose_transform.Inverse().MultT(v);
+					auto weighted_v_skinned =old_pose_transform.MultT(v_in_pose) * weight;
+					if (old_skinned_position_map[s][iSkin].find(vp_index) == old_skinned_position_map[s][iSkin].end())
+					{
+						old_skinned_position_map[s][iSkin][vp_index] = weighted_v_skinned;
+						weights_map[s][iSkin][vp_index] = weight;
+					}
+					else
+					{
+						old_skinned_position_map[s][iSkin][vp_index] += weighted_v_skinned;
+						weights_map[s][iSkin][vp_index] += weight;
+					}
+
+					auto new_weighted_v_skinned = bone->EvaluateGlobalTransform().MultT(v_in_pose) * weight;
+					if (new_skinned_position_map[s][iSkin].find(vp_index) == new_skinned_position_map[s][iSkin].end())
+						new_skinned_position_map[s][iSkin][vp_index] = new_weighted_v_skinned;
+					else
+						new_skinned_position_map[s][iSkin][vp_index] += new_weighted_v_skinned;
+				}
 			}
 		}
 	}
+	//now adjust the initial mesh vertex position to match the scaled skinning
+	for (int s = 0; s < new_skinned_position_map.size(); s++)
+	{
+		auto skin = skins[s];
 
+		for (int i = 0; i < skin->GetControlPointsCount(); i++)
+		{
+
+			FbxVector4 vertex;
+			float weight = 0;
+			for (int p = 0; p < old_skinned_position_map[s].size(); p++)
+			{
+				vertex += old_skinned_position_map[s][p][i];
+				weight += weights_map[s][p][i];
+			}
+			vertex = vertex / weight;
+
+			FbxVector4 new_vertex;
+			float new_weight = 0;
+			for (int p = 0; p < new_skinned_position_map[s].size(); p++)
+			{
+				new_vertex += new_skinned_position_map[s][p][i];
+				new_weight += weights_map[s][p][i];
+			}
+			new_vertex = new_vertex / new_weight;
+
+
+			//auto old = old_skinned_position_map[s][i];
+			//auto actual = skin->GetControlPointAt(i);
+			auto diff = vertex - new_vertex;
+			auto point = skin->GetControlPointAt(i) + diff;
+			skin->SetControlPointAt(point, i);
+		}
+	}
 }

@@ -183,9 +183,6 @@ bool BeginConversion(const string& importSkeleton,
 						RootMovement());
 				}
 
-				if (!importSkeletonNif.empty())
-					anim_wrangler.ApplySkeletonScaling(NifFile(importSkeletonNif));
-
 				vector<fs::path> nif_files;
 				if (fs::exists(additionalNifPath) && fs::is_directory(additionalNifPath))
 				{
@@ -193,6 +190,9 @@ bool BeginConversion(const string& importSkeleton,
 					for (const auto& nif : nif_files)
 						anim_wrangler.AddNif(NifFile(nif.string().c_str()));
 				}
+
+				if (!importSkeletonNif.empty())
+					anim_wrangler.ApplySkeletonScaling(NifFile(importSkeletonNif));
 
 				anim_wrangler.ExportScene(out_path.string().c_str());
 			}
