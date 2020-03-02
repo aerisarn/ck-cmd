@@ -2722,7 +2722,7 @@ template<>
 class Accessor<AccessSkin>
 {
 	public:
-		Accessor(FbxMesh* m, const map<int, int>& cp, NiTriShapeRef shape, map<FbxNode*, NiObjectRef>& conversion_Map, NiNodeRef& conversion_root, bool export_skin, set<FbxNode*>& skinned_bones) {
+		Accessor(FbxMesh* m, const map<size_t, size_t>& cp, NiTriShapeRef shape, map<FbxNode*, NiObjectRef>& conversion_Map, NiNodeRef& conversion_root, bool export_skin, set<FbxNode*>& skinned_bones) {
 			if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
 				NiSkinInstanceRef skin;
 				if (export_skin)
@@ -2733,198 +2733,212 @@ class Accessor<AccessSkin>
 				NiSkinPartitionRef spartition = new NiSkinPartition();
 
 				map<NiNode*, BoneData > bones_data;
-				vector<SkinPartition > partitions;
+				vector<SkinPartition > partitions(m->GetDeformerCount(FbxDeformer::eSkin));
+				vector<vector<size_t>> partitions_triangles(m->GetDeformerCount(FbxDeformer::eSkin));
 				//set<NiNode*> bones;
 				//vector<NiNode*> vbones;
 
-				multimap<int, int> faces_map;
+				auto tris_data = DynamicCast<NiTriShapeData>(shape->GetData());
+				if (tris_data == NULL)
+					return;
 
+				auto tris_vector = tris_data->GetTriangles();
+
+				multimap<size_t, size_t> triangle_map;
 				int numTris = m->GetPolygonCount();
 				for (int t = 0; t < numTris; t++) {
 					if (m->GetPolygonSize(t) != 3)
 						continue;
-
-					int p1 = cp.find(m->GetPolygonVertex(t, 0))->second;
-					int p2 = cp.find(m->GetPolygonVertex(t, 1))->second;
-					int p3 = cp.find(m->GetPolygonVertex(t, 2))->second;
-
-					faces_map.insert({ p1,t });
-					faces_map.insert({ p2,t });
-					faces_map.insert({ p3,t });
-
+					triangle_map.insert({ m->GetPolygonVertex(t, 0),t });
+					triangle_map.insert({ m->GetPolygonVertex(t, 1),t });
+					triangle_map.insert({ m->GetPolygonVertex(t, 2),t });
 				}
+
+				//triangle, index, bone, weight
+				map<FbxSkin*, map<size_t, std::array<vector<tuple<FbxNode*, float>>, 3>>> partition_triangle_map;
 
 				for (int iSkin = 0; iSkin < m->GetDeformerCount(FbxDeformer::eSkin); iSkin++) {
 					FbxSkin* fbx_skin = (FbxSkin*)m->GetDeformer(iSkin, FbxDeformer::eSkin);
-					SkinPartition partition;
-					
 					for (int iCluster = 0; iCluster < fbx_skin->GetClusterCount(); iCluster++) {
 						FbxCluster* cluster = fbx_skin->GetCluster(iCluster);
-						if (!cluster->GetLink())
-							continue;
 
-						FbxNode* bone = cluster->GetLink();
-						skinned_bones.insert(bone);
-						NiNodeRef ni_bone = DynamicCast<NiNode>(conversion_Map[cluster->GetLink()]);
-
-						//find global
-						vector<NiNode * >& bones = skin->bones;
-						vector<BoneData >& bone_data_list = data->boneList;
-						vector<NiNode * >::iterator bone_it = find(bones.begin(), bones.end(), ni_bone);
-						size_t bone_data_index = -1;
-						if (bone_it != bones.end())
-						{
-							bone_data_index = distance(bones.begin(), bone_it);
-						}
-						else {
-							bone_data_index = bones.size();
-							bones.push_back(ni_bone);
-							BoneData bd;
-
-							FbxAMatrix joint_transform; cluster->GetTransformLinkMatrix(joint_transform);
-							FbxAMatrix global_transform; global_transform = cluster->GetTransformMatrix(global_transform).Inverse();
-							FbxAMatrix local_transform = (global_transform * joint_transform).Inverse();
-
-							data->skinTransform = GetAvTransform(global_transform);
-							bd.skinTransform = GetAvTransform(local_transform);
-							bone_data_list.push_back(bd);
-							//data->SetBoneList(bone_data_list);
-						}
-						//Bone Data
-						BoneData& bone_data = bone_data_list[bone_data_index];
-
-						partition.numWeightsPerVertex = 4;
-
-						//find local values
-						vector<unsigned short >& partition_bones = partition.bones;
-						size_t local_bone_index = -1;
-						vector<unsigned short >::iterator local_bones_it = find(partition_bones.begin(), partition_bones.end(), bone_data_index);
-						if (local_bones_it == partition_bones.end())
-						{
-							local_bone_index = partition_bones.size();
-							partition_bones.push_back(bone_data_index);
-							partition.numBones++;
-						}
-						else {
-							local_bone_index = distance(partition_bones.begin(), local_bones_it);
-						}
-
-						size_t cp_count = cluster->GetControlPointIndicesCount();
-						vector< vector<float > >& local_vertices_weights = partition.vertexWeights;
-						//local_vertices_weights.resize(cp_count);
-						vector< vector<byte > >& local_vertices_indices = partition.boneIndices;
-						//local_vertices_indices.resize(cp_count);
-						vector<Triangle>& local_triangles = partition.triangles;
 						for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++)
 						{
-							int v = cp.find(cluster->GetControlPointIndices()[iPoint])->second;
-							float w = cluster->GetControlPointWeights()[iPoint];
-
-							if (w > 0.0)
+							int vertex = cluster->GetControlPointIndices()[iPoint];
+							auto weight = cluster->GetControlPointWeights()[iPoint];
+							auto bone = cluster->GetLink();
+							auto triangles_its = triangle_map.equal_range(vertex);
+							for (auto it_begin = triangles_its.first; it_begin != triangles_its.second; it_begin++)
 							{
-								BoneVertData bvd;
-								bvd.index = v;
-								bvd.weight = w;
-							
-								bone_data.vertexWeights.push_back(bvd);
-								bone_data.numVertices++;
-							}
-
-							size_t local_vertex_index = -1;
-							vector<unsigned short >::iterator v_local_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), v);
-
-							if (v_local_it == partition.vertexMap.end()) {
-								partition.numVertices++;
-								
-								local_vertex_index = partition.vertexMap.size();
-								partition.vertexMap.push_back(v);
-								local_vertices_weights.resize(partition.vertexMap.size());
-								local_vertices_indices.resize(partition.vertexMap.size());
-							}
-							else {
-								local_vertex_index = distance(partition.vertexMap.begin(), v_local_it);
-							}
-
-							vector<float >& local_vertex_weight_array = local_vertices_weights[local_vertex_index];
-							local_vertex_weight_array.push_back(w);
-							vector<byte >& local_bones_indices = local_vertices_indices[local_vertex_index];
-							local_bones_indices.push_back(local_bone_index);							
-						} //end points
-
-						//triangles
-						for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++)
-						{
-							int v = cp.find(cluster->GetControlPointIndices()[iPoint])->second;
-							pair <multimap<int, int>::iterator, multimap<int, int>::iterator> this_faces = faces_map.equal_range(v);
-
-							for (multimap<int, int>::iterator faces_it = this_faces.first; faces_it != this_faces.second; faces_it++)
-							{
-								int triangle_index = faces_it->second;
-
-								int global_v1 = cp.find(m->GetPolygonVertex(triangle_index, 0))->second;
-								int global_v2 = cp.find(m->GetPolygonVertex(triangle_index, 1))->second;
-								int global_v3 = cp.find(m->GetPolygonVertex(triangle_index, 2))->second;
-
-								vector<unsigned short >::iterator local_v1_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), global_v1);
-								vector<unsigned short >::iterator local_v2_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), global_v2);
-								vector<unsigned short >::iterator local_v3_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), global_v3);
-
-								if (local_v1_it != partition.vertexMap.end() && local_v2_it != partition.vertexMap.end() && local_v3_it != partition.vertexMap.end())
+								if (vertex == m->GetPolygonVertex(it_begin->second, 0))
 								{
-									int local_v1 = distance(partition.vertexMap.begin(), local_v1_it);
-									int local_v2 = distance(partition.vertexMap.begin(), local_v2_it);
-									int local_v3 = distance(partition.vertexMap.begin(), local_v3_it);
-
-									Triangle ni_t = { (unsigned short)local_v1,
-										(unsigned short)local_v2,
-										(unsigned short)local_v3 };
-
-									vector<Triangle>::iterator tris_pos = find(local_triangles.begin(), local_triangles.end(), ni_t);
-									if (tris_pos == local_triangles.end())
+									auto& vector = partition_triangle_map[fbx_skin][it_begin->second][0];
+									tuple<FbxNode*, float> value = { bone, weight };
+									if (find(vector.begin(), vector.end(), value) == vector.end())
 									{
-										local_triangles.push_back(ni_t);
-										partition.numTriangles++;
+										vector.push_back(value);
 									}
 								}
+								else if (vertex == m->GetPolygonVertex(it_begin->second, 1))
+								{
+									auto& vector = partition_triangle_map[fbx_skin][it_begin->second][1];
+									tuple<FbxNode*, float> value = { bone, weight };
+									if (find(vector.begin(), vector.end(), value) == vector.end())
+									{
+										vector.push_back(value);
+									}
+								}
+								else if (vertex == m->GetPolygonVertex(it_begin->second, 2))
+								{
+									auto& vector = partition_triangle_map[fbx_skin][it_begin->second][2];
+									tuple<FbxNode*, float> value = { bone, weight };
+									if (find(vector.begin(), vector.end(), value) == vector.end())
+									{
+										vector.push_back(value);
+									}
+								}
+								else throw std::runtime_error("Internal error while converting skin!");
 							}
-						}
-
-						for (int i_f = 0; i_f < partition.numVertices; i_f++) {
-
-							vector<byte >& pindex = local_vertices_indices[i_f];
-							if (pindex.size() > 4)
-								Log::Warn("Too many indices: found %d bones influencing for vertex %d", pindex.size(), i_f);
-
-							vector<float >& vweight = local_vertices_weights[i_f];
-
-							//find less influencing bone
-							if (pindex.size() != vweight.size()) {
-								Log::Error("Fatal Error: weights != indexes");
-								throw std::runtime_error("Fatal Error: weights != indexes");
-							}
-							bool removed = false;
-							while (vweight.size() > 4) {
-								removed = true;
-								int to_remove_bone = distance(vweight.begin(), min_element(begin(vweight), end(vweight)));
-								pindex.erase(pindex.begin() + to_remove_bone);
-								vweight.erase(vweight.begin() + to_remove_bone);
-							}
-							if (removed) {
-								float sum = std::accumulate(vweight.begin(), vweight.end(), 0.0f);
-								vweight[0] /= sum;
-								vweight[1] /= sum;
-								vweight[2] /= sum;
-								vweight[3] /= sum;
-							}
-
-							pindex.resize(4);
-							vweight.resize(4);
 						}
 					}
+				}
 
-					if (partition.bones.size()<4)
-						partition.bones.resize(4);
+				vector<NiNode * >& bones = skin->bones;
+				vector<BoneData >& bone_data_list = data->boneList;
+				size_t p = 0;
+				for (const auto& p_it : partition_triangle_map)
+				{
+					auto& data = p_it.second;
+					auto& partition = partitions[p];
 
+					for (const auto& entry : data) {
+						size_t triangle_index = entry.first;
+						auto& triangle_data = entry.second;
+
+						auto ni_triangle = tris_vector[cp.find(triangle_index)->second];
+						Niflib::Triangle ni_partition_triangle;
+
+						for (int i = 0; i < 3; i++)
+						{
+							auto& v_index = ni_triangle[i];
+							for (int w_index = 0; w_index < triangle_data[i].size(); w_index++)
+							{
+
+								auto& bone = get<0>(triangle_data[i][w_index]);
+								skinned_bones.insert(bone);
+
+								NiNodeRef ni_bone = DynamicCast<NiNode>(conversion_Map[bone]);
+
+								//find global bone index
+								size_t global_bone_index = -1;
+								auto bone_index_it = find(bones.begin(), bones.end(), &*ni_bone);
+								if (bone_index_it == bones.end()) {
+									global_bone_index = bones.size();
+									bones.push_back(ni_bone);
+								}
+								else {
+									global_bone_index = distance(bones.begin(), bone_index_it);
+								}
+								if (bone_data_list.size() < global_bone_index + 1)
+									bone_data_list.resize(global_bone_index + 1);
+
+
+								auto weight = get<1>(triangle_data[i][w_index]);
+
+								auto ni_partition_index_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), v_index);
+								if (ni_partition_index_it == partition.vertexMap.end())
+								{
+									ni_partition_triangle[i] = partition.vertexMap.size();
+									partition.vertexMap.push_back(v_index);
+								}
+								else
+									ni_partition_triangle[i] = distance(partition.vertexMap.begin(), ni_partition_index_it);
+
+								if (partition.boneIndices.size() < ni_partition_triangle[i] + 1)
+								{
+									partition.boneIndices.resize(ni_partition_triangle[i] + 1);
+									partition.boneIndices[ni_partition_triangle[i]].resize(4);
+								}
+								if (partition.vertexWeights.size() < ni_partition_triangle[i] + 1)
+								{
+									partition.vertexWeights.resize(ni_partition_triangle[i] + 1);
+									partition.vertexWeights[ni_partition_triangle[i]].resize(4, 0.0);
+								}
+								if (find(partition.boneIndices[ni_partition_triangle[i]].begin(),
+									partition.boneIndices[ni_partition_triangle[i]].end(),
+									global_bone_index) == partition.boneIndices[ni_partition_triangle[i]].end())
+								{
+									auto min_it = min_element(partition.vertexWeights[ni_partition_triangle[i]].begin(), partition.vertexWeights[ni_partition_triangle[i]].end());
+									if (weight > *min_it) {
+										//inserted = true;
+										size_t index = distance(partition.vertexWeights[ni_partition_triangle[i]].begin(), min_it);
+										partition.boneIndices[ni_partition_triangle[i]][index] = global_bone_index;
+										partition.vertexWeights[ni_partition_triangle[i]][index] = weight;
+
+									}
+								}
+								auto transform = bone->EvaluateGlobalTransform();
+								bone_data_list[global_bone_index].skinTransform = GetAvTransform(transform.Inverse());
+								//if (inserted)
+								//{
+								//	Niflib::BoneVertData bvd;
+								//	bvd.index = v_index;
+								//	bvd.weight = weight;
+								//	if (find(bone_data_list[global_bone_index].vertexWeights.begin(),
+								//		bone_data_list[global_bone_index].vertexWeights.end(),
+								//		bvd) == bone_data_list[global_bone_index].vertexWeights.end())
+								//		bone_data_list[global_bone_index].vertexWeights.push_back(bvd);
+								//}
+							}
+						}
+						partition.triangles.push_back(ni_partition_triangle);
+					}
+				}
+			
+				//renormalize
+				for (auto& partition : partitions) {
+					for (int i = 0; i < partition.vertexWeights.size(); i++)
+					{
+						float sum = 0.0;
+						for (int k = 0; k < 4; k++)
+						{
+							sum += partition.vertexWeights[i][k];
+						}
+						for (int k = 0; k < 4; k++)
+						{
+							partition.vertexWeights[i][k] = partition.vertexWeights[i][k]/sum;
+						}
+					}
+				}
+
+				//relativize partitions
+				for (auto& partition : partitions) {
+					for (int i = 0; i < partition.boneIndices.size(); i++)
+					{
+						for (int b = 0; b < 4; b++)
+						{
+							if (partition.vertexWeights[i][b] > 0.0)
+							{
+								size_t global_bone_index = partition.boneIndices[i][b];
+								size_t local_bone_index = partition.bones.size();
+								auto local_bone_index_it = find(partition.bones.begin(), partition.bones.end(), global_bone_index);
+								if (local_bone_index_it != partition.bones.end())
+									local_bone_index = distance(partition.bones.begin(), local_bone_index_it);
+								else {
+									partition.bones.push_back(global_bone_index);
+								}
+								partition.boneIndices[i][b] = local_bone_index;
+								Niflib::BoneVertData bvd;
+								bvd.index = partition.vertexMap[i];
+								bvd.weight = partition.vertexWeights[i][b];
+
+								if (find(bone_data_list[global_bone_index].vertexWeights.begin(),
+									bone_data_list[global_bone_index].vertexWeights.end(),
+									bvd) == bone_data_list[global_bone_index].vertexWeights.end())
+									bone_data_list[global_bone_index].vertexWeights.push_back(bvd);
+							}
+						}
+					}
 					partition.numWeightsPerVertex = 4;
 					partition.numTriangles = partition.triangles.size();
 					partition.hasFaces = partition.triangles.size() > 0;
@@ -2933,9 +2947,219 @@ class Accessor<AccessSkin>
 					partition.hasVertexMap = partition.vertexMap.size() > 0;
 					partition.hasVertexWeights = partition.vertexWeights.size() > 0;
 					partition.hasBoneIndices = partition.boneIndices.size() > 0;
-
-					partitions.push_back(partition);
 				}
+
+				//for (int t = 0; t < numTris; t++) {
+				//	if (m->GetPolygonSize(t) != 3)
+				//		continue;
+
+
+
+
+				//	//find the new triangle
+				//	size_t tris_index = cp.find(t)->second;
+
+				//	//find mesh vertices index
+				//	auto& tris = tris_vector[tris_index];
+				//	size_t v1 = tris.v1;
+				//	size_t v2 = tris.v2;
+				//	size_t v3 = tris.v3;
+
+
+
+
+				//	int p1 = cp.find(m->GetPolygonVertex(t, 0))->second;
+				//	int p2 = cp.find(m->GetPolygonVertex(t, 1))->second;
+				//	int p3 = cp.find(m->GetPolygonVertex(t, 2))->second;
+
+				//	faces_map.insert({ p1,t });
+				//	faces_map.insert({ p2,t });
+				//	faces_map.insert({ p3,t });
+
+				//}
+
+				//for (int iSkin = 0; iSkin < m->GetDeformerCount(FbxDeformer::eSkin); iSkin++) {
+				//	FbxSkin* fbx_skin = (FbxSkin*)m->GetDeformer(iSkin, FbxDeformer::eSkin);
+				//	SkinPartition partition;
+				//	
+				//	for (int iCluster = 0; iCluster < fbx_skin->GetClusterCount(); iCluster++) {
+				//		FbxCluster* cluster = fbx_skin->GetCluster(iCluster);
+				//		if (!cluster->GetLink())
+				//			continue;
+
+				//		FbxNode* bone = cluster->GetLink();
+				//		skinned_bones.insert(bone);
+				//		NiNodeRef ni_bone = DynamicCast<NiNode>(conversion_Map[cluster->GetLink()]);
+
+				//		//find global
+				//		vector<NiNode * >& bones = skin->bones;
+				//		vector<BoneData >& bone_data_list = data->boneList;
+				//		vector<NiNode * >::iterator bone_it = find(bones.begin(), bones.end(), ni_bone);
+				//		size_t bone_data_index = -1;
+				//		if (bone_it != bones.end())
+				//		{
+				//			bone_data_index = distance(bones.begin(), bone_it);
+				//		}
+				//		else {
+				//			bone_data_index = bones.size();
+				//			bones.push_back(ni_bone);
+				//			BoneData bd;
+
+				//			FbxAMatrix joint_transform; cluster->GetTransformLinkMatrix(joint_transform);
+				//			FbxAMatrix global_transform; global_transform = cluster->GetTransformMatrix(global_transform).Inverse();
+				//			FbxAMatrix local_transform = (global_transform * joint_transform).Inverse();
+
+				//			data->skinTransform = GetAvTransform(joint_transform.Inverse());
+				//			bd.skinTransform = GetAvTransform(joint_transform.Inverse());
+				//			bone_data_list.push_back(bd);
+				//			//data->SetBoneList(bone_data_list);
+				//		}
+				//		//Bone Data
+				//		BoneData& bone_data = bone_data_list[bone_data_index];
+
+				//		partition.numWeightsPerVertex = 4;
+
+				//		//find local values
+				//		vector<unsigned short >& partition_bones = partition.bones;
+				//		size_t local_bone_index = -1;
+				//		vector<unsigned short >::iterator local_bones_it = find(partition_bones.begin(), partition_bones.end(), bone_data_index);
+				//		if (local_bones_it == partition_bones.end())
+				//		{
+				//			local_bone_index = partition_bones.size();
+				//			partition_bones.push_back(bone_data_index);
+				//			partition.numBones++;
+				//		}
+				//		else {
+				//			local_bone_index = distance(partition_bones.begin(), local_bones_it);
+				//		}
+
+				//		size_t cp_count = cluster->GetControlPointIndicesCount();
+				//		vector< vector<float > >& local_vertices_weights = partition.vertexWeights;
+				//		//local_vertices_weights.resize(cp_count);
+				//		vector< vector<byte > >& local_vertices_indices = partition.boneIndices;
+				//		//local_vertices_indices.resize(cp_count);
+				//		vector<Triangle>& local_triangles = partition.triangles;
+				//		for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++)
+				//		{
+				//			int v = cp.find(cluster->GetControlPointIndices()[iPoint])->second;
+				//			float w = cluster->GetControlPointWeights()[iPoint];
+
+				//			if (w > 0.0)
+				//			{
+				//				BoneVertData bvd;
+				//				bvd.index = v;
+				//				bvd.weight = w;
+				//			
+				//				bone_data.vertexWeights.push_back(bvd);
+				//				bone_data.numVertices++;
+				//			}
+
+				//			size_t local_vertex_index = -1;
+				//			vector<unsigned short >::iterator v_local_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), v);
+
+				//			if (v_local_it == partition.vertexMap.end()) {
+				//				partition.numVertices++;
+				//				
+				//				local_vertex_index = partition.vertexMap.size();
+				//				partition.vertexMap.push_back(v);
+				//				local_vertices_weights.resize(partition.vertexMap.size());
+				//				local_vertices_indices.resize(partition.vertexMap.size());
+				//			}
+				//			else {
+				//				local_vertex_index = distance(partition.vertexMap.begin(), v_local_it);
+				//			}
+
+				//			vector<float >& local_vertex_weight_array = local_vertices_weights[local_vertex_index];
+				//			local_vertex_weight_array.push_back(w);
+				//			vector<byte >& local_bones_indices = local_vertices_indices[local_vertex_index];
+				//			local_bones_indices.push_back(local_bone_index);							
+				//		} //end points
+
+				//		//triangles
+				//		for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++)
+				//		{
+				//			int v = cp.find(cluster->GetControlPointIndices()[iPoint])->second;
+				//			pair <multimap<int, int>::iterator, multimap<int, int>::iterator> this_faces = faces_map.equal_range(v);
+
+				//			for (multimap<int, int>::iterator faces_it = this_faces.first; faces_it != this_faces.second; faces_it++)
+				//			{
+				//				int triangle_index = faces_it->second;
+
+				//				int global_v1 = cp.find(m->GetPolygonVertex(triangle_index, 0))->second;
+				//				int global_v2 = cp.find(m->GetPolygonVertex(triangle_index, 1))->second;
+				//				int global_v3 = cp.find(m->GetPolygonVertex(triangle_index, 2))->second;
+
+				//				vector<unsigned short >::iterator local_v1_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), global_v1);
+				//				vector<unsigned short >::iterator local_v2_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), global_v2);
+				//				vector<unsigned short >::iterator local_v3_it = find(partition.vertexMap.begin(), partition.vertexMap.end(), global_v3);
+
+				//				if (local_v1_it != partition.vertexMap.end() && local_v2_it != partition.vertexMap.end() && local_v3_it != partition.vertexMap.end())
+				//				{
+				//					int local_v1 = distance(partition.vertexMap.begin(), local_v1_it);
+				//					int local_v2 = distance(partition.vertexMap.begin(), local_v2_it);
+				//					int local_v3 = distance(partition.vertexMap.begin(), local_v3_it);
+
+				//					Triangle ni_t = { (unsigned short)local_v1,
+				//						(unsigned short)local_v2,
+				//						(unsigned short)local_v3 };
+
+				//					vector<Triangle>::iterator tris_pos = find(local_triangles.begin(), local_triangles.end(), ni_t);
+				//					if (tris_pos == local_triangles.end())
+				//					{
+				//						local_triangles.push_back(ni_t);
+				//						partition.numTriangles++;
+				//					}
+				//				}
+				//			}
+				//		}
+
+				//		for (int i_f = 0; i_f < partition.numVertices; i_f++) {
+
+				//			vector<byte >& pindex = local_vertices_indices[i_f];
+				//			if (pindex.size() > 4)
+				//				Log::Warn("Too many indices: found %d bones influencing for vertex %d", pindex.size(), i_f);
+
+				//			vector<float >& vweight = local_vertices_weights[i_f];
+
+				//			//find less influencing bone
+				//			if (pindex.size() != vweight.size()) {
+				//				Log::Error("Fatal Error: weights != indexes");
+				//				throw std::runtime_error("Fatal Error: weights != indexes");
+				//			}
+				//			bool removed = false;
+				//			while (vweight.size() > 4) {
+				//				removed = true;
+				//				int to_remove_bone = distance(vweight.begin(), min_element(begin(vweight), end(vweight)));
+				//				pindex.erase(pindex.begin() + to_remove_bone);
+				//				vweight.erase(vweight.begin() + to_remove_bone);
+				//			}
+				//			if (removed) {
+				//				float sum = std::accumulate(vweight.begin(), vweight.end(), 0.0f);
+				//				vweight[0] /= sum;
+				//				vweight[1] /= sum;
+				//				vweight[2] /= sum;
+				//				vweight[3] /= sum;
+				//			}
+
+				//			pindex.resize(4);
+				//			vweight.resize(4);
+				//		}
+				//	}
+
+				//	if (partition.bones.size()<4)
+				//		partition.bones.resize(4);
+
+				//	partition.numWeightsPerVertex = 4;
+				//	partition.numTriangles = partition.triangles.size();
+				//	partition.hasFaces = partition.triangles.size() > 0;
+				//	partition.trianglesCopy = partition.triangles;
+
+				//	partition.hasVertexMap = partition.vertexMap.size() > 0;
+				//	partition.hasVertexWeights = partition.vertexWeights.size() > 0;
+				//	partition.hasBoneIndices = partition.boneIndices.size() > 0;
+
+				//	partitions.push_back(partition);
+				//}
 
 				spartition->SetSkinPartitionBlocks(partitions);
 				data->SetHasVertexWeights(1);
@@ -2960,7 +3184,7 @@ class Accessor<AccessSkin>
 		}
 };
 
-void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape, const map<int, int>& cp) {
+void FBXWrangler::convertSkins(FbxMesh* m, NiTriShapeRef shape, const map<size_t, size_t>& cp) {
 	Accessor<AccessSkin> do_it(m, cp, shape, conversion_Map, conversion_root, export_skin, skinned_bones);
 	int bones = 60;
 	int weights = 4;
@@ -3103,7 +3327,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	vector<Triangle> tris;
 
 	map<std::array<double,18>, size_t> uniques;
-	map<int, int> cp;
+	map<size_t,size_t> polygon_map;
 
 	for (int t = 0; t < numTris; t++) {
 		if (m->GetPolygonSize(t) != 3)
@@ -3208,11 +3432,9 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 			else {
 				triangle[i] = v_iter->second;
 			}
-
-			cp[vertex_index] = triangle[i];
-
 		}
 
+		polygon_map[t] = tris.size();
 		tris.emplace_back(triangle[0], triangle[1], triangle[2]);
 	}
 	if (verts.size() > 0) {
@@ -3247,7 +3469,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
 
 		skins_Map[m] = out;
-		skins_control_Points.insert({ m, cp });
+		vertex_Map[m] = polygon_map;
 	}
 	else {
 		meshes.insert(m);
@@ -5331,7 +5553,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 
 	for (const auto& p : skins_Map)
 	{
-		convertSkins(p.first, p.second, skins_control_Points[p.first]);
+		convertSkins(p.first, p.second, vertex_Map[p.first]);
 		if (deferred_skins.find(StaticCast<NiAVObject>(p.second)) == deferred_skins.end())
 			deferred_skins.insert(StaticCast<NiAVObject>(p.second));
 	}
