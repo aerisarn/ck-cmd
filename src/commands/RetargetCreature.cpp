@@ -334,7 +334,8 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		Log::Error("Unable to load havok character file: %s", old_char_file.string().c_str());
 		return false;
 	}
-	string old_name = hk_ch_root->m_stringData->m_name;
+	string old_name = fs::path(source_havok_project_folder).filename().string();//hk_ch_root->m_stringData->m_name;
+	camel(old_name);
 	hk_ch_root->m_stringData->m_name = output_havok_project_name.c_str();
 
 	string old_behavior_name = hk_ch_root->m_stringData->m_behaviorFilename.cString();
