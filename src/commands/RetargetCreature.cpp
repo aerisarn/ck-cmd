@@ -50,7 +50,7 @@ string replace_all(const string& source, const string& pattern, const string& ne
 	string::size_type n = 0;
 	while ((n = result.find(pattern, n)) != string::npos)
 	{
-		result.replace(n, new_pattern.size(), new_pattern);
+		result.replace(n, pattern.size(), new_pattern);
 		n += new_pattern.size();
 	}
 	return result;
@@ -313,14 +313,16 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	}
 	std::map<string, string, ci_less> retarget_map;
 	hkbProjectStringData* sdata = hkroot->m_stringData;
-	fs::path new_char_name;
 	fs::path old_char_file = source_havok_project_folder / fs::path(sdata->m_characterFilenames[0].cString());
+	fs::path new_char_name;
 	if (sdata->m_characterFilenames.getSize() <= 0)
 	{
 		Log::Error("Havok project file contains no character file, exiting");
 		return false;
 	}
-	new_char_name = fs::path(sdata->m_characterFilenames[0].cString()).parent_path() / (output_havok_project_name + ".hkx");
+	string old_name = fs::path(source_havok_project_folder).filename().string();//hk_ch_root->m_stringData->m_name;
+	camel(old_name);
+	new_char_name = replace_all(string(sdata->m_characterFilenames[0].cString()), old_name, output_havok_project_name);
 	retarget_map[string(sdata->m_characterFilenames[0].cString())] = new_char_name.string();
 	Log::Info("Project's character: %s, new name: %s", sdata->m_characterFilenames[0], new_char_name.string().c_str());
 	sdata->m_characterFilenames[0] = new_char_name.string().c_str();
@@ -334,8 +336,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		Log::Error("Unable to load havok character file: %s", old_char_file.string().c_str());
 		return false;
 	}
-	string old_name = fs::path(source_havok_project_folder).filename().string();//hk_ch_root->m_stringData->m_name;
-	camel(old_name);
+
 	hk_ch_root->m_stringData->m_name = output_havok_project_name.c_str();
 
 	string old_behavior_name = hk_ch_root->m_stringData->m_behaviorFilename.cString();
@@ -366,12 +367,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			//do they contain the old name?
 			if (name.find(old_name) != string::npos) {
 				string new_name = name;
-				string::size_type n = 0;
-				while ((n = new_name.find(old_name, n)) != string::npos)
-				{
-					new_name.replace(n, old_name.size(), output_havok_project_name);
-					n += output_havok_project_name.size();
-				}
+				new_name = replace_all(new_name, old_name, output_havok_project_name);
 				Log::Info("Will substitute %s references with %s", name.c_str(), new_name.c_str());
 				hk_ch_root->m_stringData->m_animationNames[i] = new_name.c_str();
 				retarget_map[name] = new_name;
@@ -444,12 +440,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		string lower_project = fs::path(source_havok_project_folder).filename().string();
 		transform(lower_project.begin(), lower_project.end(), lower_project.begin(), ::tolower);
 		string new_to_crc = to_crc;
-		n = 0;
-		while ((n = new_to_crc.find(lower_project, n)) != string::npos)
-		{
-			new_to_crc.replace(n, lower_project.size(), lower_output);
-			n += lower_output.size();
-		}
+		new_to_crc = replace_all(new_to_crc, lower_project, lower_output);
 		long long new_crc = stoll(HkCRC::compute(new_to_crc), NULL, 16);
 		string new_crc_str = to_string(new_crc);
 		retarget_map[crc_str] = new_crc_str;
@@ -474,12 +465,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			if (event_name.find(old_name) != string::npos)
 			{
 				string new_name = event_name;
-				string::size_type n = 0;
-				while ((n = new_name.find(old_name, n)) != string::npos)
-				{
-					new_name.replace(n, old_name.size(), output_havok_project_name);
-					n += output_havok_project_name.size();
-				}
+				new_name = replace_all(new_name, old_name, output_havok_project_name);
 				Log::Info("Will substitute %s references with %s", event_name.c_str(), new_name.c_str());
 				if (event_name.find("SoundPlay.") == 0)
 					retarget_SOUN.insert(event_name.substr(sizeof("SoundPlay.")-1, event_name.size()));
@@ -494,12 +480,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			if (variable_name.find(old_name) != string::npos)
 			{
 				string new_name = variable_name;
-				string::size_type n = 0;
-				while ((n = new_name.find(old_name, n)) != string::npos)
-				{
-					new_name.replace(n, old_name.size(), output_havok_project_name);
-					n += output_havok_project_name.size();
-				}
+				new_name = replace_all(new_name, old_name, output_havok_project_name);
 				Log::Info("Will substitute %s references with %s", variable_name.c_str(), new_name.c_str());
 				if (variable_name.find("iState_") == 0) {
 					retarget_MOVT.insert(variable_name.substr(sizeof("iState_")-1, variable_name.size()));
@@ -522,12 +503,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 					clip->m_animationName = it->second.c_str();
 				}
 				string clip_name = clip->m_name;
-				string::size_type n = 0;
-				while ((n = clip_name.find(old_name, n)) != string::npos)
-				{
-					clip_name.replace(n, old_name.size(), output_havok_project_name);
-					n += output_havok_project_name.size();
-				}
+				clip_name = replace_all(clip_name, old_name, output_havok_project_name);
 				clip->m_name = clip_name.c_str();
 			}
 			if (BSSynchronizedClipGenerator::staticClass().getSignature() == object.m_class->getSignature())
@@ -535,12 +511,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				hkRefPtr<BSSynchronizedClipGenerator> clip = (BSSynchronizedClipGenerator*)object.m_object;
 
 				string clip_name = clip->m_name;
-				string::size_type n = 0;
-				while ((n = clip_name.find(old_name, n)) != string::npos)
-				{
-					clip_name.replace(n, old_name.size(), output_havok_project_name);
-					n += output_havok_project_name.size();
-				}
+				clip_name = replace_all(clip_name, old_name, output_havok_project_name);
 				clip->m_name = clip_name.c_str();
 			}
 			if (hkbExpressionDataArray::staticClass().getSignature() == object.m_class->getSignature())
@@ -553,12 +524,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 					if (expression_string.find(old_name) != string::npos)
 					{
 						string new_name = expression_string;
-						string::size_type n = 0;
-						while ((n = new_name.find(old_name, n)) != string::npos)
-						{
-							new_name.replace(n, old_name.size(), output_havok_project_name);
-							n += output_havok_project_name.size();
-						}
+						new_name = replace_all(new_name, old_name, output_havok_project_name);
 						Log::Info("Will substitute %s expression with %s", expression_string.c_str(), new_name.c_str());
 						expression->m_expressionsData[i].m_expression = new_name.c_str();
 					}
@@ -582,30 +548,15 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	auto cache_ptr = cache.cloneCreature(cache_name, output_havok_project_lower_name + "project");
 	//retarget caches
 	auto block = cache_ptr->block.toASCII();
-	string::size_type n = 0;
-	while ((n = block.find(old_name, n)) != string::npos)
-	{
-		block.replace(n, old_name.size(), output_havok_project_name);
-		n += output_havok_project_name.size();
-	}
+	block = replace_all(block, old_name, output_havok_project_name);
 	cache_ptr->block.clear();
 	cache_ptr->block.fromASCII(block);
 	auto set_block = cache_ptr->sets.getBlock();
-	n = 0;
-	while ((n = set_block.find(old_name, n)) != string::npos)
-	{
-		set_block.replace(n, old_name.size(), output_havok_project_name);
-		n += output_havok_project_name.size();
-	}
+	set_block = replace_all(set_block, old_name, output_havok_project_name);
 	//adjust crc
 	for (const auto& it : retarget_map) {
 		string token = it.first;
-		n = 0;
-		while ((n = set_block.find(token, n)) != string::npos)
-		{
-			set_block.replace(n, token.size(), it.second);
-			n += it.second.size();
-		}
+		set_block = replace_all(set_block, token, it.second);
 	}
 	cache_ptr->sets.clear();
 	cache_ptr->sets.parseBlock(scannerpp::Scanner(set_block));
@@ -767,13 +718,18 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		auto idle = idle_it.second;
 		std::string new_name = idle->EDID.value;
 		std::string::size_type n = 0;
+		string old_name_lower = old_name; 
+		
+		std::transform(old_name_lower.begin(), old_name_lower.end(), old_name_lower.begin(),
+			[](unsigned char c) { return tolower(c); });
+
 		if (new_name.find(old_name) != std::string::npos)
 		{
-			while ((n = new_name.find(old_name, n)) != std::string::npos)
-			{
-				new_name.replace(n, std::string(old_name).size(), output_havok_project_name);
-				n += std::string(output_havok_project_name).size();
-			}
+			new_name = replace_all(new_name, old_name, output_havok_project_name);
+		}
+		else if (new_name.find(old_name_lower) != std::string::npos)
+		{
+			new_name = replace_all(new_name, old_name_lower, output_havok_project_name);
 		}
 		else {
 			new_name = output_havok_project_name + new_name;
