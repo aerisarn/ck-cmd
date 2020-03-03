@@ -5776,13 +5776,16 @@ void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
 						old_skinned_position_map[s][iSkin][vp_index] += weighted_v_skinned;
 						weights_map[s][iSkin][vp_index] += weight;
 					}
-
-					auto new_weighted_v_skinned = bone->EvaluateGlobalTransform().MultT(v_in_pose) * weight;
+					FbxVector4 new_v_in_pose = bone->EvaluateGlobalTransform().Inverse().MultT(v);
+					auto new_weighted_v_skinned = bone->EvaluateGlobalTransform().MultT(new_v_in_pose) * weight;
 					if (new_skinned_position_map[s][iSkin].find(vp_index) == new_skinned_position_map[s][iSkin].end())
 						new_skinned_position_map[s][iSkin][vp_index] = new_weighted_v_skinned;
 					else
 						new_skinned_position_map[s][iSkin][vp_index] += new_weighted_v_skinned;
 				}
+
+				cluster->SetTransformLinkMatrix(bone->EvaluateGlobalTransform());
+
 			}
 		}
 	}
@@ -5790,7 +5793,6 @@ void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
 	for (int s = 0; s < new_skinned_position_map.size(); s++)
 	{
 		auto skin = skins[s];
-
 		for (int i = 0; i < skin->GetControlPointsCount(); i++)
 		{
 
@@ -5816,7 +5818,7 @@ void FBXWrangler::ApplySkeletonScaling(NifFile& nif)
 			//auto old = old_skinned_position_map[s][i];
 			//auto actual = skin->GetControlPointAt(i);
 			auto diff = vertex - new_vertex;
-			auto point = skin->GetControlPointAt(i) + diff;
+			auto point = skin->GetControlPointAt(i) - new_vertex + vertex;
 			skin->SetControlPointAt(point, i);
 		}
 	}
