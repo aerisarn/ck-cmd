@@ -3373,6 +3373,21 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 
 				}
 
+				//Transparency
+				prop = material->FindProperty(FbxSurfaceMaterial::sTransparentColor, true);
+				if (prop.IsValid())
+				{
+					if (prop.Get<FbxColor>() != FbxColor(0.0, 0.0, 0.0))
+					{
+						hasAlpha = true;
+					}
+					if (prop.GetSrcObject<FbxFileTexture>(0))
+					{
+						hasAlpha = true;
+					}
+				}
+
+
 				//normal:
 				prop = material->FindProperty(FbxSurfaceMaterial::sBump, true);
 
