@@ -2933,6 +2933,17 @@ class Accessor<AccessSkin>
 					partition.hasVertexWeights = partition.vertexWeights.size() > 0;
 					partition.hasBoneIndices = partition.boneIndices.size() > 0;
 				}
+
+				//clean if necessary
+				auto partition_it = partitions.begin();
+				while (partition_it != partitions.end())
+				{
+					if (partition_it->vertexMap.size())
+						partition_it++;
+					else
+						partition_it = partitions.erase(partition_it);
+				}
+
 				spartition->SetSkinPartitionBlocks(partitions);
 				data->SetHasVertexWeights(1);
 				skin->SetData(data);
