@@ -8,7 +8,6 @@ See the included LICENSE file
 #include <core/EulerAngles.h>
 #include <core/MathHelper.h>
 #include <commands/Geometry.h>
-#include <commands/NifScan.h>
 #include <core/log.h>
 
 #include <Physics\Utilities\Collide\ShapeUtils\CreateShape\hkpCreateShapeUtility.h>
@@ -56,11 +55,9 @@ See the included LICENSE file
 #include <VHACD.h>
 #include <boundingmesh.h>
 
-#include <commands/fixsse.h>
 
 using namespace ckcmd::FBX;
 using namespace  ckcmd::Geometry;
-using namespace ckcmd::nifscan;
 using namespace ckcmd::HKX;
 
 #undef max

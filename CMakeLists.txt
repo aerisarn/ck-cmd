@@ -411,7 +411,6 @@ set (PROJECT_SRC "${CMAKE_SOURCE_DIR}/src/core/FBXCommon.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkclsnam.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkcrc.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkfutils.cpp"
-                 "${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkxcore.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkxpch.cpp"
                  "${CMAKE_SOURCE_DIR}/src/core/hkxutils.cpp"
@@ -455,7 +454,8 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/Fbx2Raw.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/NifFile.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/AnimationCache.h"
-#COMMANDS
+					 )
+set (PROJECT_COMMANDS
 					 "${CMAKE_SOURCE_DIR}/include/commands/ImportFbx.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ImportSkin.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ImportAnimation.h"
@@ -484,8 +484,12 @@ file(GLOB_RECURSE COMMANDS_SRC
 	"${CMAKE_SOURCE_DIR}/src/commands/*.cpp"
 )
 
+list (APPEND COMMANDS_SRC
+	"${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp"
+)
+
 list (APPEND PROJECT_SRC ${HAVOK_COMPAT_SRC})
-list (APPEND PROJECT_SRC ${COMMANDS_SRC})
+#list (APPEND PROJECT_SRC ${COMMANDS_SRC})
 list (APPEND PROJECT_HEADERS ${HAVOK_COMPAT_HEADERS})
 list (APPEND PROJECT_HEADERS ${BETH_ANIMDATA_HEADERS})
 list (APPEND PROJECT_HEADERS ${NIF_CORE_HEADERS})
@@ -564,7 +568,7 @@ IF (PROJECT_GUI)
 ENDIF ()
 
 # Build core
-add_executable				(ck-cmd ${PROJECT_SRC} ${PROJECT_HEADERS})
+add_executable				(ck-cmd ${PROJECT_SRC} ${PROJECT_HEADERS} ${PROJECT_COMMANDS} ${COMMANDS_SRC})
 add_dependencies			(ck-cmd zlib docopt)
 target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} ${DOCOPT_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
 if (HAVE_SPEEDTREE)

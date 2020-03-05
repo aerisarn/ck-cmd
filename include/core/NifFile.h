@@ -106,8 +106,7 @@ using namespace Niflib;
 			NiObjectRef GetRoot() { return GetFirstRoot(blocks); }
 
 			static bool hasExternalSkinnedMesh(vector<NiObjectRef>& blocks,  NiNode* root);
-			void NifFile::UpdateSkinPartitions(NiTriShapeRef shape);
-
+			
 		};
 	}
 }

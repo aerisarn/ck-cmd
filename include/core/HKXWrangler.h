@@ -2,8 +2,6 @@
 
 #include "stdafx.h"
 
-#include <commands/Project.h>
-
 #include <core/hkxcmd.h>
 #include <core/hkxutils.h>
 #include <core/hkfutils.h>
@@ -140,10 +138,7 @@ namespace ckcmd {
 
 			void write(hkRootLevelContainer& rootCont, string subfolder = "", string name = "");
 
-			hkRootLevelContainer* read(const fs::path& path, hkArray<hkVariant>& objects);
-			hkRootLevelContainer* read(const fs::path& path);
-			hkRootLevelContainer* read(const uint8_t* data, const size_t& size, hkArray<hkVariant>& objects);
-			hkRootLevelContainer* read(const uint8_t* data, const size_t& size);
+
 
 			//hkRefPtr<hkbProjectData> load_project(const fs::path& path);
 			//hkRefPtr<hkbProjectData> load_project(const uint8_t* data, const size_t& size);
@@ -169,6 +164,11 @@ namespace ckcmd {
 			HKXWrapper() {}
 			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix);
 			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix, const set<string>& sequences_names);
+
+			hkRootLevelContainer* read(const fs::path& path, hkArray<hkVariant>& objects);
+			hkRootLevelContainer* read(const fs::path& path);
+			hkRootLevelContainer* read(const uint8_t* data, const size_t& size, hkArray<hkVariant>& objects);
+			hkRootLevelContainer* read(const uint8_t* data, const size_t& size);
 
 			template<typename hkRootType>
 			hkRefPtr<hkRootType> load(const fs::path& path, hkRootLevelContainer*& root) {
