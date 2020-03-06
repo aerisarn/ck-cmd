@@ -1013,7 +1013,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			for (const auto& part_data : part->GetSkinPartitionBlocks())
 			{
 				FbxSkin* fbx_skin = FbxSkin::Create(&scene, shapeSkin.c_str());
-				map<unsigned short, FbxCluster*> clusters;
+				set<FbxCluster*> clusters;
 				FbxNode* skin_parent = fbx_meshes_skin_parent[skin.first]; scene.FindNodeByName(shapeName.c_str());
 				//create clusters
 				for (unsigned short bone_index : part_data.bones) {
@@ -1024,6 +1024,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 						FbxCluster* aCluster = FbxCluster::Create(&scene, boneSkin.c_str());
 						aCluster->SetLink(jointNode);
 						aCluster->SetLinkMode(FbxCluster::eNormalize);
+						clusters.insert(aCluster);
 
 
 						auto bone_list_data = bonelistdata[bone_index];
@@ -1046,25 +1047,40 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 						//mesh transform
 						//aCluster->SetTransformAssociateModelMatrix(global_transform.Inverse());
 
-						clusters[bone_index] = aCluster;
+						for (int bs=0; bs< part_data.boneIndices.size(); bs++)
+						{
+							for (int b = 0; b < part_data.boneIndices[bs].size(); b++)
+							{
+								unsigned short local_bone_index = part_data.boneIndices[bs][b];
+								if (part_data.bones[local_bone_index] == bone_index)
+								{
+									unsigned short vertex_index = part_data.vertexMap[bs];
+									float vertex_weight = part_data.vertexWeights[bs][b];
+									aCluster->AddControlPointIndex(vertex_index, vertex_weight);
+								}
+							}
+						}
+					}
+					else {
+						throw std::runtime_error("internal error on skin processing");
 					}
 				}
 
-				for (int v = 0; v < part_data.vertexMap.size(); v++)
-				{
-					for (int b = 0; b < part_data.boneIndices[v].size(); b++)
-					{
-						unsigned short bone_index = part_data.bones[part_data.boneIndices[v][b]];
-						FbxCluster* cluster = clusters[bone_index];
-						unsigned short vertex_index = part_data.vertexMap[v];
-						float vertex_weight = part_data.vertexWeights[v][b];
-						cluster->AddControlPointIndex(vertex_index, vertex_weight);
-					}
-				}
+				//for (int v = 0; v < part_data.vertexMap.size(); v++)
+				//{
+				//	for (int b = 0; b < part_data.boneIndices[v].size(); b++)
+				//	{
+				//		unsigned short bone_index = part_data.bones[part_data.boneIndices[v][b]];
+				//		FbxCluster* cluster = clusters[bone_index];
+				//		unsigned short vertex_index = part_data.vertexMap[v];
+				//		float vertex_weight = part_data.vertexWeights[v][b];
+				//		cluster->AddControlPointIndex(vertex_index, vertex_weight);
+				//	}
+				//}
 
 				for (const auto& cluster : clusters)
 				{
-					fbx_skin->AddCluster(cluster.second);
+					fbx_skin->AddCluster(cluster);
 				}
 				
 				if (NULL != skin_parent)
