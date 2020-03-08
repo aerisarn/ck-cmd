@@ -581,6 +581,16 @@ add_custom_command(TARGET ck-cmd POST_BUILD
         "${PROJECT_SOURCE_DIR}/lib/fbx/lib/vs2015/x86/$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:Release>/libfbxsdk.dll"
         $<TARGET_FILE_DIR:ck-cmd>)
 
+add_custom_command(TARGET ck-cmd POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different  
+        "${PROJECT_SOURCE_DIR}/batch/fbx_to_nif.bat"
+        $<TARGET_FILE_DIR:ck-cmd>)
+
+add_custom_command(TARGET ck-cmd POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different  
+        "${PROJECT_SOURCE_DIR}/batch/nif_to_fbx.bat"
+        $<TARGET_FILE_DIR:ck-cmd>)
+
 # Build tester.
 add_executable				(tests ${TEST_SRC})
 add_dependencies			(tests googletest)
