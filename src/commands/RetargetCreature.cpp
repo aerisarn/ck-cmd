@@ -44,12 +44,43 @@ struct ci_less
 	}
 };
 
+//string replace_all(string s, string a, string b) {
+//	std::string lower_s;
+//	std::transform(s.begin(), s.end(), lower_s.begin(), ::tolower);
+//	std::transform(a.begin(), a.end(), a.begin(), ::tolower);
+//	auto position = lower_s.find(a);
+//	while (position != std::string::npos) {
+//		s.replace(position, a.size(), b);
+//		position = lower_s.find(a);
+//	}
+//	return s;
+//}
+
+size_t lower_find(const string& source, const string& pattern)
+{
+	string lower_source = source;
+	std::transform(lower_source.begin(), lower_source.end(), lower_source.begin(), ::tolower);
+	string lower_pattern = pattern;
+	std::transform(lower_pattern.begin(), lower_pattern.end(), lower_pattern.begin(), ::tolower);
+	string::size_type n = 0;
+	if ((n = lower_source.find(lower_pattern, n)) != string::npos)
+	{
+		return n;
+	}
+	return std::string::npos;
+}
+
 string replace_all(const string& source, const string& pattern, const string& new_pattern)
 {
 	string result = source;
+	string lower_source = source;
+	std::transform(lower_source.begin(), lower_source.end(), lower_source.begin(), ::tolower);
+	string lower_pattern = pattern;
+	std::transform(lower_pattern.begin(), lower_pattern.end(), lower_pattern.begin(), ::tolower);
 	string::size_type n = 0;
-	while ((n = result.find(pattern, n)) != string::npos)
+	while ((n = lower_source.find(lower_pattern, n)) != string::npos)
 	{
+		lower_source.replace(n, pattern.size(), new_pattern);
 		result.replace(n, pattern.size(), new_pattern);
 		n += new_pattern.size();
 	}
@@ -365,7 +396,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			Log::Warn("found an animation outside of the creature folder: %s", name.c_str());
 			//these animations are not in the current copied folder
 			//do they contain the old name?
-			if (name.find(old_name) != string::npos) {
+			if (lower_find(name, old_name) != string::npos) {
 				string new_name = name;
 				new_name = replace_all(new_name, old_name, output_havok_project_name);
 				Log::Info("Will substitute %s references with %s", name.c_str(), new_name.c_str());
@@ -462,7 +493,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		for (int i = 0; i < bhkroot->m_data->m_stringData->m_eventNames.getSize(); i++)
 		{
 			string event_name = bhkroot->m_data->m_stringData->m_eventNames[i];
-			if (event_name.find(old_name) != string::npos)
+			if (lower_find(event_name,old_name) != string::npos)
 			{
 				string new_name = event_name;
 				new_name = replace_all(new_name, old_name, output_havok_project_name);
@@ -477,7 +508,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		for (int i = 0; i < bhkroot->m_data->m_stringData->m_variableNames.getSize(); i++)
 		{
 			string variable_name = bhkroot->m_data->m_stringData->m_variableNames[i];
-			if (variable_name.find(old_name) != string::npos)
+			if (lower_find(variable_name,old_name) != string::npos)
 			{
 				string new_name = variable_name;
 				new_name = replace_all(new_name, old_name, output_havok_project_name);
@@ -521,7 +552,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				{
 					auto data = expression->m_expressionsData[i];
 					string expression_string = expression->m_expressionsData[i].m_expression;
-					if (expression_string.find(old_name) != string::npos)
+					if (lower_find(expression_string,old_name) != string::npos)
 					{
 						string new_name = expression_string;
 						new_name = replace_all(new_name, old_name, output_havok_project_name);
@@ -606,19 +637,26 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		if (record->GetType() == REV32(MOVT)) {
 			Sk::MOVTRecord* movt = dynamic_cast<Sk::MOVTRecord*>(record);
 			if (retarget_MOVT.find(string(movt->MNAM.value)) != retarget_MOVT.end())
-				movts[string(movt->EDID.value)]=movt;
+			{
+				Log::Info("Found MOVT to retarget: %s", movt->EDID.value);
+				movts[string(movt->EDID.value)] = movt;
+			}
 		}
 		if (record->GetType() == REV32(SNDR)) {
 			Sk::SNDRRecord* sndr = dynamic_cast<Sk::SNDRRecord*>(record);
 			string SDless = string(sndr->EDID.value).substr(0, string(sndr->EDID.value).size() - 2);
 			if (retarget_SOUN.find(SDless) != retarget_SOUN.end() || retarget_SOUN.find(string(sndr->EDID.value)) != retarget_SOUN.end())
+			{
+				Log::Info("Found SNDR to retarget: %s", sndr->EDID.value);
 				sndrs[string(sndr->EDID.value)] = sndr;
+			}
 		}
 		else if (record->GetType() == REV32(IDLE)) {
 			Sk::IDLERecord* idle = dynamic_cast<Sk::IDLERecord*>(record);
 			auto behavior = idle->DNAM.value;
-			if (NULL != behavior && std::string(behavior).find(old_name) != std::string::npos)
+			if (NULL != behavior && lower_find(behavior,old_name) != std::string::npos)
 			{
+				Log::Info("Found IDLE to retarget: %s", idle->EDID.value);
 				idles[string(idle->EDID.value)] = idle;
 				//there are some errors in vanilkla esm regarding behavior assignments, let's try to correct them
 				auto references = idle->ANAM;
@@ -701,7 +739,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		copied->GNAM = sndr->GNAM;
 		copied->SNAM = sndr->SNAM;
 		copied->FNAM = sndr->FNAM;
-		copied->ANAM = sndr->ANAM;
+		//copied->ANAM = sndr->ANAM;
 		copied->ONAM = sndr->ONAM;
 		copied->CTDA = sndr->CTDA;
 		copied->LNAM = sndr->LNAM;
@@ -718,18 +756,10 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		auto idle = idle_it.second;
 		std::string new_name = idle->EDID.value;
 		std::string::size_type n = 0;
-		string old_name_lower = old_name; 
-		
-		std::transform(old_name_lower.begin(), old_name_lower.end(), old_name_lower.begin(),
-			[](unsigned char c) { return tolower(c); });
 
-		if (new_name.find(old_name) != std::string::npos)
+		if (lower_find(new_name,old_name) != std::string::npos)
 		{
 			new_name = replace_all(new_name, old_name, output_havok_project_name);
-		}
-		else if (new_name.find(old_name_lower) != std::string::npos)
-		{
-			new_name = replace_all(new_name, old_name_lower, output_havok_project_name);
 		}
 		else {
 			new_name = output_havok_project_name + new_name;

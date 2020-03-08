@@ -886,7 +886,15 @@ set<string> HKXWrapper::create_animations(
 					});
 				}
 
-				tempAnim->m_transforms[i*skeleton.size()].setIdentity();
+				tempAnim->m_transforms[i*skeleton.size()].setTranslation
+				(
+					{
+					0.0,
+					0.0,
+					tempAnim->m_transforms[i*skeleton.size()].getTranslation().getSimdAt(2),
+					tempAnim->m_transforms[i*skeleton.size()].getTranslation().getSimdAt(3)
+					}
+				);
 			}
 
 			//TODO: linear analysis
@@ -942,7 +950,7 @@ set<string> HKXWrapper::create_animations(
 			tparams.m_rotationQuantizationType = hkaSplineCompressedAnimation::TrackCompressionParams::THREECOMP40;
 
 			auto outAnim = new hkaSplineCompressedAnimation(*tempAnim.val(), tparams, aparams);
-			binding->m_animation = outAnim;
+			binding->m_animation = tempAnim;
 			binding->m_originalSkeletonName = skeleton_name.c_str();
 
 			anim_container->m_bindings.pushBack(binding);
@@ -1622,7 +1630,11 @@ void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> transla
 	size_t vertices_count = mesh->GetControlPointsCount();
 	int map_offset = geometry.m_vertices.getSize();
 	for (int i = 0; i < vertices_count; i++) {
-		FbxVector4 vertex = translated_mesh.first.MultT(mesh->GetControlPointAt(i));
+		FbxVector4 vertex;
+		if (translated_mesh.first.IsIdentity())
+			vertex = mesh->GetControlPointAt(i);
+		else
+			vertex = translated_mesh.first.MultT(mesh->GetControlPointAt(i));
 		geometry.m_vertices.pushBack(
 			{ (hkReal)(vertex[0] * scaling),  (hkReal)(vertex[1] * scaling), (hkReal)(vertex[2] *scaling) }
 		);
@@ -2745,6 +2757,8 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 	{		
 		hkpCreateShapeUtility::CreateShapeInput input;
 		hkpCreateShapeUtility::ShapeInfoOutput output;
+		input.m_maxVertexDisplacement = 0;
+		input.m_enableAutomaticShapeShrinking = false;
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createSphereShape(input, output);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
@@ -2757,6 +2771,8 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		hkpCreateShapeUtility::CreateShapeInput input;
 		hkpCreateShapeUtility::ShapeInfoOutput output;
 		input.m_vertices = to_bound.m_vertices;
+		input.m_maxVertexDisplacement = 0;
+		input.m_enableAutomaticShapeShrinking = false;
 		hkpCreateShapeUtility::createBoxShape(input, output);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
 		hkpBoxShape* shape = (hkpBoxShape*)output.m_shape;
@@ -2767,6 +2783,8 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 	{
 		hkpCreateShapeUtility::CreateShapeInput input;
 		hkpCreateShapeUtility::ShapeInfoOutput output;
+		input.m_maxVertexDisplacement = 0;
+		input.m_enableAutomaticShapeShrinking = false;
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createCapsuleShape(input, output);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);

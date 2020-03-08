@@ -70,6 +70,10 @@ static inline Niflib::Vector4 TOVECTOR4(const hkVector4& v, const float scale = 
 	return Niflib::Vector4((float)v.getSimdAt(0) * scale, (float)v.getSimdAt(1) * scale, (float)v.getSimdAt(2) * scale, (float)v.getSimdAt(3));
 }
 
+static inline Niflib::Vector3 TOVECTOR4(const FbxVector4& v, const float scale = 1.0f) {
+	return Niflib::Vector3(v[0] * scale, v[1] * scale, v[2] * scale);
+}
+
 static inline hkVector4 TOVECTOR4(const Niflib::Vector4& v) {
 	return hkVector4(v.x, v.y, v.z, v.w);
 }
@@ -112,7 +116,7 @@ static inline FbxVector4 TOFBXVECTOR4(const hkVector4& v)
 
 static inline FbxVector4 TOFBXVECTOR3(const Vector4& v)
 {
-	return FbxVector4(v[0], v[1], v[2]);
+	return FbxVector4(v.x, v.y, v.z);
 }
 
 static inline FbxQuaternion TOFBXQUAT(const Quaternion& q)
@@ -2766,18 +2770,25 @@ class Accessor<AccessSkin>
 				}
 
 				map<FbxSkin*, map<size_t, std::array<vector<tuple<FbxNode*, float>>, 3>>> partition_triangle_map;
-
+				vector<FbxAMatrix> matrixes;
 				for (int iSkin = 0; iSkin < m->GetDeformerCount(FbxDeformer::eSkin); iSkin++) {
 					FbxSkin* fbx_skin = (FbxSkin*)m->GetDeformer(iSkin, FbxDeformer::eSkin);
+					
+
 					for (int iCluster = 0; iCluster < fbx_skin->GetClusterCount(); iCluster++) {
 						FbxCluster* cluster = fbx_skin->GetCluster(iCluster);
-
+						FbxAMatrix global_matrix;
 						for (int iPoint = 0; iPoint < cluster->GetControlPointIndicesCount(); iPoint++)
 						{
 							int vertex = cluster->GetControlPointIndices()[iPoint];
 							auto weight = cluster->GetControlPointWeights()[iPoint];
 							auto bone = cluster->GetLink();
-							auto triangles_its = triangle_map.equal_range(vertex);
+							auto triangles_its = triangle_map.equal_range(vertex);							
+
+							cluster->GetTransformMatrix(global_matrix);
+							if (find(matrixes.begin(), matrixes.end(), global_matrix)== matrixes.end())
+								matrixes.push_back(global_matrix);
+
 							for (auto it_begin = triangles_its.first; it_begin != triangles_its.second; it_begin++)
 							{
 								if (vertex == m->GetPolygonVertex(it_begin->second, 0))
@@ -2957,11 +2968,29 @@ class Accessor<AccessSkin>
 						partition_it = partitions.erase(partition_it);
 				}
 
+				//Bake global transform on vertices, global transform doesn't work
+				if (export_skin)
+				{
+					auto original_shape_data = DynamicCast<NiTriShapeData>(shape->GetData());
+					if (original_shape_data != NULL)
+					{
+						
+						auto vertices = original_shape_data->vertices;
+						for (int i = 0; i < vertices.size(); i++) {
+							vertices[i] = TOVECTOR4(matrixes[0].MultT(TOFBXVECTOR3(vertices[i])));
+						}
+						original_shape_data->SetVertices(vertices);
+					}
+				}
+
+
 				spartition->SetSkinPartitionBlocks(partitions);
+				//data->SetSkinTransform(GetAvTransform(matrixes[0]));
 				data->SetHasVertexWeights(1);
 				skin->SetData(data);
 				skin->SetSkinPartition(spartition);
 				skin->SetSkeletonRoot(conversion_root);
+				
 
 				if (export_skin)
 				{
