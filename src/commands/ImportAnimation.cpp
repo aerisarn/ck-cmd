@@ -150,6 +150,20 @@ bool BeginConversion(const string& importSkeleton, const string& importFBX, cons
 	else {
 		vector<fs::path> fbxs;
 		find_files(importFBX, ".fbx", fbxs);
+		AnimationCache * cache = NULL;
+		CacheEntry* entry = NULL;
+		string project;
+		if (fs::exists(cacheFilePath) && !fs::is_directory(cacheFilePath) &&
+			fs::exists(behaviorFolder) && fs::is_directory(behaviorFolder))
+		{
+			fs::path animDataPath = fs::path(cacheFilePath).parent_path().parent_path() / "animationdatasinglefile.txt";
+			fs::path animDataSetPath = fs::path(cacheFilePath).parent_path().parent_path() / "animationsetdatasinglefile.txt";
+			Log::Info("Adjusting cache, loading %s and %s", animDataPath.string().c_str(), animDataSetPath.string().c_str());
+			cache = new AnimationCache(animDataPath, animDataSetPath);
+			Log::Info("Loaded");
+			project = fs::path(cacheFilePath).filename().replace_extension("").string();
+			entry = cache->find(project);
+		}
 		for (const auto& fbx : fbxs) {
 			Log::Info("Importing: %s, using current_dir", fbx.string().c_str());
 			FBXWrangler wrangler;
@@ -164,7 +178,20 @@ bool BeginConversion(const string& importSkeleton, const string& importFBX, cons
 			}
 			fs::path out_path = outputDir / rel_path / fbx.filename().replace_extension(".hkx");
 			fs::create_directories(out_path.parent_path());
-			wrangler.SaveAnimation(out_path.string());
+			auto root_info = wrangler.SaveAnimation(out_path.string());
+			if (entry) {
+				wrangler.hkx_wrapper().PutClipMovement(
+					fbxModelpath.replace_extension(".hkx"),
+					*entry,
+					behaviorFolder,
+					root_info.begin()->second
+				);
+			}
+		}
+		if (entry)
+		{
+			cache->save_creature(project, entry, "animationdatasinglefile.txt", "animationsetdatasinglefile.txt");
+			delete cache;
 		}
 	}
 
