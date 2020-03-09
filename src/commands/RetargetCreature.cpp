@@ -503,6 +503,13 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				retarget_map[string(bhkroot->m_data->m_stringData->m_eventNames[i])] = new_name;
 				bhkroot->m_data->m_stringData->m_eventNames[i] = new_name.c_str();
 			}
+			else if (event_name.find("SoundPlay.") == 0) {
+				string new_name = "SoundPlay." + output_havok_project_name + event_name.substr(event_name.find(".") + 1, event_name.length() - event_name.find(".") - 1);
+				Log::Info("Will substitute %s references with %s", event_name.c_str(), new_name.c_str());
+				retarget_SOUN.insert(event_name.substr(sizeof("SoundPlay.") - 1, event_name.size()));
+				retarget_map[string(bhkroot->m_data->m_stringData->m_eventNames[i])] = new_name;
+				bhkroot->m_data->m_stringData->m_eventNames[i] = new_name.c_str();
+			}
 		}
 		Log::Info("Retargeting Variables:");
 		for (int i = 0; i < bhkroot->m_data->m_stringData->m_variableNames.getSize(); i++)
@@ -598,19 +605,19 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	Games& games = Games::Instance();
 	Games::Game tes5 = Games::TES5;
 
-	if (!games.isGameInstalled(tes5)) {
-		Log::Error("This command only works on TES5, and doesn't seem to be installed. Be sure to run the game at least once.");
-		return false;
-	}
+	//if (!games.isGameInstalled(tes5)) {
+	//	Log::Error("This command only works on TES5, and doesn't seem to be installed. Be sure to run the game at least once.");
+	//	return false;
+	//}
 
-	Collection skyrimCollection = Collection((char * const)(games.data(tes5).string().c_str()), 3);
+	Collection skyrimCollection = Collection("C:\\git_ref\\esm\\TES5"/*(char * const)(games.data(tes5).string().c_str())*/, 3);
 	ModFlags masterFlags = ModFlags(0xA);
 	ModFlags skyblivionFlags = ModFlags(0xA);
 	ModFile* esm = skyrimCollection.AddMod("Skyrim.esm", masterFlags);
-	ModFile* update = skyrimCollection.AddMod("Update.esm", masterFlags);
-	ModFile* dawnguard = skyrimCollection.AddMod("Dawnguard.esm", masterFlags);
-	ModFile* Hearthfires = skyrimCollection.AddMod("Hearthfires.esm", masterFlags);
-	ModFile* Dragonborn = skyrimCollection.AddMod("Dragonborn.esm", masterFlags);
+	//ModFile* update = skyrimCollection.AddMod("Update.esm", masterFlags);
+	//ModFile* dawnguard = skyrimCollection.AddMod("Dawnguard.esm", masterFlags);
+	//ModFile* Hearthfires = skyrimCollection.AddMod("Hearthfires.esm", masterFlags);
+	//ModFile* Dragonborn = skyrimCollection.AddMod("Dragonborn.esm", masterFlags);
 	ModFlags espFlags = ModFlags(0x1818);
 	espFlags.IsNoLoad = false;
 	espFlags.IsFullLoad = true;
@@ -720,7 +727,14 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 
 	for (auto& sndr_it : sndrs) {
 		auto sndr = sndr_it.second;
-		std::string new_edid = replace_all(sndr->EDID.value, old_name, output_havok_project_name);
+		std::string new_edid;
+		if (lower_find(sndr->EDID.value, old_name) != string::npos)
+		{
+			new_edid = replace_all(sndr->EDID.value, old_name, output_havok_project_name);
+		}
+		else {
+			new_edid = output_havok_project_name + sndr->EDID.value;
+		}
 		if (!ends_with(new_edid, "SD"))
 			new_edid += "SD";
 
@@ -739,7 +753,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		copied->GNAM = sndr->GNAM;
 		copied->SNAM = sndr->SNAM;
 		copied->FNAM = sndr->FNAM;
-		//copied->ANAM = sndr->ANAM;
+		copied->ANAM = sndr->ANAM;
 		copied->ONAM = sndr->ONAM;
 		copied->CTDA = sndr->CTDA;
 		copied->LNAM = sndr->LNAM;
