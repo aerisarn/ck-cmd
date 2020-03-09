@@ -1624,7 +1624,7 @@ void convert_geometry(shared_ptr<bmeshinfo> bmesh, pair<FbxAMatrix, FbxMesh*> tr
 	}
 }
 
-void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> translated_mesh, vector<hkpNamedMeshMaterial>& materials, double scaling)
+void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> translated_mesh, vector<hkpNamedMeshMaterial>& materials, double scaling, FbxNode* collision_node)
 {
 	FbxMesh* mesh = translated_mesh.second;
 	size_t vertices_count = mesh->GetControlPointsCount();
@@ -1643,6 +1643,9 @@ void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> transla
 	vector<int> materials_map;
 	int materials_offset = materials.size();
 	FbxNode* parent = mesh->GetNode();
+	string parent_name = parent->GetName();
+	if (parent_name.find("_rb") == string::npos)
+		parent = collision_node;
 	if (parent)
 	{
 		int materials_size = parent->GetMaterialCount();
@@ -1652,7 +1655,11 @@ void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> transla
 			FbxSurfaceMaterial* collision_material = parent->GetMaterial(i);
 			string name;
 			if (collision_material == NULL)
-				name = "SKY_HAV_MAT_STONE";
+			{
+				name = get_property<FbxString>(parent, "CollisionMaterial", "").Buffer();
+				if (name.empty())
+					name = "SKY_HAV_MAT_STONE";
+			}
 			else
 			    name = collision_material->GetName();
 			
@@ -1660,8 +1667,11 @@ void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> transla
 			if (collision_material != NULL)
 				layer = collision_material->FindProperty("CollisionLayer");
 			string collision_layer_name;
-			if (!layer.IsValid())
-				collision_layer_name = "SKYL_STATIC";
+			if (!layer.IsValid()) {
+				collision_layer_name = get_property<FbxString>(parent, "CollisionLayer", "").Buffer();
+				if (collision_layer_name.empty())
+					collision_layer_name = "SKYL_STATIC";
+			}
 			else
 				collision_layer_name = layer.Get<FbxString>().Buffer();
 
@@ -1712,12 +1722,12 @@ hkGeometry extract_bounding_geometry(FbxNode* shape_root, set<pair<FbxAMatrix, F
 	if (shape_root->GetNodeAttribute() != NULL &&
 		shape_root->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh)
 	{
-		convert_hkgeometry(out, {FbxAMatrix(), (FbxMesh*)shape_root->GetNodeAttribute() }, materials, scaling);
+		convert_hkgeometry(out, {FbxAMatrix(), (FbxMesh*)shape_root->GetNodeAttribute() }, materials, scaling, shape_root);
 	}
 	else {
 		for (const auto& mesh : geometry_meshes)
 		{
-			convert_hkgeometry(out, mesh, materials, scaling);
+			convert_hkgeometry(out, mesh, materials, scaling, shape_root);
 		}
 	}
 	if (properties.m_mass == 0.0)
@@ -2757,7 +2767,6 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 	{		
 		hkpCreateShapeUtility::CreateShapeInput input;
 		hkpCreateShapeUtility::ShapeInfoOutput output;
-		input.m_maxVertexDisplacement = 0;
 		input.m_enableAutomaticShapeShrinking = false;
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createSphereShape(input, output);
@@ -2771,7 +2780,6 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		hkpCreateShapeUtility::CreateShapeInput input;
 		hkpCreateShapeUtility::ShapeInfoOutput output;
 		input.m_vertices = to_bound.m_vertices;
-		input.m_maxVertexDisplacement = 0;
 		input.m_enableAutomaticShapeShrinking = false;
 		hkpCreateShapeUtility::createBoxShape(input, output);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
@@ -2783,7 +2791,6 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 	{
 		hkpCreateShapeUtility::CreateShapeInput input;
 		hkpCreateShapeUtility::ShapeInfoOutput output;
-		input.m_maxVertexDisplacement = 0;
 		input.m_enableAutomaticShapeShrinking = false;
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createCapsuleShape(input, output);
