@@ -605,19 +605,19 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	Games& games = Games::Instance();
 	Games::Game tes5 = Games::TES5;
 
-	//if (!games.isGameInstalled(tes5)) {
-	//	Log::Error("This command only works on TES5, and doesn't seem to be installed. Be sure to run the game at least once.");
-	//	return false;
-	//}
+	if (!games.isGameInstalled(tes5)) {
+		Log::Error("This command only works on TES5, and doesn't seem to be installed. Be sure to run the game at least once.");
+		return false;
+	}
 
-	Collection skyrimCollection = Collection("C:\\git_ref\\esm\\TES5"/*(char * const)(games.data(tes5).string().c_str())*/, 3);
+	Collection skyrimCollection = Collection((char * const)(games.data(tes5).string().c_str()), 3);
 	ModFlags masterFlags = ModFlags(0xA);
 	ModFlags skyblivionFlags = ModFlags(0xA);
 	ModFile* esm = skyrimCollection.AddMod("Skyrim.esm", masterFlags);
-	//ModFile* update = skyrimCollection.AddMod("Update.esm", masterFlags);
-	//ModFile* dawnguard = skyrimCollection.AddMod("Dawnguard.esm", masterFlags);
-	//ModFile* Hearthfires = skyrimCollection.AddMod("Hearthfires.esm", masterFlags);
-	//ModFile* Dragonborn = skyrimCollection.AddMod("Dragonborn.esm", masterFlags);
+	ModFile* update = skyrimCollection.AddMod("Update.esm", masterFlags);
+	ModFile* dawnguard = skyrimCollection.AddMod("Dawnguard.esm", masterFlags);
+	ModFile* Hearthfires = skyrimCollection.AddMod("Hearthfires.esm", masterFlags);
+	ModFile* Dragonborn = skyrimCollection.AddMod("Dragonborn.esm", masterFlags);
 	ModFlags espFlags = ModFlags(0x1818);
 	espFlags.IsNoLoad = false;
 	espFlags.IsFullLoad = true;
@@ -754,7 +754,8 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		copied->SNAM = sndr->SNAM;
 		copied->FNAM = sndr->FNAM;
 		copied->ANAM = sndr->ANAM;
-		copied->ONAM = sndr->ONAM;
+		if (sndr->ONAM.value != NULL)
+			copied->ONAM = sndr->ONAM;
 		copied->CTDA = sndr->CTDA;
 		copied->LNAM = sndr->LNAM;
 		copied->BNAM = sndr->BNAM;
