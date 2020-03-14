@@ -343,6 +343,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		return false;
 	}
 	std::map<string, string, ci_less> retarget_map;
+	std::map<string, string, ci_less> retarget_movt_map;
 	hkbProjectStringData* sdata = hkroot->m_stringData;
 	fs::path old_char_file = source_havok_project_folder / fs::path(sdata->m_characterFilenames[0].cString());
 	fs::path new_char_name;
@@ -521,12 +522,25 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				new_name = replace_all(new_name, old_name, output_havok_project_name);
 				Log::Info("Will substitute %s references with %s", variable_name.c_str(), new_name.c_str());
 				if (variable_name.find("iState_") == 0) {
-					retarget_MOVT.insert(variable_name.substr(sizeof("iState_")-1, variable_name.size()));
+					retarget_MOVT.insert(variable_name.substr(sizeof("iState_") - 1, variable_name.size()));
 				}
-
 				retarget_map[string(bhkroot->m_data->m_stringData->m_variableNames[i])] = new_name;
+				retarget_movt_map[variable_name.substr(sizeof("iState_") - 1, variable_name.size())] = new_name.substr(sizeof("iState_") - 1, new_name.size());
 				bhkroot->m_data->m_stringData->m_variableNames[i] = new_name.c_str();				
+			} else if (variable_name.find("iState_") == 0) {
+				//hackity hack, damn mudcrab
+				auto first_underscore_pos = variable_name.find("_");
+				auto second_underscore_pos = variable_name.find("_", first_underscore_pos+1);
+				if (second_underscore_pos != string::npos)
+				{
+					string new_name = "iState_" + output_havok_project_name + variable_name.substr(second_underscore_pos, variable_name.size() - second_underscore_pos);
+					Log::Info("Will substitute %s references with %s", variable_name.c_str(), new_name.c_str());
+					retarget_map[string(bhkroot->m_data->m_stringData->m_variableNames[i])] = new_name;
+					retarget_movt_map[variable_name.substr(sizeof("iState_") - 1, variable_name.size())] = new_name.substr(sizeof("iState_") - 1, new_name.size());
+					retarget_MOVT.insert(variable_name.substr(sizeof("iState_") - 1, variable_name.size()));
+				}
 			}
+
 		}
 		for (const auto& object : objects)
 		{
@@ -658,37 +672,46 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				sndrs[string(sndr->EDID.value)] = sndr;
 			}
 		}
-		else if (record->GetType() == REV32(IDLE)) {
+		if (record->GetType() == REV32(IDLE)) {
 			Sk::IDLERecord* idle = dynamic_cast<Sk::IDLERecord*>(record);
-			auto behavior = idle->DNAM.value;
-			if (NULL != behavior && lower_find(behavior,old_name) != std::string::npos)
-			{
-				Log::Info("Found IDLE to retarget: %s", idle->EDID.value);
-				idles[string(idle->EDID.value)] = idle;
-				//there are some errors in vanilkla esm regarding behavior assignments, let's try to correct them
-				auto references = idle->ANAM;
+			vector<Sk::IDLERecord*> to_add;
+			char* this_behavior = NULL;
+			Sk::IDLERecord* parent = idle;
+			while (parent != NULL) {
+				if (!parent->DNAM.IsLoaded())
+					parent->DNAM.Load();
+				auto behavior = parent->DNAM.value;
+				if (behavior != NULL && !string(behavior).empty() &&
+					lower_find(behavior, old_name) == std::string::npos)
+				{
+					to_add.clear();
+					break;
+				}
+				else if (behavior != NULL && !string(behavior).empty() &&
+					lower_find(behavior, old_name) != std::string::npos)
+				{
+
+					this_behavior = behavior;
+				}
+				auto references = parent->ANAM;
+				to_add.push_back(parent);
 				auto find_it = skyrimCollection.FormID_ModFile_Record.find(references.value.parent);
-				if (find_it != skyrimCollection.FormID_ModFile_Record.end())
+				if (find_it == skyrimCollection.FormID_ModFile_Record.end() ||					
+					find_it->second->GetType() != REV32(IDLE)) {
+					break;
+				}				
+				parent = dynamic_cast<Sk::IDLERecord*>(find_it->second);
+			}
+			for (const auto& this_idle : to_add) {
+				if (this_idle->DNAM.value == NULL || strcmp(this_idle->DNAM.value, this_behavior) != 0)
 				{
-					if (find_it->second->GetType() == REV32(IDLE)) {
-						Sk::IDLERecord* parent = dynamic_cast<Sk::IDLERecord*>(find_it->second);
-						if (parent) {
-							parent->DNAM = idle->DNAM;
-							idles[string(parent->EDID.value)] = parent;
-						}
-					}
+					if (this_idle->DNAM.value != NULL)
+						delete this_idle->DNAM.value;
+					this_idle->DNAM.value = new char[strlen(this_behavior) + 1];
+					strcpy(this_idle->DNAM.value, this_behavior);
 				}
-				find_it = skyrimCollection.FormID_ModFile_Record.find(references.value.sibling);
-				if (find_it != skyrimCollection.FormID_ModFile_Record.end())
-				{
-					if (find_it->second->GetType() == REV32(IDLE)) {
-						Sk::IDLERecord* sibling = dynamic_cast<Sk::IDLERecord*>(find_it->second);
-						if (sibling) {
-							sibling->DNAM = idle->DNAM;
-							idles[string(sibling->EDID.value)] = sibling;
-						}
-					}
-				}
+				if (idles.insert({ string(this_idle->EDID.value),this_idle }).second)
+					Log::Info("Found IDLE to retarget: %s", this_idle->EDID.value);;
 			}
 		}
 	}
@@ -698,8 +721,8 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 
 	for (auto& movt_it : movts) {
 		auto movt = movt_it.second;
-		std::string new_edid = replace_all(movt->EDID.value, old_name, output_havok_project_name);
-		std::string new_MNAM = replace_all(movt->MNAM.value, old_name, output_havok_project_name);
+		std::string new_edid = retarget_movt_map[movt->MNAM.value];
+		std::string new_MNAM = retarget_movt_map[movt->MNAM.value];
 
 		// declaring character array 
 		char* char_array = new char[new_edid.size() + 1];
