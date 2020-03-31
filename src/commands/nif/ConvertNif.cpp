@@ -27,6 +27,10 @@
 #include <array>
 #include <unordered_map>
 
+#include <iostream>
+#include <fstream>
+
+
 #ifdef HAVE_SPEEDTREE
 	#include <Core/Core.h>
 #endif
@@ -2464,17 +2468,21 @@ public:
 				{
 					FurniturePosition newpos = FurniturePosition();
 					newpos.offset = pos.offset;
-					newpos.offset.z += 35;
+					newpos.offset.z = 35.0f;
+					float orientation = pos.orientation;
+					newpos.heading = orientation / 1000.0f;
 
 					if (pos.positionRef1 == 1) {
+						newpos.heading = 0.0f;
 						newpos.animationType = AnimationType::SLEEP;
 						newpos.entryProperties = FurnitureEntryPoints::LEFT;
-						newpos.offset.x -= -90.826172f;
+						newpos.offset.x += 70.0f;
 					}
 					if (pos.positionRef1 == 2) {
+						newpos.heading = 0.0f;
 						newpos.animationType = AnimationType::SLEEP;
 						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
-						newpos.offset.x -= 90.826172f;
+						newpos.offset.x -= 70.0f;
 					}
 					if (pos.positionRef1 == 3) {
 						newpos.animationType = AnimationType::SLEEP;
@@ -2486,23 +2494,23 @@ public:
 					}
 					if (pos.positionRef1 == 11) {
 						newpos.animationType = AnimationType::SIT;
-						newpos.entryProperties = FurnitureEntryPoints::LEFT;
-						newpos.offset.x -= -51.330994f;
+						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
+						newpos.offset.x = 0.0f;
 					}
 					if (pos.positionRef1 == 12) {
 						newpos.animationType = AnimationType::SIT;
-						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
-						newpos.offset.x -= 51.826050f;
+						newpos.entryProperties = FurnitureEntryPoints::LEFT;
+						newpos.offset.x = 0.0f;
 					}
 					if (pos.positionRef1 == 13) {
 						newpos.animationType = AnimationType::SIT;
 						newpos.entryProperties = FurnitureEntryPoints::BEHIND;
-						newpos.offset.y -= -54.735596f;
+						newpos.offset.y = 0.0f;
 					}
 					if (pos.positionRef1 == 14) {
-						newpos.animationType = AnimationType::SIT;
 						newpos.entryProperties = FurnitureEntryPoints::FRONT;
-						newpos.offset.y -= 55.295258f;
+						newpos.animationType = AnimationType::SIT;					
+						newpos.offset.y = 0.0f;
 					}
 					newpositions.push_back(newpos);
 				}
@@ -4043,13 +4051,14 @@ void convert_blocks(
 
 
 		std::vector<NiAVObjectRef> children;
+		NiNode* proxyRoot = nullptr;
 
 		if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
 		{
-			NiBillboardNode* proxyRoot = new NiBillboardNode();
+			proxyRoot = new NiBillboardNode();
 			if (mode == ROTATE_ABOUT_UP)
 				mode = BSROTATE_ABOUT_UP;
-			proxyRoot->SetBillboardMode(mode);
+			DynamicCast<NiBillboardNode>(proxyRoot)->SetBillboardMode(mode);
 			proxyRoot->SetFlags(bsroot->GetFlags());
 			proxyRoot->SetChildren(bsroot->GetChildren());
 			proxyRoot->SetRotation(bsroot->GetRotation());
@@ -4065,10 +4074,9 @@ void convert_blocks(
 		}
 		else
 		{
-			if (bsroot->GetTranslation().Magnitude() != 0 ||
-				!bsroot->GetRotation().isIdentity())
-			{
-				NiNode* proxyRoot = new NiNode();
+			//if (bsroot->GetTranslation().Magnitude() != 0 || !bsroot->GetRotation().isIdentity())
+			//{
+				proxyRoot = new NiNode();
 				proxyRoot->SetName(IndexString("ProxyRoot"));
 				proxyRoot->SetFlags(bsroot->GetFlags());
 				proxyRoot->SetChildren(bsroot->GetChildren());
@@ -4082,7 +4090,7 @@ void convert_blocks(
 				children.push_back(proxyRoot);
 				bsroot->SetChildren(children);
 				bsroot->SetCollisionObject(NULL);
-			}
+			//}
 		}
 
 		bsroot->SetRotation(Matrix33());
@@ -4123,14 +4131,45 @@ void convert_blocks(
 		bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
 
 		bool bsx_flag_found = false;
-		for (NiObjectRef ref : blocks) {
-			if (ref->IsDerivedType(BSXFlags::TYPE)) {
-				BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
+		bool human_attachment = false;
+		bool is_furniture = false;
+		for (const auto& block : blocks) {
+			if (block->IsDerivedType(BSXFlags::TYPE)) {
+				BSXFlagsRef bref = DynamicCast<BSXFlags>(block);
 				bref->SetIntegerData(calculated_flags.to_ulong());
 				bsx_flag_found = true;
-				break;
 			}
 		}
+		for (const auto& block : blocks) {
+			if (block->IsSameType(BSFurnitureMarkerNode::TYPE) || block->IsSameType(BSFurnitureMarker::TYPE)) {
+				is_furniture = true;
+			}
+		}
+		for (const auto& block : blocks) {
+			if (block->IsSameType(BSInvMarker::TYPE)) {
+				human_attachment = true;
+				/*
+				Shields: Bip01 L ForearmTwist
+
+				For Hair Bip01Head
+
+				One - Handed weapons : SideWeapon
+
+				Bows and Two - Handed weapons : BackWeapon
+
+				Torches and similar : Torch
+				*/
+			}
+		}
+
+		if (is_furniture) {
+			Vector3 min, max = Vector3();
+			calulateBoundingBox(new_blocks, min, max);
+			Vector3 currentPosition = proxyRoot->GetTranslation();
+			currentPosition.z = -min.z;
+			proxyRoot->SetTranslation(currentPosition);
+		}
+
 		if (!bsx_flag_found && calculated_flags != 0)
 		{
 			BSXFlagsRef bref = new BSXFlags();
@@ -4138,26 +4177,6 @@ void convert_blocks(
 			vector<NiExtraDataRef> list = bsroot->GetExtraDataList();
 			list.push_back(StaticCast<NiExtraData>(bref));
 			bsroot->SetExtraDataList(list);
-		}
-		bool human_attachment = false;
-		for (const auto& block : new_blocks)
-		{
-			if (block->IsDerivedType(BSInvMarker::TYPE))
-			{
-				human_attachment = true;
-				break;
-			}
-			/*
-			Shields: Bip01 L ForearmTwist
-
-			For Hair Bip01Head
-
-			One - Handed weapons : SideWeapon
-
-			Bows and Two - Handed weapons : BackWeapon
-
-			Torches and similar : Torch
-			*/
 		}
 		if (human_attachment)
 		{
@@ -4206,6 +4225,9 @@ bool BeginConversion(string importPath, string exportPath) {
 
 	games.loadBsas(Games::TES4);
 
+	ofstream myfile;
+	myfile.open("furniture.txt", ofstream::trunc);
+
 	set<set<string>> sequences_groups;
 	HKXWrapperCollection wrappers;
 	if (nifs.empty()) {
@@ -4219,6 +4241,7 @@ bool BeginConversion(string importPath, string exportPath) {
 				Log::Info("Current File: %s", nif.c_str());
 
 				fs::path out_path = nif_out / nif;
+				fs::path in_path = nif_in / nif;
 
 				if (nif.find("meshes\\landscape\\lod") != string::npos) {
 					Log::Warn("Ignored LOD file: %s", nif.c_str());
@@ -4252,6 +4275,23 @@ bool BeginConversion(string importPath, string exportPath) {
 
 				NiObjectRef root;
 				vector<NiObjectRef> blocks = ReadNifList(iss, &info);
+
+				//TEMP TO CHECK FUNITURE
+				bool furniture = false;
+				for (auto block : blocks) {
+					if (block->IsDerivedType(BSFurnitureMarker::TYPE)) {
+						myfile << nif.c_str();
+						furniture = true;
+						fs::create_directories(in_path.parent_path());
+						root = GetFirstRoot(blocks);
+						WriteNifTree(in_path.string(), root, info);
+					}
+				}
+
+				if (!furniture) {
+					continue;
+				}
+
 				vector<NiObjectRef> new_blocks;
 				convert_blocks(
 					blocks,
@@ -4263,156 +4303,6 @@ bool BeginConversion(string importPath, string exportPath) {
 					exportPath
 				);
 
-//				//this is all hacky but ehhhh.
-//				bool isBillboardRoot = false;
-//				BillboardMode mode = BillboardMode::ALWAYS_FACE_CAMERA;
-//
-//				vector<NiObjectRef> blocks = ReadNifList(iss, &info);
-//				NiObjectRef root = GetFirstRoot(blocks);
-//				NiNode* rootn = DynamicCast<NiNode>(root);
-//
-//				ConverterVisitor fimpl(info, root, blocks);
-//
-//				if (root->IsSameType(NiBillboardNode::TYPE)) {
-//					isBillboardRoot = true;
-//					mode = DynamicCast<NiBillboardNode>(root)->GetBillboardMode();
-//				}
-//
-//				set<string> sequences = fimpl.nisequences;
-//				//root->accept(fimpl, info);
-//				if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
-//					root = convert_root(root);
-//					BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
-//					//fixed?
-//					bsroot->SetFlags(524302);
-//					string out_havok_path = "";
-//					if (!sequences.empty()) {
-//						fs::path in_file = nif;
-//						string out_name = in_file.filename().replace_extension("").string();
-//						string newPath = in_file.parent_path().string();
-//						if (newPath.substr(0, 7) == "meshes\\")
-//							newPath.erase(newPath.begin(), newPath.begin()+7);
-//						fs::path out_path = fs::path("animations") / newPath / out_name;
-//						fs::path out_path_abs = nif_out / out_path;
-//						string out_path_a = out_path_abs.string();
-//						out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
-//						vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
-//						BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
-//						havokp->SetName(string("BGED"));
-//						havokp->SetBehaviourGraphFile(out_havok_path);
-//						havokp->SetControlsBaseSkeleton(false);
-//						list.insert(list.begin(), StaticCast<NiExtraData>(havokp));
-//						bsroot->SetExtraDataList(list);
-//					}
-//
-//					std::vector<NiAVObjectRef> children;
-//
-//					if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
-//					{
-//						NiBillboardNode* proxyRoot = new NiBillboardNode();
-//						if (mode == ROTATE_ABOUT_UP)
-//							mode = BSROTATE_ABOUT_UP;
-//						proxyRoot->SetBillboardMode(mode);
-//						proxyRoot->SetFlags(bsroot->GetFlags());
-//						proxyRoot->SetChildren(bsroot->GetChildren());
-//						proxyRoot->SetRotation(bsroot->GetRotation());
-//						proxyRoot->SetTranslation(bsroot->GetTranslation());
-//						proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
-//						proxyRoot->SetName(IndexString("ProxyNode"));
-//
-//						if (proxyRoot->GetCollisionObject() != NULL)
-//							DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
-//
-//						children.push_back(proxyRoot);
-//
-//					}
-//					else
-//					{
-//						if (bsroot->GetTranslation().Magnitude() != 0 ||
-//							!bsroot->GetRotation().isIdentity()) 
-//						{
-//							NiNode* proxyRoot = new NiNode();
-//
-//							proxyRoot->SetFlags(bsroot->GetFlags());
-//							proxyRoot->SetChildren(bsroot->GetChildren());
-//							proxyRoot->SetRotation(bsroot->GetRotation());
-//							proxyRoot->SetTranslation(bsroot->GetTranslation());
-//							proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
-//							proxyRoot->SetName(IndexString("ProxyNode"));
-//
-//							if (proxyRoot->GetCollisionObject() != NULL)
-//								DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
-//
-//							children.push_back(proxyRoot);
-//
-//						}
-//					}
-//
-//					bsroot->SetRotation(Matrix33());
-//					bsroot->SetTranslation(Vector3());
-//					bsroot->SetCollisionObject(NULL);
-//					bsroot->SetChildren(children);
-//
-//					//to calculate the right flags, we need to rebuild the blocks
-//					vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
-//
-//					//fix targets from nitrishapes substitution
-//					FixTargetsVisitor(root, info, new_blocks);
-//
-//					if (DynamicCast<NiNode>(root) != NULL && DynamicCast<NiNode>(root)->GetCollisionObject() == NULL) {
-//						bhkCollisionObjectRef root_collision = NULL;
-//						int num_collisions = 0;
-//						//Optimize single collision models
-//						for (NiObjectRef block : new_blocks) {
-//							if (block->IsDerivedType(bhkCollisionObject::TYPE))
-//							{
-//								num_collisions++;
-//								root_collision = DynamicCast<bhkCollisionObject>(block);
-//							}
-//						}
-//						if (num_collisions == 1 && root_collision != NULL) {
-//
-//							vector<NiAVObjectRef> children = bsroot->GetChildren();
-//							auto root_collision_position = find(children.begin(), children.end(), StaticCast<NiAVObject>(root_collision));
-//							if (root_collision_position != children.end()) {
-//								children.erase(root_collision_position);
-//								bsroot->SetCollisionObject(StaticCast<NiCollisionObject>(root_collision));
-//								bsroot->SetChildren(children);
-//							}
-//						}
-//					}
-//
-//
-//					bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
-//
-//					bool bsx_flag_found = false;
-//					for (NiObjectRef ref : blocks) {
-//						if (ref->IsDerivedType(BSXFlags::TYPE)) {
-//							BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
-//							bref->SetIntegerData(calculated_flags.to_ulong());
-//							bsx_flag_found = true;
-//							break;
-//						}
-//					}
-//					if (!bsx_flag_found && calculated_flags != 0)
-//					{
-//						BSXFlagsRef bref = new BSXFlags();
-//						bref->SetIntegerData(calculated_flags.to_ulong());
-//						vector<NiExtraDataRef> list = bsroot->GetExtraDataList();
-//						list.push_back(StaticCast<NiExtraData>(bref));
-//						bsroot->SetExtraDataList(list);
-//					}
-//
-//				}
-//				else {
-////					FixTargetsVisitor(root, info, blocks);
-//				}
-//
-//				info.userVersion = 12;
-//				info.userVersion2 = 83;
-//				info.version = Niflib::VER_20_2_0_7;
-
-				out_path = nif_out / nif;
 				fs::create_directories(out_path.parent_path());
 				WriteNifTree(out_path.string(), root, info);
 				material_controllers_map.clear();
@@ -4428,8 +4318,12 @@ bool BeginConversion(string importPath, string exportPath) {
 				delete data;
 			}
 		}
+		myfile.close();
 	}
 	else {
+
+		ofstream myfile;
+		myfile.open("furniture.txt");
 
 		for (size_t i = 0; i < nifs.size(); i++) {
 			Log::Info("Current File: %s", nifs[i].string().c_str());
@@ -4450,6 +4344,20 @@ bool BeginConversion(string importPath, string exportPath) {
 
 			NiObjectRef root;
 			vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
+
+			//TEMP TO CHECK FUNITURE
+			bool furniture = false;
+			for (auto block : blocks) {
+				if (block->IsDerivedType(BSFurnitureMarker::TYPE)) {
+					myfile << nifs[i].string().c_str();
+					furniture = true;
+				}
+			}
+
+			if (!furniture) {
+				continue;
+			}
+
 			vector<NiObjectRef> new_blocks;
 			convert_blocks(
 				blocks,
@@ -4460,150 +4368,6 @@ bool BeginConversion(string importPath, string exportPath) {
 				nifs[i],
 				exportPath
 			);
-
-			////this is all hacky but ehhhh.
-			//bool isBillboardRoot = false;
-			//BillboardMode mode = BillboardMode::ALWAYS_FACE_CAMERA; 
-
-			//vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
-			//NiObjectRef root = GetFirstRoot(blocks);
-			//NiNode* rootn = DynamicCast<NiNode>(root);
-
-			//ConverterVisitor fimpl(info, root, blocks);
-			//
-			//if (root->IsSameType(NiBillboardNode::TYPE)) {
-			//	isBillboardRoot = true; 
-			//	mode = DynamicCast<NiBillboardNode>(root)->GetBillboardMode();
-			//}
-
-			//info.userVersion = 12;
-			//info.userVersion2 = 83;
-			//info.version = Niflib::VER_20_2_0_7;
-			//set<string> sequences = fimpl.nisequences;
-			//if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
-			//	root = convert_root(root);
-			//	BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
-			//	//fixed?
-			//	bsroot->SetFlags(524302);
-			//	string out_havok_path = "";
-			//	if (!sequences.empty()) {
-			//		fs::path in_file = nifs[i].filename();
-			//		string out_name = in_file.filename().replace_extension("").string();
-			//		fs::path out_path = fs::path("animations") / in_file.parent_path() / out_name;
-			//		fs::path out_path_abs = exportPath / out_path;
-			//		string out_path_a = out_path_abs.string();
-			//		out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
-			//		vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
-			//		BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
-			//		havokp->SetName(string("BGED"));
-			//		havokp->SetBehaviourGraphFile(out_havok_path);
-			//		havokp->SetControlsBaseSkeleton(false);
-			//		list.insert(list.begin(),StaticCast<NiExtraData>(havokp));
-			//		bsroot->SetExtraDataList(list);
-			//	}
-
-
-			//	std::vector<NiAVObjectRef> children;
-
-			//	if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
-			//	{
-			//		NiBillboardNode* proxyRoot = new NiBillboardNode();
-			//		if (mode == ROTATE_ABOUT_UP)
-			//			mode = BSROTATE_ABOUT_UP;
-			//		proxyRoot->SetBillboardMode(mode);
-			//		proxyRoot->SetFlags(bsroot->GetFlags());
-			//		proxyRoot->SetChildren(bsroot->GetChildren());
-			//		proxyRoot->SetRotation(bsroot->GetRotation());
-			//		proxyRoot->SetTranslation(bsroot->GetTranslation());
-			//		proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
-
-			//		if (proxyRoot->GetCollisionObject() != NULL)
-			//			DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
-
-			//		children.push_back(proxyRoot);
-			//		bsroot->SetChildren(children);
-			//		bsroot->SetCollisionObject(NULL);
-			//	}
-			//	else
-			//	{
-			//		if (bsroot->GetTranslation().Magnitude() != 0 ||
-			//			!bsroot->GetRotation().isIdentity())
-			//		{
-			//			NiNode* proxyRoot = new NiNode();
-			//			proxyRoot->SetName(IndexString("ProxyRoot"));
-			//			proxyRoot->SetFlags(bsroot->GetFlags());
-			//			proxyRoot->SetChildren(bsroot->GetChildren());
-			//			proxyRoot->SetRotation(bsroot->GetRotation());
-			//			proxyRoot->SetTranslation(bsroot->GetTranslation());
-			//			proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
-
-			//			if (proxyRoot->GetCollisionObject() != NULL)
-			//				DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
-
-			//			children.push_back(proxyRoot);
-			//			bsroot->SetChildren(children);
-			//			bsroot->SetCollisionObject(NULL);
-			//		}
-			//	}
-
-			//	bsroot->SetRotation(Matrix33());
-			//	bsroot->SetTranslation(Vector3());
-			//	
-			//	
-
-			//	//to calculate the right flags, we need to rebuild the blocks
-			//	vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
-
-			//	//fix targets from nitrishapes substitution
-			//	FixTargetsVisitor(root, info, new_blocks);
-
-			//	if (DynamicCast<NiNode>(root) != NULL && DynamicCast<NiNode>(root)->GetCollisionObject() == NULL) {
-			//		bhkCollisionObjectRef root_collision = NULL;
-			//		int num_collisions = 0;
-			//		//Optimize single collision models
-			//		for (NiObjectRef block : new_blocks) {
-			//			if (block->IsDerivedType(bhkCollisionObject::TYPE))
-			//			{
-			//				num_collisions++;
-			//				root_collision = DynamicCast<bhkCollisionObject>(block);
-			//			}
-			//		}
-			//		if (num_collisions == 1 && root_collision != NULL) {
-
-			//			vector<NiAVObjectRef> children = bsroot->GetChildren();
-			//			auto root_collision_position = find(children.begin(), children.end(), StaticCast<NiAVObject>(root_collision));
-			//			if (root_collision_position != children.end()) {
-			//				children.erase(root_collision_position);
-			//				bsroot->SetCollisionObject(StaticCast<NiCollisionObject>(root_collision));
-			//				bsroot->SetChildren(children);
-			//			}
-			//		}
-			//	}
-
-
-			//	bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(new_blocks, info);
-
-			//	bool bsx_flag_found = false;
-			//	for (NiObjectRef ref : blocks) {
-			//		if (ref->IsDerivedType(BSXFlags::TYPE)) {
-			//			BSXFlagsRef bref = DynamicCast<BSXFlags>(ref);
-			//			bref->SetIntegerData(calculated_flags.to_ulong());
-			//			bsx_flag_found = true;
-			//			break;
-			//		}
-			//	}
-			//	if (!bsx_flag_found && calculated_flags != 0)
-			//	{
-			//		BSXFlagsRef bref = new BSXFlags();
-			//		bref->SetIntegerData(calculated_flags.to_ulong());
-			//		vector<NiExtraDataRef> list = bsroot->GetExtraDataList();
-			//		list.push_back(StaticCast<NiExtraData>(bref));
-			//		bsroot->SetExtraDataList(list);
-			//	}
-			//}
-			//else {
-			//	FixTargetsVisitor(root, info, blocks);
-			//}
 
 			size_t offset = nifs[i].parent_path().string().find("meshes", 0);
 			size_t end = nifs[i].parent_path().string().length();
@@ -4623,6 +4387,8 @@ bool BeginConversion(string importPath, string exportPath) {
 			//if (lroot == NULL)
 			//	throw runtime_error("Error converting");
 		}
+
+		myfile.close();
 	}
 	Log::Info("Done");
 	return true;

@@ -80,6 +80,7 @@ typedef pair<int, float> boneweight;
 typedef std::bitset<12> bsx_flags_t;
 namespace Niflib
 {
+	void calulateBoundingBox(const vector<NiObjectRef>& blocks, Vector3& min, Vector3& max);
 	bsx_flags_t calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const NifInfo& info);
 
 	class SingleChunkFlagVerifier : public RecursiveFieldVisitor<SingleChunkFlagVerifier> {

@@ -33,6 +33,51 @@ inline bool isSingleChain(const NiObjectRef& root, const NifInfo& info) {
 }
 
 
+void calculateFromVertices(const vector<Vector3>& vertices, Vector3& min, Vector3& max)
+{
+	for (auto& vert : vertices)
+	{
+		if (vert.x > max.x) {
+			max.x = vert.x;
+		}
+		if (vert.y > max.y) {
+			max.y = vert.y;
+		}
+		if (vert.z > max.z) {
+			max.z = vert.z;
+		}
+		if (vert.x < min.x) {
+			min.x = vert.x;
+		}
+		if (vert.y < min.y) {
+			min.y = vert.y;
+		}
+		if (vert.z < min.z) {
+			min.z = vert.z;
+		}
+	}
+}
+
+void Niflib::calulateBoundingBox(const vector<NiObjectRef>& blocks, Vector3& min, Vector3& max)
+{
+	for (auto block : blocks)
+	{
+		if (block->IsDerivedType(NiTriShape::TYPE)) {
+			NiTriShape* shape = DynamicCast<NiTriShape>(block);
+			NiTriShapeData* data = DynamicCast<NiTriShapeData>(shape->GetData());
+			vector<Vector3> vertices = data->GetVertices();
+			calculateFromVertices(vertices, min, max);
+			data->SetCenter(max - min);
+		}
+		if (block->IsDerivedType(NiTriStrips::TYPE)) {
+			NiTriStrips* shape = DynamicCast<NiTriStrips>(block);
+			NiTriStripsData* data = DynamicCast<NiTriStripsData>(shape->GetData());
+			vector<Vector3> vertices = data->GetVertices();
+			calculateFromVertices(vertices, min, max);
+			data->SetCenter(max - min);
+		}
+	}
+}
 
 bsx_flags_t Niflib::calculateSkyrimBSXFlags(const vector<NiObjectRef>& blocks, const NifInfo& info) {
 	bsx_flags_t flags = 0;
