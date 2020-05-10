@@ -85,7 +85,7 @@ string ConvertNif::GetHelpShort() const
 {
 	//I'm unsure about returning a string.. It doesn't show up on the console..
 	//Log::Info("Convert Oblivion version models to Skyrim's format.");
-	return "TODO: Short help message for ConvertNif";
+	return "ck-cmd.exe convertnif export_path import_path";
 }
 
 bool ConvertNif::InternalRunCommand(map<string, docopt::value> parsedArgs)
@@ -2495,12 +2495,12 @@ public:
 					if (pos.positionRef1 == 11) {
 						newpos.animationType = AnimationType::SIT;
 						newpos.entryProperties = FurnitureEntryPoints::RIGHT;
-						newpos.offset.x = 0.0f;
+						newpos.offset.x += 50.0f;
 					}
 					if (pos.positionRef1 == 12) {
 						newpos.animationType = AnimationType::SIT;
 						newpos.entryProperties = FurnitureEntryPoints::LEFT;
-						newpos.offset.x = 0.0f;
+						newpos.offset.x -= 50.0f;
 					}
 					if (pos.positionRef1 == 13) {
 						newpos.animationType = AnimationType::SIT;
@@ -2508,9 +2508,19 @@ public:
 						newpos.offset.y = 0.0f;
 					}
 					if (pos.positionRef1 == 14) {
+						if (pos.orientation == 1570) {
+							newpos.offset.x += 60.0f;
+						}
+						if (/*pos.orientation == 3141 || */pos.orientation == 2879 || pos.orientation == 3490) {
+							newpos.heading = 0.0f;
+						}
+						if (pos.orientation == 5759 || pos.orientation == 6021) {
+							newpos.offset.y += 90.0f;
+							newpos.heading = 3.1f;
+						}
 						newpos.entryProperties = FurnitureEntryPoints::FRONT;
 						newpos.animationType = AnimationType::SIT;					
-						newpos.offset.y = 0.0f;
+						newpos.offset.y -= 45.0f;
 					}
 					newpositions.push_back(newpos);
 				}
@@ -4050,53 +4060,32 @@ void convert_blocks(
 		}
 
 
-		std::vector<NiAVObjectRef> children;
 		NiNode* proxyRoot = nullptr;
 
-		if (isBillboardRoot) //fxmistoblivion01 has NiBillboardNode root
-		{
+		//fxmistoblivion01 has NiBillboardNode root
+		if (isBillboardRoot) {
 			proxyRoot = new NiBillboardNode();
-			if (mode == ROTATE_ABOUT_UP)
-				mode = BSROTATE_ABOUT_UP;
+			mode = (mode == ROTATE_ABOUT_UP ? BSROTATE_ABOUT_UP : mode);
 			DynamicCast<NiBillboardNode>(proxyRoot)->SetBillboardMode(mode);
-			proxyRoot->SetFlags(bsroot->GetFlags());
-			proxyRoot->SetChildren(bsroot->GetChildren());
-			proxyRoot->SetRotation(bsroot->GetRotation());
-			proxyRoot->SetTranslation(bsroot->GetTranslation());
-			proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
-
-			if (proxyRoot->GetCollisionObject() != NULL)
-				DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
-
-			children.push_back(proxyRoot);
-			bsroot->SetChildren(children);
-			bsroot->SetCollisionObject(NULL);
-		}
-		else
-		{
-			//if (bsroot->GetTranslation().Magnitude() != 0 || !bsroot->GetRotation().isIdentity())
-			//{
-				proxyRoot = new NiNode();
-				proxyRoot->SetName(IndexString("ProxyRoot"));
-				proxyRoot->SetFlags(bsroot->GetFlags());
-				proxyRoot->SetChildren(bsroot->GetChildren());
-				proxyRoot->SetRotation(bsroot->GetRotation());
-				proxyRoot->SetTranslation(bsroot->GetTranslation());
-				proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
-
-				if (proxyRoot->GetCollisionObject() != NULL)
-					DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
-
-				children.push_back(proxyRoot);
-				bsroot->SetChildren(children);
-				bsroot->SetCollisionObject(NULL);
-			//}
 		}
 
+		//In SE, the engine prefers the collision object to be not assigned onto the root node. Therefore, we creat
+		//a proxy root. This also fixes problems whereas the root of the NIF is translated, which Skyrim does not support.
+		proxyRoot = new NiNode();
+		proxyRoot->SetName(IndexString("ProxyRoot"));
+		proxyRoot->SetFlags(bsroot->GetFlags());
+		proxyRoot->SetChildren(bsroot->GetChildren());
+		proxyRoot->SetRotation(bsroot->GetRotation());
+		proxyRoot->SetTranslation(bsroot->GetTranslation());
+		proxyRoot->SetCollisionObject(bsroot->GetCollisionObject());
+
+		if (proxyRoot->GetCollisionObject() != NULL) {
+			DynamicCast<NiCollisionObject>(proxyRoot->GetCollisionObject())->SetTarget(proxyRoot);
+		}
+		bsroot->SetChildren(std::vector<NiAVObjectRef>{ proxyRoot });
+		bsroot->SetCollisionObject(NULL);
 		bsroot->SetRotation(Matrix33());
 		bsroot->SetTranslation(Vector3());
-
-
 
 		//to calculate the right flags, we need to rebuild the blocks
 		vector<NiObjectRef> new_blocks = RebuildVisitor(root, info).blocks;
@@ -4166,7 +4155,13 @@ void convert_blocks(
 			Vector3 min, max = Vector3();
 			calulateBoundingBox(new_blocks, min, max);
 			Vector3 currentPosition = proxyRoot->GetTranslation();
-			currentPosition.z = -min.z;
+
+			if (min.z != 0.0f) {
+				currentPosition.z = -min.z;
+			}
+			else {
+				currentPosition.z = -max.z / 2;
+			}
 			proxyRoot->SetTranslation(currentPosition);
 		}
 
@@ -4187,12 +4182,18 @@ void convert_blocks(
 					NiStringExtraDataRef ed = DynamicCast<NiStringExtraData>(block);
 					if (ed->GetName().find("Prn") != string::npos)
 					{
-						if (ed->GetStringData().find("Bip01 L ForearmTwist")!= string::npos)
+						if (ed->GetStringData().find("Bip01 L ForearmTwist") != string::npos) {
 							ed->SetStringData(IndexString("SHIELD"));
-						if (ed->GetStringData().find("SideWeapon") != string::npos)
+						}
+						else if (ed->GetStringData().find("SideWeapon") != string::npos) {
 							ed->SetStringData(IndexString("WeaponSword"));
-						if (ed->GetStringData().find("BackWeapon") != string::npos)
+						}
+						else if (ed->GetStringData().find("BackWeapon") != string::npos) {
 							ed->SetStringData(IndexString("WeaponBack"));
+						}
+						else if (ed->GetStringData().find("Quiver") != string::npos) {
+							ed->SetStringData(IndexString("QUIVER"));
+						}
 					}
 				}
 			}
@@ -4243,6 +4244,7 @@ bool BeginConversion(string importPath, string exportPath) {
 				fs::path out_path = nif_out / nif;
 				fs::path in_path = nif_in / nif;
 
+				
 				if (nif.find("meshes\\landscape\\lod") != string::npos) {
 					Log::Warn("Ignored LOD file: %s", nif.c_str());
 					continue;
@@ -4276,20 +4278,22 @@ bool BeginConversion(string importPath, string exportPath) {
 				NiObjectRef root;
 				vector<NiObjectRef> blocks = ReadNifList(iss, &info);
 
-				//TEMP TO CHECK FUNITURE
-				bool furniture = false;
-				for (auto block : blocks) {
-					if (block->IsDerivedType(BSFurnitureMarker::TYPE)) {
-						myfile << nif.c_str();
-						furniture = true;
-						fs::create_directories(in_path.parent_path());
-						root = GetFirstRoot(blocks);
-						WriteNifTree(in_path.string(), root, info);
+				bool debug_targetFurniture = false;
+				if (debug_targetFurniture) {
+					//TEMP TO CHECK FUNITURE
+					bool furniture = false;
+					for (auto block : blocks) {
+						if (block->IsDerivedType(BSFurnitureMarker::TYPE)) {
+							furniture = true;
+							fs::create_directories(in_path.parent_path());
+							root = GetFirstRoot(blocks);
+							WriteNifTree(in_path.string(), root, info);
+						}
 					}
-				}
 
-				if (!furniture) {
-					continue;
+					if (!furniture) {
+						continue;
+					}
 				}
 
 				vector<NiObjectRef> new_blocks;
@@ -4302,6 +4306,17 @@ bool BeginConversion(string importPath, string exportPath) {
 					nif,
 					exportPath
 				);
+
+				NiNode* rootBS = DynamicCast<NiNode>(root);
+				NiNode* proxy = DynamicCast<NiNode>(rootBS->GetChildren()[0]);
+
+				if (debug_targetFurniture) {
+					fs::path nifPath = nif;
+					myfile << "[" << nifPath.filename() << "]" << endl;
+					myfile << "TRANSLATE_VECTOR " << proxy->GetTranslation().x << " " << proxy->GetTranslation().y << " " << proxy->GetTranslation().z << endl;
+					myfile << endl;
+					Log::Info("%s", proxy->GetName().data());
+				}
 
 				fs::create_directories(out_path.parent_path());
 				WriteNifTree(out_path.string(), root, info);
@@ -4345,17 +4360,19 @@ bool BeginConversion(string importPath, string exportPath) {
 			NiObjectRef root;
 			vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
 
-			//TEMP TO CHECK FUNITURE
-			bool furniture = false;
-			for (auto block : blocks) {
-				if (block->IsDerivedType(BSFurnitureMarker::TYPE)) {
-					myfile << nifs[i].string().c_str();
-					furniture = true;
+			bool debug_targetFurniture = false;
+			if (debug_targetFurniture) {
+				//TEMP TO CHECK FUNITURE
+				bool furniture = false;
+				for (auto block : blocks) {
+					if (block->IsDerivedType(BSFurnitureMarker::TYPE)) {
+						furniture = true;
+					}
 				}
-			}
 
-			if (!furniture) {
-				continue;
+				if (!furniture) {
+					continue;
+				}
 			}
 
 			vector<NiObjectRef> new_blocks;
@@ -4368,6 +4385,17 @@ bool BeginConversion(string importPath, string exportPath) {
 				nifs[i],
 				exportPath
 			);
+
+			NiNode* rootBS = DynamicCast<NiNode>(root);
+			NiNode* proxy = DynamicCast<NiNode>(rootBS->GetChildren()[0]);
+
+			if (debug_targetFurniture) {
+				fs::path nifPath = nifs[i].filename();
+				myfile << "[" << nifPath.filename() << "]" << endl;
+				myfile << "TRANSLATE_VECTOR " << proxy->GetTranslation().x << " " << proxy->GetTranslation().y << " " << proxy->GetTranslation().z << endl;
+				myfile << endl;
+				Log::Info("%s", proxy->GetName().data());
+			}
 
 			size_t offset = nifs[i].parent_path().string().find("meshes", 0);
 			size_t end = nifs[i].parent_path().string().length();
