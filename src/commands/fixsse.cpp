@@ -54,7 +54,7 @@ string FixSSENif::GetHelp() const
 
 string FixSSENif::GetHelpShort() const
 {
-	return "TODO: Short help message for FixSSENif";
+	return "ck-cmd.exe fixssenif -i path_to_scan -o overwrite? -vanilla_texture_path";
 }
 
 static inline hkTransform TOHKTRANSFORM(const Niflib::Matrix33& r, const Niflib::Vector4 t, const float scale = 1.0) {

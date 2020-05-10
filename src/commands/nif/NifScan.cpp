@@ -554,6 +554,20 @@ void visitNode(NiNodeRef obj)
 				{
 					//forcefully recalulcator tangents for now.. 
 					vector<Vector3> vertices = data->GetVertices();
+					//lets recalculate center;
+					Vector3 center;
+					for (const Vector3& v : vertices) {
+						center += v;
+					}
+					center /= vertices.size();
+
+					//and then rad;
+					float radius = 0.0f;
+					for (const Vector3& v : vertices) {
+						float z;
+						if ((z = (center - v).Magnitude()) > radius)
+							radius = z;
+					}
 					Vector3 COM;
 					if (vertices.size() != 0)
 						COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
@@ -569,6 +583,8 @@ void visitNode(NiNodeRef obj)
 						data->SetBitangents(g.bitangents);
 					}
 					data->SetBsVectorFlags(static_cast<BSVectorFlags>(data->GetBsVectorFlags() | BSVectorFlags::BSVF_HAS_TANGENTS));
+					data->SetCenter(center);
+					data->SetRadius(radius);
 				}
 				else
 				{

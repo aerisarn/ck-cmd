@@ -679,17 +679,20 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					}
 					for (int i = 2; i < 9; i++)
 					{
-						if (!texture_set[i].empty())
+						if (texture_set.size() > i)
 						{
-							string slot_name = "slot" + to_string(i+1);
-							FbxFileTexture* additional_texture = create_texture(slot_name.c_str(), texture_set[i+1]);
-							FbxProperty texture_slot = gMaterial->FindProperty(slot_name.c_str());
-							if (!texture_slot.IsValid())
+							if (!texture_set[i].empty())
 							{
-								texture_slot = FbxProperty::Create(gMaterial, FbxStringDT, slot_name.c_str());
-								texture_slot.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+								string slot_name = "slot" + to_string(i + 1);
+								FbxFileTexture* additional_texture = create_texture(slot_name.c_str(), texture_set[i + 1]);
+								FbxProperty texture_slot = gMaterial->FindProperty(slot_name.c_str());
+								if (!texture_slot.IsValid())
+								{
+									texture_slot = FbxProperty::Create(gMaterial, FbxStringDT, slot_name.c_str());
+									texture_slot.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+								}
+								texture_slot.Set(FbxString(additional_texture->GetFileName()));
 							}
-							texture_slot.Set(FbxString(additional_texture->GetFileName()));
 						}
 					}
 				}
@@ -3265,6 +3268,23 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	if (verts.size() > 0) {
 		data->SetHasVertices(true);
 		data->SetVertices(verts);
+
+		//lets recalculate center;
+		Vector3 center;
+		for (const Vector3& v : verts) {
+			center += v;
+		}
+		center /= verts.size();
+
+		//and then rad;
+		float radius = 0.0f;
+		for (const Vector3& v : verts) {
+			float z;
+			if ((z = (center - v).Magnitude()) > radius)
+				radius = z;
+		}
+		data->SetCenter(center);
+		data->SetRadius(radius);
 	}
 
 	if (tris.size()) {
@@ -3542,7 +3562,6 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	out->SetFlags(524302);
 	out->SetShaderProperty(shader);
 	out->SetData(StaticCast<NiGeometryData>(data));
-
 
 	return out;
 }
