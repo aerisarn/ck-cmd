@@ -2859,8 +2859,20 @@ class Accessor<AccessSkin>
 								}
 								else
 									ni_partition_triangle[i] = distance(partition.vertexMap.begin(), ni_partition_index_it);
+								NiNodeRef ni_bone;
+								if (conversion_Map.find(bone) == conversion_Map.end()) {
+									Log::Error("Cannot Find converted node for %s", bone->GetName());
+									auto it = find_if(conversion_Map.begin(), conversion_Map.end(), [bone](const pair<FbxNode*, NiObjectRef>& pair) {return DynamicCast<NiNode>(pair.second)->GetName() == unsanitizeString(string(bone->GetName())); });
+									if (it == conversion_Map.end()) {
+										throw std::runtime_error("Error while skinning: found illegal node:" + string(bone->GetName()));
+									}
+									ni_bone = DynamicCast<NiNode>(it->second);
+								}
+								else {
+									ni_bone = DynamicCast<NiNode>(conversion_Map[bone]);
+								} 
 
-								NiNodeRef ni_bone = DynamicCast<NiNode>(conversion_Map[bone]);
+								Log::Info("Fbx Bone %s -> NiBode %s", bone->GetName(), ni_bone->GetName().c_str());
 								if (partition.boneIndices.size() < ni_partition_triangle[i] + 1)
 								{
 									partition.boneIndices.resize(ni_partition_triangle[i] + 1);
@@ -2944,9 +2956,9 @@ class Accessor<AccessSkin>
 								bvd.index = partition.vertexMap[i];
 								bvd.weight = partition.vertexWeights[i][b];
 
-								if (find(bone_data_list[global_bone_index].vertexWeights.begin(),
-									bone_data_list[global_bone_index].vertexWeights.end(),
-									bvd) == bone_data_list[global_bone_index].vertexWeights.end())
+								//if (find(bone_data_list[global_bone_index].vertexWeights.begin(),
+								//	bone_data_list[global_bone_index].vertexWeights.end(),
+								//	bvd) == bone_data_list[global_bone_index].vertexWeights.end())
 									bone_data_list[global_bone_index].vertexWeights.push_back(bvd);
 							}
 						}
@@ -5180,7 +5192,11 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	//conversion_root->SetName(string("Scene"));
 	
 	//nodes
+	size_t node_visited = 0;
+	size_t node_created = 0;
+
 	std::function<void(FbxNode*)> loadNodeChildren = [&](FbxNode* root) {
+		Log::Info("Visiting Fbx Node %d: %s ", ++node_visited, root->GetName());
 		NiNodeRef parent = DynamicCast<NiNode>(conversion_Map[root]);
 		if (parent == NULL) {
 			if (export_skin)
@@ -5359,9 +5375,11 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 			if (nif_child == NULL) {
 				nif_child = new NiNode();
 				nif_child->SetName(unsanitizeString(string(child->GetName())));
+				Log::Info("Creating Node %d: %s", ++node_created, nif_child->GetName().c_str());
 				setAvTransform(child, nif_child);
 			}
 			conversion_Map[child] = nif_child;
+			Log::Info("conversion_Map size %d", conversion_Map.size());
 			if (export_skin)
 				parent = conversion_root;
 			if (parent != NULL) {
@@ -5407,6 +5425,11 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 	};
 
 	loadNodeChildren(root);
+
+	//DEBUG
+	for (const auto& ni : conversion_Map) {
+		Log::Info("Fbx Node %s -> NiNode %s", ni.first->GetName(), DynamicCast<NiNode>(ni.second)->GetName().c_str());
+	}
 
 	//skins
 
