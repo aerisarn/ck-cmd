@@ -34,6 +34,7 @@
 
 namespace scannerpp
 {
+	using namespace std;
 
 	class Scanner
 	{
