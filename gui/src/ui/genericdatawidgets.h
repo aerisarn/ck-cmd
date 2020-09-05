@@ -4,7 +4,7 @@
 #include <QGridLayout>
 #include <QLabel>
 #include <QComboBox>
-#include <limits.h>
+#include <limits>
 #include <math.h>
 
 #include <QSpinBox>
@@ -25,6 +25,8 @@
 #include <QProgressDialog>
 #include <QDropEvent>
 
+#undef min
+#undef max 
 
 class BehaviorGraphView;
 namespace UI {
@@ -285,6 +287,8 @@ public:
     QSize sizeHint() const{
         return QSize(100, 400);
     }
+
+#undef max
 
     void setRowSwapRange(int min, int max = std::numeric_limits<int>::max()){
         range.min = min;

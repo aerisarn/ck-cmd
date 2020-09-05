@@ -110,6 +110,7 @@ private:
     QStringList getErrors() const;
     void getCharacterPropertyBoneWeightArray(const QString &name, UI::hkbBoneWeightArray *ptrtosetdata) const;
     bool parse();
+	virtual bool parseBinary();
     void write();
     void generateDefaultCharacterData();
     void generateNewBehavior();

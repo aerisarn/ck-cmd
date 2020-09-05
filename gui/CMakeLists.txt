@@ -75,6 +75,7 @@ ENDIF ()
 
 list(APPEND PROJECT_INCLUDES "${CMAKE_SOURCE_DIR}/gui")
 
+
 add_executable(${PROJECT} ${HEADERS} ${SOURCES} ${QT_RESOURCES} ${PROJECT_INCLUDES} ${HAVOK_COMPAT_SRC} ${PROJECT_SRC})
 target_include_directories	(${PROJECT}  PUBLIC ${PROJECT_INCLUDES} )
 add_dependencies			(${PROJECT} zlib)

@@ -344,7 +344,7 @@ hkQuadVariable HkxObject::readVector4(const QByteArray &lineIn, bool *ok) const{
     return vector;
 }
 
-hkQsTransform HkxObject::readQsTransform(const QByteArray &lineIn, bool *ok) const{
+UI::hkQsTransform HkxObject::readQsTransform(const QByteArray &lineIn, bool *ok) const{
     enum {V3_1_X, V3_1_Y, V3_1_Z, V4_X, V4_Y, V4_Z, V4_W, V3_2_X, V3_2_Y, V3_2_Z};
     hkQsTransform transform;
     qreal number = 0;

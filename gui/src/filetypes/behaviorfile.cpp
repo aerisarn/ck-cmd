@@ -126,7 +126,7 @@ BehaviorFile::BehaviorFile(MainWindow *window, ProjectFile *projectfile, Charact
 }
 
 void BehaviorFile::generateNewBehavior(){
-    auto root = new hkRootLevelContainer(this);
+    auto root = new UI::hkRootLevelContainer(this);
     auto graph = new hkbBehaviorGraph(this);
     auto strings = new hkbBehaviorGraphStringData(this);
     auto values = new hkbVariableValueSet(this);
@@ -913,6 +913,10 @@ bool BehaviorFile::addObjectToFile(HkxObject *obj, long ref){
     return false;
 }
 
+bool BehaviorFile::parseBinary() {
+	return false;
+}
+
 bool BehaviorFile::parse(){
     ////std::lock_guard <std::mutex> guard(mutex);
     long index = 2;
@@ -1117,7 +1121,7 @@ bool BehaviorFile::parse(){
                         otherTypes.removeLast();
                         break;
                     case HK_ROOT_LEVEL_CONTAINER:
-                        appendnread(new hkRootLevelContainer(this, ref), "HK_ROOT_LEVEL_CONTAINER");
+                        appendnread(new UI::hkRootLevelContainer(this, ref), "HK_ROOT_LEVEL_CONTAINER");
                         setRootObject(otherTypes.last());
                         otherTypes.removeLast();
                         break;

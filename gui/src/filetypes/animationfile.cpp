@@ -18,6 +18,10 @@ bool AnimationFile::addObjectToFile(HkxObject *, long ){
     return true;
 }
 
+bool AnimationFile::parseBinary() {
+	return false;
+}
+
 bool AnimationFile::parse(){
     std::lock_guard <std::mutex> guard(mutex);
     auto ok = false;

@@ -14,6 +14,7 @@ public:
 public:
     qreal getDuration() const;
     bool parse();
+	bool parseBinary();
 protected:
     bool addObjectToFile(UI::HkxObject *, long);
 private:

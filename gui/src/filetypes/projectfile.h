@@ -57,6 +57,7 @@ public:
 	UI::HkxSharedPtr * findProjectData(long ref);
 protected:
     bool parse();
+	virtual bool parseBinary();
     bool link();
 private:
     void write();

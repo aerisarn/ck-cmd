@@ -55,6 +55,7 @@ public:
 	UI::HkxSharedPtr * findCharacterPropertyValues(long ref);
 	UI::HkxSharedPtr * findCharacterData(long ref);
     void setSkeletonFile(SkeletonFile *skel);
+	bool parseBinary();
     bool parse();
     void write();
     QStringList getLocalFrameNames() const;

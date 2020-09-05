@@ -24,6 +24,7 @@ public:
     QStringList getLocalFrameNames() const;
     UI::hkaSkeleton *getSkeleton(bool isragdoll) const;
     bool parse();
+	virtual bool parseBinary();
 	UI::HkxSharedPtr * findSkeleton(long ref);
 protected:
     bool link();

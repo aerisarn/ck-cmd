@@ -80,6 +80,10 @@ HkxXMLWriter & HkxFile::getWriter(){
     return writer;
 }
 
+HkxBinaryHandler & HkxFile::getBinaryHandler() {
+	return binaryHandler;
+}
+
 MainWindow *HkxFile::getUI() const{
     //std::lock_guard <std::mutex> guard(mutex);
     return ui;

@@ -20,10 +20,6 @@
 
 #include <QtWidgets>
 
-#include <filesystem>
-
-namespace fs = std::experimental::filesystem;
-
 using namespace UI;
 
 #define MAX_REFERENCED_BEHAVIOR_FILES 30

@@ -109,6 +109,10 @@ bool SkeletonFile::addObjectToFile(HkxObject *obj, long ref){
     return false;
 }
 
+bool SkeletonFile::parseBinary() {
+	return false;
+}
+
 bool SkeletonFile::parse(){
     //std::lock_guard <std::mutex> guard(mutex);
     long index = 2;
@@ -137,7 +141,7 @@ bool SkeletonFile::parse(){
                     case HKA_ANIMATION_CONTAINER:
                         appendnread(new hkaAnimationContainer(this, ref), "HKA_ANIMATION_CONTAINER"); break;
                     case HK_ROOT_LEVEL_CONTAINER:
-                        appendnread(new hkRootLevelContainer(this, ref), "HK_ROOT_LEVEL_CONTAINER"); break;
+                        appendnread(new UI::hkRootLevelContainer(this, ref), "HK_ROOT_LEVEL_CONTAINER"); break;
                     default:
                         LogFile::writeToLog(fileName()+": Unknown signature detected! Unknown object class name is: "+getReader().getNthAttributeValueAt(index, 1)+" Unknown object signature is: "+QString::number(signature, 16));
                     }

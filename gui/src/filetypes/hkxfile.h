@@ -4,7 +4,20 @@
 #include "src/utility.h"
 #include "src/xml/hkxxmlreader.h"
 #include "src/xml/hkxxmlwriter.h"
+#include "src/binary/hkxbinaryhandler.h"
 #include "src/hkxclasses/hkxobject.h"
+
+#include <core\hkxpch.h>
+#include <core/hkxcmd.h>
+#include <core/hkxutils.h>
+#include <core/hkfutils.h>
+#include <core/log.h>
+
+#include <Common/Base/hkBase.h>
+#include <Common/Base/Memory/System/Util/hkMemoryInitUtil.h>
+#include <Common/Base/Memory/Allocator/Malloc/hkMallocAllocator.h>
+#include <Common/Base/System/Io/IStream/hkIStream.h>
+#include <Common/Base/Reflection/Registry/hkDynamicClassNameRegistry.h>
 
 #include <QFile>
 
@@ -31,16 +44,21 @@ class MainWindow;
 		HkxFile(MainWindow *window, const QString & name);
 		MainWindow *getUI() const;
 		virtual bool parse();
+		virtual bool parseBinary() = 0;
 		virtual bool link();
 		void setRootObject(UI::HkxSharedPtr & obj);
 		bool appendAndReadData(long & index, UI::HkxObject * obj);
 		HkxXmlReader & getReader();
 		HkxXMLWriter & getWriter();
+		HkxBinaryHandler & getBinaryHandler();
+
 	private:
 		MainWindow * ui;
 		UI::HkxSharedPtr rootObject;
 		HkxXmlReader reader;
 		HkxXMLWriter writer;
+		HkxBinaryHandler binaryHandler;
+
 		bool changed;
 		QString fileNameWithoutPath;
 		mutable std::mutex mutex;
