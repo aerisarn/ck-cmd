@@ -15,6 +15,8 @@ public:
     ~hkbBoneWeightArray();
 public:
     void copyBoneWeights(const hkbBoneWeightArray *other);
+    bool readData(const HkxBinaryHandler& handler, const void* object);
+    hkReferencedObject* write(HkxBinaryHandler& handler);
 private:
     void setBoneWeightAt(int index, int value);
     qreal getBoneWeightAt(int index, bool *ok = nullptr) const;

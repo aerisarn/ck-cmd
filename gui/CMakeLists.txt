@@ -52,7 +52,7 @@ source_group("Textures\\DirectXTex" FILES ${DIRECTXTEX_INCLUDES_PATH})
 
 # Settings when compiling with MSVC.
 IF (MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG /DM_E=2.71828182845904523536 /DM_LOG2E=1.44269504088896340736 /DM_LOG10E=0.434294481903251827651 /DM_LN2=0.693147180559945309417 /DM_LN10=2.30258509299404568402 /DM_PI=3.14159265358979323846 /DM_PI_2=1.57079632679489661923 /DM_PI_4=0.785398163397448309616 /DM_1_PI=0.318309886183790671538 /DM_2_PI=0.636619772367581343076 /DM_2_SQRTPI=1.12837916709551257390 /DM_SQRT2=1.41421356237309504880 /DM_SQRT1_2=0.707106781186547524401 /D_MATH_DEFINES_DEFINED")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
     # Update compiler flags.
     IF (PROJECT_STATIC_RUNTIME)
@@ -76,11 +76,16 @@ ENDIF ()
 list(APPEND PROJECT_INCLUDES "${CMAKE_SOURCE_DIR}/gui")
 
 list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/test/test.cpp")
+list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/src/main.cpp")
 
-add_executable(${PROJECT} ${HEADERS} ${SOURCES} ${QT_RESOURCES} ${PROJECT_INCLUDES} ${HAVOK_COMPAT_SRC} ${PROJECT_SRC})
+add_library( gui-lib STATIC ${HEADERS} ${SOURCES} ${QT_RESOURCES} ${PROJECT_INCLUDES} ${HAVOK_COMPAT_SRC} ${PROJECT_SRC} )
+target_include_directories	(gui-lib  PUBLIC ${PROJECT_INCLUDES} )
+
+add_executable(${PROJECT} "${CMAKE_SOURCE_DIR}/gui/src/main.cpp")
 target_include_directories	(${PROJECT}  PUBLIC ${PROJECT_INCLUDES} )
 add_dependencies			(${PROJECT} zlib)
 target_link_libraries(${PROJECT}
+    gui-lib
     Qt5::Widgets
 	${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib
     )
@@ -96,10 +101,11 @@ set (GUI_TEST_SRC "${CMAKE_SOURCE_DIR}/gui/test/test.cpp")
 list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/src/main.cpp")
 
 # Build tester.
-add_executable				(gui-tests ${GUI_TEST_SRC} ${HEADERS} ${SOURCES} ${QT_RESOURCES} ${PROJECT_INCLUDES} ${HAVOK_COMPAT_SRC} ${PROJECT_SRC})
+add_executable				(gui-tests ${GUI_TEST_SRC})
 add_dependencies			(gui-tests googletest)
 add_dependencies			(gui-tests zlib)
 target_link_libraries		(gui-tests ${GTEST_LIBRARIES} ${TEST_LIBRARIES}
+    gui-lib
     Qt5::Widgets
 	${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib
     )

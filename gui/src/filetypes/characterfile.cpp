@@ -273,7 +273,51 @@ QString CharacterFile::getSkeletonFileName() const{
 }
 
 bool CharacterFile::parseBinary() {
-	return false;
+    std::lock_guard <std::mutex> guard(mutex);
+    auto& handler = getBinaryHandler();
+    auto appendnread = [&](HkxObject* dest, const QString& nameoftype, const void* source) {
+        if (!dest->readData(handler, source)) {
+            LogFile::writeToLog("ProjectFile: parse(): Failed to read a " + nameoftype + " object! Ref: " + QString::number(dest->ref));
+        }
+    };
+    if (handler.parse()) {
+        size_t elements = handler.getNumElements();
+        if (elements < 3)
+            return false;
+        for (size_t ref = 0; ref < elements; ref++) {
+            const auto* hkclass = handler.getElementClass(ref);
+            const void* obj = handler.getElementObject(ref);
+            switch (hkclass->getSignature())
+            {
+                case HKB_BONE_WEIGHT_ARRAY:
+                    appendnread(new hkbBoneWeightArray(this, ref), "HKB_BONE_WEIGHT_ARRAY", obj); break;
+                case HKB_FOOT_IK_DRIVER_INFO:
+                    appendnread(new hkbFootIkDriverInfo(this, ref), "HKB_FOOT_IK_DRIVER_INFO", obj); break;
+                case HKB_HAND_IK_DRIVER_INFO:
+                    appendnread(new hkbHandIkDriverInfo(this, ref), "HKB_HAND_IK_DRIVER_INFO", obj); break;
+                case HKB_MIRRORED_SKELETON_INFO:
+                    appendnread(new hkbMirroredSkeletonInfo(this, ref), "HKB_HAND_IK_DRIVER_INFO", obj); break;
+                case HKB_VARIABLE_VALUE_SET:
+                    appendnread(new hkbVariableValueSet(this, ref), "HKB_VARIABLE_VALUE_SET", obj); break;
+                case HKB_CHARACTER_DATA:
+                    appendnread(new hkbCharacterData(this, ref), "HKB_CHARACTER_DATA", obj); break;
+                case HKB_CHARACTER_STRING_DATA:
+                    appendnread(new hkbCharacterStringData(this, ref), "HKB_CHARACTER_STRING_DATA", obj); break;
+                case HK_ROOT_LEVEL_CONTAINER:
+                    appendnread(new UI::hkRootLevelContainer(this, ref), "HK_ROOT_LEVEL_CONTAINER", obj); break;
+                default:
+                    LogFile::writeToLog(fileName() + 
+                        ": Unknown signature detected! Unknown object class name is: " + 
+                        hkclass->getName() + " Unknown object signature is: " + 
+                        QString::number(hkclass->getSignature(), 16));
+            }
+        }
+        closeFile();
+        getBinaryHandler().clear();
+        if (link()) return true;
+        LogFile::writeToLog(fileName() + ": failed to link!!!");
+    }
+    return false;
 }
 
 bool CharacterFile::parse(){

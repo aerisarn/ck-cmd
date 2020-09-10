@@ -1,15 +1,17 @@
-#include "hkbboneweightarray.h"
+#include "hkbBoneWeightArray.h"
 #include "src/xml/hkxxmlreader.h"
 #include "src/filetypes/behaviorfile.h"
 #include "src/hkxclasses/behavior/hkbvariablebindingset.h"
 
+#include <hkbBoneWeightArray_0.h>
+
 using namespace UI;
 
-uint hkbBoneWeightArray::refCount = 0;
+uint UI::hkbBoneWeightArray::refCount = 0;
 
-const QString hkbBoneWeightArray::classname = "hkbBoneWeightArray";
+const QString UI::hkbBoneWeightArray::classname = "UI::hkbBoneWeightArray";
 
-hkbBoneWeightArray::hkbBoneWeightArray(HkxFile *parent, long ref, int size)
+UI::hkbBoneWeightArray::hkbBoneWeightArray(HkxFile *parent, long ref, int size)
     : HkDynamicObject(parent, ref)
 {
     setType(HKB_BONE_WEIGHT_ARRAY, TYPE_OTHER);
@@ -21,12 +23,12 @@ hkbBoneWeightArray::hkbBoneWeightArray(HkxFile *parent, long ref, int size)
     refCount++;
 }
 
-void hkbBoneWeightArray::setBoneWeightAt(int index, int value){
+void UI::hkbBoneWeightArray::setBoneWeightAt(int index, int value){
     std::lock_guard <std::mutex> guard(mutex);
     (index >= 0 && index < boneWeights.size() && value < static_cast<BehaviorFile *>(getParentFile())->getNumberOfBones()) ? boneWeights[index] = value, getParentFile()->setIsChanged(true) : LogFile::writeToLog(getParentFilename()+": "+getClassname()+": failed to set boneWeights!");
 }
 
-void hkbBoneWeightArray::copyBoneWeights(const hkbBoneWeightArray *other){
+void UI::hkbBoneWeightArray::copyBoneWeights(const UI::hkbBoneWeightArray *other){
     std::lock_guard <std::mutex> guard(mutex);
     boneWeights.resize(other->getBoneWeightsSize());
     for (auto i = 0; i < boneWeights.size(); i++){
@@ -34,7 +36,7 @@ void hkbBoneWeightArray::copyBoneWeights(const hkbBoneWeightArray *other){
     }
 }
 
-qreal hkbBoneWeightArray::getBoneWeightAt(int index, bool * ok) const{
+qreal UI::hkbBoneWeightArray::getBoneWeightAt(int index, bool * ok) const{
     std::lock_guard <std::mutex> guard(mutex);
     if (index >= 0 && index < boneWeights.size()){
         (ok) ? *ok = true : NULL;
@@ -44,16 +46,44 @@ qreal hkbBoneWeightArray::getBoneWeightAt(int index, bool * ok) const{
     return -1;
 }
 
-int hkbBoneWeightArray::getBoneWeightsSize() const{
+int UI::hkbBoneWeightArray::getBoneWeightsSize() const{
     std::lock_guard <std::mutex> guard(mutex);
     return boneWeights.size();
 }
 
-const QString hkbBoneWeightArray::getClassname(){
+const QString UI::hkbBoneWeightArray::getClassname(){
     return classname;
 }
 
-bool hkbBoneWeightArray::readData(const HkxXmlReader &reader, long & index){
+bool UI::hkbBoneWeightArray::readData(const HkxBinaryHandler& handler, const void* object) {
+    const ::hkbBoneWeightArray* typedObject = (const ::hkbBoneWeightArray*)(object);
+    auto ref = handler.getElementIndex(object);
+    setReference(ref);
+    auto checkvalue = [&](bool value, const QString& fieldname) {
+        (!value) ? LogFile::writeToLog(getParentFilename() + ": " + getClassname() + ": readData()!\n'" + fieldname + "' has invalid data!\nObject Reference: " + QString::number(ref)) : NULL;
+    };
+
+    //worldUpWS = HkxBinaryHandler::readVector4(typedObject->m_worldUpWS);
+    //checkvalue(stringData.readShdPtrReference(typedObject->m_stringData.val(), handler), "stringData");
+    //defaultEventMode = HkxBinaryHandler::readEnum("EventMode", &hkbTransitionEffectClass, typedObject->m_defaultEventMode);
+    //checkvalue(EventMode.contains(defaultEventMode), "defaultEventMode");
+    return true;
+}
+
+hkReferencedObject* UI::hkbBoneWeightArray::write(HkxBinaryHandler& handler)
+{
+    if (!handler.getIsWritten(this)) {
+        ::hkbBoneWeightArray& object = handler.add<::hkbBoneWeightArray>(this, &hkbBoneWeightArrayClass, getReference());
+        //object.m_worldUpWS = HkxBinaryHandler::writeVector4(worldUpWS);
+        //object.m_defaultEventMode = (hkbTransitionEffect::EventMode)HkxBinaryHandler::writeEnum("EventMode", &hkbTransitionEffectClass, defaultEventMode.toLocal8Bit().data());
+        //object.m_stringData = dynamic_cast<::hkbProjectStringData*>(stringData->write(handler));
+        return &object;
+    }
+    return handler.get<hkReferencedObject>(this);
+}
+
+
+bool UI::hkbBoneWeightArray::readData(const HkxXmlReader &reader, long & index){
     std::lock_guard <std::mutex> guard(mutex);
     int numElems;
     bool ok;
@@ -76,7 +106,7 @@ bool hkbBoneWeightArray::readData(const HkxXmlReader &reader, long & index){
     return true;
 }
 
-bool hkbBoneWeightArray::write(HkxXMLWriter *writer){
+bool UI::hkbBoneWeightArray::write(HkxXMLWriter *writer){
     std::lock_guard <std::mutex> guard(mutex);
     if (writer && !getIsWritten()){
         QString refString = "null";
@@ -112,14 +142,14 @@ bool hkbBoneWeightArray::write(HkxXMLWriter *writer){
     return true;
 }
 
-QVector<HkxObject *> hkbBoneWeightArray::getChildrenOtherTypes() const{
+QVector<HkxObject *> UI::hkbBoneWeightArray::getChildrenOtherTypes() const{
     std::lock_guard <std::mutex> guard(mutex);
     QVector <HkxObject *> list;
     (getVariableBindingSetData()) ? list.append(getVariableBindingSetData()) : NULL;
     return list;
 }
 
-bool hkbBoneWeightArray::link(){
+bool UI::hkbBoneWeightArray::link(){
     std::lock_guard <std::mutex> guard(mutex);
     if (!linkVar()){
         LogFile::writeToLog(getParentFilename()+": "+getClassname()+": link()!\nFailed to properly link 'variableBindingSet' data field!");
@@ -127,6 +157,6 @@ bool hkbBoneWeightArray::link(){
     return true;
 }
 
-hkbBoneWeightArray::~hkbBoneWeightArray(){
+UI::hkbBoneWeightArray::~hkbBoneWeightArray(){
     refCount--;
 }
