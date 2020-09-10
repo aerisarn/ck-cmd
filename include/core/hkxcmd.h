@@ -6,7 +6,6 @@
 #include <set>
  
 #include <loki/Functor.h>
-using namespace std;
 
 class hkxcmdLine
 {
@@ -52,8 +51,8 @@ public:
    Loki::Functor<bool, LOKI_TYPELIST_1(hkxcmdLine&)> ExecuteCmd;
 
    static hkxcmd* GetCommand(std::string name);
-   static list<hkxcmd*> GetCommand();
-   static string HelpString();
+   static std::list<hkxcmd*> GetCommand();
+   static std::string HelpString();
    static bool ParseArgs(LPCTSTR line);
    static bool ParseArgs(int argc, char **argv);
    static void ParseLine(const char *start,char **argv,char *args,int *numargs,int *numchars);

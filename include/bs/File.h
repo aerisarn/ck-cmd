@@ -24,12 +24,11 @@
 #include<fstream>
 #include<string>
 
-using namespace std;
 #include<iostream>
 
 namespace scannerpp
 {
-
+	using namespace std;
 class FileNotFound
 {
 private:

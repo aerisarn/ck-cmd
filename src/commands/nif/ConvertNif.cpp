@@ -1391,10 +1391,10 @@ public:
 		//zero out
 		obj.unknownInt = 0;
 
-		obj.unusedByte1 = (byte)0;
+		obj.unusedByte1 = (::byte)0;
 		obj.unknownInt1 = (unsigned int)0;
 		obj.unknownInt2 = (unsigned int)0;
-		obj.unusedByte2 = (byte)0;
+		obj.unusedByte2 = (::byte)0;
 		obj.timeFactor = (float)1.0;
 		obj.gravityFactor = (float)1.0;
 		obj.rollingFrictionMultiplier = (float)0.0;
@@ -3978,9 +3978,9 @@ public:
 
 void findFiles(fs::path startingDir, string extension, vector<fs::path>& results) {
 	if (!exists(startingDir) || !is_directory(startingDir)) return;
-	for (auto& dirEntry : std::experimental::filesystem::recursive_directory_iterator(startingDir))
+	for (auto& dirEntry : fs::recursive_directory_iterator(startingDir))
 	{
-		if (is_directory(dirEntry.path()))
+		if (fs::is_directory(dirEntry.path()))
 			continue;
 
 		std::string entry_extension = dirEntry.path().extension().string();

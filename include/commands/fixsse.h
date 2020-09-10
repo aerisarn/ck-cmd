@@ -37,7 +37,11 @@
 
 #include <unordered_map>
 
+#if _MSC_VER < 1920
 namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
 
 namespace ckcmd {
 	namespace fixsse {

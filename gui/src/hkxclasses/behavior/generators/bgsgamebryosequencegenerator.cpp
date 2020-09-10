@@ -2,15 +2,20 @@
 #include "src/xml/hkxxmlreader.h"
 #include "src/filetypes/behaviorfile.h"
 
+
+#include <BGSGamebryoSequenceGenerator_2.h>
+#include <hkbVariableBindingSet_2.h>
+
+
 using namespace UI;
 
-uint BGSGamebryoSequenceGenerator::refCount = 0;
+uint UI::BGSGamebryoSequenceGenerator::refCount = 0;
 
-const QString BGSGamebryoSequenceGenerator::classname = "BGSGamebryoSequenceGenerator";
+const QString UI::BGSGamebryoSequenceGenerator::classname = "BGSGamebryoSequenceGenerator";
 
-const QStringList BGSGamebryoSequenceGenerator::BlendModeFunction = {"BMF_NONE", "BMF_PERCENT", "BMF_ONE_MINUS_PERCENT"};
+const QStringList UI::BGSGamebryoSequenceGenerator::BlendModeFunction = {"BMF_NONE", "BMF_PERCENT", "BMF_ONE_MINUS_PERCENT"};
 
-BGSGamebryoSequenceGenerator::BGSGamebryoSequenceGenerator(HkxFile *parent, long ref)
+UI::BGSGamebryoSequenceGenerator::BGSGamebryoSequenceGenerator(HkxFile *parent, long ref)
     : hkbGenerator(parent, ref),
       userData(0)
 {
@@ -20,11 +25,32 @@ BGSGamebryoSequenceGenerator::BGSGamebryoSequenceGenerator(HkxFile *parent, long
     name = "BGSGamebryoSequenceGenerator_"+QString::number(refCount);
 }
 
-const QString BGSGamebryoSequenceGenerator::getClassname(){
+const QString UI::BGSGamebryoSequenceGenerator::getClassname(){
     return classname;
 }
 
-bool BGSGamebryoSequenceGenerator::readData(const HkxXmlReader &reader, long & index){
+bool UI::BGSGamebryoSequenceGenerator::readData(const HkxBinaryHandler& handler, const void* object) {
+	const ::BGSGamebryoSequenceGenerator* typedObject = (const ::BGSGamebryoSequenceGenerator*)(object);
+	const ::hkbVariableBindingSet& bindings = *typedObject->m_variableBindingSet;
+	auto ref = handler.getElementIndex(object);
+	auto checkvalue = [&](bool value, const QString & fieldname) {
+		(!value) ? LogFile::writeToLog(getParentFilename() + ": " + getClassname() + ": readData()!\n'" + fieldname + "' has invalid data!\nObject Reference: " + QString::number(ref)) : NULL;
+	};
+	size_t bindings_count = bindings.m_bindings.getSize();
+	//TODO: FIX there are multiple bindings!
+	//for (int i = 0; i < bindings_count; i++) {
+		checkvalue(getVariableBindingSet().readShdPtrReference(object, handler), "variableBindingSet");
+	//}
+	userData = typedObject->m_userData;
+	name = typedObject->m_name;
+	pSequence = typedObject->m_pSequence;
+	eBlendModeFunction = typedObject->m_eBlendModeFunction;
+	checkvalue(BlendModeFunction.contains(eBlendModeFunction), "eBlendModeFunction");
+	fPercent = typedObject->m_fPercent;
+	return false;
+}
+
+bool UI::BGSGamebryoSequenceGenerator::readData(const HkxXmlReader &reader, long & index){
     std::lock_guard <std::mutex> guard(mutex);
     bool ok;
     QByteArray text;
@@ -57,7 +83,7 @@ bool BGSGamebryoSequenceGenerator::readData(const HkxXmlReader &reader, long & i
     return true;
 }
 
-bool BGSGamebryoSequenceGenerator::write(HkxXMLWriter *writer){
+bool UI::BGSGamebryoSequenceGenerator::write(HkxXMLWriter *writer){
     std::lock_guard <std::mutex> guard(mutex);
     auto writedatafield = [&](const QString & name, const QString & value, bool allownull){
         writer->writeLine(writer->parameter, QStringList(writer->name), QStringList(name), value, allownull);
@@ -86,51 +112,51 @@ bool BGSGamebryoSequenceGenerator::write(HkxXMLWriter *writer){
     return true;
 }
 
-bool BGSGamebryoSequenceGenerator::link(){
+bool UI::BGSGamebryoSequenceGenerator::link(){
     return true;
 }
 
-void BGSGamebryoSequenceGenerator::setFPercent(const qreal &value){
+void UI::BGSGamebryoSequenceGenerator::setFPercent(const qreal &value){
     std::lock_guard <std::mutex> guard(mutex);
     (value != fPercent) ? fPercent = value, setIsFileChanged(true) : LogFile::writeToLog(getClassname()+": 'fPercent' was not set!");
 }
 
-void BGSGamebryoSequenceGenerator::setEBlendModeFunction(int index){
+void UI::BGSGamebryoSequenceGenerator::setEBlendModeFunction(int index){
     std::lock_guard <std::mutex> guard(mutex);
     (index >= 0 && index < BlendModeFunction.size() && eBlendModeFunction != BlendModeFunction.at(index)) ? eBlendModeFunction = BlendModeFunction.at(index), setIsFileChanged(true) : LogFile::writeToLog(getClassname()+": 'eBlendModeFunction' was not set!");
 }
 
-void BGSGamebryoSequenceGenerator::setPSequence(const QString &value){
+void UI::BGSGamebryoSequenceGenerator::setPSequence(const QString &value){
     std::lock_guard <std::mutex> guard(mutex);
     (value != pSequence && value != "") ? pSequence = value, setIsFileChanged(true) : LogFile::writeToLog(getClassname()+": 'pSequence' was not set!");
 }
 
-void BGSGamebryoSequenceGenerator::setName(const QString &newname){
+void UI::BGSGamebryoSequenceGenerator::setName(const QString &newname){
     std::lock_guard <std::mutex> guard(mutex);
     (newname != name && newname != "") ? name = newname, setIsFileChanged(true) : LogFile::writeToLog(getClassname()+": 'name' was not set!");
 }
 
-qreal BGSGamebryoSequenceGenerator::getFPercent() const{
+qreal UI::BGSGamebryoSequenceGenerator::getFPercent() const{
     std::lock_guard <std::mutex> guard(mutex);
     return fPercent;
 }
 
-QString BGSGamebryoSequenceGenerator::getEBlendModeFunction() const{
+QString UI::BGSGamebryoSequenceGenerator::getEBlendModeFunction() const{
     std::lock_guard <std::mutex> guard(mutex);
     return eBlendModeFunction;
 }
 
-QString BGSGamebryoSequenceGenerator::getPSequence() const{
+QString UI::BGSGamebryoSequenceGenerator::getPSequence() const{
     std::lock_guard <std::mutex> guard(mutex);
     return pSequence;
 }
 
-QString BGSGamebryoSequenceGenerator::getName() const{
+QString UI::BGSGamebryoSequenceGenerator::getName() const{
     std::lock_guard <std::mutex> guard(mutex);
     return name;
 }
 
-QString BGSGamebryoSequenceGenerator::evaluateDataValidity(){
+QString UI::BGSGamebryoSequenceGenerator::evaluateDataValidity(){
     std::lock_guard <std::mutex> guard(mutex);
     QString errors;
     bool temp;
@@ -153,6 +179,6 @@ QString BGSGamebryoSequenceGenerator::evaluateDataValidity(){
     return errors;
 }
 
-BGSGamebryoSequenceGenerator::~BGSGamebryoSequenceGenerator(){
+UI::BGSGamebryoSequenceGenerator::~BGSGamebryoSequenceGenerator(){
     refCount--;
 }

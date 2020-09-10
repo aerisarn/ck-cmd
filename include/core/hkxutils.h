@@ -22,7 +22,12 @@
 #include <core/bsa.h>
 #include <filesystem>
 
+#if _MSC_VER < 1920
 namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
+
 using namespace std;
 
 using namespace ckcmd::info;

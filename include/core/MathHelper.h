@@ -8,7 +8,11 @@
 #include <filesystem>
 
 using namespace std;
+#if _MSC_VER < 1920
 namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
 
 double rad2deg(double rad);
 

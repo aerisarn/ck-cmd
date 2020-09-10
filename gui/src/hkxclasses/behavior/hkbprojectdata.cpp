@@ -3,15 +3,18 @@
 #include "src/xml/hkxxmlreader.h"
 #include "src/filetypes/projectfile.h"
 
+#include <hkbProjectData_2.h>
+#include <hkbTransitionEffect_0.h>
+
 using namespace UI;
 
-uint hkbProjectData::refCount = 0;
+uint UI::hkbProjectData::refCount = 0;
 
-const QString hkbProjectData::classname = "hkbProjectData";
+const QString UI::hkbProjectData::classname = "hkbProjectData";
 
-const QStringList hkbProjectData::EventMode = {"EVENT_MODE_IGNORE_FROM_GENERATOR"};
+const QStringList UI::hkbProjectData::EventMode = {"EVENT_MODE_IGNORE_FROM_GENERATOR"};
 
-hkbProjectData::hkbProjectData(HkxFile *parent, long ref, hkbProjectStringData *stringdata)
+UI::hkbProjectData::hkbProjectData(HkxFile *parent, long ref, hkbProjectStringData *stringdata)
     : HkxObject(parent, ref),
       worldUpWS(0, 0, 1, 0),
       defaultEventMode(EventMode.first())
@@ -24,11 +27,38 @@ hkbProjectData::hkbProjectData(HkxFile *parent, long ref, hkbProjectStringData *
     }
 }
 
-const QString hkbProjectData::getClassname(){
+const QString UI::hkbProjectData::getClassname(){
     return classname;
 }
 
-bool hkbProjectData::readData(const HkxXmlReader &reader, long & index){
+bool UI::hkbProjectData::readData(const HkxBinaryHandler& handler, const void* object) {
+	const ::hkbProjectData* typedObject = (const ::hkbProjectData*)(object);
+	auto ref = handler.getElementIndex(object);
+	setReference(ref);
+	auto checkvalue = [&](bool value, const QString & fieldname) {
+		(!value) ? LogFile::writeToLog(getParentFilename() + ": " + getClassname() + ": readData()!\n'" + fieldname + "' has invalid data!\nObject Reference: " + QString::number(ref)) : NULL;
+	};
+
+	worldUpWS = HkxBinaryHandler::readVector4(typedObject->m_worldUpWS);
+	checkvalue(stringData.readShdPtrReference(typedObject->m_stringData.val(), handler), "stringData");
+	defaultEventMode = HkxBinaryHandler::readEnum("EventMode", &hkbTransitionEffectClass, typedObject->m_defaultEventMode);
+	checkvalue(EventMode.contains(defaultEventMode), "defaultEventMode");
+	return true;
+}
+
+hkReferencedObject* UI::hkbProjectData::write(HkxBinaryHandler& handler)
+{
+	if (!handler.getIsWritten(this)) {
+		::hkbProjectData& object = handler.add<::hkbProjectData>(this, &hkbProjectDataClass, getReference());
+		object.m_worldUpWS = HkxBinaryHandler::writeVector4(worldUpWS);
+		object.m_defaultEventMode = (hkbTransitionEffect::EventMode)HkxBinaryHandler::writeEnum("EventMode", &hkbTransitionEffectClass, defaultEventMode.toLocal8Bit().data());
+		object.m_stringData = dynamic_cast<::hkbProjectStringData*>(stringData->write(handler));
+		return &object;
+	}
+	return handler.get<hkReferencedObject>(this);
+}
+
+bool UI::hkbProjectData::readData(const HkxXmlReader &reader, long & index){
     std::lock_guard <std::mutex> guard(mutex);
     bool ok;
     QByteArray text;
@@ -52,7 +82,7 @@ bool hkbProjectData::readData(const HkxXmlReader &reader, long & index){
     return true;
 }
 
-bool hkbProjectData::write(HkxXMLWriter *writer){
+bool UI::hkbProjectData::write(HkxXMLWriter *writer){
     auto writedatafield = [&](const QString & name, const QString & value, bool allownull){
         writer->writeLine(writer->parameter, QStringList(writer->name), QStringList(name), value, allownull);
     };
@@ -80,7 +110,7 @@ bool hkbProjectData::write(HkxXMLWriter *writer){
     return result;
 }
 
-bool hkbProjectData::link(){
+bool UI::hkbProjectData::link(){
     std::lock_guard <std::mutex> guard(mutex);
     HkxSharedPtr *ptr;
     auto file = dynamic_cast<ProjectFile *>(getParentFile());
@@ -102,12 +132,12 @@ bool hkbProjectData::link(){
     return true;
 }
 
-void hkbProjectData::unlink(){
+void UI::hkbProjectData::unlink(){
     std::lock_guard <std::mutex> guard(mutex);
     stringData = HkxSharedPtr();
 }
 
-QString hkbProjectData::evaluateDataValidity(){   //TO DO...
+QString UI::hkbProjectData::evaluateDataValidity(){   //TO DO...
     /*std::lock_guard <std::mutex> guard(mutex);
     if (!EventMode.contains(defaultEventMode)){
     }else if (!stringData.data() || stringData->getSignature() != HKB_PROJECT_STRING_DATA){
@@ -119,6 +149,6 @@ QString hkbProjectData::evaluateDataValidity(){   //TO DO...
     return QString();
 }
 
-hkbProjectData::~hkbProjectData(){
+UI::hkbProjectData::~hkbProjectData(){
     refCount--;
 }

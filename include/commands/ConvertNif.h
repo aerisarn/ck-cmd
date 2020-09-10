@@ -1,5 +1,4 @@
 #pragma once
-#include <filesystem>
 
 #include <commands/CommandBase.h>
 
@@ -66,7 +65,11 @@
 #include "Physics/Collide/Shape/Compound/Collection/ExtendedMeshShape/hkpExtendedMeshShape.h"
 #include <Physics\Collide\Shape\Compound\Collection\CompressedMesh\hkpCompressedMeshShape.h>
 
+#if _MSC_VER < 1920
 namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
 
 static const fs::path nif_in = "D:\\git\\ck-cmd\\resources\\in";
 static const fs::path resources = "resources\\";

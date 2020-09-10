@@ -55,12 +55,13 @@ public:
 	UI::HkxSharedPtr * findProjectStringData(long ref);
     AnimCacheProjectData *getProjectCacheData() const;
 	UI::HkxSharedPtr * findProjectData(long ref);
+	virtual bool parseBinary();
+	virtual void writeBinary();
+	void write();
 protected:
     bool parse();
-	virtual bool parseBinary();
     bool link();
-private:
-    void write();
+private:    	
     bool addObjectToFile(UI::HkxObject *obj, long ref = -1);
     void setCharacterFile(CharacterFile *file);
     void addHandIK();

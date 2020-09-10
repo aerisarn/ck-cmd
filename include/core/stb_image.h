@@ -608,7 +608,7 @@ typedef unsigned char validate_uint32[sizeof(stbi__uint32)==4 ? 1 : -1];
 #if defined(__MINGW32__) && defined(STBI__X86_TARGET) && !defined(STBI_MINGW_ENABLE_SSE2) && !defined(STBI_NO_SIMD)
 // Note that __MINGW32__ doesn't actually mean 32-bit, so we have to avoid STBI__X64_TARGET
 //
-// 32-bit MinGW wants ESP to be 16-byte aligned, but this is not in the
+// 32-bit MinGW wants ESP to be 16-::byte aligned, but this is not in the
 // Windows ABI and VC++ as well as Windows DLLs don't maintain that invariant.
 // As a result, enabling SSE2 on 32-bit MinGW is dangerous when not
 // simultaneously enabling "-mstackrealign".
@@ -1024,7 +1024,7 @@ static stbi_uc *stbi__convert_16_to_8(stbi__uint16 *orig, int w, int h, int chan
    if (reduced == NULL) return stbi__errpuc("outofmem", "Out of memory");
 
    for (i = 0; i < img_len; ++i)
-      reduced[i] = (stbi_uc)((orig[i] >> 8) & 0xFF); // top half of each byte is sufficient approx of 16->8 bit scaling
+      reduced[i] = (stbi_uc)((orig[i] >> 8) & 0xFF); // top half of each ::byte is sufficient approx of 16->8 bit scaling
 
    STBI_FREE(orig);
    return reduced;
@@ -1040,7 +1040,7 @@ static stbi__uint16 *stbi__convert_8_to_16(stbi_uc *orig, int w, int h, int chan
    if (enlarged == NULL) return (stbi__uint16 *) stbi__errpuc("outofmem", "Out of memory");
 
    for (i = 0; i < img_len; ++i)
-      enlarged[i] = (stbi__uint16)((orig[i] << 8) + orig[i]); // replicate to high and low byte, maps 0->0, 255->0xffff
+      enlarged[i] = (stbi__uint16)((orig[i] << 8) + orig[i]); // replicate to high and low ::byte, maps 0->0, 255->0xffff
 
    STBI_FREE(orig);
    return enlarged;
@@ -1392,7 +1392,7 @@ static void stbi__refill_buffer(stbi__context *s)
    int n = (s->io.read)(s->io_user_data,(char*)s->buffer_start,s->buflen);
    if (n == 0) {
       // at end of file, treat same as if from memory, but need to handle case
-      // where s->img_buffer isn't pointing to safe memory, e.g. 0-byte file
+      // where s->img_buffer isn't pointing to safe memory, e.g. 0-::byte file
       s->read_from_callbacks = 0;
       s->img_buffer = s->buffer_start;
       s->img_buffer_end = s->buffer_start+1;
@@ -1497,7 +1497,7 @@ static stbi__uint32 stbi__get32le(stbi__context *s)
 }
 #endif
 
-#define STBI__BYTECAST(x)  ((stbi_uc) ((x) & 255))  // truncate int to byte without warnings
+#define STBI__BYTECAST(x)  ((stbi_uc) ((x) & 255))  // truncate int to ::byte without warnings
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -3438,7 +3438,7 @@ static void stbi__YCbCr_to_RGB_simd(stbi_uc *out, stbi_uc const *y, stbi_uc cons
          __m128i bw = _mm_srai_epi16(bws, 4);
          __m128i gw = _mm_srai_epi16(gws, 4);
 
-         // back to byte, set up for transpose
+         // back to ::byte, set up for transpose
          __m128i brb = _mm_packus_epi16(rw, bw);
          __m128i gxb = _mm_packus_epi16(gw, xw);
 
@@ -3488,7 +3488,7 @@ static void stbi__YCbCr_to_RGB_simd(stbi_uc *out, stbi_uc const *y, stbi_uc cons
          int16x8_t gws = vaddq_s16(vaddq_s16(yws, cb0), cr1);
          int16x8_t bws = vaddq_s16(yws, cb1);
 
-         // undo scaling, round, convert to byte
+         // undo scaling, round, convert to ::byte
          uint8x8x4_t o;
          o.val[0] = vqrshrun_n_s16(rws, 4);
          o.val[1] = vqrshrun_n_s16(gws, 4);
@@ -4007,7 +4007,7 @@ static int stbi__parse_huffman_block(stbi__zbuf *a)
             zout = a->zout;
          }
          p = (stbi_uc *) (zout - dist);
-         if (dist == 1) { // run of one byte; common in images.
+         if (dist == 1) { // run of one ::byte; common in images.
             stbi_uc v = *p;
             if (len) { do *zout++ = v; while (--len); }
          } else {
@@ -4372,7 +4372,7 @@ static int stbi__create_png_image_raw(stbi__png *a, stbi_uc *raw, stbi__uint32 r
       // if first row, use special filter that doesn't sample previous row
       if (j == 0) filter = first_row_filter[filter];
 
-      // handle first byte explicitly
+      // handle first ::byte explicitly
       for (k=0; k < filter_bytes; ++k) {
          switch (filter) {
             case STBI__F_none       : cur[k] = raw[k]; break;
@@ -4393,8 +4393,8 @@ static int stbi__create_png_image_raw(stbi__png *a, stbi_uc *raw, stbi__uint32 r
          prior += out_n;
       } else if (depth == 16) {
          if (img_n != out_n) {
-            cur[filter_bytes]   = 255; // first pixel top byte
-            cur[filter_bytes+1] = 255; // first pixel bottom byte
+            cur[filter_bytes]   = 255; // first pixel top ::byte
+            cur[filter_bytes+1] = 255; // first pixel bottom ::byte
          }
          raw += filter_bytes;
          cur += output_bytes;
@@ -4440,8 +4440,8 @@ static int stbi__create_png_image_raw(stbi__png *a, stbi_uc *raw, stbi__uint32 r
          }
          #undef STBI__CASE
 
-         // the loop above sets the high byte of the pixels' alpha, but for
-         // 16 bit png files we also need the low byte set. we'll do that here.
+         // the loop above sets the high ::byte of the pixels' alpha, but for
+         // 16 bit png files we also need the low ::byte set. we'll do that here.
          if (depth == 16) {
             cur = a->out + stride*j; // start at the beginning of the row again
             for (i=0; i < x; ++i,cur+=output_bytes) {
@@ -4459,10 +4459,10 @@ static int stbi__create_png_image_raw(stbi__png *a, stbi_uc *raw, stbi__uint32 r
          stbi_uc *cur = a->out + stride*j;
          stbi_uc *in  = a->out + stride*j + x*out_n - img_width_bytes;
          // unpack 1/2/4-bit into a 8-bit buffer. allows us to keep the common 8-bit path optimal at minimal cost for 1/2/4-bit
-         // png guarante byte alignment, if width is not multiple of 8/4/2 we'll decode dummy trailing data that will be skipped in the later loop
+         // png guarante ::byte alignment, if width is not multiple of 8/4/2 we'll decode dummy trailing data that will be skipped in the later loop
          stbi_uc scale = (color == 0) ? stbi__depth_scale_table[depth] : 1; // scale grayscale values to 0..255 range
 
-         // note that the final byte might overshoot and write more data than desired.
+         // note that the final ::byte might overshoot and write more data than desired.
          // we can allocate enough data that this never writes out of memory, but it
          // could also overwrite the next scanline. can it overwrite non-empty data
          // on the next scanline? yes, consider 1-pixel-wide scanlines with 1-bit-per-pixel.
@@ -5447,7 +5447,7 @@ static void stbi__tga_read_rgb16(stbi__context *s, stbi_uc* out)
    out[2] = (stbi_uc)((b * 255)/31);
 
    // some people claim that the most significant bit might be used for alpha
-   // (possibly if an alpha-bit is set in the "image descriptor byte")
+   // (possibly if an alpha-bit is set in the "image descriptor ::byte")
    // but that only made 16bit test images completely translucent..
    // so let's treat all 15 and 16bit TGAs as RGB with no alpha.
 }
@@ -5548,7 +5548,7 @@ static void *stbi__tga_load(stbi__context *s, int *x, int *y, int *comp, int req
          {
             if ( RLE_count == 0 )
             {
-               //   yep, get the next byte as a RLE command
+               //   yep, get the next ::byte as a RLE command
                int RLE_cmd = stbi__get8(s);
                RLE_count = 1 + (RLE_cmd & 127);
                RLE_repeating = RLE_cmd >> 7;
@@ -5679,7 +5679,7 @@ static int stbi__psd_decode_rle(stbi__context *s, stbi_uc *p, int pixelCount)
          }
       } else if (len > 128) {
          stbi_uc   val;
-         // Next -len+1 bytes in the dest are replicated from next source byte.
+         // Next -len+1 bytes in the dest are replicated from next source ::byte.
          // (Interpret len as a negative 8-bit int.)
          len = 257 - len;
          if (len > nleft) return 0; // corrupt data
@@ -5783,13 +5783,13 @@ static void *stbi__psd_load(stbi__context *s, int *x, int *y, int *comp, int req
    if (compression) {
       // RLE as used by .PSD and .TIFF
       // Loop until you get the number of unpacked bytes you are expecting:
-      //     Read the next source byte into n.
+      //     Read the next source ::byte into n.
       //     If n is between 0 and 127 inclusive, copy the next n+1 bytes literally.
-      //     Else if n is between -127 and -1 inclusive, copy the next byte -n+1 times.
+      //     Else if n is between -127 and -1 inclusive, copy the next ::byte -n+1 times.
       //     Else if n is 128, noop.
       // Endloop
 
-      // The RLE-compressed data is preceeded by a 2-byte data count for each row in the data,
+      // The RLE-compressed data is preceeded by a 2-::byte data count for each row in the data,
       // which we're going to just skip.
       stbi__skip(s, h * channelCount * 2 );
 
@@ -7276,7 +7276,7 @@ STBIDEF int stbi_is_16_bit_from_callbacks(stbi_io_callbacks const *c, void *user
                          partial animated GIF support
                          limited 16-bpc PSD support
                          #ifdef unused functions
-                         bug with < 92 byte PIC,PNM,HDR,TGA
+                         bug with < 92 ::byte PIC,PNM,HDR,TGA
       2.06  (2015-04-19) fix bug where PSD returns wrong '*comp' value
       2.05  (2015-04-19) fix bug in progressive JPEG handling, fix warning
       2.04  (2015-04-15) try to re-enable SIMD on MinGW 64-bit

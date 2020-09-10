@@ -66,7 +66,11 @@
 #include "Physics/Collide/Shape/Compound/Collection/ExtendedMeshShape/hkpExtendedMeshShape.h"
 #include <Physics\Collide\Shape\Compound\Collection\CompressedMesh\hkpCompressedMeshShape.h>
 
+#if _MSC_VER < 1920
 namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
 
 //void findFiles(fs::path startingDir, string extension, vector<fs::path>& results);
 //bool BeginConversion();

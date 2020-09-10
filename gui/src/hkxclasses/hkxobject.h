@@ -7,9 +7,14 @@
 
 class HkxXmlReader;
 class HkxXMLWriter;
+class HkxBinaryHandler;
 class BehaviorFile;
 class CharacterFile;
 class HkxFile;
+
+template <typename T>
+class hkRefPtr;
+class hkReferencedObject;
 
 class TreeGraphicsItem;
 
@@ -48,6 +53,7 @@ public:
     virtual bool link() = 0;
     virtual void updateReferences(long &);
     virtual bool write(HkxXMLWriter *);
+	virtual hkReferencedObject* write(HkxBinaryHandler&);
     virtual bool merge(HkxObject *);
     virtual void mergeEventIndex(int, int);
     virtual void updateEventIndices(int);
@@ -56,6 +62,7 @@ public:
     virtual QString evaluateDataValidity();
     virtual void unlink();
     virtual bool readData(const HkxXmlReader &, long &);
+	virtual bool readData(const HkxBinaryHandler&, const void*) { return false; }
     virtual bool isEventReferenced(int ) const;
     virtual bool isVariableReferenced(int ) const;
     virtual QVector <HkxObject *> getChildrenOtherTypes() const;
@@ -98,6 +105,10 @@ public:
     bool operator==(const HkxSharedPtr & other) const;
     long getShdPtrReference() const;
     bool readShdPtrReference(long index, const HkxXmlReader & reader);
+	bool readShdPtrReference(const void * object, const HkxBinaryHandler & reader);
+
+	template<typename T> T* get() { return dynamic_cast<T*>(data()); }
+
 private:
     void setShdPtrReference(long ref);
 private:

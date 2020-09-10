@@ -19,6 +19,16 @@ bool AnimationFile::addObjectToFile(HkxObject *, long ){
 }
 
 bool AnimationFile::parseBinary() {
+	std::lock_guard <std::mutex> guard(mutex);
+	auto ok = false;
+	auto& handler = getBinaryHandler();
+	if (handler.parse()) {
+		size_t elements = handler.getNumElements();
+		for (size_t i = 0; i < elements; i++) {
+			const auto* hkclass = handler.getElementClass(i);
+			const void* obj = handler.getElementObject(i);
+		}
+	}
 	return false;
 }
 

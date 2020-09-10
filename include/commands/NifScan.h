@@ -5,7 +5,11 @@
 #include <commands/CommandBase.h>
 #include <filesystem>
 
+#if _MSC_VER < 1920
 namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
 
 static const fs::path nif_scan_in = ".\\resources\\in";
 static const fs::path nif_scan_err = "D:\\git\\ck-cmd\\resources\\err";

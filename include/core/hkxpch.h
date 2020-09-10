@@ -1,5 +1,4 @@
 #pragma once
-#include <stdafx.h>
 
 #include <Common/Base/hkBase.h>
 #include <Common/Base/Memory/System/Util/hkMemoryInitUtil.h>

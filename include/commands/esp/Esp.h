@@ -6,7 +6,12 @@
 
 #include <commands\esp\data\EspFile.h>
 #include <filesystem>
+
+#if _MSC_VER < 1920
 namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
 
 class CreateEsp : public CommandBase
 {

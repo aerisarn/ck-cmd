@@ -75,6 +75,7 @@ ENDIF ()
 
 list(APPEND PROJECT_INCLUDES "${CMAKE_SOURCE_DIR}/gui")
 
+list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/test/test.cpp")
 
 add_executable(${PROJECT} ${HEADERS} ${SOURCES} ${QT_RESOURCES} ${PROJECT_INCLUDES} ${HAVOK_COMPAT_SRC} ${PROJECT_SRC})
 target_include_directories	(${PROJECT}  PUBLIC ${PROJECT_INCLUDES} )
@@ -88,5 +89,22 @@ add_custom_command(TARGET ${PROJECT} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different  
         "${PROJECT_SOURCE_DIR}/../lib/fbx/lib/vs2015/x86/$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:Release>/libfbxsdk.dll"
         $<TARGET_FILE_DIR:ck-gui>)
+
+
+set (GUI_TEST_SRC "${CMAKE_SOURCE_DIR}/gui/test/test.cpp")
+
+list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/src/main.cpp")
+
+# Build tester.
+add_executable				(gui-tests ${GUI_TEST_SRC} ${HEADERS} ${SOURCES} ${QT_RESOURCES} ${PROJECT_INCLUDES} ${HAVOK_COMPAT_SRC} ${PROJECT_SRC})
+add_dependencies			(gui-tests googletest)
+add_dependencies			(gui-tests zlib)
+target_link_libraries		(gui-tests ${GTEST_LIBRARIES} ${TEST_LIBRARIES}
+    Qt5::Widgets
+	${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib
+    )
+target_include_directories	(gui-tests PUBLIC ${TEST_INCLUDES} ${PROJECT_INCLUDES})
+enable_testing()
+add_test(GuiTests gui-tests)
 
 

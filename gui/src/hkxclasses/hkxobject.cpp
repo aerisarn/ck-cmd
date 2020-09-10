@@ -5,6 +5,9 @@
 #include "src/ui/treegraphicsitem.h"
 #include "src/hkxclasses/behavior/modifiers/hkbmodifier.h"
 
+#include <Common/Base/Object/hkReferencedObject.h>
+#include <Common/Base/Types/hkRefPtr.h>
+
 using namespace UI;
 
 /**
@@ -483,6 +486,8 @@ bool HkxObject::fixMergedIndices(BehaviorFile *){return true;}
 
 bool HkxObject::write(HkxXMLWriter *){return false;}
 
+hkReferencedObject* HkxObject::write(HkxBinaryHandler&) { return NULL; }
+
 QString HkxObject::evaluateDataValidity(){return "";}
 
 /**
@@ -522,6 +527,18 @@ bool HkxSharedPtr::readShdPtrReference(long index, const HkxXmlReader & reader){
         setShdPtrReference(temp.toLong(&ok));
     }
     return ok;
+}
+
+bool HkxSharedPtr::readShdPtrReference(const void * object, const HkxBinaryHandler & reader) {
+	auto ok = true;
+	auto temp = reader.getElementIndex(object);
+	if (temp == (size_t)-1) {
+		setShdPtrReference(-1);
+	}
+	else {
+		setShdPtrReference(temp);
+	}
+	return ok;
 }
 
 /**

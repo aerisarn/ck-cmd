@@ -61,7 +61,7 @@ QByteArray HkCRC::compute(const QByteArray & input){
     len=0;
     for (i=0; i<datalen; i++){
         c = (int) data[i];
-        if (data.at(i)=='%'){               // unescape byte by byte (%00 allowed)
+        if (data.at(i)=='%'){               // unescape ::byte by ::byte (%00 allowed)
             if (i>datalen-3)
                 return "";
 

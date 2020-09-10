@@ -1,4 +1,9 @@
+#include <src/Skyrim/TES5File.h>
+#include <src/Collection.h>
+#include <src/ModFile.h>
+
 #include <commands/RetargetCreature.h>
+
 #include "stdafx.h"
 #undef max
 #undef min
@@ -23,9 +28,7 @@
 #include <algorithm>
 #include <vector>
 
-#include <src/Skyrim/TES5File.h>
-#include <src/Collection.h>
-#include <src/ModFile.h>
+
 
 struct ci_less
 {

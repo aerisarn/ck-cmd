@@ -23,7 +23,7 @@ static bool imageHasTransparentPixels(FILE *f) {
     if (pixels != nullptr) {
         int pixelCount = width * height;
         for (int ix = 0; ix < pixelCount; ix ++) {
-            // test fourth byte (alpha); 255 is 1.0
+            // test fourth ::byte (alpha); 255 is 1.0
             if (pixels[4*ix + 3] != 255) {
                 return true;
             }

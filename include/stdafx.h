@@ -17,9 +17,8 @@
 #include <map>
 #include <string.h>
 
-#define WIN32_LEAN_AND_MEAN
-#include "windows.h"
-
+//#define WIN32_LEAN_AND_MEAN
+//#include "windows.h"
 #include "shlwapi.h"
-
 #include <core\hkxpch.h>
+

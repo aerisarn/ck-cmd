@@ -6,6 +6,8 @@
 class BehaviorFile;
 class ProjectFile;
 
+class hkReferencedObject;
+
 namespace UI {
 class hkbProjectStringData;
 
@@ -20,11 +22,13 @@ public:
 public:
     static const QString getClassname();
 private:
-    bool readData(const HkxXmlReader & reader, long & index);
+    virtual bool readData(const HkxXmlReader & reader, long & index);
+	virtual bool readData(const HkxBinaryHandler& handler, const void* object);
     bool link();
     void unlink();
     QString evaluateDataValidity();
     bool write(HkxXMLWriter *writer);
+	virtual hkReferencedObject* write(HkxBinaryHandler&);
 private:
     static const QStringList EventMode;
     static uint refCount;

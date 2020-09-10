@@ -20,10 +20,12 @@ public:
     static const QString getClassname();
     QString getCharacterFilePathAt(int index) const;
 private:
-    bool readData(const HkxXmlReader & reader, long & index);
+    virtual bool readData(const HkxXmlReader & reader, long & index);
+	virtual bool readData(const HkxBinaryHandler& handler, const void* object);
     bool link();
     QString evaluateDataValidity();
     bool write(HkxXMLWriter *writer);
+	virtual hkReferencedObject* write(HkxBinaryHandler&);
 private:
     static uint refCount;
     static const QString classname;

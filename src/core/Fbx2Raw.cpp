@@ -20,7 +20,11 @@
 #include <cmath>
 #include <filesystem>
 
+#if _MSC_VER < 1920
 namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
 
 //#include "FBX2glTF.h"
 //#include "utils/File_Utils.h"

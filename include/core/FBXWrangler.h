@@ -7,16 +7,23 @@ See the included LICENSE file
 #pragma once
 
 #include <stdafx.h>
+#include <unordered_map>
+#include <set>
+#include <algorithm>
 
-#include <core\NifFile.h>
+#include <VHACD.h>
+#include <boundingmesh.h>
+
+#include <commands/Geometry.h>
+#include <core/EulerAngles.h>
+#include <core/MathHelper.h>
 #include <core/HKXWrangler.h>
+#include <core/NifFile.h>
+
+//#include <obj\NiNode.h>
+//#include <nif_math.h>
 
 #include <fbxsdk.h>
-#include <unordered_map>
-
-#include <obj\NiNode.h>
-#include <nif_math.h>
-#include <set>
 
 namespace ckcmd {
 namespace FBX {

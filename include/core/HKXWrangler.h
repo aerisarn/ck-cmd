@@ -1,5 +1,10 @@
 #pragma once
 
+#include <cstdio>
+#include <sys/stat.h>
+#include <map>
+#include <filesystem>
+
 #include "stdafx.h"
 
 #include <core/hkxcmd.h>
@@ -27,11 +32,13 @@
 
 #include <fbxsdk.h>
 
-#include <cstdio>
-#include <sys/stat.h>
-#include <map>
-#include <filesystem>
+
+
+#if _MSC_VER < 1920
 namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
 
 // Serialize
 #include <Common/Serialize/Util/hkSerializeUtil.h>

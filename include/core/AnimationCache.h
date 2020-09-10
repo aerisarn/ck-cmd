@@ -10,7 +10,11 @@
 #include <memory>
 #include <algorithm>
 
+#if _MSC_VER < 1920
 namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
 
 /**
 * Created by Bet on 10.03.2016.
@@ -84,7 +88,7 @@ public:
 		for (i = 0; i<datalen; i++)
 		{
 			c = (int)data.at(i);
-			if (data.at(i) == '%')				// unescape byte by byte (%00 allowed)
+			if (data.at(i) == '%')				// unescape ::byte by ::byte (%00 allowed)
 			{
 				if (i>datalen - 3)
 					Log::Error("Invalid data sequence");

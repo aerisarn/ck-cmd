@@ -7,12 +7,6 @@
 #include "src/binary/hkxbinaryhandler.h"
 #include "src/hkxclasses/hkxobject.h"
 
-#include <core\hkxpch.h>
-#include <core/hkxcmd.h>
-#include <core/hkxutils.h>
-#include <core/hkfutils.h>
-#include <core/log.h>
-
 #include <Common/Base/hkBase.h>
 #include <Common/Base/Memory/System/Util/hkMemoryInitUtil.h>
 #include <Common/Base/Memory/Allocator/Malloc/hkMallocAllocator.h>
@@ -20,6 +14,10 @@
 #include <Common/Base/Reflection/Registry/hkDynamicClassNameRegistry.h>
 
 #include <QFile>
+
+#include <core\hkxpch.h>
+#include <core/hkxcmd.h>
+#include <core/hkfutils.h>
 
 class MainWindow;
 

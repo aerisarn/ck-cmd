@@ -24,6 +24,7 @@ private:
     qreal getFPercent() const;
     QString evaluateDataValidity();
     bool write(HkxXMLWriter *writer);
+	virtual bool readData(const HkxBinaryHandler&, const void*);
     bool readData(const HkxXmlReader & reader, long & index);
     bool link();
 private:

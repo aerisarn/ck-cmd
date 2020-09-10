@@ -5,10 +5,6 @@ See the included LICENSE file
 */
 
 #include <core/FBXWrangler.h>
-#include <core/EulerAngles.h>
-#include <core/MathHelper.h>
-#include <commands/Geometry.h>
-#include <core/log.h>
 
 #include <Physics\Utilities\Collide\ShapeUtils\CreateShape\hkpCreateShapeUtility.h>
 #include <Common\GeometryUtilities\Misc\hkGeometryUtils.h>
@@ -50,15 +46,17 @@ See the included LICENSE file
 #include <Common\Internal\ConvexHull\hkGeometryUtility.h>
 #include <Common\GeometryUtilities\Misc\hkGeometryUtils.h>
 
-#include <algorithm>
 
-#include <VHACD.h>
-#include <boundingmesh.h>
+
+
+
+
 
 
 using namespace ckcmd::FBX;
 using namespace  ckcmd::Geometry;
 using namespace ckcmd::HKX;
+using namespace Niflib;
 
 #undef max
 
@@ -489,7 +487,7 @@ class AlphaFlagsHandler
 	}
 
 	alpha_flags_modes modes;
-	byte threshold;
+	::byte threshold;
 
 public:
 
@@ -520,7 +518,7 @@ public:
 		modes.bits.alpha_test_enable = get_property<FbxBool>(material, "alpha_test_enable");
 		modes.bits.alpha_test_mode = gl_test_modes_to_value(get_property<FbxString>(material, "alpha_test_mode").Buffer());
 		modes.bits.no_sorter_flag = get_property<FbxBool>(material, "no_sorter_flag");
-		threshold = (byte)get_property<FbxShort>(material, "alpha_test_threshold");
+		threshold = (::byte)get_property<FbxShort>(material, "alpha_test_threshold");
 	}
 
 	NiAlphaPropertyRef to_property()
@@ -5141,7 +5139,7 @@ void FBXWrangler::handleVisibility(FbxProperty& track, NiNode& parent)
 
 	NiBoolInterpolatorRef interpolator = new NiBoolInterpolator();
 	NiBoolDataRef data = new NiBoolData();
-	KeyGroup<byte > tkeys;
+	KeyGroup<::byte > tkeys;
 
 	auto curve = track.GetCurve(lAnimLayer);
 	if (NULL != curve)

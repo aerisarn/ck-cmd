@@ -64,7 +64,7 @@ std::string HkCRC::compute(std::string input) {
 	for (i = 0; i<datalen; i++)
 	{
 		c = (int)data.at(i);
-		if (data.at(i) == '%')				// unescape byte by byte (%00 allowed)
+		if (data.at(i) == '%')				// unescape ::byte by ::byte (%00 allowed)
 		{
 			if (i > datalen - 3)
 				throw std::runtime_error("Invalid data sequence");

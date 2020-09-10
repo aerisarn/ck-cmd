@@ -3,13 +3,15 @@
 #include "src/xml/hkxxmlreader.h"
 #include "src/filetypes/projectfile.h"
 
+#include <hkbProjectStringData_1.h>
+
 using namespace UI;
 
-uint hkbProjectStringData::refCount = 0;
+uint UI::hkbProjectStringData::refCount = 0;
 
-const QString hkbProjectStringData::classname = "hkbProjectStringData";
+const QString UI::hkbProjectStringData::classname = "hkbProjectStringData";
 
-hkbProjectStringData::hkbProjectStringData(HkxFile *parent, long ref, const QString &characterfilename)
+UI::hkbProjectStringData::hkbProjectStringData(HkxFile *parent, long ref, const QString &characterfilename)
     : HkxObject(parent, ref)
 {
     setType(HKB_PROJECT_STRING_DATA, TYPE_OTHER);
@@ -18,19 +20,50 @@ hkbProjectStringData::hkbProjectStringData(HkxFile *parent, long ref, const QStr
     (characterfilename != "") ? characterFilenames.append(characterfilename) : NULL;
 }
 
-const QString hkbProjectStringData::getClassname(){
+const QString UI::hkbProjectStringData::getClassname(){
     return classname;
 }
 
-QString hkbProjectStringData::getCharacterFilePathAt(int index) const{
+QString UI::hkbProjectStringData::getCharacterFilePathAt(int index) const{
     std::lock_guard <std::mutex> guard(mutex);
     if (index >= 0 && index < characterFilenames.size()){
         return QString(characterFilenames.at(index)).replace("\\", "/").section("/", -2, -1);
     }
     return "";
 }
+bool UI::hkbProjectStringData::readData(const HkxBinaryHandler& handler, const void* object) {
+	const ::hkbProjectStringData* typedObject = (const ::hkbProjectStringData*)(object);
+	auto ref = handler.getElementIndex(object);
+	setReference(ref);
 
-bool hkbProjectStringData::readData(const HkxXmlReader &reader, long & index){
+	auto numElems = 0;
+	auto getstrings = [&](QStringList & strings, const hkArray<hkStringPtr> & field) {
+		numElems = field.getSize();
+		if (numElems > 0) {
+			for (int index = 0; index < numElems; index++) {
+				strings.append(field[index].cString());
+			}
+		}
+	};
+	auto getpath = [&](QString & field, const hkStringPtr & fieldname) {
+		field = fieldname.cString();
+		if (field == "") {
+			LogFile::writeToLog(": " + getClassname() + ": readData()!\nFailed to properly read '" + fieldname + "' data field!\nObject Reference: " + ref);
+		}
+	};
+	getstrings(animationFilenames, typedObject->m_animationFilenames);
+	getstrings(behaviorFilenames, typedObject->m_behaviorFilenames);
+	getstrings(characterFilenames, typedObject->m_characterFilenames);
+	getstrings(eventNames, typedObject->m_eventNames);
+	getpath(animationPath, typedObject->m_animationPath);
+	getpath(behaviorPath, typedObject->m_behaviorPath);
+	getpath(characterPath, typedObject->m_characterPath);
+	getpath(fullPathToSource, typedObject->m_fullPathToSource);
+
+	return true;
+}
+
+bool UI::hkbProjectStringData::readData(const HkxXmlReader &reader, long & index){
     std::lock_guard <std::mutex> guard(mutex);
     auto ok = true;
     auto numElems = 0;
@@ -82,7 +115,39 @@ bool hkbProjectStringData::readData(const HkxXmlReader &reader, long & index){
     return true;
 }
 
-bool hkbProjectStringData::write(HkxXMLWriter *writer){
+hkReferencedObject* UI::hkbProjectStringData::write(HkxBinaryHandler& handler)
+{
+	auto numElems = 0;
+	auto setstrings = [&](const QStringList & strings, hkArray<hkStringPtr> & field) {
+		numElems = strings.count();
+		field.clear();
+		if (numElems > 0) {
+			for (int index = 0; index < numElems; index++) {
+				field.pushBack(strings[index].toLocal8Bit().data());
+			}
+		}
+	};
+	auto setpath = [&](const QString & field, hkStringPtr & fieldname) {
+		fieldname = field.toLocal8Bit().data();
+	};
+
+	if (!handler.getIsWritten(this)) {
+		::hkbProjectStringData& typedObject = handler.add<::hkbProjectStringData>(this, &hkbProjectStringDataClass, getReference());
+		setstrings(animationFilenames, typedObject.m_animationFilenames);
+		setstrings(behaviorFilenames, typedObject.m_behaviorFilenames);
+		setstrings(characterFilenames, typedObject.m_characterFilenames);
+		setstrings(eventNames, typedObject.m_eventNames);
+		setpath(animationPath, typedObject.m_animationPath);
+		setpath(behaviorPath, typedObject.m_behaviorPath);
+		setpath(characterPath, typedObject.m_characterPath);
+		setpath(fullPathToSource, typedObject.m_fullPathToSource);
+		return &typedObject;
+	}
+	return handler.get<hkReferencedObject>(this);
+}
+
+
+bool UI::hkbProjectStringData::write(HkxXMLWriter *writer){
     std::lock_guard <std::mutex> guard(mutex);
     auto writedatafield = [&](const QString & name, const QString & value, bool allownull){
         writer->writeLine(writer->parameter, QStringList(writer->name), QStringList(name), value, allownull);
@@ -138,11 +203,11 @@ bool hkbProjectStringData::write(HkxXMLWriter *writer){
     return true;
 }
 
-bool hkbProjectStringData::link(){
+bool UI::hkbProjectStringData::link(){
     return true;
 }
 
-QString hkbProjectStringData::evaluateDataValidity(){
+QString UI::hkbProjectStringData::evaluateDataValidity(){
     std::lock_guard <std::mutex> guard(mutex);
     QString errors;
     auto isvalid = true;
@@ -166,6 +231,6 @@ QString hkbProjectStringData::evaluateDataValidity(){
     return errors;
 }
 
-hkbProjectStringData::~hkbProjectStringData(){
+UI::hkbProjectStringData::~hkbProjectStringData(){
     refCount--;
 }

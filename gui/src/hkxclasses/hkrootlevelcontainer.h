@@ -3,6 +3,8 @@
 
 #include "src/hkxclasses/hkxobject.h"
 
+class hkRootLevelContainer;
+
 namespace UI {
 
 class hkRootLevelContainer final: public HkxObject
@@ -15,9 +17,12 @@ public:
 public:
     static const QString getClassname();
     void addVariant(const QString & name, HkxObject *ptr);
+	virtual hkReferencedObject* write(HkxBinaryHandler& handler);
+	::hkRootLevelContainer hkRootLevelContainer::getBinaryRoot(HkxBinaryHandler& handler);
 private:
     bool link();
     bool readData(const HkxXmlReader & reader, long & index);
+	virtual bool readData(const HkxBinaryHandler&, const void*);
     void unlink();
     QString evaluateDataValidity();
     bool write(HkxXMLWriter *writer);

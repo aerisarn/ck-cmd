@@ -170,6 +170,41 @@ bool ProjectFile::addObjectToFile(HkxObject *obj, long ref){
 }
 
 bool ProjectFile::parseBinary() {
+	std::lock_guard <std::mutex> guard(mutex);
+	auto& handler = getBinaryHandler();
+	auto appendnread = [&](HkxObject * dest, const QString & nameoftype, const void * source) {
+		if (!dest->readData(handler, source)) {
+			LogFile::writeToLog("ProjectFile: parse(): Failed to read a " + nameoftype + " object! Ref: " + QString::number(dest->ref));
+		}
+	};
+	if (handler.parse()) {
+		size_t elements = handler.getNumElements();
+		if (elements < 3)
+			return false;
+		for (size_t i = 0; i < elements; i++) {
+			printf("%d\n", i);
+			const auto* hkclass = handler.getElementClass(i);
+			const void* obj = handler.getElementObject(i);
+			printf("%s\n", hkclass->getName());
+			switch (hkclass->getSignature())
+			{
+				case HKB_PROJECT_DATA:
+					appendnread(new hkbProjectData(this, i), "HKB_PROJECT_DATA", obj); break;
+				case HKB_PROJECT_STRING_DATA:
+					new hkbProjectStringData(this, i);
+					appendnread(new hkbProjectStringData(this, i), "HKB_PROJECT_STRING_DATA", obj); break;
+				case HK_ROOT_LEVEL_CONTAINER:
+					appendnread(new UI::hkRootLevelContainer(this, i), "HK_ROOT_LEVEL_CONTAINER", obj); break;
+				default:
+					LogFile::writeToLog(fileName() + ": Unknown signature detected! Unknown object class name is: " + hkclass->getName() + " Unknown object signature is: " + QString::number(hkclass->getSignature(), 16));
+				
+			}
+		}
+		closeFile();
+		getBinaryHandler().clear();
+		if (link()) return true; 
+		LogFile::writeToLog(fileName() + ": failed to link!!!");		
+	}
 	return false;
 }
 
@@ -807,6 +842,17 @@ void ProjectFile::write(){
         LogFile::writeToLog(":'stringData' or 'projectData' are nullptr!");
     }
 }
+
+void ProjectFile::writeBinary() {
+	if (stringData && projectData) {
+		getBinaryHandler().setFile(this);
+		getBinaryHandler().writeToFile();
+	}
+	else {
+		LogFile::writeToLog(":'stringData' or 'projectData' are nullptr!");
+	}
+}
+
 
 bool ProjectFile::doesBehaviorExist(const QString &behaviorname) const{
     //std::lock_guard <std::mutex> guard(mutex);

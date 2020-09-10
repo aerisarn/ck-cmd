@@ -141,32 +141,34 @@ enum HkxSignature: unsigned long long {
     HKB_STATE_MACHINE_EVENT_PROPERTY_ARRAY = 0xb07b4388
 };
 
+
 namespace{
+
 class LogFile final{
 private:
     static std::ofstream logFile;
     static std::mutex mutex;
 public:
     LogFile(){
-//        logFile.open(QDir::currentPath().toStdString()+"/DebugLog.txt", std::ios::out | std::ios::trunc);
+        logFile.open(std::string(QDir::currentPath().toLocal8Bit().data())+"/DebugLog.txt", std::ios::out | std::ios::trunc);
     }
     ~LogFile(){
 //        logFile << "\n\nApplication closing... Bye..\n";
- //       logFile.close();
+        logFile.close();
     }
 
     static void writeToLog(const QString & message){
-//        std::lock_guard <std::mutex> guard(mutex);
+        std::lock_guard <std::mutex> guard(mutex);
         //logFile.open(QDir::currentPath().toStdString()+"/DebugLog.txt", std::ios::out | std::ios::trunc);
- //       logFile << message.toStdString() << "\n\n";
+        logFile << message.toLocal8Bit().data() << "\n\n";
     }
 
     static void writeToLog(const QStringList & messages){
- //       std::lock_guard <std::mutex> guard(mutex);
+        std::lock_guard <std::mutex> guard(mutex);
         //logFile.open(QDir::currentPath().toStdString()+"/DebugLog.txt", std::ios::out | std::ios::trunc);
- //       for (auto i = 0; i < messages.size(); i++){
- //           logFile << messages.at(i).toStdString() << "\n";
-        //}
+        for (auto i = 0; i < messages.size(); i++){
+			logFile << messages[i].toLocal8Bit().data() << "\n\n";
+        }
     }
 };
 

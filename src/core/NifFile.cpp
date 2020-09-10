@@ -1369,16 +1369,16 @@ int NifFile::Save(std::ostream& file) {
 //						auto& vertex = bsOptShape->vertData[i];
 //
 //						float f = std::max(0.0f, std::min(1.0f, colors[i].r));
-//						vertex.colorData[0] = (byte)std::floor(f == 1.0f ? 255 : f * 256.0);
+//						vertex.colorData[0] = (::byte)std::floor(f == 1.0f ? 255 : f * 256.0);
 //
 //						f = std::max(0.0f, std::min(1.0f, colors[i].g));
-//						vertex.colorData[1] = (byte)std::floor(f == 1.0f ? 255 : f * 256.0);
+//						vertex.colorData[1] = (::byte)std::floor(f == 1.0f ? 255 : f * 256.0);
 //
 //						f = std::max(0.0f, std::min(1.0f, colors[i].b));
-//						vertex.colorData[2] = (byte)std::floor(f == 1.0f ? 255 : f * 256.0);
+//						vertex.colorData[2] = (::byte)std::floor(f == 1.0f ? 255 : f * 256.0);
 //
 //						f = std::max(0.0f, std::min(1.0f, colors[i].a));
-//						vertex.colorData[3] = (byte)std::floor(f == 1.0f ? 255 : f * 256.0);
+//						vertex.colorData[3] = (::byte)std::floor(f == 1.0f ? 255 : f * 256.0);
 //					}
 //				}
 //
@@ -2080,7 +2080,7 @@ bool NifFile::hasExternalSkinnedMesh(vector<NiObjectRef>& ext_blocks, NiNode* ro
 //	bone->numVertices = (ushort)bone->vertexWeights.size();
 //}
 //
-//void NifFile::SetShapeVertWeights(const std::string& shapeName, const int vertIndex, std::vector<byte>& boneids, std::vector<float>& weights) {
+//void NifFile::SetShapeVertWeights(const std::string& shapeName, const int vertIndex, std::vector<::byte>& boneids, std::vector<float>& weights) {
 //	auto shape = FindBlockByName<NiShape>(shapeName);
 //	if (!shape)
 //		return;
@@ -2094,7 +2094,7 @@ bool NifFile::hasExternalSkinnedMesh(vector<NiObjectRef>& ext_blocks, NiNode* ro
 //
 //	auto& vertex = bsTriShape->vertData[vertIndex];
 //	std::memset(vertex.weights, 0, sizeof(float) * 4);
-//	std::memset(vertex.weightBones, 0, sizeof(byte) * 4);
+//	std::memset(vertex.weightBones, 0, sizeof(::byte) * 4);
 //
 //	// Sum weights to normalize values
 //	float sum = 0.0f;
@@ -2120,7 +2120,7 @@ bool NifFile::hasExternalSkinnedMesh(vector<NiObjectRef>& ext_blocks, NiNode* ro
 //
 //	for (auto &vertex : bsTriShape->vertData) {
 //		std::memset(vertex.weights, 0, sizeof(float) * 4);
-//		std::memset(vertex.weightBones, 0, sizeof(byte) * 4);
+//		std::memset(vertex.weightBones, 0, sizeof(::byte) * 4);
 //	}
 //}
 //
@@ -3276,7 +3276,7 @@ bool NifFile::hasExternalSkinnedMesh(vector<NiObjectRef>& ext_blocks, NiNode* ro
 //			BoneIndices b;
 //			VertexWeight vw;
 //
-//			byte* pb = &b.i1;
+//			::byte* pb = &b.i1;
 //			float* pw = &vw.w1;
 //
 //			float tot = 0.0f;

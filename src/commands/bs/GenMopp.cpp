@@ -252,7 +252,7 @@
 //
 //		hkpMoppCode* code = hkpMoppUtility::buildCode(list, mfr);
 //
-//		vector<Niflib::byte> moppcode;
+//		vector<Niflib::::byte> moppcode;
 //		moppcode.resize( code->m_data.getSize() );
 //		for (int i=0; i<code->m_data.getSize(); ++i )
 //			moppcode[i] = code->m_data[i];
@@ -356,10 +356,10 @@
 //	pMoppShape->SetMoppScale(pMoppBvTree->getMoppCode()->m_info.getScale());
 //
 //	// TODO set build Type
-//	//pMoppShape->SetBuildType(MoppDataBuildType((Niflib::byte) pMoppCode->m_buildType));
+//	//pMoppShape->SetBuildType(MoppDataBuildType((Niflib::::byte) pMoppCode->m_buildType));
 //
 //	//  copy mopp data
-//	pMoppShape->SetMoppCode(vector<Niflib::byte>(pMoppBvTree->m_moppData, pMoppBvTree->m_moppData + pMoppBvTree->m_moppDataSize));
+//	pMoppShape->SetMoppCode(vector<Niflib::::byte>(pMoppBvTree->m_moppData, pMoppBvTree->m_moppData + pMoppBvTree->m_moppDataSize));
 //
 //	//  set boundings
 //	pData->SetBoundsMin(Vector4(pCompMesh->m_bounds.m_min(0), pCompMesh->m_bounds.m_min(1), pCompMesh->m_bounds.m_min(2), pCompMesh->m_bounds.m_min(3)));

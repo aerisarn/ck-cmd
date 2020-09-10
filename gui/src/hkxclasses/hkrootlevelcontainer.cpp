@@ -6,6 +6,8 @@
 #include "src/filetypes/characterfile.h"
 #include "src/filetypes/skeletonfile.h"
 
+#include <Common/Serialize/Util/hkRootLevelContainer.h>
+
 namespace UI
 
 {
@@ -24,6 +26,23 @@ namespace UI
 
 	const QString hkRootLevelContainer::getClassname() {
 		return classname;
+	}
+
+	bool hkRootLevelContainer::readData(const HkxBinaryHandler& handler, const void* object) {
+		const ::hkRootLevelContainer* typedObject = (const ::hkRootLevelContainer*)(object);
+		auto ref = handler.getElementIndex(object);
+		setReference(ref);
+		auto numVariants = typedObject->m_namedVariants.getSize();
+		for (auto i = 0; i < numVariants; i++) {
+			namedVariants.append(
+				{
+					typedObject->m_namedVariants[i].getName(),
+					typedObject->m_namedVariants[i].getClass()->getName()
+				}
+			);
+			namedVariants.last().variant.readShdPtrReference(typedObject->m_namedVariants[i].getObject(), handler);
+		}
+		return true;
 	}
 
 	bool hkRootLevelContainer::readData(const HkxXmlReader &reader, long & index) {
@@ -105,6 +124,34 @@ namespace UI
 			}
 		}
 		return result;
+	}
+
+
+	hkReferencedObject* hkRootLevelContainer::write(HkxBinaryHandler& handler) {
+		return NULL;
+	}
+
+	::hkRootLevelContainer hkRootLevelContainer::getBinaryRoot(HkxBinaryHandler& handler) {
+		handler.clear();
+		auto out = handler.add<::hkRootLevelContainer>(this, &hkRootLevelContainerClass, getReference());
+		for (auto i = 0; i < namedVariants.size(); i++) {
+			auto variant = namedVariants[i].variant;
+			auto ref = variant.getShdPtrReference();
+			variant->write(handler);
+		}
+		for (auto i = 0; i < namedVariants.size(); i++) {
+			const auto* hkclass = handler.getElementClass(namedVariants[i].variant.getShdPtrReference());
+			void* obj = handler.getElementObject(namedVariants[i].variant.getShdPtrReference());
+			out.m_namedVariants.pushBack(
+				{
+					namedVariants[i].name.toLocal8Bit().data(),
+					obj,
+					hkclass
+				}
+			);
+		};
+
+		return out;
 	}
 
 	void hkRootLevelContainer::addVariant(const QString &name, HkxObject *ptr) {

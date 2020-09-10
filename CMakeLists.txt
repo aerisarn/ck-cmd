@@ -15,7 +15,10 @@ if (HAVE_SPEEDTREE)
 endif()
 
 message( "[MAIN]: building ck-cmd..." )
+message( "[MAIN]: generator " ${CMAKE_GENERATOR_PLATFORM})
 
+
+#External Projects
 #External Projects
 ExternalProject_Add(googletest
                     PREFIX "external"
@@ -40,7 +43,7 @@ IF (MSVC)
     set (ZLIB_LIBRARIES optimized "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}"
                     debug "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstaticd${CMAKE_STATIC_LIBRARY_SUFFIX}")
 ELSE ()
-    set (ZLIB_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}z${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set (ZLIB_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}")
 ENDIF ()
 
 ExternalProject_Add(docopt
@@ -58,6 +61,7 @@ IF (MSVC)
 ELSE ()
     set (DOCOPT_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}")
 ENDIF ()
+
 
 include_directories("${CMAKE_SOURCE_DIR}/src"
                     "${CMAKE_SOURCE_DIR}/include"
@@ -534,7 +538,7 @@ source_group("Textures\\DirectXTex" FILES ${DIRECTXTEX_INCLUDES_PATH})
 
 # Settings when compiling with MSVC.
 IF (MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG /D_HAS_AUTO_PTR_ETC=1")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
     # Update compiler flags.
     IF (PROJECT_STATIC_RUNTIME)
@@ -553,8 +557,17 @@ IF (MSVC)
 
 ENDIF ()
 
+if (MSVC_VERSION GREATER_EQUAL "1900")
+    include(CheckCXXCompilerFlag)
+    CHECK_CXX_COMPILER_FLAG("/std:c++latest" _cpp_latest_flag_supported)
+    if (_cpp_latest_flag_supported)
+        add_compile_options("/std:c++latest")
+    endif()
+endif()
+
 add_subdirectory(${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src)
 
+#QT
 IF (PROJECT_GUI)
 	find_package(Qt5 COMPONENTS Widgets Qml Quick REQUIRED)
 

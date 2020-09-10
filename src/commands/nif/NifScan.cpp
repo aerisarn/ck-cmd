@@ -140,9 +140,9 @@ using namespace ckcmd::BSA;
 //Duplicate Method, just wanted to test.
 void findFilesn(fs::path startingDir, string extension, vector<fs::path>& results) {
 	if (!exists(startingDir) || !is_directory(startingDir)) return;
-	for (auto& dirEntry : std::experimental::filesystem::recursive_directory_iterator(startingDir))
+	for (auto& dirEntry : fs::recursive_directory_iterator(startingDir))
 	{
-		if (is_directory(dirEntry.path()))
+		if (fs::is_directory(dirEntry.path()))
 			continue;
 
 		std::string entry_extension = dirEntry.path().extension().string();

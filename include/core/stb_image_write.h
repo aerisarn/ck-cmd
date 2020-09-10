@@ -79,9 +79,9 @@ USAGE:
    Each pixel contains 'comp' channels of data stored interleaved with 8-bits
    per channel, in the following order: 1=Y, 2=YA, 3=RGB, 4=RGBA. (Y is
    monochrome color.) The rectangle is 'w' pixels wide and 'h' pixels tall.
-   The *data pointer points to the first byte of the top-left-most pixel.
-   For PNG, "stride_in_bytes" is the distance in bytes from the first byte of
-   a row of pixels to the first byte of the next row of pixels.
+   The *data pointer points to the first ::byte of the top-left-most pixel.
+   For PNG, "stride_in_bytes" is the distance in bytes from the first ::byte of
+   a row of pixels to the first ::byte of the next row of pixels.
 
    PNG creates output files with the same number of components as the input.
    The BMP format expands Y to RGB in the file format and does not
@@ -658,7 +658,7 @@ void stbiw__write_hdr_scanline(stbi__write_context *s, int width, int ncomp, uns
             }
             // if there's a run, output it
             if (r+2 < width) { // same test as what we break out of in search loop, so only true if we break'd
-               // find next byte after run
+               // find next ::byte after run
                while (r < width && comp[r] == comp[x])
                   ++r;
                // output run up to r
@@ -856,7 +856,7 @@ unsigned char * stbi_zlib_compress(unsigned char *data, int data_len, int *out_l
       stbiw__sbpush(hash_table[h],data+i);
 
       if (bestloc) {
-         // "lazy matching" - check match at *next* byte, and if it's better, do cur byte as literal
+         // "lazy matching" - check match at *next* ::byte, and if it's better, do cur ::byte as literal
          h = stbiw__zhash(data+i+1)&(stbiw__ZHASH-1);
          hlist = hash_table[h];
          n = stbiw__sbcount(hlist);
@@ -890,7 +890,7 @@ unsigned char * stbi_zlib_compress(unsigned char *data, int data_len, int *out_l
    for (;i < data_len; ++i)
       stbiw__zlib_huffb(data[i]);
    stbiw__zlib_huff(256); // end of block
-   // pad with 0 bits to byte boundary
+   // pad with 0 bits to ::byte boundary
    while (bitcount)
       stbiw__zlib_add(0,1);
 
