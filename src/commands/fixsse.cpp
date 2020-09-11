@@ -2,9 +2,46 @@
 
 #include <commands/fixsse.h>
 #include <core/NifFile.h>
+#include <core/HKXWrangler.h>
+
+//collisions
+#include <Physics\Collide\Shape\Misc\Transform\hkpTransformShape.h>
+#include <Physics\Collide\Shape\Compound\Collection\List\hkpListShape.h>
+#include <Physics\Collide\Shape\Deprecated\ConvexList\hkpConvexListShape.h>
+
+#include "Physics/Collide/Shape/Compound/Tree/Mopp/hkpMoppBvTreeShape.h"
+#include "Physics/Collide/Shape/Compound/Collection/CompressedMesh/hkpCompressedMeshShapeBuilder.h"
+#include "Physics/Collide/Shape/Compound/Tree/Mopp/hkpMoppUtility.h"
+#include "Physics/Collide/Util/Welding/hkpMeshWeldingUtility.h"
+#include "Physics/Collide/Shape/Compound/Collection/ExtendedMeshShape/hkpExtendedMeshShape.h"
+#include <Physics\Collide\Shape\Compound\Collection\CompressedMesh\hkpCompressedMeshShape.h>
+#include <Physics\Collide\Shape\Convex\ConvexVertices\hkpConvexVerticesShape.h>
+#include <Physics\Collide\Shape\Convex\ConvexTransform\hkpConvexTransformShape.h>
+
+#include <Physics\Utilities\Collide\ShapeUtils\CreateShape\hkpCreateShapeUtility.h>
+#include <Common\Base\Types\Geometry\hkStridedVertices.h>
+#include <Common\Internal\ConvexHull\hkGeometryUtility.h>
+
+#include <Common\GeometryUtilities\Misc\hkGeometryUtils.h>
+#include <Physics\Collide\Shape\Convex\ConvexVertices\hkpConvexVerticesConnectivity.h>
+#include <Physics\Utilities\Collide\ShapeUtils\ShapeConverter\hkpShapeConverter.h>
+
+#include <Animation\Ragdoll\Utils\hkaRagdollUtils.h>
+
+#include <core/EulerAngles.h>
+#include <core/MathHelper.h>
+
+#include <algorithm>
+
+#include <VHACD.h>
+#include <boundingmesh.h>
+#include <core/NifFile.h>
 
 #include <deque>
 #include <map>
+#include <Physics\Collide\Shape\Convex\Capsule\hkpCapsuleShape.h>
+#include <Physics\Collide\Shape\Convex\Sphere\hkpSphereShape.h>
+#include <Physics\Collide\Shape\Convex\Box\hkpBoxShape.h>
 
 
 using namespace ckcmd;
@@ -591,6 +628,431 @@ void check(bhkMoppBvTreeShapeRef mopp)
 	{
 		Log::Error("Empty MOPP SHAPE: TODO: Recalculate");
 	}
+}
+
+
+struct KeySetter {};
+
+template<>
+struct Accessor<KeySetter> {
+	Accessor(bhkListShapeRef list, const vector<unsigned int>& keys)
+	{
+		list->unknownInts = keys;
+	}
+};
+
+static inline Niflib::Vector4 TOVECTOR4(const hkVector4& v) {
+	return Niflib::Vector4(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2), v.getSimdAt(3));
+}
+
+static inline InertiaMatrix TOINERTIAMATRIX(const hkMatrix3& q, const float scale = 1.0f, bool inverse = false) {
+
+	hkVector4 c0 = q.getColumn(0);
+	hkVector4 c1 = q.getColumn(1);
+	hkVector4 c2 = q.getColumn(2);
+
+	return InertiaMatrix(
+		c0.getSimdAt(0), c1.getSimdAt(0), c2.getSimdAt(0), 0.0f,
+		c0.getSimdAt(1), c1.getSimdAt(1), c2.getSimdAt(1), 0.0f,
+		c0.getSimdAt(2), c1.getSimdAt(2), c2.getSimdAt(2), 0.0f
+	);
+}
+
+static inline Matrix44 TOMATRIX44(const hkTransform& q, const float scale = 1.0f, bool inverse = false) {
+
+	hkVector4 c0 = q.getColumn(0);
+	hkVector4 c1 = q.getColumn(1);
+	hkVector4 c2 = q.getColumn(2);
+	hkVector4 c3 = q.getColumn(3);
+
+	return Matrix44(
+		c0.getSimdAt(0), c1.getSimdAt(0), c2.getSimdAt(0), (float)c3.getSimdAt(0) * scale,
+		c0.getSimdAt(1), c1.getSimdAt(1), c2.getSimdAt(1), (float)c3.getSimdAt(1) * scale,
+		c0.getSimdAt(2), c1.getSimdAt(2), c2.getSimdAt(2), (float)c3.getSimdAt(2) * scale,
+		c0.getSimdAt(3), c1.getSimdAt(3), c2.getSimdAt(3), c3.getSimdAt(3)
+	);
+}
+
+static inline Niflib::Vector3 TOVECTOR3(const hkVector4& v) {
+	return Niflib::Vector3(v.getSimdAt(0), v.getSimdAt(1), v.getSimdAt(2));
+}
+
+bhkCMSDMaterial consume_material_from_shape(hkpShape* shape)
+{
+	hkpNamedMeshMaterial* material = (hkpNamedMeshMaterial*)shape->getUserData();
+	string name = material->m_name;
+	bhkCMSDMaterial m; m.material = NifFile::material_value(name);
+	m.filter.layer_sk = (SkyrimLayer)material->m_filterInfo;
+	delete material;
+	return m;
+}
+
+class BCMSPacker {};
+
+template<>
+class Accessor<BCMSPacker> {
+public:
+	Accessor(hkpCompressedMeshShape* pCompMesh, bhkCompressedMeshShapeDataRef pData)
+	{
+		short                                   chunkIdxNif(0);
+
+		pData->SetBoundsMin(Vector4(pCompMesh->m_bounds.m_min(0), pCompMesh->m_bounds.m_min(1), pCompMesh->m_bounds.m_min(2), pCompMesh->m_bounds.m_min(3)));
+		pData->SetBoundsMax(Vector4(pCompMesh->m_bounds.m_max(0), pCompMesh->m_bounds.m_max(1), pCompMesh->m_bounds.m_max(2), pCompMesh->m_bounds.m_max(3)));
+
+		pData->SetBitsPerIndex(pCompMesh->m_bitsPerIndex);
+		pData->SetBitsPerWIndex(pCompMesh->m_bitsPerWIndex);
+		pData->SetMaskIndex(pCompMesh->m_indexMask);
+		pData->SetMaskWIndex(pCompMesh->m_wIndexMask);
+		pData->SetWeldingType(0); //seems to be fixed for skyrim pData->SetWeldingType(pCompMesh->m_weldingType);
+		pData->SetMaterialType(1); //seems to be fixed for skyrim pData->SetMaterialType(pCompMesh->m_materialType);
+		pData->SetError(pCompMesh->m_error);
+
+		//  resize and copy bigVerts
+		vector<Vector4 > tVec4Vec(pCompMesh->m_bigVertices.getSize());
+		for (unsigned int idx(0); idx < pCompMesh->m_bigVertices.getSize(); ++idx)
+		{
+			tVec4Vec[idx].x = pCompMesh->m_bigVertices[idx](0);
+			tVec4Vec[idx].y = pCompMesh->m_bigVertices[idx](1);
+			tVec4Vec[idx].z = pCompMesh->m_bigVertices[idx](2);
+			tVec4Vec[idx].w = pCompMesh->m_bigVertices[idx](3);
+		}
+		pData->SetBigVerts(tVec4Vec);
+
+		//  resize and copy bigTris
+		vector<bhkCMSDBigTris > tBTriVec(pCompMesh->m_bigTriangles.getSize());
+		for (unsigned int idx(0); idx < pCompMesh->m_bigTriangles.getSize(); ++idx)
+		{
+			tBTriVec[idx].triangle1 = pCompMesh->m_bigTriangles[idx].m_a;
+			tBTriVec[idx].triangle2 = pCompMesh->m_bigTriangles[idx].m_b;
+			tBTriVec[idx].triangle3 = pCompMesh->m_bigTriangles[idx].m_c;
+			tBTriVec[idx].material = pCompMesh->m_bigTriangles[idx].m_material;
+			tBTriVec[idx].weldingInfo = pCompMesh->m_bigTriangles[idx].m_weldingInfo;
+		}
+		pData->SetBigTris(tBTriVec);
+
+		//  resize and copy transform data
+		vector<bhkCMSDTransform > tTranVec(pCompMesh->m_transforms.getSize());
+		for (unsigned int idx(0); idx < pCompMesh->m_transforms.getSize(); ++idx)
+		{
+			tTranVec[idx].translation.x = pCompMesh->m_transforms[idx].m_translation(0);
+			tTranVec[idx].translation.y = pCompMesh->m_transforms[idx].m_translation(1);
+			tTranVec[idx].translation.z = pCompMesh->m_transforms[idx].m_translation(2);
+			tTranVec[idx].translation.w = pCompMesh->m_transforms[idx].m_translation(3);
+			tTranVec[idx].rotation.x = pCompMesh->m_transforms[idx].m_rotation(0);
+			tTranVec[idx].rotation.y = pCompMesh->m_transforms[idx].m_rotation(1);
+			tTranVec[idx].rotation.z = pCompMesh->m_transforms[idx].m_rotation(2);
+			tTranVec[idx].rotation.w = pCompMesh->m_transforms[idx].m_rotation(3);
+		}
+		pData->chunkTransforms = tTranVec;
+
+		vector<bhkCMSDMaterial > tMtrlVec(pCompMesh->m_materials.getSize());
+
+		//hkpNamedMeshMaterial* material_array = pCompMesh->m_meshMaterials
+		for (unsigned int idx(0); idx < pCompMesh->m_materials.getSize(); ++idx)
+		{
+			bhkCMSDMaterial& material = tMtrlVec[idx];
+			hkpNamedMeshMaterial& hk_material = pCompMesh->m_namedMaterials[idx];
+			material.material = NifFile::material_value(hk_material.m_name.cString());
+			HavokFilter filter; filter.layer_sk = (SkyrimLayer)hk_material.m_filterInfo;
+			material.filter = filter;
+		}
+
+		//  set material list
+		pData->chunkMaterials = tMtrlVec;
+
+		vector<bhkCMSDChunk> chunkListNif(pCompMesh->m_chunks.getSize());
+
+		//  for each chunk
+		for (hkArray<hkpCompressedMeshShape::Chunk>::iterator pCIterHvk = pCompMesh->m_chunks.begin(); pCIterHvk != pCompMesh->m_chunks.end(); pCIterHvk++)
+		{
+			//  get nif chunk
+			bhkCMSDChunk& chunkNif = chunkListNif[chunkIdxNif];
+
+			//  set offset => translation
+			chunkNif.translation.x = pCIterHvk->m_offset(0);
+			chunkNif.translation.y = pCIterHvk->m_offset(1);
+			chunkNif.translation.z = pCIterHvk->m_offset(2);
+			chunkNif.translation.w = pCIterHvk->m_offset(3);
+
+			//  force flags to fixed values
+			chunkNif.materialIndex = pCIterHvk->m_materialInfo;
+			chunkNif.reference = 65535;
+			chunkNif.transformIndex = pCIterHvk->m_transformIndex;
+
+			//  vertices
+			chunkNif.numVertices = pCIterHvk->m_vertices.getSize();
+			chunkNif.vertices.resize(chunkNif.numVertices);
+			for (unsigned int i(0); i < chunkNif.numVertices; ++i)
+			{
+				chunkNif.vertices[i] = pCIterHvk->m_vertices[i];
+			}
+
+			//  indices
+			chunkNif.numIndices = pCIterHvk->m_indices.getSize();
+			chunkNif.indices.resize(chunkNif.numIndices);
+			for (unsigned int i(0); i < chunkNif.numIndices; ++i)
+			{
+				chunkNif.indices[i] = pCIterHvk->m_indices[i];
+			}
+
+			//  strips
+			chunkNif.numStrips = pCIterHvk->m_stripLengths.getSize();
+			chunkNif.strips.resize(chunkNif.numStrips);
+			for (unsigned int i(0); i < chunkNif.numStrips; ++i)
+			{
+				chunkNif.strips[i] = pCIterHvk->m_stripLengths[i];
+			}
+
+			chunkNif.weldingInfo.resize(pCIterHvk->m_weldingInfo.getSize());
+			for (int k = 0; k < pCIterHvk->m_weldingInfo.getSize(); k++) {
+				chunkNif.weldingInfo[k] = pCIterHvk->m_weldingInfo[k];
+			}
+
+			++chunkIdxNif;
+
+		}
+
+		//  set modified chunk list to compressed mesh shape data
+		pData->chunks = chunkListNif;
+		//----  Merge  ----  END
+	}
+};
+
+bhkShapeRef convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_layer)
+{
+	if (shape == NULL)
+	{
+		throw runtime_error("Trying to convert unexistant shape! Abort");
+		return NULL;
+	}
+
+	//Containers
+	/// hkpListShape type.
+	if (HK_SHAPE_LIST == shape->getType())
+	{
+		bhkListShapeRef list = new bhkListShape();
+		hkpListShape* hk_list = (hkpListShape*)&*shape;
+		size_t num_shapes = hk_list->getNumChildShapes();
+
+		vector<unsigned int > keys;
+		vector<bhkShapeRef> shapes;
+		bhkCMSDMaterial last_layer;
+		for (int i = 0; i < num_shapes; i++)
+		{
+			bhkCMSDMaterial shape_layer;
+			shapes.push_back(convert_from_hk(hk_list->getChildShapeInl(i), shape_layer));
+			if (i > 0 &&
+				(last_layer.filter.layer_sk != shape_layer.filter.layer_sk ||
+					last_layer.material != shape_layer.material)
+				)
+			{
+				Log::Warn("Multiple Collision layers or materials detected on a list!");
+				continue;
+			}
+			last_layer = shape_layer;
+		}
+		hkpShapeKey key = hk_list->getFirstKey();
+		while (key != HK_INVALID_SHAPE_KEY)
+		{
+			keys.push_back(key);
+			key = hk_list->getNextKey(key);
+		}
+		list->SetSubShapes(shapes);
+		Accessor<KeySetter>(list, keys);
+		aggregate_layer = last_layer;
+		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
+		list->SetMaterial(temp);
+		return StaticCast<bhkShape>(list);
+	}
+	/// hkpConvexTransformShape type.
+	if (HK_SHAPE_CONVEX_TRANSFORM == shape->getType())
+	{
+		bhkConvexTransformShapeRef convex_transform = new bhkConvexTransformShape();
+		hkpConvexTransformShape* hk_transform = (hkpConvexTransformShape*)&*shape;
+		bhkCMSDMaterial material;
+		convex_transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material));
+		Matrix44 mat = TOMATRIX44(hk_transform->getTransform());
+		convex_transform->SetTransform(mat);
+		HavokMaterial temp; temp.material_sk = material.material;
+		convex_transform->SetMaterial(temp);
+		convex_transform->SetRadius(hk_transform->getChildShape()->getRadius());
+		aggregate_layer = material;
+		return StaticCast<bhkShape>(convex_transform);
+	}
+	/// hkpTransformShape type.
+	if (HK_SHAPE_TRANSFORM == shape->getType())
+	{
+		bhkTransformShapeRef transform = new bhkTransformShape();
+		hkpTransformShape* hk_transform = (hkpTransformShape*)&*shape;
+		bhkCMSDMaterial material;
+		transform->SetShape(convert_from_hk(hk_transform->getChildShape(), material));
+		Matrix44 mat = TOMATRIX44(hk_transform->getTransform());
+		transform->SetTransform(mat);
+		HavokMaterial temp; temp.material_sk = material.material;
+		transform->SetMaterial(temp);
+		aggregate_layer = material;
+		return StaticCast<bhkShape>(transform);
+	}
+	/// hkpMoppBvTreeShape type.
+	if (HK_SHAPE_MOPP == shape->getType())
+	{
+		bhkMoppBvTreeShapeRef pMoppShape = new bhkMoppBvTreeShape();
+		hkpMoppBvTreeShape* pMoppBvTree = (hkpMoppBvTreeShape*)&*shape;
+		bhkCMSDMaterial material;
+		pMoppShape->SetShape(convert_from_hk(pMoppBvTree->getShapeCollection(), material));
+		pMoppShape->SetOrigin(Vector3(pMoppBvTree->getMoppCode()->m_info.m_offset(0), pMoppBvTree->getMoppCode()->m_info.m_offset(1), pMoppBvTree->getMoppCode()->m_info.m_offset(2)));
+		pMoppShape->SetScale(pMoppBvTree->getMoppCode()->m_info.getScale());
+		pMoppShape->SetBuildType(MoppDataBuildType((Niflib::byte) pMoppBvTree->getMoppCode()->m_buildType));
+		pMoppShape->SetMoppData(vector<Niflib::byte>(pMoppBvTree->m_moppData, pMoppBvTree->m_moppData + pMoppBvTree->m_moppDataSize));
+		aggregate_layer = material;
+		return StaticCast<bhkShape>(pMoppShape);
+	}
+
+	//Shapes
+	/// hkpSphereShape type.
+	if (HK_SHAPE_SPHERE == shape->getType())
+	{
+		bhkSphereShapeRef sphere = new bhkSphereShape();
+		hkpSphereShape* hk_sphere = (hkpSphereShape*)&*shape;
+		sphere->SetRadius(hk_sphere->getRadius());
+		aggregate_layer = consume_material_from_shape(hk_sphere);
+		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
+		sphere->SetMaterial(temp);
+		hkVector4 centre; hk_sphere->getCentre(centre);
+		return StaticCast<bhkShape>(sphere);
+	}
+	/// hkpBoxShape type.
+	if (HK_SHAPE_BOX == shape->getType())
+	{
+		bhkBoxShapeRef box = new bhkBoxShape();
+		hkpBoxShape* hk_box = (hkpBoxShape*)&*shape;
+		box->SetDimensions(TOVECTOR3(hk_box->getHalfExtents()));
+		box->SetRadius(hk_box->getRadius());
+		aggregate_layer = consume_material_from_shape(hk_box);
+		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
+		box->SetMaterial(temp);
+		hkVector4 centre; hk_box->getCentre(centre);
+		return StaticCast<bhkShape>(box);
+	}
+	/// hkpCapsuleShape type.
+	if (HK_SHAPE_CAPSULE == shape->getType())
+	{
+		bhkCapsuleShapeRef capsule = new bhkCapsuleShape();
+		hkpCapsuleShape* hk_capsule = (hkpCapsuleShape*)&*shape;
+		//Inverted?
+		capsule->SetFirstPoint(TOVECTOR3(hk_capsule->getVertices()[1]));
+		capsule->SetSecondPoint(TOVECTOR3(hk_capsule->getVertices()[0]));
+		capsule->SetRadius(hk_capsule->getRadius());
+		capsule->SetRadius1(hk_capsule->getRadius());
+		capsule->SetRadius2(hk_capsule->getRadius());
+		aggregate_layer = consume_material_from_shape(hk_capsule);
+		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
+		capsule->SetMaterial(temp);
+		hkVector4 centre; hk_capsule->getCentre(centre);
+		return StaticCast<bhkShape>(capsule);
+	}
+	/// hkpConvexVerticesShape type.
+	if (HK_SHAPE_CONVEX_VERTICES == shape->getType())
+	{
+		bhkConvexVerticesShapeRef convex = new bhkConvexVerticesShape();
+		hkpConvexVerticesShape* hk_convex = (hkpConvexVerticesShape*)&*shape;
+		hkArray<hkVector4> hk_vertices;
+		vector<Vector4> vertices;
+		hk_convex->getOriginalVertices(hk_vertices);
+		for (const auto& v : hk_vertices)
+		{
+			vertices.push_back(TOVECTOR4(v));
+		}
+		convex->SetVertices(vertices);
+		const hkArray<hkVector4>& hk_planes = hk_convex->getPlaneEquations();
+		vector<Vector4> planes;
+		for (const auto& n : hk_planes)
+		{
+			planes.push_back(TOVECTOR4(n));
+		}
+		convex->SetNormals(planes);
+		aggregate_layer = consume_material_from_shape(hk_convex);
+		HavokMaterial temp; temp.material_sk = aggregate_layer.material;
+		convex->SetMaterial(temp);
+		convex->SetRadius(hk_convex->getRadius());
+		hkVector4 centre; hk_convex->getCentre(centre);
+		return StaticCast<bhkShape>(convex);
+	}
+	/// hkpCompressedMeshShape type.
+	if (HK_SHAPE_COMPRESSED_MESH == shape->getType())
+	{
+		bhkCompressedMeshShapeRef mesh = new bhkCompressedMeshShape();
+		bhkCompressedMeshShapeDataRef data = new bhkCompressedMeshShapeData();
+		hkpCompressedMeshShape* hk_mesh = (hkpCompressedMeshShape*)&*shape;
+		Accessor<BCMSPacker> go(hk_mesh, data);
+		mesh->SetRadius(hk_mesh->m_radius);
+		mesh->SetRadiusCopy(hk_mesh->m_radius);
+		mesh->SetData(data);
+		hkAabb out;
+		hk_mesh->getAabb(hkTransform::getIdentity(), 0.01, out);
+		hkVector4 centre; out.getCenter(centre);
+		return StaticCast<bhkShape>(mesh);
+	}
+
+	throw runtime_error("Trying to convert unsupported shape type! Abort");
+	return NULL;
+}
+
+
+NiCollisionObjectRef build_physics(set<pair<hkTransform, NiTriShapeData*>>& in_geometry_meshes)
+{
+	NiCollisionObjectRef return_collision = NULL;
+	vector<hkpNamedMeshMaterial> materials;
+	bhkCollisionObjectRef collision = new bhkCollisionObject();
+	bhkRigidBodyRef body = new bhkRigidBodyT();
+
+	FbxAMatrix transform; //local
+	FbxVector4 T = transform.GetT();
+	FbxQuaternion Q = transform.GetQ();
+	Niflib::hkQuaternion q;
+
+	float bhkScaleFactorInverse = 0.01428f; // 1 skyrim unit = 0,01428m
+	body->SetTranslation({ (float)T[0] * bhkScaleFactorInverse,(float)T[1] * bhkScaleFactorInverse, (float)T[2] * bhkScaleFactorInverse });
+	body->SetRotation(q);
+	bhkCMSDMaterial body_layer;
+	size_t depth = 0;
+	set<pair<FbxAMatrix, FbxMesh*>> geometry_meshes;
+	hkRefPtr<hkpRigidBody> hk_body = HKX::HKXWrapper::build_body(NULL, geometry_meshes);
+	if (hk_body == NULL)
+		return NULL;
+	hkpRigidBodyCinfo body_cinfo; hk_body->getCinfo(body_cinfo);
+	body->SetShape(convert_from_hk(body_cinfo.m_shape, body_layer));
+	body->SetCenter(TOVECTOR4(body_cinfo.m_centerOfMass));
+	body->SetInertiaTensor(TOINERTIAMATRIX(body_cinfo.m_inertiaTensor));
+	body->SetMass(hk_body->getMass());
+
+	if (body_layer.filter.layer_sk == SKYL_ANIMSTATIC || body_layer.filter.layer_sk == SKYL_BIPED)
+	{
+		body->SetMotionSystem(MO_SYS_BOX_INERTIA);
+		body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
+		body->SetQualityType(MO_QUAL_FIXED);
+		collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL | BHKCO_SYNC_ON_UPDATE));
+	}
+	else if (body_layer.filter.layer_sk == SKYL_CLUTTER)
+	{
+		body->SetMotionSystem(MO_SYS_DYNAMIC);
+		body->SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
+		body->SetQualityType(MO_QUAL_MOVING);
+		collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SYNC_ON_UPDATE));
+	}
+	//Static
+	else {
+		body->SetMotionSystem(MO_SYS_BOX_STABILIZED);
+		body->SetSolverDeactivation(SOLVER_DEACTIVATION_OFF);
+		body->SetQualityType(MO_QUAL_INVALID);
+		collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL));
+	}
+	body->SetHavokFilter(body_layer.filter);
+	body->SetHavokFilterCopy(body->GetHavokFilter());
+
+	collision->SetBody(StaticCast<bhkWorldObject>(body));
+	return_collision = StaticCast<NiCollisionObject>(collision);
+	return return_collision;
 }
 
 void check_collisions(vector<NiObjectRef>& blocks)

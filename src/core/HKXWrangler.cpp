@@ -2464,26 +2464,30 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	double bhkScaleFactorInverse = 0.01428; // 1 skyrim unit = 0,01428m
 
 	hkpRigidBodyCinfo body_cinfo;
-	body_cinfo.setTransform(getTransform(body, true));
 	//search for the mesh children
 	FbxNode* mesh_child = NULL;
 	vector<FbxNode*> constraint_childs;
-	for (int i = 0; i < body->GetChildCount(); i++)
+	if (body != NULL)
 	{
-		FbxNode* temp_child = body->GetChild(i);
-		if (isShapeFbxNode(temp_child))
+		body_cinfo.setTransform(getTransform(body, true));
+		
+		for (int i = 0; i < body->GetChildCount(); i++)
 		{
-			mesh_child = temp_child;
+			FbxNode* temp_child = body->GetChild(i);
+			if (isShapeFbxNode(temp_child))
+			{
+				mesh_child = temp_child;
+			}
+			if (isConstraintFbxNode(temp_child))
+			{
+				constraint_childs.push_back(temp_child);
+			}
 		}
-		if (isConstraintFbxNode(temp_child))
+		for (int i = 0; i < body->GetNodeAttributeCount(); i++)
 		{
-			constraint_childs.push_back(temp_child);
+			if (body->GetNodeAttributeByIndex(i)->GetAttributeType() == FbxNodeAttribute::eMesh)
+				mesh_child = body;
 		}
-	}
-	for (int i = 0; i < body->GetNodeAttributeCount(); i++)
-	{
-		if (body->GetNodeAttributeByIndex(i)->GetAttributeType() == FbxNodeAttribute::eMesh)
-			mesh_child = body;
 	}
 	//if (mesh_child == NULL) mesh_child = body->GetChild(0);
 	if (mesh_child == NULL && geometry_meshes.empty()) return NULL;

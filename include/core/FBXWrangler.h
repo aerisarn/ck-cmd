@@ -91,6 +91,7 @@ namespace FBX {
 		double convert(FbxAnimLayer* pAnimLayer, NiControllerSequenceRef sequence, set<NiObjectRef>& targets, NiControllerManagerRef manager, NiMultiTargetTransformControllerRef multiController, string accum_name, double last_start, double last_stop);
 		void convertSkins(FbxMesh* m, NiTriShapeRef shape, const map<size_t,size_t>& cp);
 		FbxNode* find_animated_parent(FbxNode* rigid_body);
+		bhkCMSDMaterial consume_material_from_shape(hkpShape* shape);
 	public:
 		FBXWrangler();
 		~FBXWrangler();

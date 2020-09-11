@@ -4556,7 +4556,7 @@ public:
 	}
 };
 
-bhkCMSDMaterial consume_material_from_shape(hkpShape* shape)
+bhkCMSDMaterial FBXWrangler::consume_material_from_shape(hkpShape* shape)
 {
 	hkpNamedMeshMaterial* material = (hkpNamedMeshMaterial *)shape->getUserData();
 	string name = material->m_name;

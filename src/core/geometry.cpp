@@ -492,6 +492,21 @@ vector<Triangle> ckcmd::Geometry::triangulate(vector<unsigned short> strip)
 		flip = !flip;
 	}
 
+	//for (int i = 0; i < strip.size() - 2; i++) {
+	//	Triangle t;
+	//	if (i % 2) {
+	//		t[0] = strip[i + 1];
+	//		t[1] = strip[i];
+	//		t[2] = strip[i + 2];
+	//	}
+	//	else {
+	//		t[0] = strip[i];
+	//		t[1] = strip[i + 1];
+	//		t[2] = strip[i + 2];
+	//	}
+	//	tris.push_back(t);
+	//}
+
 	return tris;
 }
 
