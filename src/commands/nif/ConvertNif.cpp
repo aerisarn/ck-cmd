@@ -1082,7 +1082,7 @@ public:
 		{
 			vector<Vector3> vertices(pData->GetVertices());
 			vector<TriangleData> in_packed_triangles(pData->GetTriangles());
-			vector<unsigned short> points(in_packed_triangles.size() * 3);
+			vector<unsigned short> points; points.reserve(in_packed_triangles.size()*3);
 			for (TriangleData tpd : in_packed_triangles) {
 				points.push_back(tpd.triangle.v1);
 				points.push_back(tpd.triangle.v2);
@@ -4204,14 +4204,13 @@ bool BeginConversion(string importPath, string exportPath) {
 		findFiles(importPath, ".spt", nifs);
 #endif
 
-	games.loadBsas(Games::TES4);
-
 	set<set<string>> sequences_groups;
 	HKXWrapperCollection wrappers;
 	if (nifs.empty()) {
+
 		Log::Info("No NIFs found.. trying BSAs");
 		const Games::GamesPathMapT& installations = games.getGames();
-
+		games.loadBsas(Games::TES4);
 		for (const auto& bsa_file : games.bsa_files()) {
 			//std::cout << "Checking: " << bsa.filename() << std::endl;
 			//BSAFile bsa_file(bsa);
