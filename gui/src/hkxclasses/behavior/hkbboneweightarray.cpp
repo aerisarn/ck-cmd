@@ -63,10 +63,10 @@ bool UI::hkbBoneWeightArray::readData(const HkxBinaryHandler& handler, const voi
         (!value) ? LogFile::writeToLog(getParentFilename() + ": " + getClassname() + ": readData()!\n'" + fieldname + "' has invalid data!\nObject Reference: " + QString::number(ref)) : NULL;
     };
 
-    //worldUpWS = HkxBinaryHandler::readVector4(typedObject->m_worldUpWS);
-    //checkvalue(stringData.readShdPtrReference(typedObject->m_stringData.val(), handler), "stringData");
-    //defaultEventMode = HkxBinaryHandler::readEnum("EventMode", &hkbTransitionEffectClass, typedObject->m_defaultEventMode);
-    //checkvalue(EventMode.contains(defaultEventMode), "defaultEventMode");
+    for (int i = 0; i < typedObject->m_boneWeights.getSize(); i++) {
+        boneWeights.push_back(typedObject->m_boneWeights[i]);
+    }
+    checkvalue(getVariableBindingSet().readShdPtrReference(typedObject, handler), "variableBindingSet");
     return true;
 }
 
@@ -74,9 +74,10 @@ hkReferencedObject* UI::hkbBoneWeightArray::write(HkxBinaryHandler& handler)
 {
     if (!handler.getIsWritten(this)) {
         ::hkbBoneWeightArray& object = handler.add<::hkbBoneWeightArray>(this, &hkbBoneWeightArrayClass, getReference());
-        //object.m_worldUpWS = HkxBinaryHandler::writeVector4(worldUpWS);
-        //object.m_defaultEventMode = (hkbTransitionEffect::EventMode)HkxBinaryHandler::writeEnum("EventMode", &hkbTransitionEffectClass, defaultEventMode.toLocal8Bit().data());
-        //object.m_stringData = dynamic_cast<::hkbProjectStringData*>(stringData->write(handler));
+        for (int i = 0; i < boneWeights.count(); i++) {
+            object.m_boneWeights.pushBack(boneWeights[i]);
+        }
+        object.m_variableBindingSet = (::hkbVariableBindingSet*)getVariableBindingSet()->write(handler);
         return &object;
     }
     return handler.get<hkReferencedObject>(this);

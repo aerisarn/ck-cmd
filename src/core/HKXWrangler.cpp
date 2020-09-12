@@ -2494,7 +2494,7 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	hkpMassProperties properties;
 	body_cinfo.m_shape = HKXWrapper::build_shape(mesh_child, geometry_meshes, properties, bhkScaleFactorInverse, body, body_cinfo);
 	body_cinfo.setMassProperties(properties);
-	if (string(body->GetName()).find("_sp") != string::npos)
+	if (body && string(body->GetName()).find("_sp") != string::npos)
 	{
 		body_cinfo.m_motionType = hkpMotion::MotionType::MOTION_FIXED;
 	}
@@ -2503,18 +2503,25 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	}
 
 	hkRefPtr<hkpRigidBody> hk_body = new hkpRigidBody(body_cinfo);
-	string name = body->GetName();
-	name = name.substr(0, name.size() - 3);
-	if (string(body->GetName()).find("_sp") == string::npos)
+	string name = "rb";
+	if (body)
 	{
-		name = "Ragdoll_" + unsanitizeString(name);
+		name = body->GetName();
+		name = name.substr(0, name.size() - 3);
+		if (string(body->GetName()).find("_sp") == string::npos)
+		{
+			name = "Ragdoll_" + unsanitizeString(name);
+		}
+		else
+		{
+			name = unsanitizeString(name);
+			
+		}
+		hk_body->setName(name.c_str());
 	}
-	else
-	{
-		name = unsanitizeString(name);
-		hk_body->setAllowedPenetrationDepth(340282001837565597733306976381245063168.000000);		
-	}
-	hk_body->setName(name.c_str());
+	else {
+		hk_body->setAllowedPenetrationDepth(340282001837565597733306976381245063168.000000);
+	}	
 	hk_body->setShape(body_cinfo.m_shape);
 	hk_body->m_npData = 0;
 
@@ -2526,15 +2533,22 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	}
 	//recalculate the rigid bodies with real values, not scaled values for nifs
 	hkpRigidBodyCinfo body_cinfo_unscaled;
-	body_cinfo_unscaled.setTransform(getTransform(body, true));
+	if (body)
+		body_cinfo_unscaled.setTransform(getTransform(body, true));
 
 	hkpMassProperties unscaled_properties;
 	body_cinfo_unscaled.m_shape = HKXWrapper::build_shape(mesh_child, geometry_meshes, unscaled_properties, 1.0, body, body_cinfo_unscaled);
 	//in skyrim units but with properties in kg
 	body_cinfo_unscaled.setMassProperties(properties);
-	if (string(body->GetName()).find("_sp") != string::npos)
+	if (body)
 	{
-		body_cinfo_unscaled.m_motionType = hkpMotion::MotionType::MOTION_FIXED;
+		if (string(body->GetName()).find("_sp") != string::npos)
+		{
+			body_cinfo_unscaled.m_motionType = hkpMotion::MotionType::MOTION_FIXED;
+		}
+		else {
+			body_cinfo.m_qualityType = hkpCollidableQualityType::HK_COLLIDABLE_QUALITY_MOVING;
+		}
 	}
 	else {
 		body_cinfo.m_qualityType = hkpCollidableQualityType::HK_COLLIDABLE_QUALITY_MOVING;
@@ -2544,7 +2558,7 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 	hk_body_unscaled->setName(name.c_str());
 	hk_body_unscaled->setShape(body_cinfo_unscaled.m_shape);
 	hk_body_unscaled->m_npData = 0;
-	if (string(body->GetName()).find("_sp") == string::npos)
+	if (body && string(body->GetName()).find("_sp") == string::npos)
 	{
 		bodies[body] = hk_body_unscaled;
 		hk_body_unscaled->addReference();
@@ -2556,7 +2570,9 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 		float cradius;
 			hkpCharacterRigidBody* characterRigidBody;
 			{
-				auto t = getTransform(body, true);
+				hkTransform t; t.setIdentity();
+				if (body)
+					t = getTransform(body, true);
 				hkpCharacterRigidBodyCinfo info;
 				{
 					
@@ -2848,7 +2864,7 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 				hkInertiaTensorComputer::computeGeometryVolumeMassPropertiesChecked(&to_bound, mass, properties);
 			}
 			else {
-				hkInertiaTensorComputer::computeGeometrySurfaceMassProperties(&to_bound, 0.1, true, mass, properties);
+				hkInertiaTensorComputer::computeGeometrySurfaceMassProperties(&to_bound, 0.1, true, 1, properties);
 			}
 			return pCompMesh;
 		}

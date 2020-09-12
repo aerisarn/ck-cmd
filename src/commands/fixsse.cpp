@@ -75,7 +75,7 @@ string FixSSENif::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd nifscan [-i <path_to_scan>]
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " [-i <path_to_scan>] [-o <overwrite>] [<vanilla_texture_path>] \r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " [-i <path_to_scan>] [-o <overwrite>] [-f <force_recollision>] [<vanilla_texture_path>] \r\n";
 
 	const char help[] =
 		R"(Scan Skyrim Legendary Editions meshes and apply fixes for SSE compatibility.
@@ -84,6 +84,7 @@ string FixSSENif::GetHelp() const
 			<path_to_scan> path to models you want to check for errors)
 			<path_to_out> output path)
 			<overwrite> overwrite nif instead of using the /out/ path
+			<force_recollision> overwrite nif instead of using the /out/ path
 			<vanilla_texture_path> search for textures in vanilla lot too)";
 
 	return usage + help;
@@ -91,7 +92,7 @@ string FixSSENif::GetHelp() const
 
 string FixSSENif::GetHelpShort() const
 {
-	return "ck-cmd.exe fixssenif -i path_to_scan -o overwrite? -vanilla_texture_path";
+	return "ck-cmd.exe fixssenif -i path_to_scan -o overwrite? -f force_recollision? -vanilla_texture_path";
 }
 
 static inline hkTransform TOHKTRANSFORM(const Niflib::Matrix33& r, const Niflib::Vector4 t, const float scale = 1.0) {
@@ -999,7 +1000,7 @@ bhkShapeRef convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_la
 }
 
 
-NiCollisionObjectRef build_physics(set<pair<hkTransform, NiTriShapeData*>>& in_geometry_meshes)
+NiCollisionObjectRef build_physics(set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
 {
 	NiCollisionObjectRef return_collision = NULL;
 	vector<hkpNamedMeshMaterial> materials;
@@ -1016,7 +1017,6 @@ NiCollisionObjectRef build_physics(set<pair<hkTransform, NiTriShapeData*>>& in_g
 	body->SetRotation(q);
 	bhkCMSDMaterial body_layer;
 	size_t depth = 0;
-	set<pair<FbxAMatrix, FbxMesh*>> geometry_meshes;
 	hkRefPtr<hkpRigidBody> hk_body = HKX::HKXWrapper::build_body(NULL, geometry_meshes);
 	if (hk_body == NULL)
 		return NULL;
@@ -1055,34 +1055,79 @@ NiCollisionObjectRef build_physics(set<pair<hkTransform, NiTriShapeData*>>& in_g
 	return return_collision;
 }
 
-void check_collisions(vector<NiObjectRef>& blocks)
+bool check_collisions(vector<NiObjectRef>& blocks)
 {
+	bool hasCollision = false;
 	for (auto& block : blocks)
 	{
 		if (block->IsDerivedType(bhkRigidBody::TYPE))
 		{
 			check(DynamicCast<bhkRigidBody>(block));
+			hasCollision = true;
 		}
 		if (block->IsDerivedType(bhkCollisionObject::TYPE))
 		{
 			check(DynamicCast<bhkCollisionObject>(block));
+			hasCollision = true;
 		}
 		if (block->IsDerivedType(bhkMoppBvTreeShape::TYPE))
 		{
 			check(DynamicCast<bhkMoppBvTreeShape>(block));
+			hasCollision = true;
 		}
 	}
+	return hasCollision;
 }
 
-void check_physics(NiNodeRef collision_parent, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes)
+inline FbxAMatrix to_havok_matrix(const hkTransform& m)
 {
+	FbxAMatrix out;
+	out[0][0] = m(0, 0); out[0][1] = m(0, 1); out[0][2] = m(0, 2); out[0][3] = m(3, 0);
+	out[1][0] = m(1, 0); out[1][1] = m(1, 1); out[1][2] = m(1, 2); out[1][3] = m(3, 1);
+	out[2][0] = m(2, 0); out[2][1] = m(2, 1); out[2][2] = m(2, 2); out[2][3] = m(3, 2);
+	out[3][0] = m(0, 3); out[3][1] = m(1, 3); out[3][2] = m(2, 3); out[3][3] = m(3, 3);
+	return out;
+}
 
+void check_physics(NiNodeRef collision_parent, vector<pair<hkTransform, NiTriShapeRef>>& geometry_meshes, bool force = false)
+{
+	if (!collision_parent) return;
+	//redo
+	FbxManager* sdkManager = FbxManager::Create();
+	FbxScene* scene = FbxScene::Create(sdkManager, "");
+	set<pair<FbxAMatrix, FbxMesh*>> conv_geometry_meshes;
+	for (const auto& geometry_group : geometry_meshes) {
+		if (!geometry_group.second->GetData()) continue;
+
+		FbxAMatrix matrix = to_havok_matrix(geometry_group.first);
+		FbxMesh* m = FbxMesh::Create(scene, "");
+	
+		const auto& vertices = geometry_group.second->GetData()->GetVertices();
+		m->InitControlPoints(vertices.size());
+		FbxVector4* points = m->GetControlPoints();
+
+		for (int i = 0; i < m->GetControlPointsCount(); i++) {
+			points[i] = FbxVector4(vertices[i].x, vertices[i].y, vertices[i].z);
+		}
+
+		const auto& tris = DynamicCast<NiTriShapeData>(geometry_group.second->GetData())->GetTriangles();
+		for (auto& t : tris) {
+			m->BeginPolygon(-1);
+			m->AddPolygon(t.v1);
+			m->AddPolygon(t.v2);
+			m->AddPolygon(t.v3);
+			m->EndPolygon();
+		}
+
+		conv_geometry_meshes.insert({ matrix , m });
+	}
+	collision_parent->SetCollisionObject(build_physics(conv_geometry_meshes));
 }
 
 
 typedef map<NiNodeRef, vector<pair<hkTransform, NiTriShapeRef>>> bodies_meshes_map_t;
 
-void rebuild_collisions(NiObjectRef root, vector<NiObjectRef>& blocks) {
+void rebuild_collisions(NiObjectRef root, vector<NiObjectRef>& blocks, bool force = false) {
 	bodies_meshes_map_t bodies_meshes_map;
 	std::deque<NiObjectRef> visit_stack;
 	set<NiNodeRef> animated_nodes;
@@ -1147,14 +1192,18 @@ void rebuild_collisions(NiObjectRef root, vector<NiObjectRef>& blocks) {
 
 	//todo: avoid build collisions for vfx, skins
 
+
 	for (auto& entry : bodies_meshes_map)
 	{
-		check_physics(entry.first, entry.second);
-	}	
+		if (force && !entry.first && bodies_meshes_map.size() == 1)
+			check_physics(DynamicCast<NiNode>(root), entry.second, force);
+		else
+			check_physics(entry.first, entry.second, force);
+	}
 }
 
 
-vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info, const fs::path& texture_path, const fs::path& vanilla_texture_path) {
+vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info, const fs::path& texture_path, const fs::path& vanilla_texture_path, bool forceCollision) {
 
 	NiObjectRef root = GetFirstRoot(blocks);
 		
@@ -1252,10 +1301,48 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info, const fs
 	if (roots.size() != 1)
 		throw runtime_error("Model has multiple roots!");
 
-	check_collisions(new_blocks);
-	rebuild_collisions(GetFirstRoot(new_blocks), new_blocks);
+	if (check_collisions(new_blocks) || forceCollision)
+		rebuild_collisions(GetFirstRoot(new_blocks), new_blocks, forceCollision);
+
+	//to calculate the right flags, we need to rebuild the blocks
+	new_blocks = RebuildVisitor(root, info).blocks;
+
+	if (bsx_flags != NULL)
+	{
+		bsx_flags_t actual = calculateSkyrimBSXFlags(new_blocks, info);
+		bsx_flags->SetIntegerData(actual.to_ulong());
+	}
 
 	return move(new_blocks);
+}
+
+//Havok initialization
+
+static void HK_CALL errorReport(const char* msg, void*)
+{
+	Log::Error("%s", msg);
+}
+
+static void HK_CALL debugReport(const char* msg, void* userContext)
+{
+	Log::Debug("%s", msg);
+}
+
+
+static hkThreadMemory* threadMemory = NULL;
+static char* stackBuffer = NULL;
+static void InitializeHavok()
+{
+	// Initialize the base system including our memory system
+	hkMemoryRouter* pMemoryRouter(hkMemoryInitUtil::initDefault(hkMallocAllocator::m_defaultMallocAllocator, hkMemorySystem::FrameInfo(5000000)));
+	hkBaseSystem::init(pMemoryRouter, errorReport);
+	LoadDefaultRegistry();
+}
+
+static void CloseHavok()
+{
+	hkBaseSystem::quit();
+	hkMemoryInitUtil::quit();
 }
 
 
@@ -1264,18 +1351,21 @@ bool FixSSENif::InternalRunCommand(map<string, docopt::value> parsedArgs)
 	string scanPath;
 	string vanilla_texture_path = "";
 	bool doOverwrite = false;
+	bool force_recollision = false;
 	
-	if (parsedArgs["<overwrite>"].asString() == "true")
+	if (parsedArgs.find("<overwrite>") != parsedArgs.end() && parsedArgs["<overwrite>"].asString() == "true")
 		doOverwrite = true;
-	if (parsedArgs.find("<vanilla_texture_path>") != parsedArgs.end() &&
+	if (parsedArgs.find("<force_recollision>") != parsedArgs.end() && parsedArgs["<force_recollision>"].asString() == "true")
+		force_recollision = true;
+	if (parsedArgs.find("<vanilla_texture_path>") != parsedArgs.end() && parsedArgs.find("<vanilla_texture_path>") != parsedArgs.end() &&
 		parsedArgs["<vanilla_texture_path>"].isString())
 		vanilla_texture_path = parsedArgs["<vanilla_texture_path>"].asString();
-
 
 	scanPath = parsedArgs["<path_to_scan>"].asString();
 	Log::Info("Scan Path: %s", scanPath.c_str());
 	Log::Info("Vanilla texture Path: %s", vanilla_texture_path.c_str());
 	if (fs::exists(scanPath) && fs::is_directory(scanPath)) {
+		InitializeHavok();
 		vector<fs::path> nifs; find_files(scanPath, ".nif", nifs);
 		fs::path texture_path = fs::path(scanPath).parent_path();
 		for (size_t i = 0; i < nifs.size(); i++) {
@@ -1283,7 +1373,7 @@ bool FixSSENif::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			NifInfo info;
 			try {
 				vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
-				vector<NiObjectRef> new_blocks = fixssenif(blocks, info, texture_path, vanilla_texture_path);
+				vector<NiObjectRef> new_blocks = fixssenif(blocks, info, texture_path, vanilla_texture_path, force_recollision);
 				fs::path out;
 				if (!doOverwrite) {
 					out = fs::path(scanPath).parent_path() / fs::path("out") / relative_to(nifs[i], scanPath);
@@ -1321,6 +1411,7 @@ bool FixSSENif::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			}
 		}
 		Log::Info("Done..");
+		CloseHavok();
 	}
 	return true;
 }

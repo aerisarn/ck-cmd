@@ -68,6 +68,11 @@ void find_files_non_recursive(fs::path startingDir, string extension, vector<fs:
 fs::path relative_to(const fs::path& p, const fs::path& base) {
 	fs::path in = p;
 	fs::path out;
+	if (fs::is_regular_file(p))
+	{
+		in = p.parent_path();
+		out = p.filename();
+	}
 	while (in.has_parent_path() && in != base) { out = in.filename() / out; in = in.parent_path(); }
 	return out;
 }
