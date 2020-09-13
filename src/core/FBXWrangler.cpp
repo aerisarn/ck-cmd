@@ -1459,6 +1459,21 @@ public:
 		}
 	}
 
+	FBXBuilderVisitor(bhkCollisionObjectRef root, FbxNode& sceneNode, const NifInfo& info) :
+		RecursiveFieldVisitor(*this, info),
+		nif_file(NifFile()),
+		alreadyVisitedNodes(set<void*>()),
+		this_info(info),
+		scene(*sceneNode.GetScene()),
+		managers(set<NiControllerManager*>()),
+		texturePath(""),
+		export_rig(export_rig),
+		hkxWrapper(HKXWrapper())
+	{
+		build_stack.push_front(&sceneNode);
+		root->accept(*this, info);
+	}
+
 
 	virtual inline void start(NiObject& in, const NifInfo& info) {
 	}
@@ -2416,6 +2431,11 @@ public:
 void FBXWrangler::AddNif(NifFile& nif) {
 	FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo(), texture_path, export_rig, hkxWrapper);
 }
+
+void FBXWrangler::convert(bhkCollisionObjectRef root, FbxNode* sceneNode, const NifInfo& info) {
+	FBXBuilderVisitor(root, *sceneNode, info);
+}
+
 
 bool FBXWrangler::ExportScene(const std::string& fileName) {
 	FbxExporter* iExporter = FbxExporter::Create(sdkManager, "");

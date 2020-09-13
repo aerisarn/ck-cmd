@@ -3,6 +3,7 @@
 #include <commands/fixsse.h>
 #include <core/NifFile.h>
 #include <core/HKXWrangler.h>
+#include <core/FBXWrangler.h>
 
 //collisions
 #include <Physics\Collide\Shape\Misc\Transform\hkpTransformShape.h>
@@ -112,7 +113,7 @@ typedef struct
 } Partition;
 
 //! Rotate a Triangle
-inline void qRotate(Triangle & t)
+inline void qRotate(Triangle& t)
 {
 	if (t[1] < t[0] && t[1] < t[2]) {
 		t = { t[1], t[2], t[0] };
@@ -140,7 +141,7 @@ namespace std
 static list<int> mergeBones(list<int> a, list<int> b)
 {
 	for (const auto c : b) {
-		if (find(a.begin(), a.end(),c)==a.end()) {
+		if (find(a.begin(), a.end(), c) == a.end()) {
 			a.push_back(c);
 		}
 	}
@@ -150,7 +151,7 @@ static list<int> mergeBones(list<int> a, list<int> b)
 static bool containsBones(list<int> a, list<int> b)
 {
 	for (const auto c : b) {
-		if (find(a.begin(), a.end(),c)==a.end())
+		if (find(a.begin(), a.end(), c) == a.end())
 			return false;
 	}
 	return true;
@@ -270,7 +271,7 @@ NiTriShapeRef destrip(NiTriStripsRef& stripsRef)
 	vector<Vector3> vertices = shapeData->GetVertices();
 	Vector3 COM;
 	if (vertices.size() != 0)
-	COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
+		COM = (COM / 2) + (ckcmd::Geometry::centeroid(vertices) / 2);
 	vector<Triangle> faces = shapeData->GetTriangles();
 	vector<Vector3> normals = shapeData->GetNormals();
 
@@ -514,7 +515,7 @@ inline void scanBSProperties(NiTriShapeRef shape, const fs::path& texture_folder
 		fs::path texture_slot_5 = texture_folder_path / textures->GetTextures()[5];
 		if (!fs::exists(texture_slot_4) && !fs::exists(texture_slot_5) && !fs::exists(vanilla_path / textures->GetTextures()[4]) && !fs::exists(texture_folder_path / textures->GetTextures()[5]))
 			Log::Error("Shape %s: ShaderType is 'Environment', but no 'Environment' or 'Cubemap' texture is present at %s or %s ", shape_name.c_str(), texture_slot_4.string().c_str(), texture_slot_5.string().c_str());
-		
+
 		if (property->GetEnvironmentMapScale() == 0) {
 			Log::Error("Shape %s: ShaderType is 'Environment', but map scale equals 0, making it obsolete. Setting to 1", shape_name.c_str());
 			property->SetEnvironmentMapScale(1.0);
@@ -1000,21 +1001,78 @@ bhkShapeRef convert_from_hk(const hkpShape* shape, bhkCMSDMaterial& aggregate_la
 }
 
 
-NiCollisionObjectRef build_physics(set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes)
+
+void extract_collision_shape(FbxNode* shape_root, vector<pair<FbxAMatrix, FbxMesh*>>& meshes)
 {
+	string name = shape_root->GetName();
+	//Containers
+	if (ends_with(name, "_transform"))
+	{
+		extract_collision_shape(shape_root->GetChild(0), meshes);
+		for (pair<FbxAMatrix, FbxMesh*>& entry : meshes) {
+			entry.first = shape_root->EvaluateLocalTransform() * entry.first;
+		}
+	}
+	if (ends_with(name, "_list"))
+	{
+		size_t num_children = shape_root->GetChildCount();
+		for (int i = 0; i < num_children; i++)
+		{
+			extract_collision_shape(shape_root->GetChild(i), meshes);
+		}
+	}
+	else if (ends_with(name, "_convex_list"))
+	{
+		size_t num_children = shape_root->GetChildCount();
+		for (int i = 0; i < num_children; i++)
+		{
+			extract_collision_shape(shape_root->GetChild(i), meshes);
+		}
+	}
+	else if (ends_with(name, "_mopp"))
+	{
+		extract_collision_shape(shape_root->GetChild(0), meshes);
+	}
+	//shapes
+	else if (ends_with(name, "_sphere"))
+	{
+		meshes.push_back({ FbxAMatrix(), shape_root->GetMesh() });
+	}
+	else if (ends_with(name, "_box"))
+	{
+		meshes.push_back({ FbxAMatrix(), shape_root->GetMesh() });
+	}
+	if (ends_with(name, "_capsule"))
+	{
+		meshes.push_back({ FbxAMatrix(), shape_root->GetMesh() });
+	}
+	if (ends_with(name, "_convex"))
+	{
+		meshes.push_back({ FbxAMatrix(), shape_root->GetMesh() });
+	}
+	if (ends_with(name, "_mesh"))
+	{
+		meshes.push_back({ FbxAMatrix(), shape_root->GetMesh() });
+	}
+}
+
+
+NiCollisionObjectRef build_physics(set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, bhkRigidBodyRef body)
+{
+	float bhkScaleFactorInverse = 0.01428f; // 1 skyrim unit = 0,01428m
 	NiCollisionObjectRef return_collision = NULL;
 	vector<hkpNamedMeshMaterial> materials;
 	bhkCollisionObjectRef collision = new bhkCollisionObject();
-	bhkRigidBodyRef body = new bhkRigidBodyT();
-
-	FbxAMatrix transform; //local
-	FbxVector4 T = transform.GetT();
-	FbxQuaternion Q = transform.GetQ();
-	Niflib::hkQuaternion q;
-
-	float bhkScaleFactorInverse = 0.01428f; // 1 skyrim unit = 0,01428m
-	body->SetTranslation({ (float)T[0] * bhkScaleFactorInverse,(float)T[1] * bhkScaleFactorInverse, (float)T[2] * bhkScaleFactorInverse });
-	body->SetRotation(q);
+	if (body == NULL)
+	{
+		body = new bhkRigidBodyT();
+		FbxAMatrix transform; //local
+		FbxVector4 T = transform.GetT();
+		FbxQuaternion Q = transform.GetQ();
+		Niflib::hkQuaternion q;
+		body->SetTranslation({ (float)T[0] * bhkScaleFactorInverse,(float)T[1] * bhkScaleFactorInverse, (float)T[2] * bhkScaleFactorInverse });
+		body->SetRotation(q);
+	}
 	bhkCMSDMaterial body_layer;
 	size_t depth = 0;
 	hkRefPtr<hkpRigidBody> hk_body = HKX::HKXWrapper::build_body(NULL, geometry_meshes);
@@ -1096,12 +1154,59 @@ void check_physics(NiNodeRef collision_parent, vector<pair<hkTransform, NiTriSha
 	FbxManager* sdkManager = FbxManager::Create();
 	FbxScene* scene = FbxScene::Create(sdkManager, "");
 	set<pair<FbxAMatrix, FbxMesh*>> conv_geometry_meshes;
+	vector<FbxSurfaceMaterial*> materials;
+
+	if (collision_parent->GetCollisionObject() != NULL) {
+		auto collision_object = DynamicCast<bhkCollisionObject>(collision_parent->GetCollisionObject());
+		if (collision_object)
+		{
+			//extract old collision geometry
+			FBX::FBXWrangler wrap;
+			NifInfo info;
+			info.userVersion = 12;
+			info.userVersion2 = 83;
+			info.version = Niflib::VER_20_2_0_7;
+			FbxNode* collision = FbxNode::Create(scene, "Collision");
+			wrap.convert(collision_object, collision, info);
+			//match materials!
+			vector<pair<FbxAMatrix, FbxMesh*>> meshes;
+			//root -> _rb -> _shape 
+			if (collision && collision->GetChild(0) && collision->GetChild(0)->GetChild(0))
+			{
+				extract_collision_shape(collision->GetChild(0)->GetChild(0), meshes);
+			}
+
+
+			for (auto& row : meshes)
+			{
+
+				FbxNode* parent = row.second->GetNode();
+				string parent_name = parent->GetName();
+				if (parent_name.find("_rb") == string::npos)
+					parent = collision;
+				if (parent)
+				{
+					int materials_size = parent->GetMaterialCount();
+					if (materials_size == 0) materials_size = 1;
+					for (int i = 0; i < materials_size; i++)
+					{
+						materials.push_back(parent->GetMaterial(i));
+					}
+				}
+			}
+
+
+		}
+	}
+
 	for (const auto& geometry_group : geometry_meshes) {
 		if (!geometry_group.second->GetData()) continue;
 
 		FbxAMatrix matrix = to_havok_matrix(geometry_group.first);
 		FbxMesh* m = FbxMesh::Create(scene, "");
-	
+		FbxNode* materialParent = FbxNode::Create(sdkManager, "node");
+		materialParent->AddNodeAttribute(m);
+
 		const auto& vertices = geometry_group.second->GetData()->GetVertices();
 		m->InitControlPoints(vertices.size());
 		FbxVector4* points = m->GetControlPoints();
@@ -1118,10 +1223,27 @@ void check_physics(NiNodeRef collision_parent, vector<pair<hkTransform, NiTriSha
 			m->AddPolygon(t.v3);
 			m->EndPolygon();
 		}
+		
+		vector<int> indices;
 
-		conv_geometry_meshes.insert({ matrix , m });
+		for (auto collision_material : materials) 
+			indices.push_back(materialParent->AddMaterial(collision_material));
+
+		m->InitMaterialIndices(FbxLayerElement::EMappingMode::eAllSame);
+		FbxLayerElementMaterial* layerElement = m->GetElementMaterial();
+		FbxLayerElementArrayTemplate<int>& iarray = layerElement->GetIndexArray();
+		iarray.SetAt(0, 1);
+
+
+		conv_geometry_meshes.insert({ matrix, m });
 	}
-	collision_parent->SetCollisionObject(build_physics(conv_geometry_meshes));
+	auto co = DynamicCast<bhkCollisionObject>(collision_parent->GetCollisionObject());
+	bhkRigidBodyRef rb = NULL;
+	if (co && co->GetBody())
+	{
+		rb = DynamicCast<bhkRigidBody>(co->GetBody());
+	}
+	collision_parent->SetCollisionObject(build_physics(conv_geometry_meshes, rb));
 }
 
 
@@ -1171,7 +1293,7 @@ void rebuild_collisions(NiObjectRef root, vector<NiObjectRef>& blocks, bool forc
 					hkTransform this_transform = TOHKTRANSFORM(parent_node->GetRotation(), parent_node->GetTranslation(), parent_node->GetScale());
 					transform_from_rigid_body.setMul(this_transform, transform_from_rigid_body);
 
-					if (parent_node->GetCollisionObject() != NULL || 
+					if (parent_node->GetCollisionObject() != NULL ||
 						animated_nodes.find(parent_node) != animated_nodes.end())
 					{
 						parent_collisioner = parent_node;
@@ -1206,7 +1328,7 @@ void rebuild_collisions(NiObjectRef root, vector<NiObjectRef>& blocks, bool forc
 vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info, const fs::path& texture_path, const fs::path& vanilla_texture_path, bool forceCollision) {
 
 	NiObjectRef root = GetFirstRoot(blocks);
-		
+
 	for (auto& block : blocks) {
 		if (block->IsDerivedType(NiNode::TYPE))
 		{
@@ -1242,7 +1364,7 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info, const fs
 				Log::Error("Model has no normals or no faces or no UV. Won't be able to calculate tangent space");
 				//normals are needed for sse, let's just fill the void here
 				normals.resize(vertices.size());
-				for (int i = 0; i< vertices.size(); i++)
+				for (int i = 0; i < vertices.size(); i++)
 				{
 					normals[i] = COM - vertices[i];
 					normals[i] = normals[i].Normalized();
@@ -1352,7 +1474,7 @@ bool FixSSENif::InternalRunCommand(map<string, docopt::value> parsedArgs)
 	string vanilla_texture_path = "";
 	bool doOverwrite = false;
 	bool force_recollision = false;
-	
+
 	if (parsedArgs.find("<overwrite>") != parsedArgs.end() && parsedArgs["<overwrite>"].asString() == "true")
 		doOverwrite = true;
 	if (parsedArgs.find("<force_recollision>") != parsedArgs.end() && parsedArgs["<force_recollision>"].asString() == "true")

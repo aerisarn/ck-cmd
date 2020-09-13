@@ -1235,6 +1235,10 @@ public:
 			}
 			shape_index++;
 		}
+		if (shapes.size() == 1) {
+			materials[0] = convert_havok_material(obj.GetMaterial().material_ob);
+		}
+
 	}
 
 	template<>

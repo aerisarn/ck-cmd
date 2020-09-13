@@ -1597,13 +1597,15 @@ struct bmeshinfo
 {
 	vector<float> points;
 	vector<int> triangles;
+	vector<int> materials;
 };
 
-void convert_geometry(shared_ptr<bmeshinfo> bmesh, pair<FbxAMatrix, FbxMesh*> translated_mesh)
+void convert_geometry(shared_ptr<bmeshinfo> bmesh, pair<FbxAMatrix, FbxMesh*> translated_mesh, vector<FbxSurfaceMaterial*>& materials)
 {
 	FbxMesh* mesh = translated_mesh.second;
 	size_t vertices_count = mesh->GetControlPointsCount();
 	size_t map_offset = bmesh->points.size() / 3;
+	bmesh->materials.resize(vertices_count);
 	for (int i = 0; i < vertices_count; i++) {
 		FbxVector4 vertex = translated_mesh.first.MultT(mesh->GetControlPointAt(i));
 		bmesh->points.push_back(vertex[0]);
@@ -1612,6 +1614,7 @@ void convert_geometry(shared_ptr<bmeshinfo> bmesh, pair<FbxAMatrix, FbxMesh*> tr
 	}
 
 	size_t tris_count = mesh->GetPolygonCount();
+	const FbxLayerElementMaterial* pPolygonMaterials = mesh->GetElementMaterial();
 
 	for (int i = 0; i < tris_count; i++) {
 		int v1 = mesh->GetPolygonVertex(i, 0);
@@ -1621,7 +1624,23 @@ void convert_geometry(shared_ptr<bmeshinfo> bmesh, pair<FbxAMatrix, FbxMesh*> tr
 		bmesh->triangles.push_back(v1 + map_offset);
 		bmesh->triangles.push_back(v2 + map_offset);
 		bmesh->triangles.push_back(v3 + map_offset);
+
+		if (pPolygonMaterials)
+		{
+			auto material = mesh->GetNode()->GetMaterial(pPolygonMaterials->mIndexArray->GetAt(i));
+			int index = materials.size();
+			auto m_it = find(materials.begin(), materials.end(), material);
+			if (m_it != materials.end())
+			{
+				index = distance(materials.begin(), m_it);
+			}
+			else {
+				materials.push_back(material);
+			}
+			bmesh->materials.push_back(index);
+		}
 	}
+
 }
 
 void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> translated_mesh, vector<hkpNamedMeshMaterial>& materials, double scaling, FbxNode* collision_node)
@@ -2618,7 +2637,14 @@ hkRefPtr<hkpRigidBody> check_body(bhkRigidBodyRef body, vector<pair<hkTransform,
 	return hk_body;
 }
 
-hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, hkpMassProperties& properties, double scale_factor, FbxNode* body, hkpRigidBodyCinfo& hk_body)
+hkRefPtr<hkpShape> HKXWrapper::build_shape(
+	FbxNode* shape_root, 
+	set<pair<FbxAMatrix, FbxMesh*>>& 
+	geometry_meshes, 
+	hkpMassProperties& properties, 
+	double scale_factor, 
+	FbxNode* body, 
+	hkpRigidBodyCinfo& hk_body)
 {
 	//If shape_root is null, no hints were given on how to handle the collisions
 	if (shape_root == NULL)
@@ -2627,9 +2653,10 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		//calculate geometry
 		VHACD::IVHACD* interfaceVHACD = VHACD::CreateVHACD();
 		shared_ptr<bmeshinfo> cmesh = make_shared<bmeshinfo>();
+		vector<FbxSurfaceMaterial*> materials;
 		for (const auto& mesh : geometry_meshes)
 		{
-			convert_geometry(cmesh, mesh);
+			convert_geometry(cmesh, mesh, materials);
 		}
 		VHACD::IVHACD::Parameters params;
 		bool res = interfaceVHACD->Compute(&cmesh->points[0], (unsigned int)cmesh->points.size() / 3,
@@ -2669,19 +2696,37 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 
 		for (int i = 0; i < bbmesh->triangles.size() / 3; i++)
 		{
-			bmesh.addTriangle(bbmesh->triangles[i * 3], bbmesh->triangles[i * 3 + 1], bbmesh->triangles[i * 3 + 2]);
+			bmesh.addTriangle(bbmesh->triangles[i * 3], bbmesh->triangles[i * 3 + 1], bbmesh->triangles[i * 3 + 2], bbmesh->materials[i]);
 		}
 
 		boundingmesh::Decimator decimator;
 		decimator.setMesh(bmesh);
 		decimator.setMetric(boundingmesh::Average);
-		decimator.setMaximumError(0.1);
+		decimator.setMaximumError(0.25);
 
 		std::shared_ptr<boundingmesh::Mesh> result = decimator.compute();
 		FbxManager* temp_manager = FbxManager::Create();
 		FbxNode* root = FbxNode::Create(temp_manager, "_mesh");
 		FbxMesh* m = FbxMesh::Create(temp_manager, "_mesh_tris");
+		for (int i = 0; i < materials.size(); i++)
+		{
+
+		}
+
 		m->InitControlPoints(result->nVertices());
+		root->AddNodeAttribute(m);
+		for (FbxSurfaceMaterial* material : materials) {
+			auto new_material = FbxSurfaceMaterial::Create(temp_manager, "_mesh_tris");
+			new_material->Copy(*material);
+			root->AddMaterial(new_material);
+		}
+
+		m->InitMaterialIndices(FbxLayerElement::EMappingMode::eByPolygon);
+
+		FbxLayerElementMaterial* layerElement = m->GetElementMaterial();
+		FbxLayerElementArrayTemplate<int>& iarray = layerElement->GetIndexArray();
+		
+
 		FbxVector4* points = m->GetControlPoints();
 		for (int i = 0; i < result->nVertices(); i++)
 		{
@@ -2692,13 +2737,13 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(FbxNode* shape_root, set<pair<FbxAMat
 		for (int i = 0; i < result->nTriangles(); i++)
 		{
 			boundingmesh::Triangle v = result->triangle(i);
-			m->BeginPolygon(0);
+			m->BeginPolygon(result->triangle(i).material());
 			m->AddPolygon(v.vertex(0));
 			m->AddPolygon(v.vertex(1));
 			m->AddPolygon(v.vertex(2));
 			m->EndPolygon();
 		}
-		root->AddNodeAttribute(m);
+		
 		FbxNode* mopp = FbxNode::Create(temp_manager, "_mopp");
 		mopp->AddChild(root);
 		hkpShape* shape = build_shape(mopp, geometry_meshes, properties, scale_factor, body, hk_body);

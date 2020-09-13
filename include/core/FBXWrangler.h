@@ -113,6 +113,7 @@ namespace FBX {
 		void setExportSkin(bool _export_skin = true) { export_skin = _export_skin; }
 
 		void AddNif(NifFile& nif);
+		void convert(bhkCollisionObjectRef root, FbxNode* sceneNode, const NifInfo& info);
 		void ApplySkeletonScaling(NifFile& nif);
 
 		bool ExportScene(const std::string& fileName);
