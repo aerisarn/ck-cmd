@@ -73,7 +73,6 @@ add_executable(${PROJECT} "${CMAKE_SOURCE_DIR}/gui/src/main.cpp" $<TARGET_OBJECT
 target_include_directories	(${PROJECT}  PUBLIC ${PROJECT_INCLUDES} )
 add_dependencies			(${PROJECT} zlib)
 target_link_libraries(${PROJECT}
-    ${DOCOPT_LIBRARIES}   
     ck-cmd-lib
     gui-lib
     Qt5::Widgets
@@ -95,7 +94,6 @@ add_executable				(gui-tests ${GUI_TEST_SRC} $<TARGET_OBJECTS:ck-cmd-lib>)
 add_dependencies			(gui-tests googletest)
 add_dependencies			(gui-tests zlib)
 target_link_libraries		(gui-tests ${GTEST_LIBRARIES} ${TEST_LIBRARIES}
-    ${DOCOPT_LIBRARIES}
     ck-cmd-lib
     gui-lib
     Qt5::Widgets
