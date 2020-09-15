@@ -23,8 +23,6 @@ static void InitializeHavok();
 static void CloseHavok();
 
 
-REGISTER_COMMAND_CPP(ImportSkin)
-
 ImportSkin::ImportSkin()
 {
 }

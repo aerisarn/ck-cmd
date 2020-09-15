@@ -46,7 +46,7 @@ namespace fs = std::filesystem;
 namespace ckcmd {
 	namespace fixsse {
 
-		class FixSSENif : public CommandBase
+		class FixSSENif : public Command<FixSSENif>
 		{
 			REGISTER_COMMAND_HEADER(FixSSENif)
 

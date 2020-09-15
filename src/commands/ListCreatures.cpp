@@ -10,7 +10,6 @@ using namespace std;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 
-REGISTER_COMMAND_CPP(ListCreaturesCmd)
 
 ListCreaturesCmd::ListCreaturesCmd()
 {

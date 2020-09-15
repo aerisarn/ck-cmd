@@ -49,7 +49,6 @@
 
 using namespace std;
 
-REGISTER_COMMAND_CPP(Convert)
 
 Convert::Convert()
 {

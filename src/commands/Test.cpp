@@ -52,7 +52,6 @@
 
 using namespace std;
 
-REGISTER_COMMAND_CPP(Test)
 
 Test::Test()
 {

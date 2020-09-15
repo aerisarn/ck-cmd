@@ -48,7 +48,6 @@ void HK_CALL DumpClassesAll();
 
 using namespace std;
 
-REGISTER_COMMAND_CPP(Report)
 
 Report::Report()
 {

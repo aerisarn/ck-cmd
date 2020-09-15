@@ -488,9 +488,9 @@ file(GLOB_RECURSE COMMANDS_SRC
 	"${CMAKE_SOURCE_DIR}/src/commands/*.cpp"
 )
 
-list (APPEND COMMANDS_SRC
-	"${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp"
-)
+#list (APPEND COMMANDS_SRC
+#	"${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp"
+#)
 
 list (APPEND PROJECT_SRC ${HAVOK_COMPAT_SRC})
 #list (APPEND PROJECT_SRC ${COMMANDS_SRC})
@@ -575,13 +575,18 @@ IF (PROJECT_GUI)
 	add_subdirectory(gui)
 ENDIF ()
 
+# Build lib
+add_library( ck-cmd-lib STATIC ${PROJECT_SRC} ${PROJECT_HEADERS} ${PROJECT_COMMANDS} ${COMMANDS_SRC} )
+target_include_directories	(ck-cmd-lib  PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_DIRS} )
+
 # Build core
-add_executable				(ck-cmd ${PROJECT_SRC} ${PROJECT_HEADERS} ${PROJECT_COMMANDS} ${COMMANDS_SRC})
+add_executable				(ck-cmd "${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp" $<TARGET_OBJECTS:ck-cmd-lib>)
 add_dependencies			(ck-cmd zlib docopt)
 target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} ${DOCOPT_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
 if (HAVE_SPEEDTREE)
 target_link_libraries		(ck-cmd ${SPEEDTREE_LIBS})
 endif (HAVE_SPEEDTREE)
+target_link_libraries		(ck-cmd ck-cmd-lib)
 target_include_directories	(ck-cmd PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_DIRS})
 
 add_custom_command(TARGET ck-cmd POST_BUILD

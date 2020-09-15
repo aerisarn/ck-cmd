@@ -4,6 +4,8 @@
 #include <QColor>
 #include <QPushButton>
 
+#include <commands/CommandBase.h>
+
 #include <core/hkxcmd.h>
 #include <core/hkfutils.h>
 #include <core/log.h>

@@ -55,7 +55,6 @@ using namespace std;
 
 static bool BeginScan(string scanPath);
 
-REGISTER_COMMAND_CPP(FixSSENif)
 
 FixSSENif::FixSSENif()
 {

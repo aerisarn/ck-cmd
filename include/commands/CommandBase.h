@@ -95,23 +95,37 @@
 
 using namespace std;
 
-// Base class for commands
-class CommandBase
-{
-protected:
-    CommandBase();
-    virtual ~CommandBase();
+#define REGISTER_COMMAND_HEADER(classname) 	template<typename T> friend class Command; static const classname& getInstance() { return instance; }
 
+class CommandBase {
 public:
-    bool RunCommand(int argc, char **argv);
+    CommandBase();
 
     virtual string GetName() const = 0;
     virtual string GetHelp() const = 0;
     virtual string GetHelpShort() const = 0;
 
+    bool RunCommand(int argc, char** argv);
+
 protected:
     virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs) = 0;
+    virtual ~CommandBase();
 };
+
+
+// Base class for commands
+template<typename T>
+class Command : public CommandBase
+{
+protected:
+    virtual ~Command() {}
+
+    static T instance;
+
+};
+
+template<typename T>
+T Command<T>::instance = {};
 
 static void HK_CALL ErrorReport(const char* msg, void* userContext)
 {
@@ -139,5 +153,5 @@ public:
     static string GetExeVersion();
 };
 
-#define REGISTER_COMMAND_HEADER(classname) private: static classname instance;
-#define REGISTER_COMMAND_CPP(classname) classname classname::instance{};
+//#define REGISTER_COMMAND_HEADER(classname) private: static classname instance;
+//#define REGISTER_COMMAND_CPP(classname) classname classname::instance{};

@@ -22,7 +22,6 @@ static bool BeginConversion(string importPath, string exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
-REGISTER_COMMAND_CPP(ImportFBX)
 
 ImportFBX::ImportFBX()
 {

@@ -5,7 +5,7 @@
 // Command Base
 #include <commands/CommandBase.h>
 
-class ExportRig : public CommandBase
+class ExportRig : public Command<ExportRig>
 {
 	REGISTER_COMMAND_HEADER(ExportRig)
 

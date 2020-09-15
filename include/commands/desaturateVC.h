@@ -36,7 +36,7 @@ namespace fs = std::filesystem;
 namespace ckcmd {
 	namespace desaturateVC {
 
-		class DesaturateVC : public CommandBase
+		class DesaturateVC : public Command<DesaturateVC>
 		{
 			REGISTER_COMMAND_HEADER(DesaturateVC)
 

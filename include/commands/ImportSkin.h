@@ -5,7 +5,7 @@
 // Command Base
 #include <commands/CommandBase.h>
 
-class ImportSkin : public CommandBase
+class ImportSkin : public Command<ImportSkin>
 {
     REGISTER_COMMAND_HEADER(ImportSkin)
 

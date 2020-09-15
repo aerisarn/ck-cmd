@@ -240,7 +240,6 @@ static hkPackfileWriter::Options GetWriteOptionsFromFormat(hkPackFormat format);
 // Class
 //////////////////////////////////////////////////////////////////////////
 
-REGISTER_COMMAND_CPP(Retarget)
 
 Retarget::Retarget()
 {

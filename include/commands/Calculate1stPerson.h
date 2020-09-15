@@ -4,7 +4,7 @@
 #include <commands\CommandBase.h>
 
 
-class Calculate1stPerson: public CommandBase
+class Calculate1stPerson: public Command<Calculate1stPerson>
 {
     REGISTER_COMMAND_HEADER(Calculate1stPerson)
 

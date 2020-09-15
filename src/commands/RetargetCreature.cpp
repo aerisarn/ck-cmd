@@ -136,7 +136,6 @@ using namespace ckcmd::HKX;
 static void InitializeHavok();
 static void CloseHavok();
 
-REGISTER_COMMAND_CPP(RetargetCreatureCmd)
 
 RetargetCreatureCmd::RetargetCreatureCmd()
 {

@@ -13,7 +13,7 @@ namespace fs = std::experimental::filesystem;
 namespace fs = std::filesystem;
 #endif
 
-class CreateEsp : public CommandBase
+class CreateEsp : public Command<CreateEsp>
 {
     REGISTER_COMMAND_HEADER(CreateEsp)
 

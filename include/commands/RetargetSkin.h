@@ -76,7 +76,7 @@ namespace fs = std::filesystem;
 //bool BeginConversion();
 
 
-class RetargetSkin : public CommandBase
+class RetargetSkin : public Command<RetargetSkin>
 {
 	REGISTER_COMMAND_HEADER(RetargetSkin)
 

@@ -29,7 +29,6 @@ static bool BeginConversion(string importPath, string importSkeletonPath, string
 static void InitializeHavok();
 static void CloseHavok();
 
-REGISTER_COMMAND_CPP(RetargetSkin)
 
 RetargetSkin::RetargetSkin()
 {

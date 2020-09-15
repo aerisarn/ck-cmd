@@ -6,9 +6,6 @@
 #include <core/log.h>
 using namespace std;
 
-
-REGISTER_COMMAND_CPP(About)
-
 About::About()
 {
 }

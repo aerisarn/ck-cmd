@@ -249,8 +249,6 @@ static bool ExportFile(const char *baseSkel, const char *sourceAnim, const char 
 // Class
 //////////////////////////////////////////////////////////////////////////
 
-REGISTER_COMMAND_CPP(Calculate1stPerson)
-
 Calculate1stPerson::Calculate1stPerson()
 {
 }

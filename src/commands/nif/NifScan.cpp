@@ -17,7 +17,6 @@ class FixTargetsVisitor;
 
 static bool BeginScan(string scanPath);
 
-REGISTER_COMMAND_CPP(NifScan)
 
 static Games& games = Games::Instance();
 const Games::GamesPathMapT& installations = games.getGames();

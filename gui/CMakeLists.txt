@@ -30,23 +30,11 @@ source_group("Header Files" FILES ${HEADERS})
 source_group("Source Files" FILES ${SOURCES})
 
 source_group("Havok Compat\\Headers" FILES ${HAVOK_COMPAT_HEADERS})
-source_group("Havok Compat\\Sources" FILES ${HAVOK_COMPAT_SRC})
 source_group("UI Havok Classes\\Headers" FILES ${UI_HAVOK_CLASSES_HEADERS})
 source_group("UI Havok Classes\\Sources" FILES ${UI_HAVOK_CLASSES_SOURCES})
 source_group("Header Files" FILES ${PROJECT_HEADERS})
-source_group("Commands" FILES ${COMMANDS_SRC})
 source_group("AnimationData\\Headers" FILES ${BETH_ANIMDATA_HEADERS})
 source_group("AnimationData\\Sources" FILES ${BETH_ANIMDATA_SRC})
-source_group("NIFlib" FILES ${NIF_CORE_HEADERS})
-source_group("NIFlib\\Compounds" FILES ${NIF_COMPOUNDS_HEADERS})
-source_group("NIFlib\\Objects" FILES ${NIF_OBJS_HEADERS})
-source_group("NIFlib\\CustomTypes" FILES ${NIF_CUSTOM_TYPES_HEADERS})
-source_group("NIFlib\\Interfaces" FILES ${NIF_INTERFACES_HEADERS})
-source_group("NIFlib\\GameSpecific" FILES ${NIF_GAME_SPECIFIC_HEADERS})
-source_group("Geometry\\MikkTSpace" FILES ${MIKKTSPACE_SRCS})
-source_group("Geometry\\BoundingMesh" FILES ${BOUNDINGMESH_SRCS})
-source_group("Geometry\\QuickHull" FILES ${QUICKHULL_SRCS})
-source_group("Textures\\DirectXTex" FILES ${DIRECTXTEX_INCLUDES_PATH})
 
 
 
@@ -78,13 +66,15 @@ list(APPEND PROJECT_INCLUDES "${CMAKE_SOURCE_DIR}/gui")
 list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/test/test.cpp")
 list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/src/main.cpp")
 
-add_library( gui-lib STATIC ${HEADERS} ${SOURCES} ${QT_RESOURCES} ${PROJECT_INCLUDES} ${HAVOK_COMPAT_SRC} ${PROJECT_SRC} )
+add_library( gui-lib STATIC ${HEADERS} ${SOURCES} ${QT_RESOURCES} )
 target_include_directories	(gui-lib  PUBLIC ${PROJECT_INCLUDES} )
 
-add_executable(${PROJECT} "${CMAKE_SOURCE_DIR}/gui/src/main.cpp")
+add_executable(${PROJECT} "${CMAKE_SOURCE_DIR}/gui/src/main.cpp" $<TARGET_OBJECTS:ck-cmd-lib>)
 target_include_directories	(${PROJECT}  PUBLIC ${PROJECT_INCLUDES} )
-add_dependencies			(${PROJECT} zlib)
+add_dependencies			(${PROJECT} zlib docopt)
 target_link_libraries(${PROJECT}
+    ${DOCOPT_LIBRARIES}   
+    ck-cmd-lib
     gui-lib
     Qt5::Widgets
 	${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib
@@ -101,10 +91,12 @@ set (GUI_TEST_SRC "${CMAKE_SOURCE_DIR}/gui/test/test.cpp")
 list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/src/main.cpp")
 
 # Build tester.
-add_executable				(gui-tests ${GUI_TEST_SRC})
+add_executable				(gui-tests ${GUI_TEST_SRC} $<TARGET_OBJECTS:ck-cmd-lib>)
 add_dependencies			(gui-tests googletest)
-add_dependencies			(gui-tests zlib)
+add_dependencies			(gui-tests zlib docopt)
 target_link_libraries		(gui-tests ${GTEST_LIBRARIES} ${TEST_LIBRARIES}
+    ${DOCOPT_LIBRARIES}
+    ck-cmd-lib
     gui-lib
     Qt5::Widgets
 	${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib

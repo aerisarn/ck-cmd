@@ -15,7 +15,6 @@ using namespace std;
 
 static bool BeginScan(string scanPath);
 
-REGISTER_COMMAND_CPP(DesaturateVC)
 
 DesaturateVC::DesaturateVC()
 {

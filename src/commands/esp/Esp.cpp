@@ -8,8 +8,6 @@
 using namespace ckcmd::info;
 
 
-REGISTER_COMMAND_CPP(CreateEsp)
-
 CreateEsp::CreateEsp()
 {
 }

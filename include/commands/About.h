@@ -3,7 +3,7 @@
 // Command Base
 #include <commands\CommandBase.h>
 
-class About : public CommandBase
+class About : public Command<About>
 {
     REGISTER_COMMAND_HEADER(About)
 

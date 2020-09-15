@@ -5,7 +5,7 @@
 // Command Base
 #include <commands/CommandBase.h>
 
-class ImportRig : public CommandBase
+class ImportRig : public Command<ImportRig>
 {
 	REGISTER_COMMAND_HEADER(ImportRig)
 

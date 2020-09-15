@@ -11,8 +11,6 @@
 using namespace std;
 using namespace ckcmd::info;
 
-REGISTER_COMMAND_CPP(GamesCmd)
-
 GamesCmd::GamesCmd()
 {
 }

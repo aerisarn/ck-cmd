@@ -5,7 +5,7 @@
 // Command Base
 #include <commands/CommandBase.h>
 
-class ExportFBX : public CommandBase
+class ExportFBX : public Command<ExportFBX>
 {
     REGISTER_COMMAND_HEADER(ExportFBX)
 

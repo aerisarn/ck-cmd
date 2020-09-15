@@ -79,7 +79,7 @@ static const fs::path nif_out = "D:\\git\\ck-cmd\\resources\\out";
 //bool BeginConversion();
 
 
-class ConvertNif : public CommandBase
+class ConvertNif : public Command<ConvertNif>
 {
     REGISTER_COMMAND_HEADER(ConvertNif)
 

@@ -3,7 +3,7 @@
 // Command Base
 #include <commands/CommandBase.h>
 
-class RetargetCreatureCmd : public CommandBase
+class RetargetCreatureCmd : public Command<RetargetCreatureCmd>
 {
 	REGISTER_COMMAND_HEADER(RetargetCreatureCmd)
 

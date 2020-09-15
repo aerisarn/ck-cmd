@@ -17,7 +17,7 @@ static const fs::path nif_scan_err = "D:\\git\\ck-cmd\\resources\\err";
 namespace ckcmd {
 	namespace nifscan {
 
-        class NifScan : public CommandBase
+        class NifScan : public Command<NifScan>
         {
             REGISTER_COMMAND_HEADER(NifScan)
 

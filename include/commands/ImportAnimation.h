@@ -5,7 +5,7 @@
 // Command Base
 #include <commands/CommandBase.h>
 
-class ImportAnimation : public CommandBase
+class ImportAnimation : public Command<ImportAnimation>
 {
 	REGISTER_COMMAND_HEADER(ImportAnimation)
 

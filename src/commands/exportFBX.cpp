@@ -22,7 +22,6 @@ using namespace ckcmd::FBX;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 
-REGISTER_COMMAND_CPP(ExportFBX)
 
 ExportFBX::ExportFBX()
 {

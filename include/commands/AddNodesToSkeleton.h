@@ -76,7 +76,7 @@ namespace fs = std::filesystem;
 //bool BeginConversion();
 
 
-class AddNodesToSkeleton : public CommandBase
+class AddNodesToSkeleton : public Command<AddNodesToSkeleton>
 {
     REGISTER_COMMAND_HEADER(AddNodesToSkeleton)
 

@@ -3,7 +3,7 @@
 // Command Base
 #include <commands/CommandBase.h>
 
-class DumpList : public CommandBase
+class DumpList : public Command<DumpList>
 {
     REGISTER_COMMAND_HEADER(DumpList)
 

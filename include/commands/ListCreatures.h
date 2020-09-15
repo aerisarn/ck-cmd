@@ -3,7 +3,7 @@
 // Command Base
 #include <commands/CommandBase.h>
 
-class ListCreaturesCmd : public CommandBase
+class ListCreaturesCmd : public Command<ListCreaturesCmd>
 {
 	REGISTER_COMMAND_HEADER(ListCreaturesCmd)
 

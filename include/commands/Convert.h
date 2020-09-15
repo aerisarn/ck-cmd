@@ -3,7 +3,7 @@
 // Command Base
 #include <commands\CommandBase.h>
 
-class Convert : public CommandBase
+class Convert : public Command<Convert>
 {
     REGISTER_COMMAND_HEADER(Convert)
 
