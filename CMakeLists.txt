@@ -51,6 +51,7 @@ ExternalProject_Add(docopt
                     GIT_REPOSITORY "https://github.com/docopt/docopt.cpp.git"
                     GIT_TAG master
                     INSTALL_COMMAND ""
+					CONFIGURE_COMMAND ${CMAKE_COMMAND} <SOURCE_DIR>
 					CMAKE_ARGS -DCMAKE_CXX_FLAGS_DEBUG=/MTd -DCMAKE_CXX_FLAGS_RELEASE=/MT -DCMAKE_CXX_FLAGS_RELWITHDEBINFO=/MT)
 ExternalProject_Get_Property(docopt SOURCE_DIR BINARY_DIR)
 set (DOCOPT_INCLUDE_DIRS ${SOURCE_DIR} ${BINARY_DIR})
