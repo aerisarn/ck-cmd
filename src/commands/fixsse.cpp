@@ -1185,12 +1185,14 @@ void check_physics(NiNodeRef collision_parent, vector<pair<hkTransform, NiTriSha
 					parent = collision;
 				if (parent)
 				{
-					int materials_size = parent->GetMaterialCount();
-					if (materials_size == 0) materials_size = 1;
+					int materials_size = parent->GetMaterialCount();				
 					for (int i = 0; i < materials_size; i++)
 					{
-						materials.push_back(parent->GetMaterial(i));
+						auto fbx_material = parent->GetMaterial(i);
+						if (find(materials.begin(), materials.end(), fbx_material)==materials.end())
+							materials.push_back(parent->GetMaterial(i));
 					}
+					if (materials_size == 0) materials_size = 1;
 				}
 			}
 

@@ -46,13 +46,13 @@ ELSE ()
     set (ZLIB_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}")
 ENDIF ()
 
-ExternalProject_Add(docopt_parser
+ExternalProject_Add(docopt
                     PREFIX "external"
                     GIT_REPOSITORY "https://github.com/docopt/docopt.cpp.git"
                     GIT_TAG master
                     INSTALL_COMMAND ""
 					CMAKE_ARGS -DCMAKE_CXX_FLAGS_DEBUG=/MTd -DCMAKE_CXX_FLAGS_RELEASE=/MT -DCMAKE_CXX_FLAGS_RELWITHDEBINFO=/MT)
-ExternalProject_Get_Property(docopt_parser SOURCE_DIR BINARY_DIR)
+ExternalProject_Get_Property(docopt SOURCE_DIR BINARY_DIR)
 set (DOCOPT_INCLUDE_DIRS ${SOURCE_DIR} ${BINARY_DIR})
 message("DOCOPT_INCLUDE_DIRS:" ${DOCOPT_INCLUDE_DIRS})
 IF (MSVC)
@@ -581,7 +581,7 @@ target_include_directories	(ck-cmd-lib  PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCL
 
 # Build core
 add_executable				(ck-cmd "${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp" $<TARGET_OBJECTS:ck-cmd-lib>)
-add_dependencies			(ck-cmd zlib docopt_parser)
+add_dependencies			(ck-cmd zlib docopt)
 target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} ${DOCOPT_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
 if (HAVE_SPEEDTREE)
 target_link_libraries		(ck-cmd ${SPEEDTREE_LIBS})

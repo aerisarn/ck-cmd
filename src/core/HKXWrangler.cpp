@@ -1605,7 +1605,6 @@ void convert_geometry(shared_ptr<bmeshinfo> bmesh, pair<FbxAMatrix, FbxMesh*> tr
 	FbxMesh* mesh = translated_mesh.second;
 	size_t vertices_count = mesh->GetControlPointsCount();
 	size_t map_offset = bmesh->points.size() / 3;
-	bmesh->materials.resize(vertices_count);
 	for (int i = 0; i < vertices_count; i++) {
 		FbxVector4 vertex = translated_mesh.first.MultT(mesh->GetControlPointAt(i));
 		bmesh->points.push_back(vertex[0]);
@@ -1615,7 +1614,6 @@ void convert_geometry(shared_ptr<bmeshinfo> bmesh, pair<FbxAMatrix, FbxMesh*> tr
 
 	size_t tris_count = mesh->GetPolygonCount();
 	const FbxLayerElementMaterial* pPolygonMaterials = mesh->GetElementMaterial();
-
 	for (int i = 0; i < tris_count; i++) {
 		int v1 = mesh->GetPolygonVertex(i, 0);
 		int v2 = mesh->GetPolygonVertex(i, 1);
