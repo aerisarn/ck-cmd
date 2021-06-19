@@ -4,7 +4,7 @@ project( "ck-cmd" )
 include(ExternalProject)
 
 option(PROJECT_STATIC_RUNTIME "Build with static runtime libs (/MT)" ON)
-option(PROJECT_GUI "Build GUI" OFF)
+option(PROJECT_GUI "Build GUI" ON)
 UNSET(HAVE_SPEEDTREE CACHE)
 option(HAVE_SPEEDTREE "Build with speedtree support" OFF)
 
