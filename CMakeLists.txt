@@ -1,10 +1,10 @@
-cmake_minimum_required( VERSION 2.8 )
+cmake_minimum_required( VERSION 2.8.12 )
 
 project( "ck-cmd" )
 include(ExternalProject)
 
 option(PROJECT_STATIC_RUNTIME "Build with static runtime libs (/MT)" ON)
-option(PROJECT_GUI "Build GUI" ON)
+option(PROJECT_GUI "Build GUI" OFF)
 UNSET(HAVE_SPEEDTREE CACHE)
 option(HAVE_SPEEDTREE "Build with speedtree support" OFF)
 
@@ -540,6 +540,7 @@ source_group("Textures\\DirectXTex" FILES ${DIRECTXTEX_INCLUDES_PATH})
 IF (MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG /D_HAS_AUTO_PTR_ETC=1")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
+	add_compile_options("/MP")
     # Update compiler flags.
     IF (PROJECT_STATIC_RUNTIME)
         FOREACH(flag
@@ -559,9 +560,10 @@ ENDIF ()
 
 if (MSVC_VERSION GREATER_EQUAL "1900")
     include(CheckCXXCompilerFlag)
-    CHECK_CXX_COMPILER_FLAG("/std:c++latest" _cpp_latest_flag_supported)
+    CHECK_CXX_COMPILER_FLAG("/std:c++17" _cpp_latest_flag_supported)
     if (_cpp_latest_flag_supported)
-        add_compile_options("/std:c++latest")
+        add_compile_options("/std:c++17")
+		add_compile_options("/permissive")
     endif()
 endif()
 
