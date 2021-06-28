@@ -837,7 +837,9 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 		FbxGeometryElementUV* uvElement = nullptr;
 		if (!uvs.empty()) {
-			std::string uvName = shapeName + "UV";
+			// std::string uvName = shapeName + "UV";
+			// Blender will not merge UV maps cleanly unless they are named identically
+			const std::string uvName = "UV Map";
 			uvElement = m->CreateElementUV(uvName.c_str());
 			uvElement->SetMappingMode(FbxGeometryElement::eByControlPoint);
 			uvElement->SetReferenceMode(FbxGeometryElement::eDirect);
