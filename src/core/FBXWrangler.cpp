@@ -867,11 +867,24 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		}
 
 		FbxNode* local_parent = NULL;
+		FbxNodeAttribute* attribute = parent->GetNodeAttribute();
 		if (parent == parent->GetScene()->GetRootNode())
 		{
 			//seems like FBX doesn't like meshes added to root
 			string dummy_name = shapeName + "_support";
 			local_parent = FbxNode::Create(&scene, dummy_name.c_str());
+			parent->AddChild(local_parent);
+		}
+		else if (attribute && attribute->GetAttributeType() == FbxNodeAttribute::eMesh)
+		{
+			// Looks like fbx only supports one mesh per node, create a new node
+			int i = 1;
+			string root_name{ parent->GetName() };
+			root_name += "_";
+			while (parent->FindChild((root_name + to_string(i)).c_str(), false)) ++i;
+
+			auto nodeName = root_name + to_string(i);
+			local_parent = FbxNode::Create(&scene, nodeName.c_str());
 			parent->AddChild(local_parent);
 		}
 		else {
