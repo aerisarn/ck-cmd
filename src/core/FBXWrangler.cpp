@@ -4852,6 +4852,14 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 			body->SetMotionSystem(MO_SYS_BOX_STABILIZED);
 			body->SetSolverDeactivation(SOLVER_DEACTIVATION_OFF);
 			body->SetQualityType(MO_QUAL_INVALID);
+
+			// Remove mass and inertia tensor values for statics
+			body->SetMass(0.0f);
+
+			hkMatrix3 zeroMatrix{};
+			zeroMatrix.setZero();
+			body->SetInertiaTensor(TOINERTIAMATRIX(zeroMatrix));
+
 			collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL));
 		}
 		body->SetHavokFilter(body_layer.filter);
