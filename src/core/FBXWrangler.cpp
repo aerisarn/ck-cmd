@@ -837,7 +837,9 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 		FbxGeometryElementUV* uvElement = nullptr;
 		if (!uvs.empty()) {
-			std::string uvName = shapeName + "UV";
+			// std::string uvName = shapeName + "UV";
+			// Blender will not merge UV maps cleanly unless they are named identically
+			const std::string uvName = "UV Map";
 			uvElement = m->CreateElementUV(uvName.c_str());
 			uvElement->SetMappingMode(FbxGeometryElement::eByControlPoint);
 			uvElement->SetReferenceMode(FbxGeometryElement::eDirect);
@@ -865,11 +867,24 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 		}
 
 		FbxNode* local_parent = NULL;
+		FbxNodeAttribute* attribute = parent->GetNodeAttribute();
 		if (parent == parent->GetScene()->GetRootNode())
 		{
 			//seems like FBX doesn't like meshes added to root
 			string dummy_name = shapeName + "_support";
 			local_parent = FbxNode::Create(&scene, dummy_name.c_str());
+			parent->AddChild(local_parent);
+		}
+		else if (attribute && attribute->GetAttributeType() == FbxNodeAttribute::eMesh)
+		{
+			// Looks like fbx only supports one mesh per node, create a new node
+			int i = 1;
+			string root_name{ parent->GetName() };
+			root_name += "_";
+			while (parent->FindChild((root_name + to_string(i)).c_str(), false)) ++i;
+
+			auto nodeName = root_name + to_string(i);
+			local_parent = FbxNode::Create(&scene, nodeName.c_str());
 			parent->AddChild(local_parent);
 		}
 		else {
@@ -4850,6 +4865,14 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 			body->SetMotionSystem(MO_SYS_BOX_STABILIZED);
 			body->SetSolverDeactivation(SOLVER_DEACTIVATION_OFF);
 			body->SetQualityType(MO_QUAL_INVALID);
+
+			// Remove mass and inertia tensor values for statics
+			body->SetMass(0.0f);
+
+			hkMatrix3 zeroMatrix{};
+			zeroMatrix.setZero();
+			body->SetInertiaTensor(TOINERTIAMATRIX(zeroMatrix));
+
 			collision->SetFlags((bhkCOFlags)(collision->GetFlags() | BHKCO_SET_LOCAL));
 		}
 		body->SetHavokFilter(body_layer.filter);

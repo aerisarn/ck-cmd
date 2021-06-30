@@ -3,6 +3,7 @@
 
 #include <mutex>
 #include <condition_variable>
+#include <future>
 
 #include "src/filetypes/hkxfile.h"
 #include "src/animData/skyrimanimdata.h"
