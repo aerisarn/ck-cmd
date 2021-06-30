@@ -86,6 +86,15 @@ add_custom_command(TARGET ${PROJECT} POST_BUILD
         "${PROJECT_SOURCE_DIR}/../lib/fbx/lib/vs2015/x86/$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:Release>/libfbxsdk.dll"
         $<TARGET_FILE_DIR:ck-gui>)
 
+if(TARGET Qt5::windeployqt)
+    # execute windeployqt in a tmp directory after build
+    add_custom_command(TARGET ${PROJECT}
+        POST_BUILD
+        COMMAND set PATH=%PATH%$<SEMICOLON>${qt5_install_prefix}/bin
+        COMMAND Qt5::windeployqt --dir "$<TARGET_FILE_DIR:ck-gui>" "$<TARGET_FILE_DIR:ck-gui>/$<TARGET_FILE_NAME:ck-gui>"
+    )
+endif()
+
 
 set (GUI_TEST_SRC "${CMAKE_SOURCE_DIR}/gui/test/test.cpp")
 
