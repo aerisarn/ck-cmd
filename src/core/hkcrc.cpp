@@ -46,7 +46,7 @@ std::string HkCRC::compute(std::string input) {
 	int polynom[] = { 0,0,0,0,4,193,29,183 };
 	int init[] = { 0,0,0,0,0,0,0,0 };
 	int* crc = new int[9](); //{ 0,0,0,0,0,0,0,0,0 };
-	int xor[] = { 0,0,0,0,0,0,0,0 };
+	int xor_array[] = { 0,0,0,0,0,0,0,0 };
 	order = crc_order;
 
 	// generate bit mask
@@ -96,7 +96,7 @@ std::string HkCRC::compute(std::string input) {
 		len++;
 	}
 	crc = reflect(crc, order, 0);
-	for (i = 0; i<8; i++) crc[i] ^= xor[i];
+	for (i = 0; i<8; i++) crc[i] ^= xor_array[i];
 	output = "";
 	flag = 0;
 	for (i = 0; i<8; i++)

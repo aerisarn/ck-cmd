@@ -191,7 +191,7 @@ string FlagsToString(int value, const EnumLookupType *table) {
 
 int StringToFlags(const vector<string>& value, const EnumLookupType *table, int defaultValue) {
     int retval = defaultValue;
-    for each (const string& subval in value)
+    for (const string& subval : value)
     {
         retval |= StringToEnum(subval, table);
     }
@@ -257,7 +257,7 @@ void FindFiles(std::vector<string>& collection, const TCHAR *path, bool recursiv
 	FindFiles(collection, path, excludes, recursive, includes);
 }
 
-void FindFiles(vector<string>& collection, const TCHAR *path, stringlist& excludes, bool recursive /*= true*/, stringlist& includes /*= {}*/)
+void FindFiles(vector<string>& collection, const TCHAR *path, stringlist& excludes, bool recursive /*= true*/, const stringlist& includes /*= {}*/)
 {
 	TCHAR buffer[MAX_PATH], dir[MAX_PATH], search[MAX_PATH];
 	WIN32_FIND_DATA FindFileData;

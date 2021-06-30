@@ -155,7 +155,7 @@ extern int StringToFlags(string value, const EnumLookupType *table, int defaultV
 
 bool FindMatchingFiles( LPCTSTR match, stringlist& result );
 
-void FindFiles(std::vector<string>& collection, const TCHAR *path, stringlist&excludes, bool recursive = true, stringlist&includes = stringlist());
+void FindFiles(std::vector<string>& collection, const TCHAR* path, stringlist& excludes, bool recursive = true, const stringlist& includes = {});
 void FindFiles(std::vector<string>& collection, const TCHAR *path, bool recursive = true);
 
 void CreateDirectories(LPCTSTR path);
