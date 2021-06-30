@@ -2871,7 +2871,13 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(
 		hkStridedVertices stridedVertsOut(convex.m_vertices);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
 		hkpShape* convex_shape = new hkpConvexVerticesShape(convex.m_vertices, planeEquationsOut);
-		hkInertiaTensorComputer::computeVertexHullVolumeMassProperties(stridedVertsOut.m_vertices, stridedVertsOut.m_striding, stridedVertsOut.m_numVertices, mass, properties);
+		if (mass > 0.0f)
+			hkInertiaTensorComputer::computeVertexHullVolumeMassProperties(stridedVertsOut.m_vertices, stridedVertsOut.m_striding, stridedVertsOut.m_numVertices, mass, properties);
+		else
+		{
+			// Collision shape is planar (0 volume)
+			hkInertiaTensorComputer::computeGeometrySurfaceMassProperties(&to_bound, 0.1, true, 1, properties);
+		}
 		convex_shape->setUserData((hkUlong)material);
 		return convex_shape;
 	}
