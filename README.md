@@ -1,6 +1,6 @@
 # ck-cmd
 
-[![Build status](https://ci.appveyor.com/api/projects/status/3aw6unok390ptys7?svg=true)](https://ci.appveyor.com/project/SpectralPlatypus/ck-cmd)
+[![Build status](https://ci.appveyor.com/api/projects/status/pjtq91xk722dksny/branch/master?svg=true)](https://ci.appveyor.com/project/aerisarn/ck-cmd/branch/master)
 
 Command line helper for executing some Creation Kit/Engine commands. Based upon hkxcmd project by Figment,
 available at https://github.com/figment/hkxcmd
