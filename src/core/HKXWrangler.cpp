@@ -1736,12 +1736,18 @@ void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> transla
 hkGeometry extract_bounding_geometry(FbxNode* shape_root, set<pair<FbxAMatrix, FbxMesh*>>& geometry_meshes, vector<hkpNamedMeshMaterial>& materials, hkpMassProperties& properties, double scaling)
 {
 	hkGeometry out;
-	if (shape_root->GetNodeAttribute() != NULL &&
-		shape_root->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh)
+	size_t attributes = shape_root->GetNodeAttributeCount();
+	bool mesh_found = false;
+	for (size_t i = 0; i < attributes; i++)
 	{
-		convert_hkgeometry(out, {FbxAMatrix(), (FbxMesh*)shape_root->GetNodeAttribute() }, materials, scaling, shape_root);
+		if (shape_root->GetNodeAttributeByIndex(i) != NULL &&
+			shape_root->GetNodeAttributeByIndex(i)->GetAttributeType() == FbxNodeAttribute::eMesh)
+		{
+			convert_hkgeometry(out, { FbxAMatrix(), (FbxMesh*)shape_root->GetNodeAttributeByIndex(i) }, materials, scaling, shape_root);
+			mesh_found = true;
+		}
 	}
-	else {
+	if (!mesh_found) {
 		for (const auto& mesh : geometry_meshes)
 		{
 			convert_hkgeometry(out, mesh, materials, scaling, shape_root);
