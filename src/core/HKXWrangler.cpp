@@ -1725,8 +1725,29 @@ void convert_hkgeometry(hkGeometry& geometry, pair<FbxAMatrix, FbxMesh*> transla
 		int v3 = mesh->GetPolygonVertex(i, 2);
 		int material_index = 0;
 		if (pPolygonMaterials)
-			material_index = pPolygonMaterials->mIndexArray->GetAt(i);
-
+		{
+			switch (pPolygonMaterials->GetMappingMode()) {
+			case FbxGeometryElement::eByPolygon:
+				material_index = pPolygonMaterials->mIndexArray->GetAt(i);
+			case FbxGeometryElement::eAllSame:
+				//Blender bug? this should be the first element in the index array, but the index array
+				//could be invalid, so we use the same index as the mesh attribute index, as there 
+				//would be 1:1 mapping between attributes and materials
+				if (pPolygonMaterials->mIndexArray->GetCount()>0)
+					material_index = pPolygonMaterials->GetIndexArray().GetAt(0);
+				else //Blender
+				{
+					for (int i = 0; i < parent->GetNodeAttributeCount(); i++)
+					{
+						if (parent->GetNodeAttributeByIndex(i) == mesh)
+						{
+							material_index = i;
+							break;
+						}
+					}
+				}
+			}
+		}
 		geometry.m_triangles.pushBack(
 			{ v1 + map_offset, v2 + map_offset , v3 + map_offset, materials_map[material_index] }
 		);
