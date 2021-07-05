@@ -1073,7 +1073,6 @@ NiCollisionObjectRef build_physics(set<pair<FbxAMatrix, FbxMesh*>>& geometry_mes
 		body->SetRotation(q);
 	}
 	bhkCMSDMaterial body_layer;
-	size_t depth = 0;
 	hkRefPtr<hkpRigidBody> hk_body = HKX::HKXWrapper::build_body(NULL, geometry_meshes);
 	if (hk_body == NULL)
 		return NULL;
@@ -1082,6 +1081,7 @@ NiCollisionObjectRef build_physics(set<pair<FbxAMatrix, FbxMesh*>>& geometry_mes
 	body->SetCenter(TOVECTOR4(body_cinfo.m_centerOfMass));
 	body->SetInertiaTensor(TOINERTIAMATRIX(body_cinfo.m_inertiaTensor));
 	body->SetMass(hk_body->getMass());
+	body_layer.filter.layer_sk = body->GetHavokFilter().layer_sk;
 
 	if (body_layer.filter.layer_sk == SKYL_ANIMSTATIC || body_layer.filter.layer_sk == SKYL_BIPED)
 	{
@@ -1099,6 +1099,7 @@ NiCollisionObjectRef build_physics(set<pair<FbxAMatrix, FbxMesh*>>& geometry_mes
 	}
 	//Static
 	else {
+		body->SetMass(0.);
 		body->SetMotionSystem(MO_SYS_BOX_STABILIZED);
 		body->SetSolverDeactivation(SOLVER_DEACTIVATION_OFF);
 		body->SetQualityType(MO_QUAL_INVALID);
@@ -1209,11 +1210,18 @@ void check_physics(NiNodeRef collision_parent, vector<pair<hkTransform, NiTriSha
 		materialParent->AddNodeAttribute(m);
 
 		const auto& vertices = geometry_group.second->GetData()->GetVertices();
+		double scale = geometry_group.second->GetScale();
+		auto shape_translation = geometry_group.second->GetTranslation();
+		auto shape_rotation = geometry_group.second->GetRotation();
+		auto shape_transform = TOHKTRANSFORM(shape_rotation, shape_translation);
+
+		matrix *= to_havok_matrix(shape_transform);
+
 		m->InitControlPoints(vertices.size());
 		FbxVector4* points = m->GetControlPoints();
 
 		for (int i = 0; i < m->GetControlPointsCount(); i++) {
-			points[i] = FbxVector4(vertices[i].x, vertices[i].y, vertices[i].z);
+			points[i] = FbxVector4(vertices[i].x, vertices[i].y, vertices[i].z) * scale;
 		}
 
 		const auto& tris = DynamicCast<NiTriShapeData>(geometry_group.second->GetData())->GetTriangles();
