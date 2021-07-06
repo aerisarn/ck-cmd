@@ -5407,7 +5407,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				parent->SetExtraDataList(ed_list);
 				continue;
 			}
-			if (child_name.find("x_") != string::npos)
+			if (child_name.find("x_") == 0)
 			{
 				hkxWrapper.add_bone(child);
 				continue;
