@@ -33,6 +33,7 @@ namespace ckcmd {
 					!_tcscmp(keyName, _T("Fallout4")) ||
 					!_tcscmp(keyName, _T("falloutnv")) ||
 					!_tcscmp(keyName, _T("oblivion")) ||
+					!_tcscmp(keyName, _T("Oblivion")) ||
 					!_tcscmp(keyName, _T("skyrim")) ||
 					!_tcscmp(keyName, _T("Skyrim Special Edition"));
 			}
@@ -96,6 +97,8 @@ namespace ckcmd {
 				if (!_tcscmp(keyName, _T("falloutnv")))
 					return FONV;
 				if (!_tcscmp(keyName, _T("oblivion")))
+					return TES4;
+				if (!_tcscmp(keyName, _T("Oblivion")))
 					return TES4;
 				if (!_tcscmp(keyName, _T("skyrim")))
 					return TES5;

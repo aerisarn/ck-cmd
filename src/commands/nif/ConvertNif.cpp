@@ -1321,45 +1321,56 @@ vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes, const NifI
 template<>
 class Accessor<bhkRigidBodyUpgrader> {
 
-	bhkBallAndSocketConstraintRef create_ball_socket(MalleableDescriptor& descriptor) {
+	bhkBallAndSocketConstraintRef create_ball_socket(bhkMalleableConstraintRef& descriptor) {
 		bhkBallAndSocketConstraintRef constraint = new bhkBallAndSocketConstraint();
-		constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
-		constraint->SetBallAndSocket(descriptor.ballAndSocket);
+		//USUALLY NONE
+		//constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
+		constraint->SetBallAndSocket(descriptor->GetMalleable().ballAndSocket);
 		return constraint;
 	}
 
-	bhkHingeConstraintRef create_hinge(MalleableDescriptor& descriptor) {
+	bhkHingeConstraintRef create_hinge(bhkMalleableConstraintRef& descriptor) {
 		bhkHingeConstraintRef constraint = new bhkHingeConstraint();
-		constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
-		constraint->SetHinge(descriptor.hinge);
+		//USUALLY NONE
+		//constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
+		constraint->SetEntities(descriptor->GetEntities());
+		constraint->SetHinge(descriptor->GetMalleable().hinge);
 		return constraint;
 	}
 
-	bhkLimitedHingeConstraintRef create_limited_hinge(MalleableDescriptor& descriptor) {
+	bhkLimitedHingeConstraintRef create_limited_hinge(bhkMalleableConstraintRef& descriptor) {
 		bhkLimitedHingeConstraintRef constraint = new bhkLimitedHingeConstraint();
-		constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
-		constraint->SetLimitedHinge(descriptor.limitedHinge);
+		//USUALLY NONE
+		//constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
+		constraint->SetEntities(descriptor->GetEntities());
+		constraint->SetLimitedHinge(descriptor->GetMalleable().limitedHinge);
 		return constraint;
 	}
 
-	bhkPrismaticConstraintRef create_prismatic(MalleableDescriptor& descriptor) {
+	bhkPrismaticConstraintRef create_prismatic(bhkMalleableConstraintRef& descriptor) {
 		bhkPrismaticConstraintRef constraint = new bhkPrismaticConstraint();
-		constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
-		constraint->SetPrismatic(descriptor.prismatic);
+		//USUALLY NONE
+		//constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
+		constraint->SetEntities(descriptor->GetEntities());
+		constraint->SetPrismatic(descriptor->GetMalleable().prismatic);
 		return constraint;
 	}
 
-	bhkRagdollConstraintRef create_ragdoll(MalleableDescriptor& descriptor) {
+	bhkRagdollConstraintRef create_ragdoll(bhkMalleableConstraintRef& descriptor) {
 		bhkRagdollConstraintRef constraint = new bhkRagdollConstraint();
-		constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
-		constraint->SetRagdoll(descriptor.ragdoll);
+		//USUALLY NONE
+		//constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
+		constraint->SetEntities(descriptor->GetEntities());
+		constraint->SetRagdoll(descriptor->GetMalleable().ragdoll);
 		return constraint;
 	}
 
-	bhkStiffSpringConstraintRef create_stiff_spring(MalleableDescriptor& descriptor) {
+	bhkStiffSpringConstraintRef create_stiff_spring(bhkMalleableConstraintRef& descriptor) {
 		bhkStiffSpringConstraintRef constraint = new bhkStiffSpringConstraint();
-		constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
-		constraint->SetStiffSpring(descriptor.stiffSpring);
+		//USUALLY NONE
+		//constraint->SetEntities({ descriptor.entityA, descriptor.entityB });
+		constraint->SetEntities(descriptor->GetEntities());
+		constraint->SetStiffSpring(descriptor->GetMalleable().stiffSpring);
 		return constraint;
 	}
 
@@ -1368,22 +1379,23 @@ class Accessor<bhkRigidBodyUpgrader> {
 		//Malleables really don't suit skyrim afaik
 		switch (malleable->GetMalleable().type) {
 		case BALLANDSOCKET:
-			return create_ball_socket(malleable->GetMalleable());
+			return create_ball_socket(malleable);
 		case HINGE:
-			return create_hinge(malleable->GetMalleable());
+			return create_hinge(malleable);
 		case LIMITED_HINGE:
-			return create_limited_hinge(malleable->GetMalleable());
+			return create_limited_hinge(malleable);
 		case PRISMATIC:
-			return create_prismatic(malleable->GetMalleable());
+			return create_prismatic(malleable);
 		case RAGDOLL:
-			return create_ragdoll(malleable->GetMalleable());
+			return create_ragdoll(malleable);
 		case STIFFSPRING:
-			return create_stiff_spring(malleable->GetMalleable());
+			return create_stiff_spring(malleable);
 		case MALLEABLE:
 			throw runtime_error("Nested Malleable constraints!");
 		default:
 			throw runtime_error("Unknown malleable inner type!");
 		}
+
 		return NULL;
 	}
 
@@ -1509,6 +1521,8 @@ NiTriShapeRef convert_strip(NiTriStripsRef& stripsRef)
 	shapeRef->SetRotation(stripsRef->GetRotation());
 	shapeRef->SetScale(stripsRef->GetScale());
 	shapeRef->SetFlags(524302);
+	if (stripsRef->GetFlags() & 1)
+		shapeRef->SetFlags(524303);
 	shapeRef->SetData(stripsRef->GetData());
 	shapeRef->SetShaderProperty(stripsRef->GetShaderProperty());
 	shapeRef->SetProperties(stripsRef->GetProperties());
@@ -1593,6 +1607,11 @@ public:
 	Accessor(NiBlendFloatInterpolatorRef source, NiBlendFloatInterpolatorRef dest)
 	{
 		dest->unknownByte = source->unknownByte;
+	}
+
+	Accessor(BYTE source, NiBlendFloatInterpolatorRef dest)
+	{
+		dest->unknownByte = source;
 	}
 };
 
@@ -2230,50 +2249,57 @@ public:
 							Log::Info("Not Found!");
 					}
 					if (blocks[i].controller->IsDerivedType(NiTextureTransformController::TYPE)) {
-						map<NiTextureTransformControllerRef, NiFloatInterpControllerRef>::iterator cc = material_transform_controllers_map.find(DynamicCast<NiTextureTransformController>(blocks[i].controller));
-						if (cc != material_transform_controllers_map.end())
-						{
-							if (cc->first->GetOperation() == TT_ROTATE)
+						//if (blocks[i].propertyType == "BSLightingShaderProperty")
+						//{
+							map<NiTextureTransformControllerRef, NiFloatInterpControllerRef>::iterator cc = material_transform_controllers_map.find(DynamicCast<NiTextureTransformController>(blocks[i].controller));
+							if (cc != material_transform_controllers_map.end())
 							{
-								NiTextureTransformControllerRef oldController = cc->first;
-								NiFloatInterpControllerRef controller = cc->second;
-								//convert, otherwise defer;
-								NiFloatInterpControllerRef new_v_controller;
-								NiInterpolatorRef newInterpolatorU;
-								NiInterpolatorRef newInterpolatorV;
+								if (cc->first->GetOperation() == TT_ROTATE)
+								{
+									NiTextureTransformControllerRef oldController = cc->first;
+									NiFloatInterpControllerRef controller = cc->second;
+									//convert, otherwise defer;
+									NiFloatInterpControllerRef new_v_controller;
+									NiInterpolatorRef newInterpolatorU;
+									NiInterpolatorRef newInterpolatorV;
 
-								convert_tt_rotate(oldController,
-									StaticCast<NiFloatInterpController>(controller),
-									blocks[i].interpolator,
-									new_v_controller,
-									newInterpolatorU,
-									newInterpolatorV);
+									convert_tt_rotate(oldController,
+										StaticCast<NiFloatInterpController>(controller),
+										blocks[i].interpolator,
+										new_v_controller,
+										newInterpolatorU,
+										newInterpolatorV);
 
-								NiBlendFloatInterpolatorRef f_ref = DynamicCast<NiBlendFloatInterpolator>(oldController->GetInterpolator());
-								//u_controller->SetInterpolator(StaticCast<NiInterpolator>(controller->GetInterpolator()));
-								NiBlendFloatInterpolatorRef v_ref = new NiBlendFloatInterpolator();
-								v_ref->SetFlags(f_ref->GetFlags());
-								Accessor<BlendUnknownSet>(f_ref, v_ref);
-								v_ref->SetManagedControlled(f_ref->GetManagedControlled());
-								v_ref->SetValue(f_ref->GetValue());
+									NiBlendFloatInterpolatorRef f_ref = DynamicCast<NiBlendFloatInterpolator>(oldController->GetInterpolator());
+									//u_controller->SetInterpolator(StaticCast<NiInterpolator>(controller->GetInterpolator()));
+									NiBlendFloatInterpolatorRef v_ref = new NiBlendFloatInterpolator();
+									v_ref->SetFlags(f_ref->GetFlags());
+									Accessor<BlendUnknownSet>(f_ref, v_ref);
+									v_ref->SetManagedControlled(f_ref->GetManagedControlled());
+									v_ref->SetValue(f_ref->GetValue());
 
-								new_v_controller->SetNextController(oldController->GetNextController());
-								controller->SetNextController(StaticCast<NiTimeController>(new_v_controller));
+									new_v_controller->SetNextController(oldController->GetNextController());
+									controller->SetNextController(StaticCast<NiTimeController>(new_v_controller));
 
-								new_v_controller->SetInterpolator(StaticCast<NiInterpolator>(v_ref));
+									new_v_controller->SetInterpolator(StaticCast<NiInterpolator>(v_ref));
 
-								ControlledBlock additional_v_block = blocks[i];
-								blocks[i].controller = controller;
-								blocks[i].interpolator = newInterpolatorU;
-								blocks[i].controllerId = to_string(controller_id++);
-								additional_v_block.controller = new_v_controller;
-								additional_v_block.interpolator = newInterpolatorV;
-								additional_v_block.controllerId = to_string(controller_id++);
-								blocks.insert(blocks.begin() + i + 1, additional_v_block);
-								
-							} else
-								blocks[i].controller = cc->second;
-						}
+									ControlledBlock additional_v_block = blocks[i];
+									blocks[i].controller = controller;
+									blocks[i].interpolator = newInterpolatorU;
+									blocks[i].controllerId = to_string(controller_id++);
+									additional_v_block.controller = new_v_controller;
+									additional_v_block.interpolator = newInterpolatorV;
+									additional_v_block.controllerId = to_string(controller_id++);
+									blocks.insert(blocks.begin() + i + 1, additional_v_block);
+
+								}
+								else
+									blocks[i].controller = cc->second;
+							}
+						//}
+						//else if (blocks[i].propertyType == "BSEffectShaderProperty") {
+
+						//}
 						else
 							Log::Info("Not Found!");
 					}
@@ -2426,11 +2452,22 @@ public:
 		else if (obj.GetName() == "Bip01 Neck1")
 			obj.SetName(IndexString("NPC Neck [Neck]"));
 
-
-		for (NiAVObjectRef& block : children)
+		auto it = children.begin();
+		while (it != children.end())
 		{
+			NiAVObjectRef& block = *it;
 			if (block == NULL) {
-				children.erase(children.begin() + index);
+				it = children.erase(it);
+				continue;
+			}
+			//daedricshrinehircine01.nif, obsolete
+			if (block->IsSameType(NiDirectionalLight::TYPE)) {
+				it = children.erase(it);
+				continue;
+			}
+			//daedricshrinesanguine01.nif, obsolete
+			if (block->IsSameType(NiAmbientLight::TYPE)) {
+				it = children.erase(it);
 				continue;
 			}
 			if (block->IsSameType(NiTriStrips::TYPE)) {
@@ -2444,7 +2481,7 @@ public:
 			//	NiParticleSystemRef stripsRef = DynamicCast<NiParticleSystem>(block);
 			//	visit_particle(*stripsRef, obj);
 			//}
-
+			it++;
 			index++;
 		}
 		index = 0;
@@ -2515,6 +2552,9 @@ public:
 		obj.SetProperties(vector<NiPropertyRef>{});
 		obj.SetChildren(children);
 		obj.SetExtraDataList(extras);
+		//Not supported anymore. seems like dead exporter stuff like NiDirectionaLight
+		//Crashes SE
+		obj.SetEffects({});
 	}
 
 	template<>
@@ -2604,6 +2644,9 @@ public:
 				throw runtime_error("Geometry mismatch!");
 			obj.SetBsVectorFlags(static_cast<BSVectorFlags>(obj.GetBsVectorFlags() | BSVF_HAS_TANGENTS));
 		}
+
+		//grovestatue01.nif v10.0.0.2
+		obj.SetHasTriangles(faces.size() > 0);
 
 		//TODO: shared normals no more supported
 		obj.SetMatchGroups(vector<MatchGroup>{});
@@ -2699,7 +2742,18 @@ public:
 				if (material->GetController() != NULL) {
 					if (material->GetController()->IsSameType(NiMaterialColorController::TYPE)) {
 						NiMaterialColorControllerRef oldController = DynamicCast<NiMaterialColorController>(material->GetController());
-						BSLightingShaderPropertyColorControllerRef controller = new BSLightingShaderPropertyColorController();
+						NiPoint3InterpControllerRef controller;
+						if (lightingProperty->IsSameType(BSLightingShaderProperty::TYPE)) {
+							BSLightingShaderPropertyColorControllerRef typed_controller = new BSLightingShaderPropertyColorController();
+							if (oldController->GetTargetColor() == MaterialColor::TC_SELF_ILLUM)
+								typed_controller->SetTypeOfControlledColor(LightingShaderControlledColor::LSCC_EMISSIVE_COLOR);
+							controller = typed_controller;
+						}
+						else {
+							BSEffectShaderPropertyColorControllerRef typed_controller = new BSEffectShaderPropertyColorController();
+							if (oldController->GetTargetColor() == MaterialColor::TC_SELF_ILLUM)
+								typed_controller->SetTypeOfControlledColor(EffectShaderControlledColor::ECSC_EMISSIVE_COLOR);
+						}
 						controller->SetFlags(oldController->GetFlags());
 						controller->SetFrequency(oldController->GetFrequency());
 						controller->SetPhase(oldController->GetPhase());
@@ -2707,10 +2761,41 @@ public:
 						controller->SetStopTime(oldController->GetStopTime());
 						controller->SetTarget(lightingProperty);
 						controller->SetInterpolator(oldController->GetInterpolator());
-						if (oldController->GetTargetColor() == MaterialColor::TC_SELF_ILLUM)
-							controller->SetTypeOfControlledColor(LightingShaderControlledColor::LSCC_EMISSIVE_COLOR);
-						//constructor sets to specular.
 
+						//constructor sets to specular.
+						//Seems this also likes a niblendfloat
+						if (lightingProperty->IsSameType(BSLightingShaderProperty::TYPE))
+						{
+							//We're gonna leave this here and rewire it later
+							NiFloatInterpolatorRef interpolator = new NiFloatInterpolator();
+							NiFloatDataRef data = new NiFloatData();
+							KeyGroup<float > tkeys;
+							Key<float> start;
+							start.time = oldController->GetStartTime();
+							start.data = 1.;
+							Key<float> stop;
+							stop.time = oldController->GetStopTime();
+							start.data = 1.;
+							tkeys.keys.push_back(start);
+							tkeys.keys.push_back(stop);
+							interpolator->SetData(data);
+
+
+							BSLightingShaderPropertyFloatControllerRef additional_controller = new BSLightingShaderPropertyFloatController();
+							additional_controller->SetFlags(oldController->GetFlags());
+							additional_controller->SetFrequency(oldController->GetFrequency());
+							additional_controller->SetPhase(oldController->GetPhase());
+							additional_controller->SetStartTime(oldController->GetStartTime());
+							additional_controller->SetStopTime(oldController->GetStopTime());
+							additional_controller->SetTarget(lightingProperty);
+							additional_controller->SetInterpolator(StaticCast<NiInterpolator>(interpolator));
+							additional_controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_EMISSIVE_MULTIPLE);
+
+
+
+
+							controller->SetNextController(StaticCast<NiTimeController>(additional_controller));
+						}
 						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));
 						material_controllers_map[oldController] = controller;
 					}
@@ -3260,12 +3345,12 @@ public:
 	{
 
 		nisequences.insert(obj.GetName());
-		vector<ControlledBlock> blocks = obj.GetControlledBlocks();
+		vector<ControlledBlock> cblocks = obj.GetControlledBlocks();
 		vector<ControlledBlock> nblocks;
 
 		//for some reason, oblivion's NIF blocks have empty NiTransforms, time to remove.
-		for (int i = 0; i != blocks.size(); i++) {
-			NiInterpolator* intp = blocks[i].interpolator;
+		for (int i = 0; i != cblocks.size(); i++) {
+			NiInterpolator* intp = cblocks[i].interpolator;
 			if (intp == NULL)
 				continue;
 			if (intp->IsDerivedType(NiTransformInterpolator::TYPE)) {
@@ -3273,47 +3358,104 @@ public:
 				if (tintp->GetData() == NULL)
 					continue;
 			}
-			if (blocks[i].stringPalette != NULL)
+			if (cblocks[i].stringPalette != NULL)
 			{
 				//Deprecated. Maybe we can handle with tri facegens
-				if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiGeomMorpherController::TYPE))
+				if (cblocks[i].controller != NULL && cblocks[i].controller->IsDerivedType(NiGeomMorpherController::TYPE))
 					continue;
 
-				blocks[i].nodeName = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].nodeNameOffset);
-				blocks[i].controllerType = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].controllerTypeOffset);
+				cblocks[i].nodeName = getStringFromPalette(cblocks[i].stringPalette->GetPalette().palette, cblocks[i].nodeNameOffset);
+				cblocks[i].controllerType = getStringFromPalette(cblocks[i].stringPalette->GetPalette().palette, cblocks[i].controllerTypeOffset);
 
-				if (blocks[i].propertyTypeOffset != 4294967295)
-					blocks[i].propertyType = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].propertyTypeOffset);
+				if (cblocks[i].propertyTypeOffset != 4294967295)
+					cblocks[i].propertyType = getStringFromPalette(cblocks[i].stringPalette->GetPalette().palette, cblocks[i].propertyTypeOffset);
 
-				if (blocks[i].controllerIdOffset != 4294967295)
-					blocks[i].controllerId = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].controllerIdOffset);
+				if (cblocks[i].controllerIdOffset != 4294967295)
+					cblocks[i].controllerId = getStringFromPalette(cblocks[i].stringPalette->GetPalette().palette, cblocks[i].controllerIdOffset);
 
-				if (blocks[i].interpolatorIdOffset != 4294967295)
-					blocks[i].interpolatorId = getStringFromPalette(blocks[i].stringPalette->GetPalette().palette, blocks[i].interpolatorIdOffset);
+				if (cblocks[i].interpolatorIdOffset != 4294967295)
+					cblocks[i].interpolatorId = getStringFromPalette(cblocks[i].stringPalette->GetPalette().palette, cblocks[i].interpolatorIdOffset);
 			}
 
-			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiMaterialColorController::TYPE))
+			if (cblocks[i].controller != NULL && cblocks[i].controller->IsDerivedType(NiMaterialColorController::TYPE))
 			{
-				blocks[i].propertyType = "BSLightingShaderProperty";
-				blocks[i].controllerType = "BSLightingShaderPropertyColorController";
+				//std::string node_name = getStringFromPalette(cblocks[i].stringPalette->GetPalette().palette, cblocks[i].nodeNameOffset);
+				//NiNodeRef controlled = NULL;
+				//for (auto& niblock : blocks) {
+				//	if (DynamicCast<NiNode>(niblock) != NULL) {
+				//		NiNodeRef node = DynamicCast<NiNode>(niblock);
+				//		if (node->GetName() == node_name)
+				//		{
+				//			controlled = node;
+				//		}
+				//	}
+				//} 
+				//if (NULL != controlled && controlled->IsDerivedType(NiParticleSystem::TYPE)) {
+				//	cblocks[i].propertyType = "BSEffectShaderProperty";
+				//	cblocks[i].controllerType = "BSEffectShaderPropertyColorController";
+				//}
+				//else {
+				//	cblocks[i].propertyType = "BSLightingShaderProperty";
+				//	cblocks[i].controllerType = "BSLightingShaderPropertyColorController";
+				//}
 			}
-			if (blocks[i].controller != NULL && blocks[i].controller->IsDerivedType(NiTextureTransformController::TYPE))
+			if (cblocks[i].controller != NULL && cblocks[i].controller->IsDerivedType(NiTextureTransformController::TYPE))
 			{
-				blocks[i].propertyType = "BSLightingShaderProperty";
-				blocks[i].controllerType = "BSLightingShaderPropertyFloatController";
+				//std::string node_name = getStringFromPalette(cblocks[i].stringPalette->GetPalette().palette, cblocks[i].nodeNameOffset);
+				//NiNodeRef controlled = NULL;
+				//for (auto& niblock : blocks) {
+				//	if (DynamicCast<NiNode>(niblock) != NULL) {
+				//		NiNodeRef node = DynamicCast<NiNode>(niblock);
+				//		if (node->GetName() == node_name)
+				//		{
+				//			controlled = node;
+				//		}
+				//	}
+				//}
+				//if (NULL != controlled && controlled->IsDerivedType(NiParticleSystem::TYPE)) {
+				//	cblocks[i].propertyType = "BSEffectShaderProperty";
+				//	cblocks[i].controllerType = "BSEffectShaderPropertyFloatController";
+				//}
+				//else {
+				//	cblocks[i].propertyType = "BSLightingShaderProperty";
+				//	cblocks[i].controllerType = "BSLightingShaderPropertyFloatController";
+				//}
+				//std::string node_name = getStringFromPalette(cblocks[i].stringPalette->GetPalette().palette, cblocks[i].nodeNameOffset);
+				//cblocks[i].propertyType = "BSLightingShaderProperty";
+				//cblocks[i].controllerType = "BSLightingShaderPropertyFloatController";
 			}
-			if (blocks[i].controller != NULL && (blocks[i].controller->IsDerivedType(NiAlphaController::TYPE) || blocks[i].controller->IsDerivedType(NiFlipController::TYPE))) //hoping this works
+			if (cblocks[i].controller != NULL && (cblocks[i].controller->IsDerivedType(NiAlphaController::TYPE) || cblocks[i].controller->IsDerivedType(NiFlipController::TYPE))) //hoping this works
 			{
-				blocks[i].propertyType = "BSLightingShaderProperty";
-				blocks[i].controllerType = "BSLightingShaderPropertyFloatController";
+				//std::string node_name = getStringFromPalette(cblocks[i].stringPalette->GetPalette().palette, cblocks[i].nodeNameOffset);
+				//NiNodeRef controlled = NULL;
+				//for (auto& niblock : blocks) {
+				//	if (DynamicCast<NiNode>(niblock) != NULL) {
+				//		NiNodeRef node = DynamicCast<NiNode>(niblock);
+				//		if (node->GetName() == node_name)
+				//		{
+				//			controlled = node;
+				//		}
+				//	}
+				//}
+				//if (NULL != controlled && controlled->IsDerivedType(NiParticleSystem::TYPE)) {
+				//	cblocks[i].propertyType = "BSEffectShaderProperty";
+				//	cblocks[i].controllerType = "BSEffectShaderPropertyFloatController";
+				//}
+				//else {
+				//	cblocks[i].propertyType = "BSLightingShaderProperty";
+				//	cblocks[i].controllerType = "BSLightingShaderPropertyFloatController";
+				//}
+				//std::string node_name = getStringFromPalette(cblocks[i].stringPalette->GetPalette().palette, cblocks[i].nodeNameOffset);
+				//cblocks[i].propertyType = "BSLightingShaderProperty";
+				//cblocks[i].controllerType = "BSLightingShaderPropertyFloatController";
 			}
 
 			//set to default... if above doesn't work
-			if (blocks[i].controllerType == "")
+			if (cblocks[i].controllerType == "")
 				throw runtime_error("controller type is null; will cause errors.");
 
-			blocks[i].stringPalette = NULL;
-			nblocks.push_back(blocks[i]);
+			cblocks[i].stringPalette = NULL;
+			nblocks.push_back(cblocks[i]);
 		}
 		obj.SetControlledBlocks(nblocks);
 		obj.SetStringPalette(NULL);
@@ -3711,11 +3853,14 @@ public:
 	inline void visit_object(NiPSysMeshEmitter& obj) {
 		vector<NiAVObject * >& meshes = obj.GetEmitterMeshes();
 		for (int i = 0; i < meshes.size(); i++) {
-			for (NiObjectRef ref : blocks) {
-				if (ref->IsDerivedType(NiAVObject::TYPE)) {
-					NiAVObjectRef av_ref = DynamicCast<NiAVObject>(ref);
-					if (av_ref->GetName() == meshes[i]->GetName()) {
-						meshes[i] = av_ref;
+			if (NULL != meshes[i])
+			{
+				for (NiObjectRef ref : blocks) {
+					if (ref->IsDerivedType(NiAVObject::TYPE)) {
+						NiAVObjectRef av_ref = DynamicCast<NiAVObject>(ref);
+						if (av_ref->GetName() == meshes[i]->GetName()) {
+							meshes[i] = av_ref;
+						}
 					}
 				}
 			}
@@ -3725,10 +3870,11 @@ public:
 
 	template<>
 	inline void visit_object(NiControllerSequence& obj) {
-		vector<ControlledBlock> blocks = obj.GetControlledBlocks();
+		vector<ControlledBlock> cblocks = obj.GetControlledBlocks();
+		vector<ControlledBlock> blocks_to_add;
 
-		for (int i = 0; i != blocks.size(); i++) {
-			NiTimeControllerRef controller = blocks[i].controller;
+		for (int i = 0; i != cblocks.size(); i++) {
+			NiTimeControllerRef controller = cblocks[i].controller;
 
 			//specific fix for oblivion fountains. 
 			if (controller->IsSameType(BSLightingShaderPropertyColorController::TYPE) && controller->GetTarget()->IsSameType(BSEffectShaderProperty::TYPE)) {
@@ -3748,16 +3894,102 @@ public:
 				newController->SetTarget(lightingController->GetTarget());
 				newController->SetTypeOfControlledColor(EffectShaderControlledColor::ECSC_EMISSIVE_COLOR);
 
-				blocks[i].controller = newController;
-				blocks[i].propertyType = "BSEffectShaderProperty";
-				blocks[i].controllerType = "BSEffectShaderPropertyColorController";
+				cblocks[i].controller = newController;
+				cblocks[i].propertyType = "BSEffectShaderProperty";
+				cblocks[i].controllerType = "BSEffectShaderPropertyColorController";
 
 				BSEffectShaderPropertyRef shader = DynamicCast<BSEffectShaderProperty>(newController->GetTarget());
-				shader->SetController(blocks[i].controller);
+				shader->SetController(cblocks[i].controller);
+			}
+			else if (controller->IsSameType(BSLightingShaderPropertyColorController::TYPE) && 
+				DynamicCast<BSLightingShaderPropertyColorController>(controller)->GetTypeOfControlledColor() == LightingShaderControlledColor::LSCC_EMISSIVE_COLOR) {
+				BSLightingShaderPropertyColorControllerRef lightingController = DynamicCast<BSLightingShaderPropertyColorController>(controller);
+				
+				if (lightingController->GetNextController() == NULL) {
+					Log::Error("Found BSLightingShaderPropertyColorController Emissive without next controller!");
+					continue;
+				}
+
+
+
+				BSLightingShaderPropertyFloatControllerRef floatController = DynamicCast<BSLightingShaderPropertyFloatController>(lightingController->GetNextController());
+
+				NiFloatInterpolatorRef float_interpolator = DynamicCast< NiFloatInterpolator>(floatController->GetInterpolator());
+
+				NiBlendFloatInterpolatorRef blend_interpolator = new NiBlendFloatInterpolator();
+				Accessor<BlendUnknownSet>(2, blend_interpolator);
+				blend_interpolator->SetFlags(InterpBlendFlags::MANAGER_CONTROLLED);
+				blend_interpolator->SetManagedControlled(true);
+
+
+
+				//blocks.push_back(StaticCast<NiObject>(float_interpolator));
+
+				ControlledBlock another_block = cblocks[i];
+				another_block.interpolator = float_interpolator;
+				another_block.controller = floatController;
+				another_block.controllerType = "BSLightingShaderPropertyFloatController";
+				cblocks.insert(cblocks.begin() + i + 1, another_block);
+
+				floatController->SetInterpolator(StaticCast<NiInterpolator>(blend_interpolator));
+			}
+		}
+		//renumber
+		size_t controller_id = 1;
+		for (int i = 0; i < cblocks.size(); i++) {
+			NiTimeControllerRef controller = cblocks[i].controller;
+
+
+			//Fix names
+			if (controller->IsSameType(BSLightingShaderPropertyColorController::TYPE))
+			{
+				cblocks[i].propertyType = "BSLightingShaderProperty";
+				cblocks[i].controllerType = "BSLightingShaderPropertyColorController";
+			}
+			if (controller->IsSameType(BSEffectShaderPropertyColorController::TYPE))
+			{
+				cblocks[i].propertyType = "BSEffectShaderProperty";
+				cblocks[i].controllerType = "BSEffectShaderPropertyColorController";
+			}
+			if (controller->IsSameType(BSLightingShaderPropertyFloatController::TYPE))
+			{
+				cblocks[i].propertyType = "BSLightingShaderProperty";
+				cblocks[i].controllerType = "BSLightingShaderPropertyFloatController";
+			}
+			if (controller->IsSameType(BSEffectShaderPropertyFloatController::TYPE))
+			{
+				cblocks[i].propertyType = "BSEffectShaderProperty";
+				cblocks[i].controllerType = "BSEffectShaderPropertyFloatController";
+			}
+
+			if (controller->IsSameType(BSLightingShaderPropertyColorController::TYPE) || 
+				controller->IsSameType(BSEffectShaderPropertyColorController::TYPE) ||
+				controller->IsSameType(BSLightingShaderPropertyFloatController::TYPE) || 
+				controller->IsSameType(BSEffectShaderPropertyFloatController::TYPE))
+			{
+
+
+				cblocks[i].controllerId = std::to_string(controller_id++);
 			}
 		}
 
-		obj.SetControlledBlocks(blocks);
+		//WIP
+
+		//for (int i = 0; i < cblocks.size(); i++) {
+		//	NiTimeControllerRef controller = cblocks[i].controller;
+		//	if (/*controller->IsSameType(BSLightingShaderPropertyColorController::TYPE) ||
+		//		controller->IsSameType(BSEffectShaderPropertyColorController::TYPE) ||
+		//		controller->IsSameType(BSLightingShaderPropertyFloatController::TYPE) ||*/
+		//		//controller->IsSameType(BSEffectShaderPropertyFloatController::TYPE)/* ||
+		//		controller->IsSameType(NiPSysEmitterCtlr::TYPE))
+		//	{
+		//		cblocks.erase(cblocks.begin() + i);
+		//		i--;
+		//	}
+		//}
+
+
+		obj.SetControlledBlocks(cblocks);
 	}
 
 	template<>
@@ -4011,8 +4243,10 @@ void convert_blocks(
 		if (!sequences.empty()) {
 			fs::path in_file = nif_file_path.filename();
 			string out_name = in_file.filename().replace_extension("").string();
-			fs::path out_path = fs::path("animations") / in_file.parent_path() / out_name;
+			fs::path out_path = fs::path("tes4") / fs::path("animations") / in_file.parent_path() / out_name;
 			fs::path out_path_abs = exportPath / out_path;
+			if (exportPath.empty())
+				out_path_abs = games.data(Games::TES5SE) / "meshes" / out_path;
 			string out_path_a = out_path_abs.string();
 			out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
 			vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
@@ -4199,7 +4433,11 @@ bool BeginConversion(string importPath, string exportPath) {
 			for (const auto& nif : bsa_file.assets(".*\.nif")) {
 				Log::Info("Current File: %s", nif.c_str());
 
-				fs::path out_path = nif_out / nif;
+				std::string nif_path = nif;
+				if (nif.find("meshes") == 0) {
+					nif_path = "meshes\\tes4" + nif_path.substr(std::string("meshes").size(), nif_path.size());
+				}
+				fs::path out_path = games.data(Games::TES5SE) / nif_path;
 
 				if (nif.find("meshes\\landscape\\lod") != string::npos) {
 					Log::Warn("Ignored LOD file: %s", nif.c_str());
@@ -4244,7 +4482,7 @@ bool BeginConversion(string importPath, string exportPath) {
 					exportPath
 				);
 
-				out_path = nif_out / nif;
+				//out_path = nif_out / nif;
 				fs::create_directories(out_path.parent_path());
 				WriteNifTree(out_path.string(), root, info);
 				material_controllers_map.clear();

@@ -73,7 +73,7 @@ namespace fs = std::filesystem;
 
 static const fs::path nif_in = "D:\\git\\ck-cmd\\resources\\in";
 static const fs::path resources = "resources\\";
-static const fs::path nif_out = "D:\\git\\ck-cmd\\resources\\out";
+static const fs::path nif_out = "D:\\skywind\\test\\skybliviont";
 
 //void findFiles(fs::path startingDir, string extension, vector<fs::path>& results);
 //bool BeginConversion();
