@@ -118,6 +118,10 @@ static inline hkVector4 TOVECTOR4(const Niflib::Vector4& v) {
 	return hkVector4(v.x, v.y, v.z, v.w);
 }
 
+static inline hkVector4 TOVECTOR3(const Niflib::Float3& v) {
+	return hkVector4(v[0], v[1], v[2]);
+}
+
 static inline Niflib::Quaternion TOQUAT(const ::hkQuaternion& q, bool inverse = false) {
 	Niflib::Quaternion qt(q.m_vec.getSimdAt(3), q.m_vec.getSimdAt(0), q.m_vec.getSimdAt(1), q.m_vec.getSimdAt(2));
 	return inverse ? qt.Inverse() : qt;
@@ -143,12 +147,34 @@ static inline hkMatrix3 TOMATRIX3(const Niflib::InertiaMatrix& q, bool inverse =
 	hkMatrix3 m3;
 	m3.setCols(TOVECTOR4(q.rows[0]), TOVECTOR4(q.rows[1]), TOVECTOR4(q.rows[2]));
 	if (inverse) m3.invert(0.001);
+	return m3;
+}
+
+static inline hkRotation TOMATRIX3(const Niflib::Matrix33& q, bool inverse = false) {
+	hkRotation m3;
+	m3.setCols(TOVECTOR3(q.rows[0]), TOVECTOR3(q.rows[1]), TOVECTOR3(q.rows[2]));
+	if (inverse) m3.invert(0.001);
+	return m3;
 }
 
 static inline Vector4 HKMATRIXROW(const hkTransform& q, const unsigned int row) {
 	return Vector4(q(row, 0), q(row, 1), q(row, 2), q(row, 3));
 }
 
+static inline Matrix44 TOMATRIX44(const hkTransform& q, const float scale = 1.0f, bool inverse = false) {
+
+	hkVector4 c0 = q.getColumn(0);
+	hkVector4 c1 = q.getColumn(1);
+	hkVector4 c2 = q.getColumn(2);
+	hkVector4 c3 = q.getColumn(3);
+
+	return Matrix44(
+		c0.getSimdAt(0), c1.getSimdAt(0), c2.getSimdAt(0), (float)c3.getSimdAt(0) * scale,
+		c0.getSimdAt(1), c1.getSimdAt(1), c2.getSimdAt(1), (float)c3.getSimdAt(1) * scale,
+		c0.getSimdAt(2), c1.getSimdAt(2), c2.getSimdAt(2), (float)c3.getSimdAt(2) * scale,
+		c0.getSimdAt(3), c1.getSimdAt(3), c2.getSimdAt(3), c3.getSimdAt(3)
+	);
+}
 
 SkyrimHavokMaterial convert_havok_material(OblivionHavokMaterial material) {
 	switch (material) {
@@ -711,82 +737,6 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 			});
 		}
 
-		void split(const std::array<int, 2>& side, int c, int opposite_c) {
-			//current_stair.insert({ side[0], side[1],  c });
-			//current_stair.insert({ side[1], side[0],  opposite_c });
-			//vector<int> down_adjacent_side = almost_adjacent_side(source, down_adjacent); // a, b
-			//int down_adjiacent_down_vertex_index = min_z_component(down_adjacent); // c
-			//vector<int> down_touching_side = almost_adjacent_side(down_adjacent, down_touching);
-			//int vertex_d = -1; //d
-			//if (find(down_touching_side.begin(), down_touching_side.end(), down_touching.m_a) == down_touching_side.end())
-			//	vertex_d = down_touching.m_a;
-			//if (find(down_touching_side.begin(), down_touching_side.end(), down_touching.m_b) == down_touching_side.end())
-			//	vertex_d = down_touching.m_b;
-			//if (vertex_d == -1)
-			//	vertex_d = down_touching.m_c;
-			//if (vertex_d == -1)
-			//	throw runtime_error("Unable to find the vertex_d in collision breaker!");
-
-			//hkVector4 tdist0; tdist0.setSub4(geometry.m_vertices[down_adjiacent_down_vertex_index], geometry.m_vertices[down_adjacent_side[0]]);
-			//hkVector4 tdist1; tdist1.setSub4(geometry.m_vertices[down_adjiacent_down_vertex_index], geometry.m_vertices[down_adjacent_side[1]]);
-
-			//int vertex_a = tdist0.length3() < tdist1.length3() ? down_adjacent_side[0] : down_adjacent_side[1];
-			//int vertex_b = vertex_a == down_adjacent_side[0] ? down_adjacent_side[1] : down_adjacent_side[0];
-			//int vertex_c = down_adjiacent_down_vertex_index;
-
-			////now calculate the break directions
-			//hkVector4 vector_a = geometry.m_vertices[vertex_a];
-			//hkVector4 vector_b = geometry.m_vertices[vertex_b];
-			//hkVector4 vector_c = geometry.m_vertices[vertex_c];
-			//hkVector4 vector_d = geometry.m_vertices[vertex_d];
-
-			//hkVector4 vector_ac; vector_ac.setSub4(vector_c, vector_a);
-			//hkVector4 vector_bd; vector_bd.setSub4(vector_d, vector_b);
-
-			//// norm / z_component = new_norm / step_size -> new_nomr = (norm/z_component) *step_size
-			//float ac_new_norm = STEP_SIZE / vector_ac.length3().getReal(); // (vector_ac.length3().getReal() / abs(vector_ac(2))) * STEP_SIZE;
-			//float bd_new_norm = STEP_SIZE / vector_bd.length3().getReal(); // (vector_bd.length3().getReal() / abs(vector_bd(2))) * STEP_SIZE;
-
-			//hkVector4 vector_ac_new = hkVector4(vector_ac(0)*ac_new_norm, vector_ac(1)*ac_new_norm, vector_ac(2)*ac_new_norm);
-			//hkVector4 vector_bd_new = hkVector4(vector_bd(0)*bd_new_norm, vector_bd(1)*bd_new_norm, vector_bd(2)*bd_new_norm);
-
-			//hkVector4 vector_a_new; vector_a_new.setAdd4(vector_a, vector_ac_new);
-			//hkVector4 vector_b_new; vector_b_new.setAdd4(vector_b, vector_bd_new);
-
-			//int vertex_a_new = geometry.m_vertices.getSize();
-			//geometry.m_vertices.pushBack(vector_a_new);
-			//int vertex_b_new = geometry.m_vertices.getSize();
-			//geometry.m_vertices.pushBack(vector_b_new);
-
-			////new triangles
-			//hkGeometry::Triangle stairs_down;
-			//stairs_down.m_a = vertex_a;
-			//stairs_down.m_b = vertex_b;
-			//stairs_down.m_c = vertex_a_new;
-			//stairs_down.m_material = 0;
-			//hkGeometry::Triangle stairs_touching;
-			//stairs_touching.m_a = vertex_a_new;
-			//stairs_touching.m_b = vertex_b_new;
-			//stairs_touching.m_c = vertex_b;
-			//stairs_touching.m_material = 0;
-			//hkGeometry::Triangle non_stairs_down;
-			//non_stairs_down.m_a = vertex_a_new;
-			//non_stairs_down.m_b = vertex_b_new;
-			//non_stairs_down.m_c = vertex_c;
-			//non_stairs_down.m_material = 0;
-			//hkGeometry::Triangle non_stairs_touching;
-			//non_stairs_touching.m_a = vertex_c;
-			//non_stairs_touching.m_b = vertex_d;
-			//non_stairs_touching.m_c = vertex_b_new;
-			//non_stairs_touching.m_material = 0;
-
-			//stairs.push_back(non_stairs_down);
-			//stairs.push_back(non_stairs_touching);
-
-			//down_adjacent = stairs_down;
-			//down_touching = stairs_touching;
-		}
-
 		std::array<int, 2> find_max_side(std::array<int, 3> tris) {
 			hkVector4 a = geometry.m_vertices[tris[0]];
 			hkVector4 b = geometry.m_vertices[tris[1]];
@@ -1031,12 +981,15 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 			!isGeometryDegenerate();
 	}
 
+	Vector3 _collision_translation;
+
 public:
 
 	bhkMoppBvTreeShapeRef pMoppShape;
 
-	CollisionShapeVisitor(bhkShapeRef shape, const NifInfo& info, NiAVObject* target) :
+	CollisionShapeVisitor(bhkShapeRef shape, const NifInfo& info, NiAVObject* target, const Vector3& collision_translation) :
 		target(target),
+		_collision_translation(collision_translation),
 		RecursiveFieldVisitor(*this, info) {
 		shape->accept(*this, info);
 		if (pMoppShape == NULL)
@@ -1093,7 +1046,7 @@ public:
 			geometry.m_triangles.setSize(in_triangles.size());
 
 			for (int v = 0; v < vertices.size(); v++) {
-				geometry.m_vertices[v] = TOVECTOR4(vertices[v] * COLLISION_RATIO);
+				geometry.m_vertices[v] = TOVECTOR4((vertices[v] - _collision_translation) * COLLISION_RATIO);
 			}
 
 
@@ -1196,7 +1149,7 @@ public:
 
 			vector<Vector3> vertices(shape->GetVertices());
 			for (auto& v : vertices) {
-				geometry.m_vertices.pushBack(TOVECTOR4(v * factor));
+				geometry.m_vertices.pushBack(TOVECTOR4((v - _collision_translation * 6.9) * factor));
 			}
 
 			SkyrimHavokMaterial s_material = material_from_flags(shape->GetVectorFlags());
@@ -1254,7 +1207,7 @@ public:
 
 			vector<Vector3> vertices(shape->GetVertices());
 			for (auto& v : vertices) {
-				geometry.m_vertices.pushBack(TOVECTOR4(v * factor));
+				geometry.m_vertices.pushBack(TOVECTOR4((v - _collision_translation * 6.9) * factor));
 			}
 
 			SkyrimHavokMaterial s_material = material_from_flags(shape->GetVectorFlags());
@@ -1295,22 +1248,22 @@ public:
 	}
 };
 
-bhkShapeRef upgrade_shape(const bhkShapeRef& shape, const NifInfo& info, NiAVObject* target) {
+bhkShapeRef upgrade_shape(const bhkShapeRef& shape, const NifInfo& info, NiAVObject* target, const Vector3& collision_translation) {
 	if (shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
 		shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
 		shape->IsSameType(bhkPackedNiTriStripsShape::TYPE))
-		return CollisionShapeVisitor(shape, info, target).pMoppShape;
+		return CollisionShapeVisitor(shape, info, target, collision_translation).pMoppShape;
 	else
 		return shape;
 }
 
-vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes, const NifInfo& info, NiAVObject* target) {
+vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes, const NifInfo& info, NiAVObject* target, const Vector3& collision_translation) {
 	vector<bhkShapeRef> out;
 	for (bhkShapeRef shape : shapes) {
 		if (shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
 			shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
 			shape->IsSameType(bhkPackedNiTriStripsShape::TYPE))
-			out.push_back(upgrade_shape(shape, info, target));
+			out.push_back(upgrade_shape(shape, info, target, collision_translation));
 		else
 			out.push_back(shape);
 	}
@@ -1401,8 +1354,11 @@ class Accessor<bhkRigidBodyUpgrader> {
 
 	const NifInfo& this_info;
 
+	Vector3 _collision_translation;
+
 public:
-	Accessor(bhkRigidBody& obj, const NifInfo& info, NiAVObject* target) : this_info(info) {
+	Accessor(bhkRigidBody& obj, const NifInfo& info, NiAVObject* target, Vector3 collision_translation) : this_info(info) {
+		_collision_translation = collision_translation;
 		//zero out
 		obj.unknownInt = 0;
 
@@ -1424,9 +1380,13 @@ public:
 		obj.havokFilter.layer_sk = convert_havok_layer(obj.havokFilter.layer_ob);
 		obj.havokFilterCopy = obj.havokFilter;
 
+		obj.translation -= _collision_translation;
+
 		obj.translation.x *= COLLISION_RATIO;
 		obj.translation.y *= COLLISION_RATIO;
 		obj.translation.z *= COLLISION_RATIO;
+
+		obj.center -= obj.center;
 
 		obj.center.x *= COLLISION_RATIO;
 		obj.center.y *= COLLISION_RATIO;
@@ -1451,7 +1411,7 @@ public:
 		if (obj.shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
 			obj.shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
 			obj.shape->IsSameType(bhkPackedNiTriStripsShape::TYPE)) {
-			obj.shape = upgrade_shape(obj.shape, this_info, target);
+			obj.shape = upgrade_shape(obj.shape, this_info, target, _collision_translation);
 		}
 
 	}
@@ -2101,7 +2061,7 @@ class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
 public:
 
 	set<string> nisequences;
-
+	Vector3 _collision_translation;
 	//template<typename T>
 	//struct replace<Ref<T>>
 	//{		
@@ -2148,8 +2108,8 @@ public:
 
 	//};
 
-	ConverterVisitor(const NifInfo& info, NiObjectRef root, const vector<NiObjectRef>& blocks) :
-		RecursiveFieldVisitor(*this, info), this_info(info), blocks(blocks)
+	ConverterVisitor(const NifInfo& info, NiObjectRef root, const vector<NiObjectRef>& blocks, const Vector3& collision_translation) :
+		RecursiveFieldVisitor(*this, info), this_info(info), blocks(blocks), _collision_translation(collision_translation)
 	{
 		root->accept(*this, info);
 		for (NiObjectRef obj : blocks) {
@@ -3524,7 +3484,7 @@ public:
 		}
 		if (already_upgraded.insert(&obj).second) {
 			NiAVObject* target = (NiAVObject*)collision_target_map[&obj];
-			Accessor<bhkRigidBodyUpgrader> upgrader(obj, this_info, target);
+			Accessor<bhkRigidBodyUpgrader> upgrader(obj, this_info, target, _collision_translation);
 		}
 	}
 
@@ -3538,7 +3498,7 @@ public:
 		}
 		if (already_upgraded.insert(&obj).second) {
 			NiAVObject* target = (NiAVObject*)collision_target_map[&obj];
-			Accessor<bhkRigidBodyUpgrader> upgrader(obj, this_info, target);
+			Accessor<bhkRigidBodyUpgrader> upgrader(obj, this_info, target, _collision_translation);
 		}
 	}
 
@@ -3568,12 +3528,13 @@ public:
 			convertMaterialAndRadius(obj);
 			Matrix44 transform = obj.GetTransform();
 			Vector3 trans = transform.GetTrans();
+			trans -= _collision_translation;
 			trans.x *= COLLISION_RATIO;
 			trans.y *= COLLISION_RATIO;
 			trans.z *= COLLISION_RATIO;
 			transform.SetTrans(trans);
 			obj.SetTransform(transform);
-			obj.SetShape(upgrade_shape(obj.GetShape(), this_info, NULL));
+			obj.SetShape(upgrade_shape(obj.GetShape(), this_info, NULL, _collision_translation));
 		}
 	}
 
@@ -3583,12 +3544,13 @@ public:
 			convertMaterialAndRadius(obj);
 			Matrix44 transform = obj.GetTransform();
 			Vector3 trans = transform.GetTrans();
+			trans -= _collision_translation;
 			trans.x *= COLLISION_RATIO;
 			trans.y *= COLLISION_RATIO;
 			trans.z *= COLLISION_RATIO;
 			transform.SetTrans(trans);
 			obj.SetTransform(transform);
-			obj.SetShape(upgrade_shape(obj.GetShape(), this_info, NULL));
+			obj.SetShape(upgrade_shape(obj.GetShape(), this_info, NULL, _collision_translation));
 		}
 	}
 
@@ -3598,7 +3560,7 @@ public:
 			HavokMaterial material = obj.GetMaterial();
 			material.material_sk = convert_havok_material(material.material_ob);
 			obj.SetMaterial(material);
-			obj.SetSubShapes(upgrade_shapes(obj.GetSubShapes(), this_info, NULL));
+			obj.SetSubShapes(upgrade_shapes(obj.GetSubShapes(), this_info, NULL, _collision_translation));
 		}
 	}
 
@@ -3632,8 +3594,8 @@ public:
 			convertMaterialAndRadius(obj);
 			obj.SetRadius1(obj.GetRadius1() * COLLISION_RATIO);
 			obj.SetRadius2(obj.GetRadius2() * COLLISION_RATIO);
-			obj.SetFirstPoint(obj.GetFirstPoint() * COLLISION_RATIO);
-			obj.SetSecondPoint(obj.GetSecondPoint() * COLLISION_RATIO);
+			obj.SetFirstPoint((obj.GetFirstPoint() - _collision_translation) * COLLISION_RATIO);
+			obj.SetSecondPoint((obj.GetSecondPoint() - _collision_translation) * COLLISION_RATIO);
 		}
 	}
 
@@ -3643,6 +3605,7 @@ public:
 			convertMaterialAndRadius(obj);
 			vector<Vector4> vertices = obj.GetVertices();
 			for (Vector4& v : vertices) {
+				v -= _collision_translation;
 				v.x *= COLLISION_RATIO;
 				v.y *= COLLISION_RATIO;
 				v.z *= COLLISION_RATIO;
@@ -3667,8 +3630,8 @@ public:
 				TOVECTOR4(descriptor.axis)
 			);
 			data.setInBodySpace(
-				TOVECTOR4(descriptor.parentSpace.pivot),
-				TOVECTOR4(descriptor.childSpace.pivot),
+				TOVECTOR4(descriptor.parentSpace.pivot - _collision_translation),
+				TOVECTOR4(descriptor.childSpace.pivot - _collision_translation),
 				parent_i,
 				TOVECTOR4(descriptor.childSpace.axis)
 			);
@@ -3697,8 +3660,8 @@ public:
 				TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis)
 			);
 			data.setInBodySpace(
-				TOVECTOR4(descriptor.parentSpace.pivot),
-				TOVECTOR4(descriptor.childSpace.pivot),
+				TOVECTOR4(descriptor.parentSpace.pivot - _collision_translation),
+				TOVECTOR4(descriptor.childSpace.pivot - _collision_translation),
 				TOVECTOR4(descriptor.parentSpace.referenceSystem.xAxis),
 				TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis),
 				TOVECTOR4(descriptor.parentSpace.referenceSystem.yAxis),
@@ -3722,7 +3685,8 @@ public:
 
 	template<>
 	void visit_compound(BallAndSocketDescriptor& descriptor) {
-		//Nothing to do;
+		descriptor.pivotA -= _collision_translation;
+		descriptor.pivotB -= _collision_translation;
 	}
 
 	template<>
@@ -3730,8 +3694,8 @@ public:
 		if (already_upgraded.insert(&descriptor).second) {
 			hkpPrismaticConstraintData data;
 			data.setInBodySpace(
-				TOVECTOR4(descriptor.parentSpace.pivot),
-				TOVECTOR4(descriptor.childSpace.pivot),
+				TOVECTOR4(descriptor.parentSpace.pivot - _collision_translation),
+				TOVECTOR4(descriptor.childSpace.pivot - _collision_translation),
 				TOVECTOR4(descriptor.parentSpace.referenceSystem.xAxis),
 				TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis),
 				TOVECTOR4(descriptor.parentSpace.referenceSystem.yAxis),
@@ -3758,6 +3722,8 @@ public:
 	template<>
 	void visit_compound(StiffSpringDescriptor& descriptor) {
 		//Nothing to do;
+		descriptor.pivotA -= _collision_translation;
+		descriptor.pivotB -= _collision_translation;
 	}
 
 	template<>
@@ -3765,8 +3731,8 @@ public:
 		if (already_upgraded.insert(&descriptor).second) {
 			hkpRagdollConstraintData data;
 			data.setInBodySpace(
-				TOVECTOR4(descriptor.parentSpace.pivot),
-				TOVECTOR4(descriptor.childSpace.pivot),
+				TOVECTOR4(descriptor.parentSpace.pivot - _collision_translation),
+				TOVECTOR4(descriptor.childSpace.pivot - _collision_translation),
 				TOVECTOR4(descriptor.parentSpace.referenceSystem.xAxis),
 				TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis),
 				TOVECTOR4(descriptor.parentSpace.referenceSystem.yAxis),
@@ -4206,6 +4172,300 @@ void findFiles(fs::path startingDir, string extension, vector<fs::path>& results
 	}
 }
 
+void check_bb_max_min(Vector3& max, Vector3& min, const hkVector4& vertex) {
+	if (vertex(0) < min[0]) min[0] = vertex(0);
+	if (vertex(1) < min[1]) min[1] = vertex(1);
+	if (vertex(2) < min[2]) min[2] = vertex(2);
+	if (vertex(0) > max[0]) max[0] = vertex(0);
+	if (vertex(1) > max[1]) max[1] = vertex(1);
+	if (vertex(2) > max[2]) max[2] = vertex(2);
+}
+
+static inline hkTransform TOHKTRANSFORM(const Niflib::Matrix33& r, const Niflib::Vector4 t, const float scale = 1.0) {
+	hkTransform out;
+	out(0, 0) = r[0][0]; out(0, 1) = r[0][1]; out(0, 2) = r[0][2]; out(0, 3) = t[0] * scale;
+	out(1, 0) = r[1][0]; out(1, 1) = r[1][1]; out(1, 2) = r[1][2]; out(1, 3) = t[1] * scale;
+	out(2, 0) = r[2][0]; out(2, 1) = r[2][1]; out(2, 2) = r[2][2]; out(2, 3) = t[2] * scale;
+	out(3, 0) = 0.0f;	 out(3, 1) = 0.0f;	  out(3, 2) = 0.0f;	   out(3, 3) = 1.0f;
+	return out;
+}
+
+Vector3 center_model(NiObjectRef root, vector<NiObjectRef>& blocks)
+{
+	std::deque<NiNodeRef> visit_stack;
+	std::vector<std::pair<hkTransform, NiGeometryRef>> geometries;
+
+	std::function<void(NiObjectRef, std::deque<NiNodeRef>&)> findShapesToBeTranslated = [&](NiObjectRef current_node, std::deque<NiNodeRef>& stack) {
+		//recurse until we find a shape, avoiding rb as their mesh will be taken into account later
+		if (current_node->IsDerivedType(NiNode::TYPE))
+		{
+			stack.push_front(DynamicCast<NiNode>(current_node));
+			vector<NiAVObjectRef> children = DynamicCast<NiNode>(current_node)->GetChildren();
+			for (int i = 0; i < children.size(); i++) {
+				if (NULL == children[i])
+					continue;
+				if (children[i]->IsDerivedType(NiGeometry::TYPE))
+				{
+					//found leaf;
+					hkTransform transform_from_rigid_body; transform_from_rigid_body.setIdentity();
+					for (const auto& node : stack) {
+						hkTransform this_transform = TOHKTRANSFORM(node->GetRotation(), node->GetTranslation(), node->GetScale());
+						transform_from_rigid_body.setMul(this_transform, transform_from_rigid_body);
+					}
+					auto this_node = DynamicCast<NiAVObject>(children[i]);
+					hkTransform this_transform = TOHKTRANSFORM(this_node->GetRotation(), this_node->GetTranslation(), this_node->GetScale());
+					transform_from_rigid_body.setMul(this_transform, transform_from_rigid_body);
+
+					geometries.push_back({ transform_from_rigid_body , DynamicCast< NiGeometry>(children[i]) });
+				}
+				else
+					findShapesToBeTranslated(StaticCast<NiObject>(children[i]), stack);
+			}
+			stack.pop_front();
+		}
+	};
+
+	findShapesToBeTranslated(root, visit_stack);
+
+
+	Vector3 center = { 0., 0., 0. };
+	Vector3 bb_max = { std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min() };
+	Vector3 bb_min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+	for (const auto geometry : geometries) {
+		const hkTransform& transform = geometry.first;
+		const NiGeometryRef& shape = geometry.second;
+
+		if (shape->IsSameType(NiTriShape::TYPE)) {
+			auto data = DynamicCast<NiTriShape>(shape)->GetData();
+			const auto vertices = data->GetVertices();
+			for (const auto& vertex : vertices) {
+				hkVector4 hvertex = { vertex[0],  vertex[1], vertex[2] };
+				hvertex.setTransformedPos(transform, hvertex);
+				check_bb_max_min(bb_max, bb_min, hvertex);
+			}
+		}
+		if (shape->IsSameType(NiTriStrips::TYPE)) {
+			auto data = DynamicCast<NiTriStrips>(shape)->GetData();
+			const auto vertices = data->GetVertices();
+			for (const auto& vertex : vertices) {
+				hkVector4 hvertex = { vertex[0],  vertex[1], vertex[2] };
+				hvertex.setTransformedPos(transform, hvertex);
+				check_bb_max_min(bb_max, bb_min, hvertex);
+			}
+		}
+	}
+
+	center = (bb_max + bb_min) / 2;
+	Vector3 translation = { center[0], center[1], bb_min[2] };
+	//Vector3 translation = { 0, 0, 0 };
+	//Vector3 collision_translation = { translation[0] * 0.1428f, translation[1] * 0.1428f, translation[2] * 0.1428f }; //oblivion scale
+	Vector3 collision_translation = { translation[0] * 0.1428f, translation[1] * 0.1428f, translation[2] * 0.1428f }; //oblivion scale
+	
+
+	auto avroot = DynamicCast<NiNode>(root);
+	hkTransform transform(TOMATRIX3(avroot->GetRotation()), TOVECTOR4(avroot->GetTranslation()));
+
+	for (const auto& children : avroot->GetChildren()) {
+		//move the whole first level hierarchy
+		if (NULL == children)
+			continue;
+		if (children->IsDerivedType(NiAVObject::TYPE)) {
+			auto avchildren = DynamicCast<NiAVObject>(children); 
+			hkTransform avchildren_transform(TOMATRIX3(avchildren->GetRotation()), TOVECTOR4(avchildren->GetTranslation()));
+
+			avchildren_transform.setMul(transform, avchildren_transform);
+
+			avchildren->SetTranslation(
+				TOMATRIX44(avchildren_transform).GetTrans() - translation
+			);
+			avchildren->SetRotation(
+				TOMATRIX44(avchildren_transform).GetRotation().Transpose()
+			);
+			avchildren->SetScale(
+				avroot->GetScale() * avchildren->GetScale()
+			);
+		}
+	}
+
+	std::function<bhkShapeRef(bhkShapeRef, const hkTransform&)> moveShape = [&](bhkShapeRef shape, const hkTransform& root_transform) -> bhkShapeRef {
+		if (shape->IsSameType(bhkConvexTransformShape::TYPE)) 
+		{
+			auto obj = DynamicCast<bhkConvexTransformShape>(shape);
+			hkTransform avchildren_transform(TOMATRIX3(obj->GetTransform().GetRotation()), TOVECTOR4(obj->GetTransform().GetTrans()));
+			avchildren_transform.setMul(root_transform, avchildren_transform);
+			obj->SetTransform(TOMATRIX44(avchildren_transform));
+			return obj;
+		}
+
+		else if (shape->IsSameType(bhkListShape::TYPE)) {
+			auto transform = root_transform;
+			auto collision_matrix = TOMATRIX44(transform);
+			auto collision_trans = (TOVECTOR3(transform.getTranslation())) * 0.1428f;
+			transform.setTranslation(TOVECTOR4(collision_trans));
+
+			auto obj = DynamicCast<bhkListShape>(shape);
+			for (const auto& sub_shape : obj->GetSubShapes()) {
+				moveShape(sub_shape, transform);
+			}
+			return obj;
+		}
+
+		else if (shape->IsSameType(bhkConvexVerticesShape::TYPE)) {
+			auto transform = root_transform;
+			auto collision_matrix = TOMATRIX44(transform);
+			auto collision_trans = (TOVECTOR3(transform.getTranslation())) * 0.1428f;
+			transform.setTranslation(TOVECTOR4(collision_trans));
+
+			auto obj = DynamicCast<bhkConvexVerticesShape>(shape);
+			vector<Vector4> vertices = obj->GetVertices();
+			for (Vector4& v : vertices) {
+				hkVector4 vv = TOVECTOR4(v);
+				vv.setTransformedPos(transform, vv);
+				v = TOVECTOR3(vv);
+			}
+			obj->SetVertices(vertices);
+			return obj;
+		}
+
+		else if (shape->IsSameType(bhkMeshShape::TYPE)) {
+			auto obj = DynamicCast<bhkMeshShape>(shape);
+			float							factor(COLLISION_RATIO * 0.1428f);
+			vector<NiTriStripsDataRef> shapes(obj->GetStripsData());
+
+			for (auto& shape : shapes) {
+				vector<Vector3> vertices(shape->GetVertices());
+				for (auto& v : vertices) {
+					hkVector4 vv = TOVECTOR4(v);
+					vv.setTransformedPos(root_transform, vv);
+					v = TOVECTOR3(vv);
+				}
+				shape->SetVertices(vertices);
+			}
+			return obj;
+		}
+		else if (shape->IsSameType(bhkNiTriStripsShape::TYPE)) {
+			auto obj = DynamicCast<bhkNiTriStripsShape>(shape);
+			vector<NiTriStripsDataRef> shapes(obj->GetStripsData());
+
+			int shape_index = 0;
+
+			for (auto& shape : shapes) {
+				vector<Vector3> vertices(shape->GetVertices());
+				for (auto& v : vertices) {
+					hkVector4 vv = TOVECTOR4(v);
+					vv.setTransformedPos(root_transform, vv);
+					v = TOVECTOR3(vv);
+				}
+				shape->SetVertices(vertices);
+			}
+			return obj;
+		}
+
+		else if (shape->IsSameType(bhkBoxShape::TYPE)) {
+			auto transform = root_transform;
+			auto collision_matrix = TOMATRIX44(transform);
+			auto collision_trans = (TOVECTOR3(transform.getTranslation())) * 0.1428f;
+			transform.setTranslation(TOVECTOR4(collision_trans));
+
+			auto obj = DynamicCast<bhkBoxShape>(shape);
+			bhkTransformShapeRef mover = new bhkTransformShape();
+			mover->SetShape(shape);
+			mover->SetTransform(TOMATRIX44(transform));
+			mover->SetMaterial(obj->GetMaterial());
+			blocks.push_back(StaticCast<NiObject>(mover));
+			return mover;
+		}
+		else if (shape->IsSameType(bhkCapsuleShape::TYPE)) {
+			auto transform = root_transform;
+			auto collision_matrix = TOMATRIX44(transform);
+			auto collision_trans = (TOVECTOR3(transform.getTranslation())) * 0.1428f;
+			transform.setTranslation(TOVECTOR4(collision_trans));
+
+			auto obj = DynamicCast<bhkCapsuleShape>(shape);
+			bhkTransformShapeRef mover = new bhkTransformShape();
+			mover->SetShape(shape);
+			mover->SetTransform(TOMATRIX44(transform));
+			mover->SetMaterial(obj->GetMaterial());
+			blocks.push_back(StaticCast<NiObject>(mover));
+			return mover;
+		}
+		else if (shape->IsSameType(bhkMoppBvTreeShape::TYPE)) {
+			auto obj = DynamicCast<bhkMoppBvTreeShape>(shape);
+			moveShape(obj->GetShape(), root_transform);
+			return obj;
+		}
+		else {
+			Log::Info("Collision Bug!");
+		}
+		return shape;
+	};
+
+
+	//Now move the root collision
+	if (NULL != avroot->GetCollisionObject())
+	{
+		bhkCollisionObjectRef root_collision = DynamicCast<bhkCollisionObject>(avroot->GetCollisionObject());
+		bhkRigidBodyRef body = DynamicCast<bhkRigidBody>(root_collision->GetBody());
+		if (body->IsSameType(bhkRigidBodyT::TYPE)) {
+			hkQTransform hbody(TOQUAT(body->GetRotation()), TOVECTOR4(body->GetTranslation()));
+			::hkQuaternion hqr(TOMATRIX3(avroot->GetRotation()));
+			hkQTransform hroot(hqr, TOVECTOR4(avroot->GetTranslation()));
+
+			hroot.setMul(hroot, hbody);
+
+
+			auto qrot = hroot.getRotation();
+
+			Niflib::hkQuaternion f;
+			f.x = qrot(0);
+			f.y = qrot(1);
+			f.z = qrot(2);
+			f.w = qrot(3);
+			body->SetRotation(
+				f
+			);
+
+			body->SetTranslation(
+				(TOVECTOR3(hroot.getTranslation()) - translation* 0.1428f)
+			);
+
+		}
+		else {
+			auto collision_matrix = TOMATRIX44(transform);
+			auto collision_trans = (TOVECTOR3(transform.getTranslation()) - translation);
+			transform.setTranslation(TOVECTOR4(collision_trans));
+			body->SetShape(moveShape(body->GetShape(), transform));
+		}
+	}
+
+	//TODO: adjust absolutes RB
+
+
+	//remove transform from root node
+	avroot->SetTranslation({});
+	avroot->SetRotation({});
+	avroot->SetScale(1.);
+
+	return translation;
+}
+
+bool is_clutter_or_furniture(vector<NiObjectRef>& blocks)
+{
+	for (const auto& block : blocks)
+	{
+		if (block->IsDerivedType(bhkRigidBody::TYPE)) {
+			bhkRigidBodyRef ref = DynamicCast<bhkRigidBody>(block);
+			if (ref->GetHavokFilter().layer_ob == OblivionLayer::OL_CLUTTER || ref->GetHavokFilter().layer_ob == OblivionLayer::OL_PROPS) {
+				return true;
+			}
+		}
+		if (block->IsDerivedType(BSFurnitureMarker::TYPE)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void convert_blocks(
 	vector<NiObjectRef>& blocks, 
 	vector<NiObjectRef>& out_blocks, 
@@ -4213,17 +4473,30 @@ void convert_blocks(
 	HKXWrapperCollection& wrappers,
 	NifInfo& info,
 	fs::path nif_file_path,
-	fs::path exportPath)
+	fs::path exportPath,
+	vector<pair<string, Vector3>>& metadata)
 {
+
 	//this is all hacky but ehhhh.
 	bool isBillboardRoot = false;
 	BillboardMode mode = BillboardMode::ALWAYS_FACE_CAMERA;
 
 	//vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
 	root = GetFirstRoot(blocks);
+	
+	if (is_clutter_or_furniture(blocks))
+	{
+		metadata.push_back(
+			{
+				nif_file_path.filename().string(),
+				center_model(root, blocks)
+			}
+		);
+	}
+
 	NiNode* rootn = DynamicCast<NiNode>(root);
 
-	ConverterVisitor fimpl(info, root, blocks);
+	ConverterVisitor fimpl(info, root, blocks, { 0.,0.,0. });
 
 	if (root->IsSameType(NiBillboardNode::TYPE)) {
 		isBillboardRoot = true;
@@ -4282,6 +4555,8 @@ void convert_blocks(
 		}
 		else
 		{
+			//bsroot->SetTranslation(displacement);
+
 			if (bsroot->GetTranslation().Magnitude() != 0 ||
 				!bsroot->GetRotation().isIdentity())
 			{
@@ -4423,6 +4698,8 @@ bool BeginConversion(string importPath, string exportPath) {
 
 	set<set<string>> sequences_groups;
 	HKXWrapperCollection wrappers;
+	std::vector<std::pair<std::string, Vector3>> metadata;
+	fs::path out_path;
 	if (nifs.empty()) {
 		Log::Info("No NIFs found.. trying BSAs");
 		const Games::GamesPathMapT& installations = games.getGames();
@@ -4437,7 +4714,8 @@ bool BeginConversion(string importPath, string exportPath) {
 				if (nif.find("meshes") == 0) {
 					nif_path = "meshes\\tes4" + nif_path.substr(std::string("meshes").size(), nif_path.size());
 				}
-				fs::path out_path = games.data(Games::TES5SE) / nif_path;
+				exportPath = games.data(Games::TES5SE).string();
+				out_path = games.data(Games::TES5SE) / nif_path;
 
 				if (nif.find("meshes\\landscape\\lod") != string::npos) {
 					Log::Warn("Ignored LOD file: %s", nif.c_str());
@@ -4479,7 +4757,8 @@ bool BeginConversion(string importPath, string exportPath) {
 					wrappers,
 					info,
 					nif,
-					exportPath
+					exportPath,
+					metadata
 				);
 
 				//out_path = nif_out / nif;
@@ -4522,7 +4801,8 @@ bool BeginConversion(string importPath, string exportPath) {
 				wrappers,
 				info,
 				nifs[i],
-				exportPath
+				exportPath,
+				metadata
 			);
 
 			size_t offset = nifs[i].parent_path().string().find("meshes", 0);
@@ -4530,7 +4810,7 @@ bool BeginConversion(string importPath, string exportPath) {
 			std::string newPath = exportPath;
 			if (offset < end)
 				newPath += nifs[i].parent_path().string().substr(offset, end);
-			fs::path out_path = newPath / nifs[i].filename();
+			out_path = newPath / nifs[i].filename();
 			fs::create_directories(out_path.parent_path());
 			WriteNifTree(out_path.string(), root, info);
 			material_controllers_map.clear();
@@ -4539,6 +4819,21 @@ bool BeginConversion(string importPath, string exportPath) {
 			deferred_blends.clear();
 			material_transform_controllers_map.clear();
 		}
+	}
+	if (metadata.size())
+	{
+		Log::Info("Writing Metadata...");
+		std::ofstream metadata_out;
+		metadata_out.open((fs::path(exportPath) / "skyblivion.metadata").string(), ios::out | ios::trunc);
+		for (const auto& data : metadata) {
+			metadata_out << "[" << data.first << "]" << endl;
+			metadata_out << "TRANSLATE_VECTOR" << " " <<
+				to_string(data.second.x) << " " <<
+				to_string(data.second.y) << " " <<
+				to_string(data.second.z) << " " << endl;
+			metadata_out << endl;
+		}
+		metadata_out.close();
 	}
 	Log::Info("Done");
 	return true;
