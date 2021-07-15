@@ -509,29 +509,39 @@ inline void scanBSProperties(NiTriShapeRef shape, const fs::path& texture_folder
 
 
 	if (shader_type == BSLightingShaderPropertyShaderType::ST_ENVIRONMENT_MAP /*|| BSLightingShaderPropertyShaderType::ST_EYE_ENVMAP*/) {
-		//Environment
-		fs::path texture_slot_4 = texture_folder_path / textures->GetTextures()[4];
-		fs::path texture_slot_5 = texture_folder_path / textures->GetTextures()[5];
-		if (!fs::exists(texture_slot_4) && !fs::exists(texture_slot_5) && !fs::exists(vanilla_path / textures->GetTextures()[4]) && !fs::exists(texture_folder_path / textures->GetTextures()[5]))
-			Log::Error("Shape %s: ShaderType is 'Environment', but no 'Environment' or 'Cubemap' texture is present at %s or %s ", shape_name.c_str(), texture_slot_4.string().c_str(), texture_slot_5.string().c_str());
+		if (textures->GetTextures().size() > 6) {
+			//Environment
+			fs::path texture_slot_4 = texture_folder_path / textures->GetTextures()[4];
+			fs::path texture_slot_5 = texture_folder_path / textures->GetTextures()[5];
+			if (!fs::exists(texture_slot_4) && !fs::exists(texture_slot_5) && !fs::exists(vanilla_path / textures->GetTextures()[4]) && !fs::exists(texture_folder_path / textures->GetTextures()[5]))
+				Log::Error("Shape %s: ShaderType is 'Environment', but no 'Environment' or 'Cubemap' texture is present at %s or %s ", shape_name.c_str(), texture_slot_4.string().c_str(), texture_slot_5.string().c_str());
 
-		if (property->GetEnvironmentMapScale() == 0) {
-			Log::Error("Shape %s: ShaderType is 'Environment', but map scale equals 0, making it obsolete. Setting to 1", shape_name.c_str());
-			property->SetEnvironmentMapScale(1.0);
+			if (property->GetEnvironmentMapScale() == 0) {
+				Log::Error("Shape %s: ShaderType is 'Environment', but map scale equals 0, making it obsolete. Setting to 1", shape_name.c_str());
+				property->SetEnvironmentMapScale(1.0);
+			}
+
+			property->SetShaderFlags1_sk((SkyrimShaderPropertyFlags1)(property->GetShaderFlags1_sk() | SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING));
+			property->SetShaderFlags2_sk((SkyrimShaderPropertyFlags2)(property->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP));
 		}
-
-		property->SetShaderFlags1_sk((SkyrimShaderPropertyFlags1)(property->GetShaderFlags1_sk() | SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING));
-		property->SetShaderFlags2_sk((SkyrimShaderPropertyFlags2)(property->GetShaderFlags2_sk() & ~SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP));
+		else {
+			Log::Error("Shape %s: ShaderType is 'Environment', but texture array size is actually %d", shape_name.c_str(), textures->GetTextures().size());
+		}
 	}
 	if (shader_type == BSLightingShaderPropertyShaderType::ST_GLOW_SHADER) {
 		// Glow Map
-		fs::path texture_slot_2 = texture_folder_path / textures->GetTextures()[2];
-		if (!fs::exists(texture_slot_2) && !fs::exists(vanilla_path / textures->GetTextures()[2]))
-			Log::Error("Shape %s: ShaderType is 'Glow', but no 'Glow' texture is present %s.", shape_name.c_str(), texture_slot_2.string().c_str());
+		if (textures->GetTextures().size() > 6) {
+			fs::path texture_slot_2 = texture_folder_path / textures->GetTextures()[2];
+			if (!fs::exists(texture_slot_2) && !fs::exists(vanilla_path / textures->GetTextures()[2]))
+				Log::Error("Shape %s: ShaderType is 'Glow', but no 'Glow' texture is present %s.", shape_name.c_str(), texture_slot_2.string().c_str());
 
-		property->SetShaderFlags1_sk((SkyrimShaderPropertyFlags1)(property->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING));
-		property->SetShaderFlags1_sk((SkyrimShaderPropertyFlags1)(property->GetShaderFlags1_sk() | SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE));
-		property->SetShaderFlags2_sk((SkyrimShaderPropertyFlags2)(property->GetShaderFlags2_sk() | SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP));
+			property->SetShaderFlags1_sk((SkyrimShaderPropertyFlags1)(property->GetShaderFlags1_sk() & ~SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING));
+			property->SetShaderFlags1_sk((SkyrimShaderPropertyFlags1)(property->GetShaderFlags1_sk() | SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE));
+			property->SetShaderFlags2_sk((SkyrimShaderPropertyFlags2)(property->GetShaderFlags2_sk() | SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP));
+		}
+		else {
+			Log::Error("Shape %s: ShaderType is 'Glow', but texture array size is actually %d", shape_name.c_str(), textures->GetTextures().size());
+		}
 	}
 
 	if ((property->GetShaderFlags2_sk() & SLSF2_TREE_ANIM) > 0)
@@ -1432,7 +1442,7 @@ vector<NiObjectRef> fixssenif(vector<NiObjectRef> blocks, NifInfo info, const fs
 	if (roots.size() != 1)
 		throw runtime_error("Model has multiple roots!");
 
-	if (check_collisions(new_blocks) || forceCollision)
+	if (check_collisions(new_blocks) && forceCollision)
 		rebuild_collisions(GetFirstRoot(new_blocks), new_blocks, forceCollision);
 
 	//to calculate the right flags, we need to rebuild the blocks

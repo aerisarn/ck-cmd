@@ -1,5 +1,7 @@
 #define NOMINMAX
 
+//1 SHU = 182.88 cm
+
 #include "stdafx.h"
 #include <core/hkxcmd.h>
 #include <core/hkfutils.h>
@@ -174,6 +176,17 @@ static inline Matrix44 TOMATRIX44(const hkTransform& q, const float scale = 1.0f
 		c0.getSimdAt(2), c1.getSimdAt(2), c2.getSimdAt(2), (float)c3.getSimdAt(2) * scale,
 		c0.getSimdAt(3), c1.getSimdAt(3), c2.getSimdAt(3), c3.getSimdAt(3)
 	);
+}
+
+static inline hkTransform TOMATRIX4(const Matrix44& q) {
+
+	hkTransform m;
+	m(0, 0) = q[0][0]; m(0, 1) = q[0][1]; m(0, 2) = q[0][2]; m(0, 3) = q[0][3];
+	m(1, 0) = q[1][0]; m(1, 1) = q[1][1]; m(1, 2) = q[1][2]; m(1, 3) = q[1][3];
+	m(2, 0) = q[2][0]; m(2, 1) = q[2][1]; m(2, 2) = q[2][2]; m(2, 3) = q[2][3];
+	m(3, 0) = q[3][0]; m(3, 1) = q[3][1]; m(3, 2) = q[3][2]; m(3, 3) = q[3][3];
+
+	return m;
 }
 
 SkyrimHavokMaterial convert_havok_material(OblivionHavokMaterial material) {
@@ -960,8 +973,8 @@ class CollisionShapeVisitor : public RecursiveFieldVisitor<CollisionShapeVisitor
 		Accessor<CMSPacker> packer(pCompMesh, pData, materials);
 
 		bhkCompressedMeshShapeRef shape = new bhkCompressedMeshShape();
-		shape->SetRadius(pCompMesh->m_radius);
-		shape->SetRadiusCopy(pCompMesh->m_radius);
+		shape->SetRadius(pCompMesh->m_radius * COLLISION_RATIO);
+		shape->SetRadiusCopy(pCompMesh->m_radius * COLLISION_RATIO);
 		shape->SetData(pData);
 		shape->SetTarget(target);
 
@@ -1033,14 +1046,11 @@ public:
 		if (pData != NULL)
 		{
 			vector<Vector3> vertices(pData->GetVertices());
-			vector<TriangleData> in_packed_triangles(pData->GetTriangles());
-			vector<unsigned short> points; points.reserve(in_packed_triangles.size()*3);
+			vector<TriangleData> in_packed_triangles(pData->GetTriangles()); 
+			vector<Triangle> in_triangles;
 			for (TriangleData tpd : in_packed_triangles) {
-				points.push_back(tpd.triangle.v1);
-				points.push_back(tpd.triangle.v2);
-				points.push_back(tpd.triangle.v3);
+				in_triangles.push_back({ tpd.triangle.v1 , tpd.triangle.v2, tpd.triangle.v3 });
 			}
-			vector<Triangle> in_triangles(triangulate(points));
 
 			geometry.m_vertices.setSize(vertices.size());
 			geometry.m_triangles.setSize(in_triangles.size());
@@ -1397,7 +1407,12 @@ public:
 			if (obj.constraints[i]->IsDerivedType(bhkMalleableConstraint::TYPE)) {
 				obj.constraints[i] = convert_malleable(DynamicCast<bhkMalleableConstraint>(obj.constraints[i]));
 			}
+		}
 
+		//anvildoorucinteriorload01 has Penetration Depth:  3.40282e+38
+		if (obj.penetrationDepth < 0. || obj.penetrationDepth > 1.)
+		{		
+			obj.penetrationDepth = 0.15;
 		}
 
 		//Seems like the old havok settings must be deactivated
@@ -1406,6 +1421,11 @@ public:
 			obj.motionSystem = MO_SYS_BOX_INERTIA;
 		if (obj.qualityType == MO_QUAL_KEYFRAMED || obj.qualityType == MO_QUAL_KEYFRAMED_REPORT)
 			obj.qualityType = MO_QUAL_FIXED;
+
+		//anvildoorucinteriorload01 has motion system fixed but solver deactivation medium
+		if (obj.motionSystem == MO_SYS_FIXED) {
+			obj.solverDeactivation = SOLVER_DEACTIVATION_OFF;
+		}
 
 		//obsolete collisions
 		if (obj.shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
@@ -1574,6 +1594,63 @@ public:
 		dest->unknownByte = source;
 	}
 };
+
+void convertGlowMap(const string& glow_name, const string& export_path) {
+	DirectX::ScratchImage g_image;
+	DirectX::ScratchImage g_timage;
+	DirectX::TexMetadata g_original_info;
+	vector<uint8_t> dds_glow_bin;
+	games.load(Games::TES4, glow_name, dds_glow_bin);
+	HRESULT result = DirectX::LoadFromDDSMemory(dds_glow_bin.data(), dds_glow_bin.size(),
+		DirectX::DDS_FLAGS_NONE, &g_original_info, g_image);
+	if (FAILED(result)) {
+		Log::Info("Unable to load DDS Glow Map %s", glow_name);
+		return;
+	}
+
+	if (DirectX::IsCompressed(g_image.GetMetadata().format))
+	{
+		size_t nimg = g_image.GetImageCount();
+		result = DirectX::Decompress(g_image.GetImages(), nimg, g_original_info, DXGI_FORMAT_UNKNOWN /* picks good default */, g_timage);
+	}
+	else {
+		g_timage = move(g_image);
+	}
+	const auto& g_meta = g_timage.GetMetadata();
+
+	auto img = g_timage.GetImage(0, 0, 0);
+	assert(img);
+	size_t nimg = g_timage.GetImageCount();
+	auto& info = g_timage.GetMetadata();
+
+	string out_name = glow_name;
+	out_name.insert(9, "tes4\\");
+	fs::path out_path = fs::path(export_path) / out_name;
+	fs::create_directories(out_path.parent_path());
+
+	DirectX::ScratchImage converted;
+	converted.InitializeFromImage(*img);
+
+
+	HRESULT hr = DirectX::Convert(img, nimg, info, DXGI_FORMAT_R8G8B8A8_UNORM, DirectX::TEX_FILTER_FORCE_NON_WIC | DirectX::TEX_FILTER_SRGB_OUT, DirectX::TEX_THRESHOLD_DEFAULT, converted);
+	int error = GetLastError();
+
+	DirectX::ScratchImage compressed;
+	compressed.InitializeFromImage(*converted.GetImage(0,0,0));
+	hr = DirectX::Compress(converted.GetImages(), converted.GetImageCount(), converted.GetMetadata(), DXGI_FORMAT_BC1_UNORM_SRGB, DirectX::TEX_COMPRESS_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT, compressed);
+	if (FAILED(hr))
+	{
+		Log::Info("Unable to compress glow map %s", glow_name);
+		hr = DirectX::SaveToDDSFile(converted.GetImages(), converted.GetImageCount(), converted.GetMetadata(),
+			DirectX::DDS_FLAGS_NONE,
+			out_path.wstring().c_str());
+		return;
+	}
+	hr = DirectX::SaveToDDSFile(compressed.GetImages(), compressed.GetImageCount(), compressed.GetMetadata(),
+		DirectX::DDS_FLAGS_NONE,
+		out_path.wstring().c_str());
+}
+
 
 class FlipBookConverter
 {
@@ -1798,31 +1875,23 @@ public:
 			size_t nconvimg = converted.GetImageCount();
 			auto& convinfo = converted.GetMetadata();
 
-			//if (DirectX::IsCompressed(g_original_info.format) || )
-			//{
-				DirectX::ScratchImage compressed;
-				compressed.InitializeFromImage(*convimg);
+			DirectX::ScratchImage compressed;
+			compressed.InitializeFromImage(*convimg);
 
 
-				hr = DirectX::Compress(convimg, nconvimg, convinfo, convinfo.format, DirectX::TEX_COMPRESS_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT, compressed);
+			hr = DirectX::Compress(convimg, nconvimg, convinfo, convinfo.format, DirectX::TEX_COMPRESS_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT, compressed);
 
-				auto cimg = compressed.GetImage(0, 0, 0);
-				assert(cimg);
-				size_t cnimg = compressed.GetImageCount();
-				auto& cinfo = compressed.GetMetadata();
+			auto cimg = compressed.GetImage(0, 0, 0);
+			assert(cimg);
+			size_t cnimg = compressed.GetImageCount();
+			auto& cinfo = compressed.GetMetadata();
 
 
 
-				hr = DirectX::SaveToDDSFile(cimg, cnimg, cinfo,
+			hr = DirectX::SaveToDDSFile(cimg, cnimg, cinfo,
 					DirectX::DDS_FLAGS_NONE,
 					out_path.wstring().c_str());
-			//}
 
-			//else {
-			//	hr = DirectX::SaveToDDSFile(convimg, nconvimg, convinfo,
-			//		DirectX::DDS_FLAGS_NONE,
-			//		out_path.wstring().c_str());
-			//}
 		}
 
 		NiFloatInterpControllerRef u_controller;
@@ -2050,66 +2119,29 @@ class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
 	const NifInfo& this_info;
 	set<void*> already_upgraded;
 	const vector<NiObjectRef>& blocks;
+	const fs::path& _export_path;
 
 	map<void*, void*> collision_target_map;
 
 	//vector<NiTriShapeRef> particle_geometry;
 
 	int controller_id = 1;
-	
+	bool _is_clutter = false;
 
 public:
 
 	set<string> nisequences;
 	Vector3 _collision_translation;
-	//template<typename T>
-	//struct replace<Ref<T>>
-	//{		
-	//	map<Ref<T>, Ref<T>> replace_map;
-	//
-	//	template<typename Ref<T>>
-	//	Ref<T> convert(Ref<T> controller) {
-	//		return controller;
-	//	}
+	Vector3 _translation;
 
-	//	template<>
-	//	NiTimeControllerRef convert(NiMaterialColorControllerRef oldController) {
-	//		BSLightingShaderPropertyColorControllerRef controller = new BSLightingShaderPropertyColorController();
-	//		controller->SetFlags(oldController->GetFlags());
-	//		controller->SetFrequency(oldController->GetFrequency());
-	//		controller->SetPhase(oldController->GetPhase());
-	//		controller->SetStartTime(oldController->GetStartTime());
-	//		controller->SetStopTime(oldController->GetStopTime());
-	//		controller->SetTarget(replace()(oldController->GetTarget());
-	//		controller->SetInterpolator(oldController->GetInterpolator());
-	//		if (oldController->GetTargetColor() == MaterialColor::TC_SELF_ILLUM)
-	//			controller->SetTypeOfControlledColor(LightingShaderControlledColor::LSCC_EMISSIVE_COLOR);
-	//		//constructor sets to specular.
-	//		replace_map[oldController] = controller;
-	//		return controller;			
-	//	}
-
-	//	Ref<T> operator()(Ref<T> niobj) {
-	//		map<NiTimeControllerRef, NiTimeControllerRef>::iterator converted = replace_map.find(niobj);
-	//		if (converted != replace_map.end())
-	//			return converted->second;
-	//		return convert(converted->second);	
-	//	}
-
-	//	T* operator()(T* niptr) {
-	//		if (niptr != NULL) {
-	//			for (map<NiTimeControllerRef, NiTimeControllerRef>::iterator converted = replace_map.begin();
-	//				converted != replace_map.end(); converted++) {
-	//			if (niptr == &*(converter->first))
-	//				return &*converted->second;
-	//		}
-	//		return convert(converted->second);
-	//	}
-
-	//};
-
-	ConverterVisitor(const NifInfo& info, NiObjectRef root, const vector<NiObjectRef>& blocks, const Vector3& collision_translation) :
-		RecursiveFieldVisitor(*this, info), this_info(info), blocks(blocks), _collision_translation(collision_translation)
+	ConverterVisitor(const NifInfo& info, NiObjectRef root, const vector<NiObjectRef>& blocks, const Vector3& translation, const Vector3& collision_translation, bool is_clutter, const fs::path& export_path) :
+		RecursiveFieldVisitor(*this, info),
+		this_info(info),
+		blocks(blocks),
+		_translation(translation),
+		_collision_translation(collision_translation),
+		_is_clutter(is_clutter),
+		_export_path(export_path)
 	{
 		root->accept(*this, info);
 		for (NiObjectRef obj : blocks) {
@@ -2446,6 +2478,13 @@ public:
 		}
 		index = 0;
 		//need to do furnitures here, we need to change BSFurnitureMarker to BSFurnitureMarkerNode
+		for (auto it = extras.begin(); it != extras.end(); it) {
+			if (*it == NULL)
+				it = extras.erase(it);
+			else
+				it++;
+		}
+
 		for (NiExtraDataRef extra : extras)
 		{
 			if (extra->IsSameType(BSFurnitureMarker::TYPE)) {
@@ -2458,8 +2497,9 @@ public:
 				for (FurniturePosition pos : positions)
 				{
 					FurniturePosition newpos = FurniturePosition();
-					newpos.offset = pos.offset;
-					newpos.offset.z += 35;
+					newpos.offset = pos.offset; //unudes by havok animation. Z offset is bad in general
+					newpos.offset.z += 35; // For CK
+					newpos.offset.z -= _translation.z; //Again for CK
 
 					if (pos.positionRef1 == 1) {
 						newpos.animationType = AnimationType::SLEEP;
@@ -2507,6 +2547,51 @@ public:
 				extras[index] = DynamicCast<BSFurnitureMarkerNode>(newNode);
 			}
 		}
+		
+		//FLAMES!
+		string flame_name = "FlameNode";
+		if (obj.GetName().find(flame_name) == 0) {
+			int flame_num = 0;
+			string flame_type = obj.GetName().substr(flame_name.size(), obj.GetName().size() - flame_name.size());
+			switch (flame_type.at(0)) {
+			case 'A': //10
+			case 'B': //11
+			case 'C': //12
+			case 'D': //13
+			case 'E': //14
+			case 'F': //15
+			case 'G': //16
+			case 'H': //17
+			case 'I': //18
+			case 'J': //19
+			case 'K': //20
+			case '0':
+				flame_num = 49;
+				break;
+			case '2':
+				flame_num = 46;
+				break;
+			default:
+				flame_num = 49;
+				break;
+			}
+
+			BSValueNodeRef flame_node = new BSValueNode();
+			std::string suffix = obj.GetName().substr(std::string("FlameNode").size(), obj.GetName().size() - std::string("FlameNode").size());
+			flame_node->SetName(string("AddOnNode")+to_string(flame_num) + suffix);
+			flame_node->SetFlags(524302);
+			flame_node->SetTranslation({ 0., 0.,0. });
+			if (flame_num == 46)
+				flame_node->SetTranslation({ 0., 8.,0. });
+			flame_node->SetRotation(
+				obj.GetRotation().Transpose()
+			);
+			flame_node->SetScale(1.);
+			flame_node->SetValue(flame_num);
+			flame_node->SetValueNodeFlags((BSValueNodeFlags)0);
+			children.push_back(StaticCast<NiAVObject>(flame_node));
+		}
+		
 		//TODO
 		//properties are deprecated
 		obj.SetProperties(vector<NiPropertyRef>{});
@@ -2637,12 +2722,41 @@ public:
 			hasOwnEmit = true;
 	}
 
+	bool findTextureFromBSA(const string& name)
+	{
+		Games& games = Games::Instance();
+		for (const auto& bsa_file : games.bsa_files()) {
+			if (bsa_file.find(name)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	static string replace_all(const string& source, const string& pattern, const string& new_pattern)
+	{
+		string result = source;
+		string lower_source = source;
+		std::transform(lower_source.begin(), lower_source.end(), lower_source.begin(), ::tolower);
+		string lower_pattern = pattern;
+		std::transform(lower_pattern.begin(), lower_pattern.end(), lower_pattern.begin(), ::tolower);
+		string::size_type n = 0;
+		while ((n = lower_source.find(lower_pattern, n)) != string::npos)
+		{
+			lower_source.replace(n, pattern.size(), new_pattern);
+			result.replace(n, pattern.size(), new_pattern);
+			n += new_pattern.size();
+		}
+		return result;
+	}
+
 	template<>
 	inline void visit_object(NiTriShape& obj) {
 		bool hasSpecular = false;
 		bool hasZbuffer = false;
 		bool hasGlow = false;
 		bool hasOwnEmit = false;
+		bool hasEnv = false;
 		BSShaderPropertyRef lightingProperty; // = new BSLightingShaderProperty();
 		BSShaderTextureSetRef textureSet = new BSShaderTextureSet();
 		NiMaterialPropertyRef material = new NiMaterialProperty();
@@ -2687,16 +2801,17 @@ public:
 		{
 			if (property->IsSameType(NiMaterialProperty::TYPE)) {
 				material = DynamicCast<NiMaterialProperty>(property);
-				//lightingProperty->SetShaderType(BSShaderType::SHADER_DEFAULT);
-				//lightingProperty->SetEmissiveColor(material->GetEmissiveColor());
-				//lightingProperty->SetSpecularColor(material->GetSpecularColor());
-				//lightingProperty->SetEmissiveMultiple(1);
-				//lightingProperty->SetGlossiness(material->GetGlossiness());
-				//lightingProperty->SetAlpha(material->GetAlpha());
+
 				if (lightingProperty->IsSameType(BSLightingShaderProperty::TYPE))
 					setMaterialProperties(*DynamicCast<BSLightingShaderProperty>(lightingProperty), material, hasOwnEmit);
 				else
 					setMaterialProperties(*DynamicCast<BSEffectShaderProperty>(lightingProperty), material, hasOwnEmit);
+
+				if (material->GetName().find("EnvMap") != string::npos ||
+					material->GetGlossiness() > 10.0) {
+					hasEnv = true;
+				}
+
 
 				//TODO:: Create some kind of recursive method to modify GetNextControllers.
 				if (material->GetController() != NULL) {
@@ -2777,6 +2892,14 @@ public:
 				}
 			}
 
+			/*NifSkope Texture "Slots"
+				Slot 1: Diffuse Texture(*.dds)
+				Slot 2 : Normal Map(*_n.dds)
+				Slot 3 : Glow Map(*_g.dds)
+				Slot 4 : parallax ()
+				Slot 5 : Effects map (*_e.dds)
+				Slot 6 : Environment Mask Map (*_m.dds)*/
+
 			if (property->IsSameType(NiTexturingProperty::TYPE)) {
 				texturing = DynamicCast<NiTexturingProperty>(property);
 				string textureName;
@@ -2787,11 +2910,17 @@ public:
 					//fix for orconebraid
 					if (textureName == "Grey.dds" || textureName == "grey.dds")
 						textureName = "textures\\characters\\hair\\Grey.dds";
+					string basename = textureName;
+					basename.erase(basename.end() - 4, basename.end());
+					if (basename.rfind('_') != string::npos)
+						basename.erase(basename.begin() + basename.rfind('_'), basename.end());
+
+					string override_base = basename;
+					override_base.insert(9, "tes4\\");
 
 					textureName.insert(9, "tes4\\");
-					string textureNormal = textureName;
-					textureNormal.erase(textureNormal.end() - 4, textureNormal.end());
-					textureNormal += "_n.dds";
+					string textureOverrideNormal = override_base + "_n.dds";
+					string textureNormal = basename + "_n.dds";
 
 					//setup textureSet (TODO)
 					std::vector<std::string> textures(9);
@@ -2800,14 +2929,41 @@ public:
 					Games& games = Games::Instance();
 					const Games::GamesPathMapT& installations = games.getGames();
 
-					if (games.isGameInstalled(Games::TES5) && fs::exists(games.data(Games::TES5) / textureNormal))
-						textures[1] = textureNormal;
+					if ( (games.isGameInstalled(Games::TES5) && fs::exists(games.data(Games::TES5) / textureOverrideNormal))
+						|| (games.isGameInstalled(Games::TES5SE) && fs::exists(games.data(Games::TES5SE) / textureOverrideNormal))
+						|| (games.isGameInstalled(Games::TES4) && fs::exists(games.data(Games::TES4) / textureNormal))
+						|| findTextureFromBSA(textureNormal))
+						textures[1] = textureOverrideNormal;
 					else
 						textures[1] = "textures\\default_n.dds";
 
 					//finally set them.
 					textureSet->SetTextures(textures);
 				}
+
+				if (textureSet->GetTextures().size() > 0)
+				{
+					vector<string>& textures = textureSet->GetTextures();
+					string texture_glow = textures[0];
+					texture_glow.erase(texture_glow.end() - 4, texture_glow.end());
+					if (texture_glow.rfind('_') != string::npos)
+						texture_glow.erase(texture_glow.begin() + texture_glow.rfind('_'), texture_glow.end());
+					texture_glow += "_g.dds";
+
+					string texture_glow_bsa = replace_all(texture_glow, "tes4\\", "");
+
+					if ((games.isGameInstalled(Games::TES5) && fs::exists(games.data(Games::TES5) / texture_glow))
+						|| (games.isGameInstalled(Games::TES5SE) && fs::exists(games.data(Games::TES5SE) / texture_glow))
+						|| (games.isGameInstalled(Games::TES4) && fs::exists(games.data(Games::TES4) / texture_glow_bsa))
+						|| findTextureFromBSA(texture_glow_bsa))
+					{
+						hasGlow = true;
+						if (games.isGameInstalled(Games::TES4) && fs::exists(games.data(Games::TES4) / texture_glow_bsa) ||
+							findTextureFromBSA(texture_glow_bsa))
+							convertGlowMap(texture_glow_bsa, _export_path.string());
+					}
+				}
+
 
 				if (texturing->GetController() == NULL)
 					continue;
@@ -2819,17 +2975,6 @@ public:
 					NiFlipControllerRef oldController = DynamicCast<NiFlipController>(texturing->GetController());
 					FlipBookConverter conv(oldController, lightingProperty, hasGlow);
 
-					/*BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
-					controller->SetFlags(oldController->GetFlags());
-					controller->SetFrequency(oldController->GetFrequency());
-					controller->SetPhase(oldController->GetPhase());
-					controller->SetStartTime(oldController->GetStartTime());
-					controller->SetStopTime(oldController->GetStopTime());
-					controller->SetTarget(lightingProperty);
-					controller->SetInterpolator(oldController->GetInterpolator());
-					controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
-
-					lightingProperty->SetController(DynamicCast<NiTimeController>(controller));*/
 					if (!conv.uv_atlas.empty())
 					{
 						if (deferred_blends.find(oldController) != deferred_blends.end())
@@ -2871,6 +3016,7 @@ public:
 			}
 			if (property->IsSameType(NiSpecularProperty::TYPE)) {
 				hasSpecular = true;
+				hasEnv = true;
 			}
 			if (property->IsSameType(NiZBufferProperty::TYPE)) {
 				hasZbuffer = true;
@@ -2904,6 +3050,7 @@ public:
 			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_SKINNED);
 		}
 
+		//OWN EMIT is required for any form of glow. glow map eventually tones it up or down. Thanks Candoran2
 		if (!hasGlow)
 		{
 			shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 & ~SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP);
@@ -2914,17 +3061,19 @@ public:
 			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE);
 		}
 
-		if (!hasOwnEmit && !hasGlow)
-			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 & ~SkyrimShaderPropertyFlags1::SLSF1_OWN_EMIT);
-		else
-		{
+		if (hasOwnEmit || hasGlow) {
 			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_OWN_EMIT);
-			if (hasOwnEmit && !hasGlow)
-			{
-				shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 | SkyrimShaderPropertyFlags2::SLSF2_RIM_LIGHTING);
-			}
+		}
+		else {
+			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 & ~SkyrimShaderPropertyFlags1::SLSF1_OWN_EMIT);
 		}
 
+		if (!hasGlow && !hasOwnEmit && hasEnv) {
+			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING);
+
+
+
+		}
 
 		if (lightingProperty->IsSameType(BSLightingShaderProperty::TYPE))
 		{
@@ -2932,16 +3081,34 @@ public:
 			if (textureSet->GetTextures().size() == 0)
 				obj.SetFlags(obj.GetFlags() + 1);
 
+
+			//hasGlow is unused, just check for its existance
 			if (hasGlow && textureSet->GetTextures().size()>0)
 			{
 				vector<string>& textures = textureSet->GetTextures();
 				string texture_glow = textures[0];
 				texture_glow.erase(texture_glow.end() - 4, texture_glow.end());
 				texture_glow += "_g.dds";
+
 				textures[2] = texture_glow;
 				textureSet->SetTextures(textures);
 
 				ls->SetSkyrimShaderType(ST_GLOW_SHADER);
+			}
+
+			if (hasOwnEmit) {
+				ls->SetSkyrimShaderType(ST_GLOW_SHADER);
+			}
+
+			if (!hasGlow && !hasOwnEmit && hasEnv) {
+
+				ls->SetSkyrimShaderType(ST_ENVIRONMENT_MAP);
+				vector<string>& textures = textureSet->GetTextures();
+
+				textures[4] = "textures\\cubemaps\\ShinyGlass_e.dds"; //TODO: material
+				textures[5] = textures[0]; //use diffuse as env;
+				ls->SetEnvironmentMapScale(0.3); //decent value;
+				textureSet->SetTextures(textures);
 			}
 
 			ls->SetTextureSet(textureSet);
@@ -3053,6 +3220,7 @@ public:
 			if (property->IsSameType(NiTexturingProperty::TYPE)) {
 				texturing = DynamicCast<NiTexturingProperty>(property);
 				string textureName;
+
 				if (texturing->GetBaseTexture().source != NULL) {
 					textureName += texturing->GetBaseTexture().source->GetFileName();
 					//fix for orconebraid
@@ -3060,10 +3228,6 @@ public:
 						textureName = "textures\\characters\\hair\\Grey.dds";
 
 					textureName.insert(9, "tes4\\");
-					string textureNormal = textureName;
-					textureNormal.erase(textureNormal.end() - 4, textureNormal.end());
-					textureNormal += "_n.dds";
-
 					lightingProperty->SetSourceTexture(textureName);
 
 					if (texturing->GetController() == NULL)
@@ -3073,17 +3237,6 @@ public:
 						NiFlipControllerRef oldController = DynamicCast<NiFlipController>(texturing->GetController());
 						FlipBookConverter conv(oldController, StaticCast<BSShaderProperty>(lightingProperty), hasGlow);
 
-						/*BSLightingShaderPropertyFloatControllerRef controller = new BSLightingShaderPropertyFloatController();
-						controller->SetFlags(oldController->GetFlags());
-						controller->SetFrequency(oldController->GetFrequency());
-						controller->SetPhase(oldController->GetPhase());
-						controller->SetStartTime(oldController->GetStartTime());
-						controller->SetStopTime(oldController->GetStopTime());
-						controller->SetTarget(lightingProperty);
-						controller->SetInterpolator(oldController->GetInterpolator());
-						controller->SetTypeOfControlledVariable(LightingShaderControlledVariable::LSCV_V_OFFSET);
-
-						lightingProperty->SetController(DynamicCast<NiTimeController>(controller));*/
 						if (!conv.uv_atlas.empty())
 							deferred_blends[oldController] = conv.uv_atlas;
 						material_flip_controllers_map[oldController] = DynamicCast<NiFloatInterpController>(lightingProperty->GetController());
@@ -3451,7 +3604,7 @@ public:
 	inline void visit_object(bhkCollisionObject& obj) {
 		bhkRigidBodyRef ref = DynamicCast<bhkRigidBody>(obj.GetBody());
 		if (ref->GetHavokFilter().layer_ob == OblivionLayer::OL_CLUTTER) {
-			obj.SetFlags((bhkCOFlags)(obj.GetFlags() | BHKCO_SET_LOCAL | BHKCO_SYNC_ON_UPDATE));
+			obj.SetFlags((bhkCOFlags)(obj.GetFlags() | BHKCO_SYNC_ON_UPDATE));
 		}
 		if (already_upgraded.insert(&obj).second) {
 			if (obj.GetBody() != NULL)
@@ -3461,6 +3614,7 @@ public:
 
 	template<>
 	inline void visit_object(bhkBlendCollisionObject& obj) {
+		obj.SetFlags((bhkCOFlags)(obj.GetFlags() | BHKCO_SET_LOCAL | BHKCO_SYNC_ON_UPDATE));
 		if (already_upgraded.insert(&obj).second) {
 			if (obj.GetBody() != NULL)
 				collision_target_map[&*obj.GetBody()] = obj.GetTarget();
@@ -3492,9 +3646,10 @@ public:
 	inline void visit_object(bhkRigidBodyT& obj) {
 		HavokFilter ref = obj.GetHavokFilter();
 		if (obj.GetHavokFilter().layer_ob == OblivionLayer::OL_CLUTTER) {
-			obj.SetMotionSystem(MO_SYS_DYNAMIC);
+			obj.SetMotionSystem(MO_SYS_DYNAMIC); //All of skyrim clutter
 			obj.SetSolverDeactivation(SOLVER_DEACTIVATION_LOW);
 			obj.SetQualityType(MO_QUAL_MOVING);
+			obj.SetMass(obj.GetMass() * COLLISION_RATIO);
 		}
 		if (already_upgraded.insert(&obj).second) {
 			NiAVObject* target = (NiAVObject*)collision_target_map[&obj];
@@ -3584,6 +3739,9 @@ public:
 			half_extent.x *= COLLISION_RATIO;
 			half_extent.y *= COLLISION_RATIO;
 			half_extent.z *= COLLISION_RATIO;
+			//if (_is_clutter) {
+			//	half_extent *= 0.8;
+			//}
 			obj.SetDimensions(half_extent);
 		}
 	}
@@ -3609,11 +3767,18 @@ public:
 				v.x *= COLLISION_RATIO;
 				v.y *= COLLISION_RATIO;
 				v.z *= COLLISION_RATIO;
+				//if (_is_clutter) {
+				//	v *= 0.8;
+				//}
 			}
+
 			obj.SetVertices(vertices);
 			vector<Vector4> normals = obj.GetNormals();
 			for (Vector4& n : normals) {
-				n.w *= COLLISION_RATIO;
+				n.w = n.w * COLLISION_RATIO;
+				//if (_is_clutter) {
+				//	n.w *= 0.8;
+				//}
 			}
 			obj.SetNormals(normals);
 		}
@@ -3939,20 +4104,46 @@ public:
 			}
 		}
 
-		//WIP
+		multimap<NiObjectNET*, NiTimeControllerRef> object_controller_map;
 
-		//for (int i = 0; i < cblocks.size(); i++) {
-		//	NiTimeControllerRef controller = cblocks[i].controller;
-		//	if (/*controller->IsSameType(BSLightingShaderPropertyColorController::TYPE) ||
-		//		controller->IsSameType(BSEffectShaderPropertyColorController::TYPE) ||
-		//		controller->IsSameType(BSLightingShaderPropertyFloatController::TYPE) ||*/
-		//		//controller->IsSameType(BSEffectShaderPropertyFloatController::TYPE)/* ||
-		//		controller->IsSameType(NiPSysEmitterCtlr::TYPE))
-		//	{
-		//		cblocks.erase(cblocks.begin() + i);
-		//		i--;
-		//	}
-		//}
+		//Compose back controllers over properties
+		for (int i = 0; i < cblocks.size(); i++) {
+			if (cblocks[i].controller->IsSameType(NiMultiTargetTransformController::TYPE))
+				continue;
+			NiTimeControllerRef this_controller = cblocks[i].controller;
+			while (this_controller != NULL) {
+				if (!this_controller->IsSameType(NiMultiTargetTransformController::TYPE))
+					object_controller_map.insert({ this_controller->GetTarget(), this_controller });
+				this_controller = this_controller->GetNextController();
+			}
+		}
+
+		set<NiObjectNET*> targets;
+
+		for (multimap<NiObjectNET*, NiTimeControllerRef>::iterator it = object_controller_map.begin(), 
+			end = object_controller_map.end(); it != end; it = object_controller_map.upper_bound(it->first))
+		{
+			targets.insert(it->first);
+		}
+
+		for (const auto& target : targets) {
+			auto its = object_controller_map.equal_range(target);
+			NiTimeControllerRef last = NULL;
+			if (distance(its.first, its.second)>1)
+			{
+				for (auto it = its.first; it != its.second; it++)
+				{
+					if (!last) {
+						target->SetController(it->second);
+					}
+					else {
+						last->SetNextController(it->second);
+					}
+					last = it->second;
+				}
+				last->SetNextController(NULL);
+			}
+		}
 
 
 		obj.SetControlledBlocks(cblocks);
@@ -4291,7 +4482,7 @@ Vector3 center_model(NiObjectRef root, vector<NiObjectRef>& blocks)
 		if (shape->IsSameType(bhkConvexTransformShape::TYPE)) 
 		{
 			auto obj = DynamicCast<bhkConvexTransformShape>(shape);
-			hkTransform avchildren_transform(TOMATRIX3(obj->GetTransform().GetRotation()), TOVECTOR4(obj->GetTransform().GetTrans()));
+			hkTransform avchildren_transform(TOMATRIX4(obj->GetTransform()));
 			avchildren_transform.setMul(root_transform, avchildren_transform);
 			obj->SetTransform(TOMATRIX44(avchildren_transform));
 			return obj;
@@ -4449,21 +4640,21 @@ Vector3 center_model(NiObjectRef root, vector<NiObjectRef>& blocks)
 	return translation;
 }
 
-bool is_clutter_or_furniture(vector<NiObjectRef>& blocks)
+int is_clutter_or_furniture(vector<NiObjectRef>& blocks, const string& path)
 {
 	for (const auto& block : blocks)
 	{
 		if (block->IsDerivedType(bhkRigidBody::TYPE)) {
 			bhkRigidBodyRef ref = DynamicCast<bhkRigidBody>(block);
 			if (ref->GetHavokFilter().layer_ob == OblivionLayer::OL_CLUTTER || ref->GetHavokFilter().layer_ob == OblivionLayer::OL_PROPS) {
-				return true;
+				return 1;
 			}
 		}
 		if (block->IsDerivedType(BSFurnitureMarker::TYPE)) {
-			return true;
+			return 2;
 		}
 	}
-	return false;
+	return 0;
 }
 
 void convert_blocks(
@@ -4483,20 +4674,23 @@ void convert_blocks(
 
 	//vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
 	root = GetFirstRoot(blocks);
-	
-	if (is_clutter_or_furniture(blocks))
+
+	Vector3 translation = { 0., 0., 0. };
+	int is_clutter_or_furn = is_clutter_or_furniture(blocks, nif_file_path.string());
+	if (is_clutter_or_furn)
 	{
+		translation = center_model(root, blocks);
 		metadata.push_back(
 			{
 				nif_file_path.filename().string(),
-				center_model(root, blocks)
+				translation
 			}
 		);
 	}
 
 	NiNode* rootn = DynamicCast<NiNode>(root);
 
-	ConverterVisitor fimpl(info, root, blocks, { 0.,0.,0. });
+	ConverterVisitor fimpl(info, root, blocks, translation, { 0.,0.,0. }, is_clutter_or_furn == 1, exportPath);
 
 	if (root->IsSameType(NiBillboardNode::TYPE)) {
 		isBillboardRoot = true;
@@ -4512,24 +4706,26 @@ void convert_blocks(
 		BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
 		//fixed?
 		bsroot->SetFlags(524302);
-		string out_havok_path = "";
-		if (!sequences.empty()) {
-			fs::path in_file = nif_file_path.filename();
-			string out_name = in_file.filename().replace_extension("").string();
-			fs::path out_path = fs::path("tes4") / fs::path("animations") / in_file.parent_path() / out_name;
-			fs::path out_path_abs = exportPath / out_path;
-			if (exportPath.empty())
-				out_path_abs = games.data(Games::TES5SE) / "meshes" / out_path;
-			string out_path_a = out_path_abs.string();
-			out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
-			vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
-			BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
-			havokp->SetName(string("BGED"));
-			havokp->SetBehaviourGraphFile(out_havok_path);
-			havokp->SetControlsBaseSkeleton(false);
-			list.insert(list.begin(), StaticCast<NiExtraData>(havokp));
-			bsroot->SetExtraDataList(list);
-		}
+
+		//TODO: fix along creatures creating animationdata/ animationsetdata
+		//string out_havok_path = "";
+		//if (!sequences.empty()) {
+		//	fs::path in_file = nif_file_path.filename();
+		//	string out_name = in_file.filename().replace_extension("").string();
+		//	fs::path out_path = fs::path("tes4") / fs::path("animations") / in_file.parent_path() / out_name;
+		//	fs::path out_path_abs = exportPath / out_path;
+		//	if (exportPath.empty())
+		//		out_path_abs = games.data(Games::TES5SE) / "meshes" / out_path;
+		//	string out_path_a = out_path_abs.string();
+		//	out_havok_path = wrappers.wrap(out_name, out_path.parent_path().string(), out_path_a, "TES4", sequences);
+		//	vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
+		//	BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
+		//	havokp->SetName(string("BGED"));
+		//	havokp->SetBehaviourGraphFile(out_havok_path);
+		//	havokp->SetControlsBaseSkeleton(false);
+		//	list.insert(list.begin(), StaticCast<NiExtraData>(havokp));
+		//	bsroot->SetExtraDataList(list);
+		//}
 
 
 		std::vector<NiAVObjectRef> children;
@@ -4687,6 +4883,46 @@ bool BeginConversion(string importPath, string exportPath) {
 	NifInfo info;
 	vector<fs::path> nifs;
 
+//Script debug
+//	  
+//	double x = 0.000011 * 1.21;
+//	double y = 0.000001 * 1.21;
+//	double z = -13.542925 * 1.21;
+//	double rx = 251.7730;
+//	double ry = 484.3785;
+//	double rz = 86.6988;
+//
+//	double deg_to_rad = 0.0174533;
+//
+//	//Euler XYZ
+//	double r_alpha = -(-86.7472 * deg_to_rad);
+//	double r_beta = -(-18.8064 * deg_to_rad);
+//	double r_gamma = -(267.2364 * deg_to_rad);
+//
+//#define Cos cos
+//#define Sin sin
+//
+//	//Build Matrix
+//	double r11 = Cos(r_beta) * Cos(r_gamma);
+//	double r12 = -Cos(r_beta) * Sin(r_gamma);
+//	double r13 = Sin(r_beta);
+//	double r21 = Cos(r_alpha) * Sin(r_gamma) + Cos(r_gamma) * Sin(r_alpha) * Sin(r_beta);
+//	double r22 = Cos(r_alpha) * Cos(r_gamma) - Sin(r_alpha) * Sin(r_beta) * Sin(r_gamma);
+//	double r23 = -Cos(r_beta) * Sin(r_alpha);
+//	double r31 = Sin(r_alpha) * Sin(r_gamma) - Cos(r_alpha) * Cos(r_gamma) * Sin(r_beta);
+//	double r32 = Cos(r_gamma) * Sin(r_alpha) + Cos(r_alpha) * Sin(r_beta) * Sin(r_gamma);
+//	double r33 = Cos(r_alpha) * Cos(r_beta);
+//
+//	//Inverse transform, R^T * [x,y,z]
+//	double dx = r11 * x + r12 * y + r13 * z;
+//	double dy = r21 * x + r22 * y + r23 * z;
+//	double dz = r31 * x + r32 * y + r33 * z;
+//
+//	rx = rx + dx;
+//	ry = ry + dy;
+//	//rz := rz - z; // revert previous displacement
+//	rz = rz + dz;
+
 	if (fs::exists(importPath) && fs::is_directory(importPath))
 		findFiles(importPath, ".nif", nifs);
 
@@ -4704,9 +4940,11 @@ bool BeginConversion(string importPath, string exportPath) {
 		Log::Info("No NIFs found.. trying BSAs");
 		const Games::GamesPathMapT& installations = games.getGames();
 		games.loadBsas(Games::TES4);
+		exportPath = games.data(Games::TES5SE).string();
 		for (const auto& bsa_file : games.bsa_files()) {
 			//std::cout << "Checking: " << bsa.filename() << std::endl;
 			//BSAFile bsa_file(bsa);
+
 			for (const auto& nif : bsa_file.assets(".*\.nif")) {
 				Log::Info("Current File: %s", nif.c_str());
 
@@ -4714,7 +4952,7 @@ bool BeginConversion(string importPath, string exportPath) {
 				if (nif.find("meshes") == 0) {
 					nif_path = "meshes\\tes4" + nif_path.substr(std::string("meshes").size(), nif_path.size());
 				}
-				exportPath = games.data(Games::TES5SE).string();
+
 				out_path = games.data(Games::TES5SE) / nif_path;
 
 				if (nif.find("meshes\\landscape\\lod") != string::npos) {
@@ -4772,6 +5010,51 @@ bool BeginConversion(string importPath, string exportPath) {
 				delete data;
 			}
 		}
+	
+		//Log::Info("Scanning TES4 Override");
+		////Convert overrides for uesp patch
+		//importPath = (games.data(Games::TES4) / "meshes").string();
+		//if (fs::exists(importPath) && fs::is_directory(importPath))
+		//	findFiles(importPath, ".nif", nifs);
+
+		//for (size_t i = 0; i < nifs.size(); i++) {
+		//	Log::Info("Current File: %s", nifs[i].string().c_str());
+
+		//	if (nifs[i].string().find("lod") != string::npos || nifs[i].string().find("LOD") != string::npos)
+		//		continue;
+
+		//	NiObjectRef root;
+		//	vector<NiObjectRef> blocks = ReadNifList(nifs[i].string().c_str(), &info);
+		//	vector<NiObjectRef> new_blocks;
+		//	convert_blocks(
+		//		blocks,
+		//		new_blocks,
+		//		root,
+		//		wrappers,
+		//		info,
+		//		nifs[i],
+		//		exportPath,
+		//		metadata
+		//	);
+
+		//	size_t offset = nifs[i].parent_path().string().find("meshes", 0);
+		//	size_t end = nifs[i].parent_path().string().length();
+		//	std::string newPath = exportPath;
+		//	if (offset < end) {
+		//		std::string relative_path = nifs[i].parent_path().string().substr(offset, end);
+		//		relative_path.insert(6, "\\tes4");
+		//		newPath += std::string("\\") + relative_path;
+		//	}
+		//	out_path = newPath / nifs[i].filename();
+		//	fs::create_directories(out_path.parent_path());
+		//	WriteNifTree(out_path.string(), root, info);
+		//	material_controllers_map.clear();
+		//	material_alpha_controllers_map.clear();
+		//	material_flip_controllers_map.clear();
+		//	deferred_blends.clear();
+		//	material_transform_controllers_map.clear();
+		//}
+	
 	}
 	else {
 		for (size_t i = 0; i < nifs.size(); i++) {

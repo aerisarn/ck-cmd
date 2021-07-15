@@ -140,6 +140,8 @@ namespace ckcmd {
 					load(override_path, result);
 					return true;
 				}
+				if (opened_bsas.empty())
+					loadBsas(game);
 				for (auto& bsa_file : opened_bsas) {
 					if (bsa_file.find(path)) {
 						size_t size = -1;

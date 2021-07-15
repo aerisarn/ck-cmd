@@ -44,7 +44,7 @@ namespace BSA {
 			return std::vector<std::string>(assetPaths, assetPaths + size);
 		}
 
-		bool find(const std::string& regex = "") {
+		bool find(const std::string& regex = "") const {
 			bool result = false;
 			bsa_contains_asset(bh, regex.c_str(), &result);
 			return result;

@@ -469,6 +469,7 @@ set (PROJECT_COMMANDS
 					 "${CMAKE_SOURCE_DIR}/include/commands/RetargetSkin.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/AddNodesToSkeleton.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ConvertNif.h"
+					 "${CMAKE_SOURCE_DIR}/include/commands/MergeNif.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/Geometry.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ListCreatures.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/RetargetCreature.h"
