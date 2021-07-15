@@ -36,6 +36,14 @@
 #include <DirectXTex.h>
 
 
+static inline hkTransform TOHKTRANSFORM(const Niflib::Matrix33& r, const Niflib::Vector4 t, const float scale = 1.0) {
+	hkTransform out;
+	out(0, 0) = r[0][0]; out(0, 1) = r[0][1]; out(0, 2) = r[0][2]; out(0, 3) = t[0] * scale;
+	out(1, 0) = r[1][0]; out(1, 1) = r[1][1]; out(1, 2) = r[1][2]; out(1, 3) = t[1] * scale;
+	out(2, 0) = r[2][0]; out(2, 1) = r[2][1]; out(2, 2) = r[2][2]; out(2, 3) = t[2] * scale;
+	out(3, 0) = 0.0f;	 out(3, 1) = 0.0f;	  out(3, 2) = 0.0f;	   out(3, 3) = 1.0f;
+	return out;
+}
 
 static bool BeginConversion(string importPath, string exportPath);
 static void InitializeHavok();
@@ -1258,11 +1266,61 @@ public:
 	}
 };
 
+struct ListShapeSetter {};
+
+template<>
+struct Accessor<ListShapeSetter> {
+	Accessor(bhkListShapeRef list, const vector<unsigned int>& keys)
+	{
+		list->unknownInts = keys;
+	}
+};
+
 bhkShapeRef upgrade_shape(const bhkShapeRef& shape, const NifInfo& info, NiAVObject* target, const Vector3& collision_translation) {
 	if (shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
 		shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
 		shape->IsSameType(bhkPackedNiTriStripsShape::TYPE))
 		return CollisionShapeVisitor(shape, info, target, collision_translation).pMoppShape;
+	else if (shape->IsSameType(bhkMultiSphereShape::TYPE)) {
+		bhkMultiSphereShapeRef multi = DynamicCast<bhkMultiSphereShape>(shape);
+		bhkListShapeRef new_list = new bhkListShape();
+		auto child_filter_property = new_list->GetChildFilterProperty();
+		child_filter_property.capacityAndFlags = 2147483648;
+		new_list->SetChildFilterProperty(child_filter_property);
+		auto child_shape_property = new_list->GetChildShapeProperty();
+		child_shape_property.capacityAndFlags = 2147483648;
+		new_list->SetChildShapeProperty(child_shape_property);
+		new_list->SetMaterial(multi->GetMaterial());
+		auto shapes = new_list->GetSubShapes();
+		vector<unsigned int> unknown_ints;
+		shapes.resize(multi->GetSpheres().size());
+		unknown_ints.resize(multi->GetSpheres().size(), 0);
+		unknown_ints[0] = multi->GetSpheres().size();
+		size_t i = 0;
+		for (const auto& sphere : multi->GetSpheres()) {
+			bhkSphereShapeRef new_sphere = new bhkSphereShape();
+			new_sphere->SetMaterial(multi->GetMaterial());
+			new_sphere->SetRadius(sphere.radius);
+
+			bhkConvexTransformShapeRef trans = new bhkConvexTransformShape();
+			trans->SetMaterial(multi->GetMaterial());
+			trans->SetRadius(sphere.radius);
+			Matrix44 transform; transform.SetTrans(sphere.center);
+			trans->SetTransform(transform);
+
+			trans->SetShape(StaticCast<bhkShape>(new_sphere));
+
+			shapes[i++] = StaticCast<bhkShape>(trans);
+		}
+		new_list->SetSubShapes(shapes);
+		Accessor<ListShapeSetter>(new_list, unknown_ints);
+		return new_list;
+	}
+	else if (shape->IsSameType(bhkConvexSweepShape::TYPE)) {
+		//I have no idea
+		bhkConvexSweepShapeRef sweep = DynamicCast<bhkConvexSweepShape>(shape);
+		return sweep->GetShape();
+	}
 	else
 		return shape;
 }
@@ -1272,7 +1330,8 @@ vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes, const NifI
 	for (bhkShapeRef shape : shapes) {
 		if (shape->IsSameType(bhkMoppBvTreeShape::TYPE) ||
 			shape->IsSameType(bhkNiTriStripsShape::TYPE) ||
-			shape->IsSameType(bhkPackedNiTriStripsShape::TYPE))
+			shape->IsSameType(bhkPackedNiTriStripsShape::TYPE) ||
+			shape->IsSameType(bhkMultiSphereShape::TYPE))
 			out.push_back(upgrade_shape(shape, info, target, collision_translation));
 		else
 			out.push_back(shape);
@@ -2128,6 +2187,31 @@ class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
 	int controller_id = 1;
 	bool _is_clutter = false;
 
+	NiObjectRef find_parent(NiObjectRef& object) {
+		for (auto& block : blocks) {
+			if (block->IsDerivedType(NiNode::TYPE)) {
+				auto& node = DynamicCast<NiNode>(block);
+				for (auto& child : node->GetChildren()) {
+					if (child == object)
+						return node;
+				}
+			}
+		}
+		return NULL;
+	}
+
+	std::vector< NiObjectRef> find_parents(NiObjectRef& object) {
+		std::vector< NiObjectRef> parents;
+		NiObjectRef parent = object;
+		while (parent != NULL) {
+			parent = find_parent(parent);
+			if (parent != NULL)
+				parents.insert(parents.begin(), parent);
+		}
+		return parents;
+	}
+
+
 public:
 
 	set<string> nisequences;
@@ -2576,6 +2660,16 @@ public:
 				break;
 			}
 
+			auto parents = find_parents(StaticCast<NiObject>(&obj));
+			parents.push_back(StaticCast<NiObject>(&obj));
+			hkTransform world_transform; world_transform.setIdentity();
+			for (auto& avobj : parents) {
+				if (avobj->IsDerivedType(NiAVObject::TYPE)) {
+					NiAVObjectRef av = DynamicCast<NiAVObject>(avobj);
+					hkTransform local = TOHKTRANSFORM(av->GetRotation(), av->GetTranslation());
+					world_transform.setMulEq(local);
+				}
+			}
 			BSValueNodeRef flame_node = new BSValueNode();
 			std::string suffix = obj.GetName().substr(std::string("FlameNode").size(), obj.GetName().size() - std::string("FlameNode").size());
 			flame_node->SetName(string("AddOnNode")+to_string(flame_num) + suffix);
@@ -2583,8 +2677,14 @@ public:
 			flame_node->SetTranslation({ 0., 0.,0. });
 			if (flame_num == 46)
 				flame_node->SetTranslation({ 0., 8.,0. });
+			hkRotation rot = world_transform.getRotation();
+			rot.transpose();
 			flame_node->SetRotation(
-				obj.GetRotation().Transpose()
+				Matrix33(
+					rot(0, 0), rot(0, 1), rot(0, 2),
+					rot(1, 0), rot(1, 1), rot(1, 2),
+					rot(2, 0), rot(2, 1), rot(2, 2)
+				)
 			);
 			flame_node->SetScale(1.);
 			flame_node->SetValue(flame_num);
@@ -4372,14 +4472,7 @@ void check_bb_max_min(Vector3& max, Vector3& min, const hkVector4& vertex) {
 	if (vertex(2) > max[2]) max[2] = vertex(2);
 }
 
-static inline hkTransform TOHKTRANSFORM(const Niflib::Matrix33& r, const Niflib::Vector4 t, const float scale = 1.0) {
-	hkTransform out;
-	out(0, 0) = r[0][0]; out(0, 1) = r[0][1]; out(0, 2) = r[0][2]; out(0, 3) = t[0] * scale;
-	out(1, 0) = r[1][0]; out(1, 1) = r[1][1]; out(1, 2) = r[1][2]; out(1, 3) = t[1] * scale;
-	out(2, 0) = r[2][0]; out(2, 1) = r[2][1]; out(2, 2) = r[2][2]; out(2, 3) = t[2] * scale;
-	out(3, 0) = 0.0f;	 out(3, 1) = 0.0f;	  out(3, 2) = 0.0f;	   out(3, 3) = 1.0f;
-	return out;
-}
+
 
 Vector3 center_model(NiObjectRef root, vector<NiObjectRef>& blocks)
 {
@@ -4481,23 +4574,27 @@ Vector3 center_model(NiObjectRef root, vector<NiObjectRef>& blocks)
 	std::function<bhkShapeRef(bhkShapeRef, const hkTransform&)> moveShape = [&](bhkShapeRef shape, const hkTransform& root_transform) -> bhkShapeRef {
 		if (shape->IsSameType(bhkConvexTransformShape::TYPE)) 
 		{
-			auto obj = DynamicCast<bhkConvexTransformShape>(shape);
-			hkTransform avchildren_transform(TOMATRIX4(obj->GetTransform()));
-			avchildren_transform.setMul(root_transform, avchildren_transform);
-			obj->SetTransform(TOMATRIX44(avchildren_transform));
-			return obj;
-		}
-
-		else if (shape->IsSameType(bhkListShape::TYPE)) {
 			auto transform = root_transform;
 			auto collision_matrix = TOMATRIX44(transform);
 			auto collision_trans = (TOVECTOR3(transform.getTranslation())) * 0.1428f;
 			transform.setTranslation(TOVECTOR4(collision_trans));
 
+			auto obj = DynamicCast<bhkConvexTransformShape>(shape);
+			hkTransform avchildren_transform(TOMATRIX4(obj->GetTransform()));
+			avchildren_transform.setMul(transform, avchildren_transform);
+
+			obj->SetTransform(TOMATRIX44(avchildren_transform));
+			return obj;
+		}
+
+		else if (shape->IsSameType(bhkListShape::TYPE)) {
+
 			auto obj = DynamicCast<bhkListShape>(shape);
-			for (const auto& sub_shape : obj->GetSubShapes()) {
-				moveShape(sub_shape, transform);
+			auto shapes = obj->GetSubShapes();
+			for (int i = 0; i < shapes.size(); i++) {
+				shapes[i] = moveShape(shapes[i], transform);
 			}
+			obj->SetSubShapes(shapes);
 			return obj;
 		}
 
@@ -4552,6 +4649,20 @@ Vector3 center_model(NiObjectRef root, vector<NiObjectRef>& blocks)
 			return obj;
 		}
 
+		else if (shape->IsSameType(bhkSphereShape::TYPE)) {
+			auto transform = root_transform;
+			auto collision_matrix = TOMATRIX44(transform);
+			auto collision_trans = (TOVECTOR3(transform.getTranslation())) * 0.1428f;
+			transform.setTranslation(TOVECTOR4(collision_trans));
+
+			auto obj = DynamicCast<bhkSphereShape>(shape);
+			bhkTransformShapeRef mover = new bhkConvexTransformShape();
+			mover->SetShape(shape);
+			mover->SetTransform(TOMATRIX44(transform));
+			mover->SetMaterial(obj->GetMaterial());
+			blocks.push_back(StaticCast<NiObject>(mover));
+			return mover;
+		}
 		else if (shape->IsSameType(bhkBoxShape::TYPE)) {
 			auto transform = root_transform;
 			auto collision_matrix = TOMATRIX44(transform);
@@ -4559,7 +4670,7 @@ Vector3 center_model(NiObjectRef root, vector<NiObjectRef>& blocks)
 			transform.setTranslation(TOVECTOR4(collision_trans));
 
 			auto obj = DynamicCast<bhkBoxShape>(shape);
-			bhkTransformShapeRef mover = new bhkTransformShape();
+			bhkTransformShapeRef mover = new bhkConvexTransformShape();
 			mover->SetShape(shape);
 			mover->SetTransform(TOMATRIX44(transform));
 			mover->SetMaterial(obj->GetMaterial());
@@ -4573,16 +4684,34 @@ Vector3 center_model(NiObjectRef root, vector<NiObjectRef>& blocks)
 			transform.setTranslation(TOVECTOR4(collision_trans));
 
 			auto obj = DynamicCast<bhkCapsuleShape>(shape);
-			bhkTransformShapeRef mover = new bhkTransformShape();
-			mover->SetShape(shape);
-			mover->SetTransform(TOMATRIX44(transform));
-			mover->SetMaterial(obj->GetMaterial());
-			blocks.push_back(StaticCast<NiObject>(mover));
-			return mover;
+			hkVector4 vv = TOVECTOR4(obj->GetFirstPoint());
+			vv.setTransformedPos(transform, vv);
+			obj->SetFirstPoint(TOVECTOR3(vv));
+			vv = TOVECTOR4(obj->GetSecondPoint());
+			vv.setTransformedPos(transform, vv);
+			obj->SetSecondPoint(TOVECTOR3(vv));
+
+			return shape;
 		}
 		else if (shape->IsSameType(bhkMoppBvTreeShape::TYPE)) {
 			auto obj = DynamicCast<bhkMoppBvTreeShape>(shape);
 			moveShape(obj->GetShape(), root_transform);
+			return obj;
+		}
+		else if (shape->IsSameType(bhkMultiSphereShape::TYPE)) {
+			auto transform = root_transform;
+			auto collision_matrix = TOMATRIX44(transform);
+			auto collision_trans = (TOVECTOR3(transform.getTranslation())) * 0.1428f;
+			transform.setTranslation(TOVECTOR4(collision_trans));
+
+			auto obj = DynamicCast<bhkMultiSphereShape>(shape);
+			auto spheres = obj->GetSpheres();
+			for (auto& sphere : spheres) {
+				hkVector4 vv = TOVECTOR4(sphere.center);
+				vv.setTransformedPos(transform, vv);
+				sphere.center = TOVECTOR3(vv);
+			}
+			obj->SetSpheres(spheres);
 			return obj;
 		}
 		else {

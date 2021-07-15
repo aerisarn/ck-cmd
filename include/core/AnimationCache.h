@@ -2,10 +2,13 @@
 
 #include "stdafx.h"
 
+#include <core/hkfutils.h>
 #include <core/log.h>
 #include <core/bsa.h>
 #include <bs/AnimDataFile.h>
 #include <bs/AnimSetDataFile.h>
+
+#include <set>
 #include <filesystem>
 #include <memory>
 #include <algorithm>
@@ -199,6 +202,13 @@ struct AnimationCache {
 			return projects_index[name];
 		return NULL;
 	}
+
+	string project_at(size_t index) const {
+		auto it = projects_index.begin();
+		std::advance(it, index);
+		return it->first;
+	}
+
 
 	AnimationCache(const fs::path& animationDataPath, const  fs::path&  animationSetDataPath) {
 		string animationDataContent;
@@ -408,6 +418,10 @@ struct AnimationCache {
 		return creature_entries.size();
 	}
 
+	size_t getNumProjects() {
+		return projects_index.size();
+	}
+
 	static void get_entries(
 		StaticCacheEntry& entry,
 		const string& cacheFile
@@ -515,7 +529,7 @@ struct AnimationCache {
 		}
 	}
 
-	bool iequals(const string& a, const string& b)
+	static bool iequals(const string& a, const string& b)
 	{
 		return std::equal(a.begin(), a.end(),
 			b.begin(), b.end(),
