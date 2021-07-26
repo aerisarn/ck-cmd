@@ -177,6 +177,68 @@ foreach(SPEEDTREE_LIB IN LISTS SPEEDTREE_LIBS)
 endforeach(SPEEDTREE_LIB)
 endif(HAVE_SPEEDTREE)
 
+#speedtreeRT
+set ( SPEEDTREERT_INCLUDES_PATH
+	"${CMAKE_SOURCE_DIR}/lib/SpeedTreeRT/include"
+)
+
+message( "[MAIN]: adding SpeedTreeRT" )
+
+set ( SPEEDTREERT_LIB_DEPS
+	glut32
+	nvparse_mtdll_vc7
+)
+
+set ( SPEEDTREERT_LIBS
+	SpeedTreeRT
+)
+
+foreach(SPEEDTREERT_LIB_DEP IN LISTS SPEEDTREERT_LIB_DEPS)
+	message( "[MAIN]: adding ${SPEEDTREERT_LIB_DEP}" )
+
+	add_library(
+		${SPEEDTREERT_LIB_DEP}
+		STATIC 
+		IMPORTED GLOBAL
+    )
+
+	set_target_properties(
+		${SPEEDTREERT_LIB_DEP} 
+		PROPERTIES IMPORTED_LOCATION             
+		"${CMAKE_SOURCE_DIR}/lib/SpeedTreeRT/lib/Release/${SPEEDTREERT_LIB_DEP}.lib"
+    )
+
+	set_target_properties(
+		${SPEEDTREERT_LIB_DEP} 
+		PROPERTIES IMPORTED_LOCATION_DEBUG             
+		"${CMAKE_SOURCE_DIR}/lib/SpeedTreeRT/lib/Debug/${SPEEDTREERT_LIB_DEP}.lib"
+    )
+endforeach(SPEEDTREERT_LIB_DEP)
+
+foreach(SPEEDTREERT_LIB IN LISTS SPEEDTREERT_LIBS)
+	message( "[MAIN]: adding ${SPEEDTREERT_LIB}" )
+
+	add_library(
+		${SPEEDTREERT_LIB}
+		STATIC 
+		IMPORTED GLOBAL
+    )
+
+	set_target_properties(
+		${SPEEDTREERT_LIB} 
+		PROPERTIES IMPORTED_LOCATION             
+		"${CMAKE_SOURCE_DIR}/lib/SpeedTreeRT/lib/Release/${SPEEDTREERT_LIB}.lib"
+    )
+
+	set_target_properties(
+		${SPEEDTREERT_LIB} 
+		PROPERTIES IMPORTED_LOCATION_DEBUG             
+		"${CMAKE_SOURCE_DIR}/lib/SpeedTreeRT/lib/Release/${SPEEDTREERT_LIB}.lib"
+    )
+endforeach(SPEEDTREERT_LIB)
+
+
+
 # havok_2010_2_0
 
 set ( HAVOK_INCLUDES_PATH
@@ -394,10 +456,13 @@ list(APPEND PROJECT_LIBRARIES niflib)
 list(APPEND PROJECT_LIBRARIES fbxsdk)
 list(APPEND PROJECT_LIBRARIES libbsa)
 list(APPEND PROJECT_LIBRARIES vhacd)
+list(APPEND PROJECT_LIBRARIES ${SPEEDTREERT_LIB_DEPS})
+list(APPEND PROJECT_LIBRARIES ${SPEEDTREERT_LIBS})
 list(APPEND TEST_INCLUDES ${HAVOK_INCLUDES_PATH})
 if (HAVE_SPEEDTREE)
 list(APPEND PROJECT_INCLUDES ${SPDT_INCLUDES_PATH})
 endif(HAVE_SPEEDTREE)
+list(APPEND PROJECT_INCLUDES ${SPEEDTREERT_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${DIRECTXTEX_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_COMPAT_INCLUDES_PATH})
@@ -429,7 +494,10 @@ set (PROJECT_SRC "${CMAKE_SOURCE_DIR}/src/core/FBXCommon.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/Fbx2Raw.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/geometry.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/MathHelper.cpp"
-				 "${CMAKE_SOURCE_DIR}/src/core/EulerAngles.cpp")
+				 "${CMAKE_SOURCE_DIR}/src/core/EulerAngles.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/spt/sptconvert.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/spt/SPT.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/spt/Export.cpp")
 
 set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/stdafx.h"
@@ -458,6 +526,7 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/Fbx2Raw.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/NifFile.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/AnimationCache.h"
+					 "${CMAKE_SOURCE_DIR}/include/spt/SPT.h"
 					 )
 set (PROJECT_COMMANDS
 					 "${CMAKE_SOURCE_DIR}/include/commands/ImportFbx.h"
@@ -619,6 +688,11 @@ target_include_directories	(ck-cmd PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_D
 add_custom_command(TARGET ck-cmd POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different  
         "${PROJECT_SOURCE_DIR}/lib/fbx/lib/vs2015/x86/$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:Release>/libfbxsdk.dll"
+        $<TARGET_FILE_DIR:ck-cmd>)
+
+add_custom_command(TARGET ck-cmd POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different  
+        "${PROJECT_SOURCE_DIR}/lib/SpeedTreeRT/SpeedTreeRT.dll"
         $<TARGET_FILE_DIR:ck-cmd>)
 
 add_custom_command(TARGET ck-cmd POST_BUILD

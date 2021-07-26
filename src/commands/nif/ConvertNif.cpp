@@ -15,6 +15,8 @@
 #include <core/NifFile.h>
 #include <commands/NifScan.h>
 
+#include <spt/SPT.h>
+
 #include <Physics\Dynamics\Constraint\Bilateral\Ragdoll\hkpRagdollConstraintData.h>
 #include <Physics\Dynamics\Constraint\Bilateral\BallAndSocket\hkpBallAndSocketConstraintData.h>
 #include <Physics\Dynamics\Constraint\Bilateral\Hinge\hkpHingeConstraintData.h>
@@ -5011,6 +5013,7 @@ bool BeginConversion(string importPath, string exportPath) {
 
 	NifInfo info;
 	vector<fs::path> nifs;
+	vector<fs::path> spts;
 
 //Script debug
 //	  
@@ -5061,11 +5064,16 @@ bool BeginConversion(string importPath, string exportPath) {
 		findFiles(importPath, ".spt", nifs);
 #endif
 
+	if (fs::exists(importPath) && fs::is_directory(importPath))
+		findFiles(importPath, ".spt", spts);
+
+	//D:\skywind\test\skyblivion\trees
+
 	set<set<string>> sequences_groups;
 	HKXWrapperCollection wrappers;
 	std::vector<std::pair<std::string, Vector3>> metadata;
 	fs::path out_path;
-	if (nifs.empty()) {
+	if (nifs.empty() && spts.empty()) {
 		Log::Info("No NIFs found.. trying BSAs");
 		const Games::GamesPathMapT& installations = games.getGames();
 		games.loadBsas(Games::TES4);
@@ -5186,6 +5194,31 @@ bool BeginConversion(string importPath, string exportPath) {
 	
 	}
 	else {
+		//Load metadata
+		map<string, string> tree_metadata;
+		ifstream  exported_metadata("D:\\gitroot\\ck-cmd\\xedit\\Skyblivion_metadata\\trees.txt");
+		if (exported_metadata.is_open() && exported_metadata.good())
+		{
+			std::string line;
+			while (std::getline(exported_metadata, line)) {
+				size_t index = line.find(";");
+				if (index != string::npos) {
+					tree_metadata.insert(
+						{
+							line.substr(0, index),
+							line.substr(index + 1, line.size() - index - 1)
+						}
+					);
+				}
+			}
+			exported_metadata.close();
+		}
+
+
+		for (size_t i = 0; i < spts.size(); i++) {
+			sptconvert(spts[i], exportPath, tree_metadata);
+		}
+
 		for (size_t i = 0; i < nifs.size(); i++) {
 			Log::Info("Current File: %s", nifs[i].string().c_str());
 #ifdef HAVE_SPEEDTREE

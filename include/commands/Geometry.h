@@ -298,7 +298,7 @@ namespace Geometry {
 
 	Vector3 centeroid(const vector<Vector3>& in);
 
-	void CalculateNormals(const vector<Vector3>& vertices, const vector<Triangle> faces,
+	void CalculateNormals(const vector<Vector3>& vertices, const vector<Triangle>& faces,
 		vector<Vector3>& normals, Vector3& COM, bool sphericalNormals = false, bool calculateCOM = false);
 
 	vector<Triangle> triangulate(vector<unsigned short> strip);
@@ -312,7 +312,7 @@ namespace Geometry {
 		Vector3 COM;
 
 		//output
-		vector<Vector3> normals;
+		vector<Vector3>& normals;
 
 		//TSpace
 
@@ -323,7 +323,7 @@ namespace Geometry {
 		vector<Vector3> tangents;
 		vector<Vector3> bitangents;
 		TriGeometryContext(const vector<Vector3>& in_vertices, Vector3 COM, const vector<Triangle>& in_faces,
-			const vector<TexCoord>& in_uvs, vector<Vector3> in_normals) : vertices(in_vertices), faces(in_faces), uvs(in_uvs), normals(in_normals) {
+			const vector<TexCoord>& in_uvs, vector<Vector3>& in_normals) : vertices(in_vertices), faces(in_faces), uvs(in_uvs), normals(in_normals) {
 			if (normals.empty() || normals.size() != vertices.size()) {
 				normals.resize(vertices.size());
 				CalculateNormals(vertices, faces, normals, COM, false);

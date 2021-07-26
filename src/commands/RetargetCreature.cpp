@@ -23,6 +23,7 @@
 #include <hkbExpressionDataArray_0.h>
 #include <hkbExpressionDataArray_0.h>
 #include <Animation/Animation/hkaAnimationContainer.h>
+#include <Animation/Animation/Animation/SplineCompressed/hkaSplineCompressedAnimation.h>
 #include <BSSynchronizedClipGenerator_1.h>
 
 #include <algorithm>
@@ -156,7 +157,7 @@ string RetargetCreatureCmd::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd games
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <source_havok_project_cache> <source_havok_project_folder> <target_name>\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <source_havok_project_cache> <source_havok_project_folder> <target_name> -s <skyrim_le_folder>\r\n";
 
 	//will need to check this help in console/
 	const char help[] =
@@ -166,6 +167,7 @@ string RetargetCreatureCmd::GetHelp() const
 	  <source_havok_project_cache> one of the txt file under meshes/animationdata folder for the source project
 	  <source_havok_project_folder> the path under meshes/actor for the project to be retargeted. MUST match the cache file from first argument
 	  <target_name> target project name
+	  <skyrim_le_folder> skyrim installation folder
 
 	  arguments are mandatory)";
 
@@ -287,13 +289,15 @@ void extract_clips(BSAFile& bsa_file, const string& behavior_path, const fs::pat
 
 bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
-	string source_havok_project_cache = "", source_havok_project_folder = "", output_havok_project_name = "";
+	string source_havok_project_cache = "", source_havok_project_folder = "", output_havok_project_name = "", skyrim_le_folder = "";
 	if (parsedArgs["<source_havok_project_cache>"].isString())
 		source_havok_project_cache = parsedArgs["<source_havok_project_cache>"].asString();
 	if (parsedArgs["<source_havok_project_folder>"].isString())
 		source_havok_project_folder = parsedArgs["<source_havok_project_folder>"].asString();
 	if (parsedArgs["<target_name>"].isString())
 		output_havok_project_name = parsedArgs["<target_name>"].asString();
+	if (parsedArgs["-s"].asBool())
+		skyrim_le_folder = parsedArgs["<skyrim_le_folder>"].asString();
 
 	if (!fs::exists(source_havok_project_cache) || !fs::is_regular_file(source_havok_project_cache)) {
 		Log::Error("Invalid cache skeleton file: %s", source_havok_project_cache.c_str());
@@ -410,7 +414,25 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				{
 					Log::Info("Found %s", (fs::path(source_havok_project_folder) / name).string().c_str());					
 					hkRootLevelContainer* root = NULL;
-					hkRefPtr<hkaAnimationContainer> hkroot = wrapper.load<hkaAnimationContainer>(fs::path(source_havok_project_folder) / name, root);
+					hkArray<hkVariant> objects;
+					hkRefPtr<hkaAnimationContainer> hkroot = wrapper.load<hkaAnimationContainer>(fs::path(source_havok_project_folder) / name, root, objects);
+					//retarget events
+					for (int o = 0; o < objects.getSize(); o++)
+					{
+						if (objects[o].m_class == &hkaSplineCompressedAnimationClass) {
+							hkaSplineCompressedAnimation* anim = (hkaSplineCompressedAnimation*)objects[o].m_object;
+							for (int e = 0; e < anim->m_annotationTracks.getSize(); e++) {
+								auto& annotation = anim->m_annotationTracks[e];
+								for (int a = 0; a < annotation.m_annotations.getSize(); a++) {
+									auto& a_object = annotation.m_annotations[a];
+									string text = a_object.m_text;
+									text = replace_all(text, old_name, output_havok_project_name);
+									a_object.m_text = text.c_str();
+								}
+							}
+						}
+					}
+					
 					if (hkroot == NULL)
 					{
 						Log::Error("Unable to load havok project file: %s", project_file.string().c_str());
@@ -432,7 +454,25 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		else {
 			//Just upgrade
 			hkRootLevelContainer* root = NULL;
-			hkRefPtr<hkaAnimationContainer> hkroot = wrapper.load<hkaAnimationContainer>(fs::path(source_havok_project_folder) / name, root);
+			hkArray<hkVariant> objects;
+			hkRefPtr<hkaAnimationContainer> hkroot = wrapper.load<hkaAnimationContainer>(fs::path(source_havok_project_folder) / name, root, objects);
+			//retarget events
+			for (int o = 0; o < objects.getSize(); o++)
+			{
+				if (objects[o].m_class == &hkaSplineCompressedAnimationClass) {
+					hkaSplineCompressedAnimation* anim = (hkaSplineCompressedAnimation*)objects[o].m_object;
+					for (int e = 0; e < anim->m_annotationTracks.getSize(); e++) {
+						auto& annotation = anim->m_annotationTracks[e];
+						for (int a = 0; a < annotation.m_annotations.getSize(); a++) {
+							auto& a_object = annotation.m_annotations[a];
+							string text = a_object.m_text;
+							text = replace_all(text, old_name, output_havok_project_name);
+							a_object.m_text = text.c_str();
+						}
+					}
+				}
+			}
+			
 			if (hkroot == NULL)
 			{
 				Log::Error("Unable to load animation file file: %s", (fs::path(source_havok_project_folder) / name).string().c_str());
@@ -466,6 +506,8 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			to_crc.replace(n, 1, "\\");
 			n += 1;
 		}
+		if (to_crc.at(to_crc.size() - 1) == '\\')
+			to_crc = to_crc.substr(0, to_crc.size() - 1);
 		long long crc = stoll(HkCRC::compute(to_crc),NULL,16);
 		string crc_str = to_string(crc);
 		//new
@@ -621,12 +663,25 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	Games& games = Games::Instance();
 	Games::Game tes5 = Games::TES5;
 
+	fs::path tes5_data;
+
 	if (!games.isGameInstalled(tes5)) {
-		Log::Error("This command only works on TES5, and doesn't seem to be installed. Be sure to run the game at least once.");
-		return false;
+		if (skyrim_le_folder.empty())
+		{
+			Log::Error("This command only works on TES5, and doesn't seem to be installed. Be sure to run the game at least once.");
+			Log::Error("Please use -s parameter to point over an installation");
+			return false;
+		}
+		else {
+			Log::Info("Using Skyrim LE installed at: %s", skyrim_le_folder.c_str());
+			tes5_data = fs::path(skyrim_le_folder) / "Data";
+		}
+	}
+	else {
+		tes5_data = games.data(tes5);
 	}
 
-	Collection skyrimCollection = Collection((char * const)(games.data(tes5).string().c_str()), 3);
+	Collection skyrimCollection = Collection((char * const)(tes5_data.string().c_str()), 3);
 	ModFlags masterFlags = ModFlags(0xA);
 	ModFlags skyblivionFlags = ModFlags(0xA);
 	ModFile* esm = skyrimCollection.AddMod("Skyrim.esm", masterFlags);
@@ -654,6 +709,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	map<string, Sk::MOVTRecord*> movts;
 	map<string, Sk::SNDRRecord*> sndrs;
 	map<string, Sk::IDLERecord*> idles;
+	map<string, Sk::SOUNRecord*> souns;
 	for (auto idle_record_it = skyrimCollection.FormID_ModFile_Record.begin(); idle_record_it != skyrimCollection.FormID_ModFile_Record.end(); idle_record_it++)
 	{
 		Record* record = idle_record_it->second;
@@ -670,8 +726,17 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			string SDless = string(sndr->EDID.value).substr(0, string(sndr->EDID.value).size() - 2);
 			if (retarget_SOUN.find(SDless) != retarget_SOUN.end() || retarget_SOUN.find(string(sndr->EDID.value)) != retarget_SOUN.end())
 			{
-				Log::Info("Found SNDR to retarget: %s", sndr->EDID.value);
+				Log::Info("Found SOUN to retarget: %s", sndr->EDID.value);
 				sndrs[string(sndr->EDID.value)] = sndr;
+			}
+		}
+		if (record->GetType() == REV32(SOUN)) {
+			Sk::SOUNRecord* soun = dynamic_cast<Sk::SOUNRecord*>(record);
+			string SDless = string(soun->EDID.value).substr(0, string(soun->EDID.value).size() - 2);
+			if (retarget_SOUN.find(SDless) != retarget_SOUN.end() || retarget_SOUN.find(string(soun->EDID.value)) != retarget_SOUN.end())
+			{
+				Log::Info("Found SNDR to retarget: %s", soun->EDID.value);
+				souns[string(soun->EDID.value)] = soun;
 			}
 		}
 		if (record->GetType() == REV32(IDLE)) {
@@ -750,6 +815,8 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		checker.Accept(result->formID);
 	}
 
+	map<FORMID, FORMID> retargeted_sndr;
+
 	for (auto& sndr_it : sndrs) {
 		auto sndr = sndr_it.second;
 		std::string new_edid;
@@ -784,6 +851,44 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		copied->CTDA = sndr->CTDA;
 		copied->LNAM = sndr->LNAM;
 		copied->BNAM = sndr->BNAM;
+
+		result->IsChanged(true);
+		result->IsLoaded(true);
+		FormIDMasterUpdater checker(skyrimMod->FormIDHandler);
+		checker.Accept(result->formID);
+
+		retargeted_sndr[to_copy->formID] = result->formID;
+
+	}
+
+	for (auto& soun_it : souns) {
+		auto soun = soun_it.second;
+		std::string new_edid;
+		if (lower_find(soun->EDID.value, old_name) != string::npos)
+		{
+			new_edid = replace_all(soun->EDID.value, old_name, output_havok_project_name);
+		}
+		else {
+			new_edid = output_havok_project_name + soun->EDID.value;
+		}
+
+		// declaring character array 
+		char* char_array = new char[new_edid.size() + 1];
+
+		// copying the contents of the 
+		// string to char array 
+		strcpy(char_array, new_edid.c_str());
+
+		Record* to_copy = static_cast<Record*>(soun);
+		Record* result = skyrimCollection.CopyRecord(to_copy, skyrimMod, NULL, NULL, char_array, 0);
+		Sk::SOUNRecord* copied = dynamic_cast<Sk::SOUNRecord*>(result);
+		copied->EDID.value = char_array;
+		copied->OBND = soun->OBND;
+		copied->FNAM = soun->FNAM;
+		copied->SNDD = soun->SNDD;
+		copied->SDSC = soun->SDSC;
+
+		copied->SDSC.value = retargeted_sndr[copied->SDSC.value];
 
 		result->IsChanged(true);
 		result->IsLoaded(true);
