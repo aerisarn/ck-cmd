@@ -13,3 +13,6 @@
 [submodule "modules/geometry/quickhull"]
 	path = modules/geometry/quickhull
 	url = https://github.com/akuukka/quickhull
+[submodule "modules/FSM-Editor"]
+	path = modules/FSM-Editor
+	url = https://github.com/FredTingaud/FSM-Editor.git
