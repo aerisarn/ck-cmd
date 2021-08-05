@@ -8,6 +8,33 @@ ResourceManager::ResourceManager(const fs::path& workspace_folder) :
 
 }
 
+size_t ResourceManager::index(const fs::path& file) const {
+	auto index = std::distance(
+		_files.begin(),
+		std::find(_files.begin(), _files.end(), file)
+	);
+	return index;
+}
+
+int ResourceManager::findIndex(int file_index, const void* object) const
+{
+	auto& _objects = _contents.at(file_index).second;
+	for (int i = 0; i < _objects.getSize(); i++) {
+		if (_objects[i].m_object == object)
+			return i;
+	}
+	return -1;
+}
+
+int ResourceManager::findIndex(const fs::path& file, const void* object) const
+{
+	return findIndex(index(file), object);
+}
+
+hkVariant* ResourceManager::at(const fs::path& file, size_t _index) {
+	return &_contents[index(file)].second[_index];
+}
+
 fs::path ResourceManager::open(const std::string& project)
 {
 	std::string xml_name = fs::path(project).replace_extension(".xml").string();
@@ -30,7 +57,7 @@ fs::path ResourceManager::open(const std::string& project)
 
 hkx_file_t& ResourceManager::get(const fs::path& file)
 {
-	if (_files.find(file) == _files.end()) {
+	if (std::find(_files.begin(), _files.end(), file) == _files.end()) {
 		HKXWrapper wrap;
 		fs::path xml_path = file;  xml_path.replace_extension(".xml");
 		fs::path hkx_path = file;  hkx_path.replace_extension(".hkx");
@@ -43,7 +70,8 @@ hkx_file_t& ResourceManager::get(const fs::path& file)
 		else
 			throw std::runtime_error("Unable to find: " + file.string());
 		
-		_files[file] = new_file;
+		_contents[_files.size()] = new_file;
+		_files.push_back(file);
 	}
-	return _files[file];
+	return _contents[index(file)];
 }

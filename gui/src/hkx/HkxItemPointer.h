@@ -5,6 +5,7 @@
 namespace ckcmd {
 	namespace HKX {
 		class HkxItemPointer {
+			int _file_index;
 			const void* _pointer;
 		public:
 			HkxItemPointer() = default;
@@ -12,8 +13,9 @@ namespace ckcmd {
 			HkxItemPointer(const HkxItemPointer&) = default;
 			HkxItemPointer& operator=(const HkxItemPointer&) = default;
 
-			HkxItemPointer(const void* pointer) : _pointer(pointer) {}
+			HkxItemPointer(int file_index, const void* pointer) : _file_index(file_index), _pointer(pointer) {}
 			const void* get() { return _pointer; }
+			const int file_index() { return _file_index; }
 		};
 	}
 }

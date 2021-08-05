@@ -4,6 +4,7 @@
 #include "DockWidget.h"
 #include <QItemDelegate>
 #include <src/models/HkxItemTableModel.h>
+#include <src/hkx/ResourceManager.h>
 #include <src/log.h>
 
 
@@ -17,13 +18,13 @@ class ValuesWidget : public ::ads::CDockWidget
 {
     Q_OBJECT
 
-
+   const ckcmd::HKX::ResourceManager & _manager;
 public:
-    explicit ValuesWidget(QWidget* parent = 0);
+    explicit ValuesWidget(const ckcmd::HKX::ResourceManager& manager, QWidget* parent = 0);
     ~ValuesWidget();
 
 public slots:
-    void setVariant(hkVariant* v);
+    void setVariant(int file_index, hkVariant* v);
 
 private:
     Ui::ValuesWidget* ui;

@@ -13,18 +13,20 @@ void TreeBuilder::visit(char* value) {}
 
 void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
-	ProjectNode* member_node = _parent->appendChild(
-		ProjectNode::createHkxFieldNode({ QString::fromStdString(_classmember->getName()) }, _parent));
+	//ProjectNode* member_node = _parent->appendChild(
+	//	ProjectNode::createHkxFieldNode({ QString::fromStdString(_classmember->getName()) }, _parent));
 	int object_index = _resourceManager.findIndex(_file, (const void*)*(uintptr_t*)(v));
 	if (object_index >= 0)
 	{
-		ProjectNode* object_node = member_node->appendChild(
+		QString name = QString("[%1] %2").arg(object_index).arg(_resourceManager.at(_file, object_index)->m_class->getName());
+		ProjectNode* object_node = _parent->appendChild(
 			ProjectNode::createHkxNode(
-				{ 
-					QString::fromStdString(_resourceManager.at(_file, object_index)->m_class->getName()), 
-					(unsigned long long)_resourceManager.at(_file, object_index)
+				{
+					name,
+					(unsigned long long)_resourceManager.at(_file, object_index),
+					(int)_resourceManager.index(_file)
 				}, 
-			member_node));
+				_parent));
 		HkxTableVariant h(*const_cast<hkVariant*>(_resourceManager.at(_file, object_index)));
 		TreeBuilder t(object_node, _resourceManager, _file, _visited_objects);
 		h.accept(t);

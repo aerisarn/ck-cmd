@@ -20,15 +20,18 @@ void Getter::check(void* value) {
 void Getter::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
 	if (_row == 0)
-		_value.setValue(HkxItemPointer((void*)*(uintptr_t*)v));
+		_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)v));
 	_row -= 1;
 }
 
 void Getter::visit(void* object, const hkClassMember& definition)
 {
 	//array
+	const auto& arraytype = definition.getArrayType();
+	const auto& arraysubtype = definition.getSubType();
+	const auto& arrayclass = definition.getStructClass();
 	size_t array_rows = 1;
-	if (definition.hasClass() && definition.getClass() != &hkReferencedObjectClass) {
+	if (definition.hasClass() && hkClassMember::TYPE_POINTER != arraysubtype) {
 		hkVariant v;
 		v.m_class = definition.getClass();
 		v.m_object = object;
@@ -37,9 +40,6 @@ void Getter::visit(void* object, const hkClassMember& definition)
 		h.accept(r);
 		array_rows = r.rows();
 	}
-	const auto& arraytype = definition.getArrayType();
-	const auto& arraysubtype = definition.getSubType();
-	const auto& arrayclass = definition.getStructClass();
 	size_t elements = definition.getSizeInBytes() / definition.getArrayMemberSize();
 	char* base = (char*)object;
 	if (hkClassMember::TYPE_ARRAY == definition.getType())
@@ -66,12 +66,12 @@ void Getter::visit(void* object, const hkClassMember& definition)
 					v.m_class = &arrayclass;
 					v.m_object = element;
 					HkxTableVariant h(v);
-					Getter g(_row, _column);
+					Getter g(_row, _column, _file_index);
 					h.accept(g);
 					_value = g.value();
 				}
 				else {
-					_value.setValue(HkxItemPointer((void*)*(uintptr_t*)element));
+					_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)element));
 				}
 			}
 			_row -= array_rows;
@@ -143,13 +143,13 @@ void Getter::visit(void* object, const hkClass& object_type, const char* member_
 		int next_rows = _row - array_rows;
 		if (_row >=0 && next_rows < 0)
 		{
-			Getter g(_row, _column);
+			Getter g(_row, _column, _file_index);
 			h.accept(g);
 			_value = g.value();
 		}
 	}
 	else {
-		_value.setValue(HkxItemPointer((void*)*(uintptr_t*)object));
+		_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)object));
 	}
 	_row -= array_rows;
 }

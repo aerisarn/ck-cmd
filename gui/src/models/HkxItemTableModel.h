@@ -10,28 +10,12 @@ namespace ckcmd {
             Q_OBJECT
 
             hkVariant* _variant;
-
+            int _file;
             hkVariant* getObject(const QModelIndex& index) const;
 
         public:
 
-            struct HkxItemLink {
-                size_t column;
-                size_t row;
-                hkVariant* parent;
-                hkVariant* child;
-
-                bool operator<(const HkxItemLink& rhs) const
-                {
-                    return column < rhs.column&&
-                        row < rhs.row&&
-                        parent < rhs.parent&&
-                        child < rhs.child;
-                }
-
-            };
-
-            HkxItemTableModel(hkVariant* variant, QObject* parent = 0);
+            HkxItemTableModel(hkVariant* variant, int file, QObject* parent = 0);
             ~HkxItemTableModel() {}
 
             QVariant headerData(int section, Qt::Orientation orientation,
@@ -45,8 +29,6 @@ namespace ckcmd {
             int rowCount(const QModelIndex& parent = QModelIndex()) const override;
             int columnCount(const QModelIndex& parent = QModelIndex()) const override;
 
-        private:
-            
         };
     }
 }

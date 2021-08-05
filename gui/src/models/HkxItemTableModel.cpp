@@ -36,8 +36,8 @@ using namespace ckcmd::HKX;
 	//	debug.push_back({ rows,columns });
 	//}
 
-HkxItemTableModel::HkxItemTableModel(hkVariant* variant, QObject* parent) :
-	_variant(variant),
+HkxItemTableModel::HkxItemTableModel(hkVariant* variant, int file, QObject* parent) :
+	_variant(variant), _file(file),
 	QAbstractTableModel(parent)
 {
 }
@@ -51,23 +51,23 @@ QVariant HkxItemTableModel::data(const QModelIndex& index, int role) const
 	if (role == Qt::DisplayRole)
 	{
 		HkxTableVariant h(*_variant);
-		if (index.column() == 0) {
-			NameGetter n(index.row(), "");
-			h.accept(n);
-			return n.name();
-		}
-		else {
+		//if (index.column() == 0) {
+		//	NameGetter n(index.row(), "");
+		//	h.accept(n);
+		//	return n.name();
+		//}
+		//else {
 			ColumnCalculator c;
 			h.accept(c);
 			size_t columns = c.column(index.row());
-			if (index.column() - 1 < columns)
+			if (index.column()/* - 1*/ < columns)
 			{
-				Getter g(index.row(), index.column() - 1);
+				Getter g(index.row(), index.column() /*- 1*/, _file);
 				h.accept(g);
 				return g.value();
 			}
 			return QVariant();
-		}
+		//}
 	}
 	return QVariant();
 }
@@ -85,13 +85,28 @@ int HkxItemTableModel::columnCount(const QModelIndex& parent) const
 	ColumnCalculator c;
 	HkxTableVariant h(*_variant);
 	h.accept(c);
-	// column 0 is file name, 1..N values
-	return c.columns() + 1;
+	return c.columns();
 }
 
 QVariant HkxItemTableModel::headerData(int section, Qt::Orientation orientation,
 	int role) const
 {
+	if (role == Qt::DisplayRole)
+	{
+		if (orientation == Qt::Orientation::Horizontal)
+		{
+			if (section == 0)
+				return tr("value");
+			else
+				return QString("value[%1]").arg(section);
+		}
+		else if (orientation == Qt::Orientation::Vertical) {
+			NameGetter n(section, "");
+			HkxTableVariant h(*_variant);
+			h.accept(n);
+			return n.name();
+		}
+	}
 	return QVariant();
 }
 

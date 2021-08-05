@@ -11,7 +11,8 @@ namespace ckcmd {
 	namespace HKX {
 		class ResourceManager {
 
-			std::map<fs::path, hkx_file_t> _files;
+			std::vector<fs::path> _files;
+			std::map<size_t, hkx_file_t> _contents;
 			const fs::path _workspace_folder;
 
 		public:
@@ -22,19 +23,12 @@ namespace ckcmd {
 
 			fs::path ResourceManager::open(const std::string& project);
 
-			int findIndex(const fs::path& file, const void* object)
-			{
-				auto& _objects = _files[file].second;
-				for (int i = 0; i < _objects.getSize(); i++) {
-					if (_objects[i].m_object == object)
-						return i;
-				}
-				return -1;
-			}
+			size_t index(const fs::path& file) const;
 
-			hkVariant* at(const fs::path& file, size_t index) {
-				return &_files[file].second[index];
-			}
+			int findIndex(int file_index, const void* object) const;
+			int findIndex(const fs::path& file, const void* object) const;
+
+			hkVariant* at(const fs::path& file, size_t _index);
 
 		};
 	}

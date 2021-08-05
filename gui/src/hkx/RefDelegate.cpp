@@ -10,8 +10,9 @@ using namespace ckcmd::HKX;
 
 #define CUSTOM_SIZE_PADDING 3
 
-RefDelegate::RefDelegate(QObject* parent)
-    : QStyledItemDelegate(parent)
+RefDelegate::RefDelegate(const ResourceManager& manager, QObject* parent)
+    : _manager(manager),
+    QStyledItemDelegate(parent)
 {
 }
 
@@ -19,7 +20,11 @@ void RefDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, c
 {
     if (index.data().canConvert<HkxItemPointer>()) {
 
-        uintptr_t data = (uintptr_t)index.data().value<HkxItemPointer>().get();
+        HkxItemPointer data = index.data().value<HkxItemPointer>();
+        auto file_index_ = data.file_index();
+        auto* object_address_ = data.get();
+        auto object_index = _manager.findIndex(data.file_index(), data.get());
+        QString label = QString("[%1]").arg(object_index);
 
         if (option.state & QStyle::State_Selected)
         {
@@ -31,7 +36,7 @@ void RefDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, c
         }
 
         auto rect = option.rect.adjusted(CUSTOM_SIZE_PADDING, 0, 0, 0);
-        painter->drawText(rect, Qt::AlignLeft | Qt::AlignVCenter, QString::number(data));
+        painter->drawText(rect, Qt::AlignLeft | Qt::AlignVCenter, label);
     }
     else if (index.data().canConvert<HkxItemEnum>()) {
 
@@ -51,6 +56,16 @@ void RefDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, c
     }
     else if (index.data().canConvert<HkxItemFlags>()) {
         HkxItemFlags flags = index.data().value<HkxItemFlags>();
+
+        if (option.state & QStyle::State_Selected)
+        {
+            painter->fillRect(option.rect, option.palette.highlight());
+            painter->setPen(Qt::white);
+        }
+        else {
+            painter->setPen(Qt::black);
+        }
+
         flags.paint(painter, option);
     }
     else {
@@ -63,8 +78,9 @@ QSize RefDelegate::sizeHint(const QStyleOptionViewItem& option,
 {
     if (index.data().canConvert<HkxItemPointer>()) {
 
-        uintptr_t data = (uintptr_t)index.data().value<HkxItemPointer>().get();
-        auto rect = option.fontMetrics.boundingRect(QString::number(data));
+        HkxItemPointer data = index.data().value<HkxItemPointer>();
+        QString label = QString("[%1]").arg(_manager.findIndex(data.file_index(), data.get()));
+        auto rect = option.fontMetrics.boundingRect(label);
         return {rect.width() + 2 * CUSTOM_SIZE_PADDING, rect.height()};
     }
     if (index.data().canConvert<HkxItemEnum>()) {

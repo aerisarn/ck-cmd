@@ -30,7 +30,8 @@ public slots:
     void nodeClicked(const QModelIndex& index);
 
 signals:
-    void variantSelected(hkVariant*);
+    //file index in resource manager, object in file
+    void variantSelected(size_t, hkVariant*);
 
 private:
     Ui::ProjectsWidget* ui;

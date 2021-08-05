@@ -6,13 +6,14 @@
 
 using namespace ckcmd::HKX;
 
-ValuesWidget::ValuesWidget(QWidget* parent) :
+ValuesWidget::ValuesWidget(const ckcmd::HKX::ResourceManager& manager, QWidget* parent) :
+	_manager(manager),
 	ui(new Ui::ValuesWidget),
 	ads::CDockWidget("Values",parent)
 {
 	ui->setupUi(this);
 	ui->valuesView->setRowHeight(0,1024);
-	ui->valuesView->setItemDelegate(new RefDelegate(this));
+	ui->valuesView->setItemDelegate(new RefDelegate(_manager, this));
 	setWidget(ui->verticalLayoutWidget);
 }
 
@@ -23,11 +24,11 @@ ValuesWidget::~ValuesWidget()
 
 #undef max
 
-void ValuesWidget::setVariant(hkVariant* v)
+void ValuesWidget::setVariant(int file_index, hkVariant* v)
 {
 	auto actual_model = ui->valuesView->model();
 	ui->valuesView->setModel(
-		new HkxItemTableModel(v, this)
+		new HkxItemTableModel(v, file_index, this)
 	);
 	ui->valuesView->setVisible(false);
 	QRect vporig = ui->valuesView->viewport()->geometry();

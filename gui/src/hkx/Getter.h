@@ -14,6 +14,7 @@ namespace ckcmd {
 			QVariant _value;
 			int _row;
 			int _column;
+			int _file_index;
 
 			template<typename T>
 			void check(T& value);
@@ -21,9 +22,9 @@ namespace ckcmd {
 
 		public:
 
-			Getter(const size_t row, const size_t column) : 
+			Getter(const size_t row, const size_t column, int file_index) :
 				HkxConcreteVisitor(*this), 
-				_row(row), _column(column) {}
+				_row(row), _column(column), _file_index(file_index) {}
 
 			QVariant value() { return _value; }
 
@@ -178,7 +179,7 @@ namespace ckcmd {
 			int next_rows = _row - array_rows;
 			if (next_rows <= 0)
 			{
-				Getter g(_row, _column);
+				Getter g(_row, _column, _file_index);
 				h.accept(g);
 				_value = g.value();
 			}

@@ -33,7 +33,7 @@ MainWindow::MainWindow(QWidget* parent) :
 
 
 	_projectTreeView = new ProjectsWidget(&_model, &_resource_manager, this);
-	_valuesTableView = new ValuesWidget(this);
+	_valuesTableView = new ValuesWidget(_resource_manager, this);
 
 	connect(_projectTreeView, &ProjectsWidget::variantSelected, _valuesTableView, &ValuesWidget::setVariant);
 
