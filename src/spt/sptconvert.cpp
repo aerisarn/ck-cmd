@@ -162,35 +162,6 @@ static inline Niflib::hkQuaternion TOQUAT(const Niflib::Quaternion& q) {
 }
 
 
-union alpha_flags
-{
-	enum gl_test_modes {
-		GL_ALWAYS = 0,
-		GL_LESS = 1,
-		GL_EQUAL = 2,
-		GL_LEQUAL = 3,
-		GL_GREATER = 4,
-		GL_NOTEQUAL = 5,
-		GL_GEQUAL = 6,
-		GL_NEVER = 7
-	};
-
-	struct {
-		// Bit 0 : color blending enable
-		unsigned color_blending_enable : 1;
-		// Bits 1-4 : source blend mode
-		unsigned source_blend_mode : 4;
-		// Bits 5-8 : destination blend mode
-		unsigned destination_blend_mode : 4;
-		// Bit 9 : alpha test enable
-		unsigned alpha_test_enable : 1;
-		// Bit 10-12 : alpha test mode
-		unsigned alpha_test_mode : 3;
-		// Bit 13 : no sorter flag ( disables triangle sorting )
-		unsigned no_sorter_flag : 1;
-	} bits;
-	unsigned int value;
-};
 
 size_t first_number(const std::string& c, size_t off = 0)
 {

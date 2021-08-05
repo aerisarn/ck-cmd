@@ -3114,6 +3114,16 @@ public:
 				NiAlphaPropertyRef alpha = new NiAlphaProperty();
 				alpha->SetFlags(DynamicCast<NiAlphaProperty>(property)->GetFlags());
 				alpha->SetThreshold(DynamicCast<NiAlphaProperty>(property)->GetThreshold());
+
+				//check if both blending and testing are set
+				alpha_flags a_flags; a_flags.value = alpha->GetFlags();
+				if (a_flags.bits.alpha_test_enable && a_flags.bits.color_blending_enable)
+				{
+					//prefer test
+					a_flags.bits.color_blending_enable = 0;
+					alpha->SetFlags(a_flags.value);
+				}
+
 				obj.SetAlphaProperty(alpha);
 			}
 			if (property->IsSameType(NiSpecularProperty::TYPE)) {

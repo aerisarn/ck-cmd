@@ -9,34 +9,88 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-
 set(PROJECT "ck-gui")
 
 project(${PROJECT})
 
-if(NOT DEFINED HEADERS)
-    file(GLOB_RECURSE HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
+
+# QT Advanced Dock Widgets
+
+set ( QTADS_INCLUDES_PATH "${CMAKE_SOURCE_DIR}/lib/QTADS/include")
+
+add_library(
+	QTADS
+	STATIC 
+	IMPORTED GLOBAL
+)
+
+set_target_properties(
+	QTADS 
+	PROPERTIES IMPORTED_LOCATION
+	"${CMAKE_SOURCE_DIR}/lib/QTADS/lib/Release/qtadvanceddocking.lib"
+)
+
+set_target_properties(
+	QTADS
+	PROPERTIES IMPORTED_LOCATION_DEBUG             
+	"${CMAKE_SOURCE_DIR}/lib/QTADS/lib/Debug/qtadvanceddocking.lib"
+)
+
+set (GUI_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/src/config.h"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/src/ILogger.h"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/src/log.h")
+
+set (GUI_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/config.cpp"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/src/log.cpp")
+
+if(NOT DEFINED AnimData)
+    file(GLOB_RECURSE ANIMDATA_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/animdata/*.h)
+    file(GLOB_RECURSE ANIMDATA_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/animdata/*.cpp)
+
+    source_group("Animation Data\\Headers" FILES ${ANIMDATA_HEADERS})
+    source_group("Animation Data\\Sources" FILES ${ANIMDATA_SOURCES})
+endif()  
+
+if(NOT DEFINED Havok)
+    file(GLOB_RECURSE HKX_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/hkx/*.h)
+    file(GLOB_RECURSE HKX_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/hkx/*.cpp)
+
+    source_group("Havok\\Headers" FILES ${HKX_HEADERS})
+    source_group("Havok\\Sources" FILES ${HKX_SOURCES})
+endif()   
+
+if(NOT DEFINED MODELS)
+    file(GLOB_RECURSE MODEL_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/models/*.h)
+    file(GLOB_RECURSE MODEL_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/models/*.cpp)
+
+    source_group("Models\\Headers" FILES ${MODEL_HEADERS})
+    source_group("Models\\Sources" FILES ${MODEL_SOURCES})
+endif()   
+
+if(NOT DEFINED WIDGETS)
+    file(GLOB_RECURSE WIDGET_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/widgets/*.h)
+    file(GLOB_RECURSE WIDGET_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/widgets/*.cpp)
+    file(GLOB_RECURSE WIDGET_UIS ${CMAKE_SOURCE_DIR}/gui/src/widgets/*.ui)
+
+    source_group("Widgets\\Headers" FILES ${WIDGET_HEADERS})
+    source_group("Widgets\\Sources" FILES ${WIDGET_SOURCES})
+    source_group("Widgets\\UI" FILES ${WIDGET_UIS})
 endif()
 
-if(NOT DEFINED SOURCES)
-    file(GLOB_RECURSE SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+if(NOT DEFINED WINDOWS)
+    file(GLOB_RECURSE WINDOW_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/windows/*.h)
+    file(GLOB_RECURSE WINDOW_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/windows/*.cpp)
+    file(GLOB_RECURSE WINDOW_UIS ${CMAKE_SOURCE_DIR}/gui/src/windows/*.ui)
+
+    source_group("Windows\\Headers" FILES ${WINDOW_HEADERS})
+    source_group("Windows\\Sources" FILES ${WINDOW_SOURCES})
+    source_group("Windows\\UI" FILES ${WINDOW_UIS})
 endif()
 
-file(GLOB_RECURSE UI_HAVOK_CLASSES_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/src/hkxclasses/*.h)
-file(GLOB_RECURSE UI_HAVOK_CLASSES_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/hkxclasses/*.cpp)
+file(GLOB_RECURSE QTADS_HEADERS ${QTADS_INCLUDES_PATH}/*.h)
 
-
-source_group("Header Files" FILES ${HEADERS})
-source_group("Source Files" FILES ${SOURCES})
-
-source_group("Havok Compat\\Headers" FILES ${HAVOK_COMPAT_HEADERS})
-source_group("UI Havok Classes\\Headers" FILES ${UI_HAVOK_CLASSES_HEADERS})
-source_group("UI Havok Classes\\Sources" FILES ${UI_HAVOK_CLASSES_SOURCES})
-source_group("Header Files" FILES ${PROJECT_HEADERS})
-source_group("AnimationData\\Headers" FILES ${BETH_ANIMDATA_HEADERS})
-source_group("AnimationData\\Sources" FILES ${BETH_ANIMDATA_SRC})
-
-
+list(APPEND PROJECT_INCLUDES "${CMAKE_SOURCE_DIR}/gui") 
+list(APPEND PROJECT_INCLUDES "${QTADS_INCLUDES_PATH}") 
 
 # Settings when compiling with MSVC.
 IF (MSVC)
@@ -58,18 +112,35 @@ IF (MSVC)
 	set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
 	set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
 	endif(CMAKE_BUILD_TYPE MATCHES Debug)
-
 ENDIF ()
 
-list(APPEND PROJECT_INCLUDES "${CMAKE_SOURCE_DIR}/gui")
 
-list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/test/test.cpp")
-list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/src/main.cpp")
+#list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/test/test.cpp")
+#list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/src/main.cpp")
+#list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/src/windows/*.*")
 
-add_library( gui-lib STATIC ${HEADERS} ${SOURCES} ${QT_RESOURCES} )
+add_library( gui-lib STATIC 
+    ${GUI_HEADERS} 
+    ${GUI_SOURCES}
+    ${MODEL_HEADERS}
+    ${MODEL_SOURCES}
+    ${HKX_HEADERS}
+    ${HKX_SOURCES}
+    ${ANIMDATA_HEADERS}
+    ${ANIMDATA_SOURCES}
+)
 target_include_directories	(gui-lib  PUBLIC ${PROJECT_INCLUDES} )
 
-add_executable(${PROJECT} "${CMAKE_SOURCE_DIR}/gui/src/main.cpp" $<TARGET_OBJECTS:ck-cmd-lib>)
+add_executable(${PROJECT} 
+    ${WINDOW_HEADERS} 
+    ${WINDOW_SOURCES} 
+    ${WINDOW_UIS}
+    ${WIDGET_HEADERS} 
+    ${WIDGET_SOURCES}
+    ${WIDGET_UIS}
+    ${QT_RESOURCES} 
+    "${CMAKE_SOURCE_DIR}/gui/src/main.cpp" 
+$<TARGET_OBJECTS:ck-cmd-lib>)
 target_include_directories	(${PROJECT}  PUBLIC ${PROJECT_INCLUDES} )
 add_dependencies			(${PROJECT} zlib)
 add_dependencies			(${PROJECT} docopt_parser)
@@ -77,6 +148,8 @@ target_link_libraries(${PROJECT}
     ${DOCOPT_LIBRARIES}   
     ck-cmd-lib
     gui-lib
+    FSM-lib
+    QTADS
     Qt5::Widgets
 	${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib
     )
@@ -86,19 +159,27 @@ add_custom_command(TARGET ${PROJECT} POST_BUILD
         "${PROJECT_SOURCE_DIR}/../lib/fbx/lib/vs2015/x86/$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:Release>/libfbxsdk.dll"
         $<TARGET_FILE_DIR:ck-gui>)
 
+add_custom_command(TARGET ${PROJECT} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different  
+        "${PROJECT_SOURCE_DIR}/../lib/SpeedTreeRT/SpeedTreeRT.dll"
+        $<TARGET_FILE_DIR:ck-gui>)
+
+add_custom_command(TARGET ${PROJECT} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different  
+        "${PROJECT_SOURCE_DIR}/../lib/QTADS/lib/$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:Release>/qtadvanceddocking.dll"
+        $<TARGET_FILE_DIR:ck-gui>)
+
 if(TARGET Qt5::windeployqt)
     # execute windeployqt in a tmp directory after build
     add_custom_command(TARGET ${PROJECT}
         POST_BUILD
         COMMAND set PATH=%PATH%$<SEMICOLON>${qt5_install_prefix}/bin
-        COMMAND Qt5::windeployqt --dir "$<TARGET_FILE_DIR:ck-gui>" "$<TARGET_FILE_DIR:ck-gui>/$<TARGET_FILE_NAME:ck-gui>"
+        COMMAND Qt5::windeployqt $<$<CONFIG:Debug>:--debug>$<$<CONFIG:Release>:--release>$<$<CONFIG:RelWithDebInfo>:--release> --dir "$<TARGET_FILE_DIR:ck-gui>" "$<TARGET_FILE_DIR:ck-gui>/$<TARGET_FILE_NAME:ck-gui>"
     )
 endif()
 
 
 set (GUI_TEST_SRC "${CMAKE_SOURCE_DIR}/gui/test/test.cpp")
-
-list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/src/main.cpp")
 
 # Build tester.
 add_executable				(gui-tests ${GUI_TEST_SRC} $<TARGET_OBJECTS:ck-cmd-lib>)
@@ -109,6 +190,8 @@ target_link_libraries		(gui-tests ${GTEST_LIBRARIES} ${TEST_LIBRARIES}
     ${DOCOPT_LIBRARIES}
     ck-cmd-lib
     gui-lib
+    FSM-lib
+    QTADS
     Qt5::Widgets
 	${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib
     )

@@ -666,6 +666,8 @@ IF (PROJECT_GUI)
     endif()
 endif()
 
+# modules
+	add_subdirectory(modules/FSM-Editor)
 
 # Directory with the source code
 	add_subdirectory(gui)
