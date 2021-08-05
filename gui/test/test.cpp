@@ -103,15 +103,13 @@ fs::path test_path = "D:\\skywind\\Data\\meshes\\actors";
 //	readWriteTest<ProjectFile>(test_path / "character" / "defaultmale.hkx");
 //}
 //
-#include <src/qsettings-xml.hpp>
-
-TEST(Config, Serialization) {
-	QSettings settings("prova.ini", QSettings::IniFormat);
-	settings.beginGroup("general");
-		settings.setValue("version", 1);
-		settings.setValue("workspace", test_path.string().c_str());
-	settings.endGroup();
-}
+//TEST(Config, Serialization) {
+//	QSettings settings("prova.ini", QSettings::IniFormat);
+//	settings.beginGroup("general");
+//		settings.setValue("version", 1);
+//		settings.setValue("workspace", test_path.string().c_str());
+//	settings.endGroup();
+//}
 
 int main(int argc, char **argv) {
 //	InitializeHavok();
