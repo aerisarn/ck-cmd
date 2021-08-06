@@ -18,7 +18,18 @@ void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Fla
 	int object_index = _resourceManager.findIndex(_file, (const void*)*(uintptr_t*)(v));
 	if (object_index >= 0)
 	{
-		QString name = QString("[%1] %2").arg(object_index).arg(_resourceManager.at(_file, object_index)->m_class->getName());
+		auto* variant = _resourceManager.at(_file, object_index);
+		QString display_name = variant->m_class->getName();
+		//check if the object has a name we can display
+		auto member = variant->m_class->getMemberByName("name");
+		if (HK_NULL != member)
+		{
+			auto member_ptr = ((char*)variant->m_object) + member->getOffset();
+			auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
+			display_name = c_str_ptr;
+		}
+
+		QString name = QString("[%1] %2").arg(object_index).arg(display_name);
 		ProjectNode* object_node = _parent->appendChild(
 			ProjectNode::createHkxNode(
 				{

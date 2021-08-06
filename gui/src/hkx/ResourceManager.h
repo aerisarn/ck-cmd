@@ -5,7 +5,7 @@
 
 #include <map>
 
-typedef std::pair< hkRootLevelContainer*, hkArray<hkVariant>> hkx_file_t;
+typedef std::pair< hkVariant, hkArray<hkVariant>> hkx_file_t;
 
 namespace ckcmd {
 	namespace HKX {

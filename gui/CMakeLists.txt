@@ -114,11 +114,6 @@ IF (MSVC)
 	endif(CMAKE_BUILD_TYPE MATCHES Debug)
 ENDIF ()
 
-
-#list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/test/test.cpp")
-#list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/src/main.cpp")
-#list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/gui/src/windows/*.*")
-
 add_library( gui-lib STATIC 
     ${GUI_HEADERS} 
     ${GUI_SOURCES}

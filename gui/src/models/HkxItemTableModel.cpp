@@ -9,33 +9,6 @@
 
 using namespace ckcmd::HKX;
 
-//std::vector<std::array<size_t,2>> debug;
-//QVector<QPair<QString,QVariant>> values;
-
-	//for (int i = 0; i < _objects.getSize(); i++)
-	//{
-	//	RowCalculator r;
-	//	ColumnCalculator c;
-
-	//	HkxTableVariant h(_objects[i]);
-	//	h.accept(r);
-	//	h.accept(c);
-	//	size_t rows = r.rows();
-	//	size_t columns = c.columns();
-	//	for (int r = 0; r < rows; r++) {
-	//		NameGetter n(r);
-	//		h.accept(n);
-	//		for (int c = 0; c < columns; c++)
-	//		{
-	//			Getter g(r, c);
-	//			h.accept(g);
-	//			//std::string temp_name = n.name().toStdString();
-	//			values.push_back({ n.name(),g.value() });
-	//		}
-	//	}
-	//	debug.push_back({ rows,columns });
-	//}
-
 HkxItemTableModel::HkxItemTableModel(hkVariant* variant, int file, QObject* parent) :
 	_variant(variant), _file(file),
 	QAbstractTableModel(parent)
@@ -51,23 +24,19 @@ QVariant HkxItemTableModel::data(const QModelIndex& index, int role) const
 	if (role == Qt::DisplayRole)
 	{
 		HkxTableVariant h(*_variant);
-		//if (index.column() == 0) {
-		//	NameGetter n(index.row(), "");
-		//	h.accept(n);
-		//	return n.name();
-		//}
-		//else {
-			ColumnCalculator c;
-			h.accept(c);
-			size_t columns = c.column(index.row());
-			if (index.column()/* - 1*/ < columns)
-			{
-				Getter g(index.row(), index.column() /*- 1*/, _file);
-				h.accept(g);
-				return g.value();
-			}
-			return QVariant();
-		//}
+		RowCalculator r;
+		ColumnCalculator c;
+		h.accept(r);
+		size_t rows = r.rows();
+		h.accept(c);
+		size_t columns = c.column(index.row());
+		if (index.row() < rows && index.column() < columns)
+		{
+			Getter g(index.row(), index.column(), _file);
+			h.accept(g);
+			return g.value();
+		}
+		return QVariant();
 	}
 	return QVariant();
 }

@@ -74,6 +74,14 @@ ProjectNode* ProjectNode::createBehavior(const QVector<QVariant>& data, ProjectN
 	return new ProjectNode(ProjectNode::NodeType::behavior_node, data, parentItem);
 }
 
+ProjectNode* ProjectNode::createSkeleton(const QVector<QVariant>& data, ProjectNode* parentItem) {
+	return new ProjectNode(ProjectNode::NodeType::skeleton_node, data, parentItem);
+}
+
+ProjectNode* ProjectNode::createAnimation(const QVector<QVariant>& data, ProjectNode* parentItem) {
+	return new ProjectNode(ProjectNode::NodeType::animation_node, data, parentItem);
+}
+
 ProjectNode* ProjectNode::createMisc(const QVector<QVariant>& data, ProjectNode* parentItem) {
 	return new ProjectNode(ProjectNode::NodeType::misc_node, data, parentItem);
 }

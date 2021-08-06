@@ -13,8 +13,6 @@
 #include <src/log.h>
 
 #include "src/config.h"
-#include "src/models/ProjectListModel.h"
-#include "src/models/ProjectInfoModel.h"
 
 
 

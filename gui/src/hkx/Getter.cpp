@@ -119,8 +119,6 @@ void Getter::visit(void* value, const hkClassEnum& enum_type, hkClassMember::Typ
 		default:
 			throw std::runtime_error(std::string("Unknown storage type for enum: ") + std::to_string(type));
 		}
-		if ((enum_value < 0) || (enum_value > 50))
-			__debugbreak();
 		_value.setValue(HkxItemEnum(enum_value, &enum_type));
 	}
 	_row -= 1;

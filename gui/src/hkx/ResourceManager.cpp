@@ -62,14 +62,24 @@ hkx_file_t& ResourceManager::get(const fs::path& file)
 		fs::path xml_path = file;  xml_path.replace_extension(".xml");
 		fs::path hkx_path = file;  hkx_path.replace_extension(".hkx");
 		
+		hkRootLevelContainer* root;
 		hkx_file_t new_file;
 		if (fs::exists(xml_path))
-			new_file.first = wrap.read(xml_path, new_file.second);
+		{
+			root = wrap.read(xml_path, new_file.second);
+		}
 		else if (fs::exists(hkx_path))
-			new_file.first = wrap.read(hkx_path, new_file.second);
+			root = wrap.read(hkx_path, new_file.second);
 		else
 			throw std::runtime_error("Unable to find: " + file.string());
-		
+
+		for (int i = 0; i < new_file.second.getSize(); i++) {
+			if (new_file.second[i].m_object == root)
+			{
+				new_file.first = new_file.second[i];
+				break;
+			}
+		}	
 		_contents[_files.size()] = new_file;
 		_files.push_back(file);
 	}

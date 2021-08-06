@@ -15,6 +15,8 @@ namespace ckcmd {
                 project_node,
                 character_node,
                 behavior_node,
+                skeleton_node,
+                animation_node,
                 misc_node,
                 hkx_project_node,
                 hkx_character_node,
@@ -29,6 +31,8 @@ namespace ckcmd {
             static ProjectNode* createProject(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
             static ProjectNode* createCharacter(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
             static ProjectNode* createBehavior(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+            static ProjectNode* createSkeleton(const QVector<QVariant>& data, ProjectNode* parentItemm = nullptr);
+            static ProjectNode* createAnimation(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
             static ProjectNode* createMisc(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
             static ProjectNode* createHkxProject(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
             static ProjectNode* createHkxCharacter(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
