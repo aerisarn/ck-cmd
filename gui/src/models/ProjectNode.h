@@ -40,6 +40,7 @@ namespace ckcmd {
             static ProjectNode* createHkxFieldNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 
             bool isProjectRoot();
+            bool isSkeleton();
             bool isVariant();
 
             ProjectNode* appendChild(ProjectNode* child);

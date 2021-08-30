@@ -26,7 +26,7 @@ void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Fla
 		{
 			auto member_ptr = ((char*)variant->m_object) + member->getOffset();
 			auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
-			display_name = c_str_ptr;
+			display_name = QString("%1 \"%2\"").arg(display_name).arg(c_str_ptr);
 		}
 
 		QString name = QString("[%1] %2").arg(object_index).arg(display_name);

@@ -30,8 +30,10 @@ void ColumnCalculator::visit(void* object, const hkClassMember& definition)
 		h.accept(r);
 		for (int i = 0; i < r.rows(); i++)
 			fit(r.column(i) > num_elements ? r.column(i) : num_elements);
-	} else
+	}
+	else {
 		fit(num_elements);
+	}
 }
 
 void ColumnCalculator::visit(void*, const hkClassEnum& enum_type, hkClassMember::Type type)

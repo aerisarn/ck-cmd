@@ -109,6 +109,10 @@ bool ProjectNode::isProjectRoot() {
 		|| m_type == ProjectNode::NodeType::project_node;
 }
 
+bool ProjectNode::isSkeleton() {
+	return m_type == ProjectNode::NodeType::skeleton_node;
+}
+
 bool ProjectNode::isVariant() {
 	return m_type == ProjectNode::NodeType::hkx_character_node
 		|| m_type == ProjectNode::NodeType::hkx_project_node

@@ -65,6 +65,7 @@ ProjectBuilder::ProjectBuilder(
 				auto& rig_contents = _resourceManager.get(rig_path);
 				ProjectNode* rig_node = ProjectNode::createSkeleton({ "Skeleton", rig_path.string().c_str() }, character_node);
 				character_node->appendChild(rig_node);
+				buildBranch(rig_contents.first, rig_node, rig_path);
 			}
 
 			//animations
@@ -75,8 +76,10 @@ ProjectBuilder::ProjectBuilder(
 				for (int a = 0; a < character_data->m_animationNames.getSize(); a++)
 				{
 					auto animation_path = project_folder / character_data->m_animationNames[a].cString();
+					auto& animation_contents = _resourceManager.get(animation_path);
 					ProjectNode* animation_node = ProjectNode::createAnimation({ character_data->m_animationNames[a].cString(), animation_path.string().c_str() }, animations_node);
 					animations_node->appendChild(animation_node);
+					buildBranch(animation_contents.first, animation_node, animation_path);
 				}
 			}
 		}

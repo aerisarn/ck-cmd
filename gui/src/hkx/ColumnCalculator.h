@@ -2,6 +2,7 @@
 
 #include "HkxItemVisitor.h"
 #include <vector>
+#include <queue>
 
 namespace ckcmd {
 	namespace HKX {
@@ -9,15 +10,18 @@ namespace ckcmd {
 		class ColumnCalculator : public HkxConcreteVisitor<ColumnCalculator> {
 			size_t _columns = 1;
 			std::vector<size_t> _columns_size;
+			std::queue<size_t> _array_size;
 
 			inline void fit(size_t columns) {
-				_columns_size.push_back(columns);
-				_columns = columns > _columns ? _columns = columns : _columns;
+				size_t array_columns = _array_size.front() * columns;
+				_columns_size.push_back(array_columns);
+				_columns = array_columns > _columns ? array_columns : _columns;
 			}
 
 		public:
 
-			ColumnCalculator() : HkxConcreteVisitor(*this) {}
+			ColumnCalculator() : HkxConcreteVisitor(*this) { _array_size.push(1); }
+			ColumnCalculator(size_t array_size) : HkxConcreteVisitor(*this) { _array_size.push(array_size); }
 
 			size_t columns() { return _columns; }
 			size_t column(size_t row) { return _columns_size[row]; }
@@ -43,12 +47,12 @@ namespace ckcmd {
 			virtual void visit(void* v, const hkClassEnum& enum_type, size_t storage) override;
 		};
 
-		template<> void ColumnCalculator::visit(hkVector4& value) { fit(4); }
-		template<> void ColumnCalculator::visit(::hkQuaternion& value) { fit(4); }
-		template<> void ColumnCalculator::visit(hkMatrix3& value) { fit(9); }
-		template<> void ColumnCalculator::visit(hkRotation& value) { fit(9); }
-		template<> void ColumnCalculator::visit(hkQsTransform& value) { fit(12); }
-		template<> void ColumnCalculator::visit(hkMatrix4& value) { fit(16); }
-		template<> void ColumnCalculator::visit(hkTransform& value) { fit(16); }
+		template<> void ColumnCalculator::visit(hkVector4& value) { fit(1); }
+		template<> void ColumnCalculator::visit(::hkQuaternion& value) { fit(1); }
+		template<> void ColumnCalculator::visit(hkMatrix3& value) { fit(1); }
+		template<> void ColumnCalculator::visit(hkRotation& value) { fit(1); }
+		template<> void ColumnCalculator::visit(hkQsTransform& value) { fit(1); }
+		template<> void ColumnCalculator::visit(hkMatrix4& value) { fit(1); }
+		template<> void ColumnCalculator::visit(hkTransform& value) { fit(1); }
 	}
 }

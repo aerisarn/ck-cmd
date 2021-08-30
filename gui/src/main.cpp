@@ -16,8 +16,6 @@
 
 
 
-
-
 //Havok initialization
 
 static void HK_CALL errorReport(const char* msg, void*)
@@ -32,12 +30,13 @@ static void HK_CALL debugReport(const char* msg, void* userContext)
 
 static hkThreadMemory* threadMemory = NULL;
 static char* stackBuffer = NULL;
-static void InitializeHavok()
+static hkMemoryRouter* InitializeHavok()
 {
 	// Initialize the base system including our memory system
 	hkMemoryRouter*		pMemoryRouter(hkMemoryInitUtil::initDefault(hkMallocAllocator::m_defaultMallocAllocator, hkMemorySystem::FrameInfo(5000000)));
 	hkBaseSystem::init(pMemoryRouter, errorReport);
 	LoadDefaultRegistry();
+	return pMemoryRouter;
 }
 
 static void CloseHavok()
@@ -45,6 +44,16 @@ static void CloseHavok()
 	hkBaseSystem::quit();
 	hkMemoryInitUtil::quit();
 }
+
+#include <stdlib.h>
+#include <string.h>
+#include <tchar.h>
+#include <windows.h>
+
+
+
+
+
 
 int main(int argc, char *argv[])
 {
@@ -64,7 +73,7 @@ int main(int argc, char *argv[])
 	
 	
 	//MainWindow w;
-	InitializeHavok();
+	//InitializeHavok();
     //w.setStyleSheet("QWidget {background: blue;font-weight: bold; color: red}QComboBox {background: yellow}");
     //w.setWindowTitle("Skyrim Behavior Tool");
     //w.show();
@@ -120,7 +129,7 @@ int main(int argc, char *argv[])
 
 
 
-	MainWindow w;
+	MainWindow w(InitializeHavok());
 	w.show();
 
 	//Check if the workspace is empty

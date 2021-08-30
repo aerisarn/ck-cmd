@@ -4,6 +4,7 @@
 #include "HkxTableVariant.h"
 #include "RowCalculator.h"
 #include "ColumnCalculator.h"
+#include "HkxItemReal.h"
 
 #include <QVariant>
 
@@ -67,79 +68,83 @@ namespace ckcmd {
 
 		template<>
 		void Getter::visit(hkVector4& value) {
-			if (_column < 4)
-			{
-				if (_row == 0)
-					_value = value(_column);
-				_row -= 1;
-			}
+			if (_row == 0)
+				_value.setValue(HkxItemReal({ { value(0), value(1), value(2) } }));
+			_row -= 1;
 		}
 
 		template<>
 		void Getter::visit(::hkQuaternion& value) {
-			if (_column < 4)
-			{
-				if (_row == 0)
-					_value = value(_column);
-				_row -= 1;
-			}
+			if (_row == 0)
+				_value.setValue(HkxItemReal({ { value(0), value(1), value(2), value(3) } }));
+			_row -= 1;
 		}
 
 		template<>
 		void Getter::visit(hkMatrix3& value) {
-			if (_column < 9)
-			{
-				if (_row == 0)
-					_value = value(_column % 3, _column / 3);
-				_row -= 1;
-			}
+			if (_row == 0)
+				_value.setValue(HkxItemReal(
+					{ 
+						{ value(0,0), value(0,1), value(0,2) },
+						{ value(1,0), value(1,1), value(1,2) },
+						{ value(2,0), value(2,1), value(2,2) }
+					}
+				));
+			_row -= 1;
 		}
 
 		template<>
 		void Getter::visit(hkRotation& value) {
-			if (_column < 9)
-			{
-				if (_row == 0)
-					_value = value(_column % 3, _column / 3);
-				_row -= 1;
-			}
+			if (_row == 0)
+				_value.setValue(HkxItemReal(
+					{
+						{ value(0,0), value(0,1), value(0,2) },
+						{ value(1,0), value(1,1), value(1,2) },
+						{ value(2,0), value(2,1), value(2,2) }
+					}
+				));
+			_row -= 1;
 		}
 
 		template<>
 		void Getter::visit(hkQsTransform& value) {
-			if (_column < 12)
-			{
-				if (_row == 0)
-				{
-					if (_column / 3 == 0)
-						_value = value.m_translation(_column % 4);
-					else if (_column / 3 == 1)
-						_value = value.m_rotation(_column % 4);
-					else if (_column / 3 == 2)
-						_value = value.m_scale(_column % 4);
-				}
-				_row -= 1;
-			}
+			if (_row == 0)
+				_value.setValue(HkxItemReal(
+					{
+						{ value.m_translation(0), value.m_translation(1), value.m_translation(2),  value.m_translation(3) },
+						{ value.m_rotation(0), value.m_rotation(1), value.m_rotation(2),  value.m_rotation(3) },
+						{ value.m_scale(0), value.m_scale(1), value.m_scale(2),  value.m_scale(3) }
+					}
+			));
+			_row -= 1;
 		}
 
 		template<>
 		void Getter::visit(hkMatrix4& value) {
-			if (_column < 16)
-			{
-				if (_row == 0)
-					_value = value(_column % 4, _column / 4);
-				_row -= 1;
-			}
+			if (_row == 0)
+				_value.setValue(HkxItemReal(
+					{
+						{ value(0,0), value(0,1), value(0,2), value(0,3) },
+						{ value(1,0), value(1,1), value(1,2), value(1,3) },
+						{ value(2,0), value(2,1), value(2,2), value(2,3) },
+						{ value(3,0), value(3,1), value(3,2), value(3,3) }
+					}
+			));
+			_row -= 1;
 		}
 
 		template<>
 		void Getter::visit(hkTransform& value) {
-			if (_column < 16)
-			{
-				if (_row == 0)
-					_value = value(_column % 4, _column / 4);
-				_row -= 1;
-			}
+			if (_row == 0)
+				_value.setValue(HkxItemReal(
+					{
+						{ value(0,0), value(0,1), value(0,2), value(0,3) },
+						{ value(1,0), value(1,1), value(1,2), value(1,3) },
+						{ value(2,0), value(2,1), value(2,2), value(2,3) },
+						{ value(3,0), value(3,1), value(3,2), value(3,3) }
+					}
+			));
+			_row -= 1;
 		}
 
 		template<>
@@ -164,9 +169,12 @@ namespace ckcmd {
 		}
 
 		template<>
-		void Getter::visit(hkStringPtr& value) {
+		void Getter::visit(hkStringPtr& value) { 
 			if (_row == 0)
-				_value = QString::fromStdString(value.cString());
+				if (NULL != value.cString())
+					_value = QString::fromStdString(value.cString());
+				else
+					_value = "";
 			_row -= 1;
 		}
 

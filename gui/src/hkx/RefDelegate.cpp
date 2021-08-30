@@ -5,6 +5,7 @@
 #include <src/hkx/HkxItemPointer.h>
 #include <src/hkx/HkxItemEnum.h>
 #include <src/hkx/HkxItemFlags.h>
+#include <src/hkx/HkxItemReal.h>
 
 using namespace ckcmd::HKX;
 
@@ -68,6 +69,20 @@ void RefDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, c
 
         flags.paint(painter, option);
     }
+    else if (index.data().canConvert<HkxItemReal>()) {
+        HkxItemReal real = index.data().value<HkxItemReal>();
+
+        if (option.state & QStyle::State_Selected)
+        {
+            painter->fillRect(option.rect, option.palette.highlight());
+            painter->setPen(Qt::white);
+        }
+        else {
+            painter->setPen(Qt::black);
+        }
+
+        real.paint(painter, option);
+    }
     else {
         QStyledItemDelegate::paint(painter, option, index);
     }
@@ -92,6 +107,10 @@ QSize RefDelegate::sizeHint(const QStyleOptionViewItem& option,
     if (index.data().canConvert<HkxItemFlags>()) {
         HkxItemFlags flags = index.data().value<HkxItemFlags>();
         return  flags.WidgetSizeHint(option.fontMetrics);
+    }
+    if (index.data().canConvert<HkxItemReal>()) {
+        HkxItemReal real = index.data().value<HkxItemReal>();
+        return  real.WidgetSizeHint(option.fontMetrics);
     }
     return QStyledItemDelegate::sizeHint(option, index);
 }

@@ -6,6 +6,7 @@
 #include <src/log.h>
 #include <src/models/ProjectTreeModel.h>
 #include <src/hkx/ResourceManager.h>
+#include <src/hkx/HkxSimulation.h>
 
 
 QT_BEGIN_NAMESPACE
@@ -20,14 +21,20 @@ class ProjectsWidget : public ::ads::CDockWidget
 
     ckcmd::HKX::ProjectTreeModel* _model;
     ckcmd::HKX::ResourceManager* _manager;
+    HkxSimulation* _simulation;
 
 public:
-    explicit ProjectsWidget(ckcmd::HKX::ProjectTreeModel* model, ckcmd::HKX::ResourceManager* manager, QWidget* parent = 0);
+    explicit ProjectsWidget(
+        ckcmd::HKX::ProjectTreeModel* model,
+        ckcmd::HKX::ResourceManager* manager,
+        HkxSimulation* simulation,
+        QWidget* parent = 0);
     ~ProjectsWidget();
 
 public slots:
     void nodeDoubleClicked(const QModelIndex& index);
     void nodeClicked(const QModelIndex& index);
+    void treeMenu(QPoint);
 
 signals:
     //file index in resource manager, object in file

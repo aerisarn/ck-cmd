@@ -10,9 +10,14 @@
 #include <src/models/ProjectTreeModel.h>
 #include <src/widgets/ProjectsWidget.h>
 #include <src/widgets/ValuesWidget.h>
+
 #include <src/animdata/AnimDataManager.h>
+#include <src/hkx/HkxSimulation.h>
 
-
+#include <stdlib.h>
+#include <string.h>
+#include <tchar.h>
+#include <windows.h>
 
 
 
@@ -26,11 +31,13 @@ class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
+    HWND _vdb_handle;
 public:
-    explicit MainWindow(QWidget* parent = 0);
+    explicit MainWindow(hkMemoryRouter* havok_router, QWidget* parent = 0);
     ~MainWindow();
 
     ILogger* getLogger() { return _logger; }
+    void simulationStart();
 
 protected:
     virtual void closeEvent(QCloseEvent* event) override;
@@ -52,6 +59,7 @@ private:
     LogSetter _log_setter;
     ProjectsWidget* _projectTreeView;
     ValuesWidget* _valuesTableView;
+    HkxSimulation* _simulation;
     
     //Data
     ckcmd::HKX::ProjectTreeModel _model;

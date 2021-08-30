@@ -6,18 +6,26 @@
 
 using namespace ckcmd::HKX;
 
-ProjectsWidget::ProjectsWidget(ProjectTreeModel* model, ResourceManager* manager, QWidget* parent) :
+ProjectsWidget::ProjectsWidget(
+	ProjectTreeModel* model, 
+	ResourceManager* manager, 
+	HkxSimulation* simulation,
+	QWidget* parent
+) :
 	_model(model),
 	_manager(manager),
+	_simulation(simulation),
 	ads::CDockWidget("Projects", parent),
 	ui(new Ui::ProjectsWidget)
 {
 	ui->setupUi(this);
 	setWidget(ui->verticalLayoutWidget);
 	ui->treeView->setModel(model);
+	ui->treeView->setContextMenuPolicy(Qt::CustomContextMenu);
 
 	connect(ui->treeView, &QTreeView::doubleClicked, this, &ProjectsWidget::nodeDoubleClicked);
 	connect(ui->treeView, &QTreeView::clicked, this, &ProjectsWidget::nodeClicked);
+	connect(ui->treeView, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(treeMenu(QPoint)));
 }
 
 void ProjectsWidget::nodeDoubleClicked(const QModelIndex& index)
@@ -32,6 +40,12 @@ void ProjectsWidget::nodeDoubleClicked(const QModelIndex& index)
 		);
 		_model->endModify(index);
 	}
+	else if (node_clicked->isSkeleton()) {
+		
+		_simulation->addSkeleton(
+			node_clicked->data(1).toString().toUtf8().constData()
+		);
+	}
 
 }
 
@@ -44,6 +58,12 @@ void ProjectsWidget::nodeClicked(const QModelIndex& index)
 			(hkVariant*)node_clicked->data(1).toULongLong()
 		);
 	}
+}
+
+void ProjectsWidget::treeMenu(QPoint p)
+{
+	const QModelIndex& index = ui->treeView->indexAt(p);
+	ProjectNode* node_clicked = _model->getNode(index);
 }
 
 ProjectsWidget::~ProjectsWidget()

@@ -146,6 +146,7 @@ target_link_libraries(${PROJECT}
     FSM-lib
     QTADS
     Qt5::Widgets
+    ${OPENGL_LIBRARIES}
 	${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib
     )
 
@@ -157,6 +158,11 @@ add_custom_command(TARGET ${PROJECT} POST_BUILD
 add_custom_command(TARGET ${PROJECT} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different  
         "${PROJECT_SOURCE_DIR}/../lib/SpeedTreeRT/SpeedTreeRT.dll"
+        $<TARGET_FILE_DIR:ck-gui>)
+
+add_custom_command(TARGET ${PROJECT} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${PROJECT_SOURCE_DIR}/../vendor/havok_2010_2_0/VisualDebugger/hkVisualDebugger.exe"
         $<TARGET_FILE_DIR:ck-gui>)
 
 add_custom_command(TARGET ${PROJECT} POST_BUILD
