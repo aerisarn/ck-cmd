@@ -37,10 +37,12 @@ set_target_properties(
 )
 
 set (GUI_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/src/config.h"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/src/workspace.h"
                  "${CMAKE_CURRENT_SOURCE_DIR}/src/ILogger.h"
                  "${CMAKE_CURRENT_SOURCE_DIR}/src/log.h")
 
 set (GUI_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/config.cpp"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/src/workspace.cpp"
                  "${CMAKE_CURRENT_SOURCE_DIR}/src/log.cpp")
 
 if(NOT DEFINED AnimData)

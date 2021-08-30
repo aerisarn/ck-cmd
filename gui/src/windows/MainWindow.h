@@ -7,6 +7,7 @@
 #include "DockManager.h"
 
 #include <src/widgets/LogControl.h>
+#include <src/workspace.h>
 #include <src/models/ProjectTreeModel.h>
 #include <src/widgets/ProjectsWidget.h>
 #include <src/widgets/ValuesWidget.h>
@@ -51,7 +52,6 @@ private:
     };
 
     ads::CDockManager* m_DockManager;
-    fs::path _workspace;
 
     //UI
     Ui::MainWindow* ui;
@@ -62,9 +62,11 @@ private:
     HkxSimulation* _simulation;
     
     //Data
+    WorkspaceConfig _workspace;
     ckcmd::HKX::ProjectTreeModel _model;
-    ckcmd::HKX::AnimationManager _animation_manager;
     ckcmd::HKX::ResourceManager _resource_manager;
+    ckcmd::HKX::AnimationManager _animation_manager;
+
 
 
 };

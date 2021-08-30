@@ -1,11 +1,11 @@
 #include "ResourceManager.h"
+#include <hkbProjectData_2.h>
 
 using namespace ckcmd::HKX;
 
 ResourceManager::ResourceManager(const fs::path& workspace_folder) :
 	_workspace_folder(workspace_folder)
 {
-
 }
 
 size_t ResourceManager::index(const fs::path& file) const {
@@ -35,25 +35,25 @@ hkVariant* ResourceManager::at(const fs::path& file, size_t _index) {
 	return &_contents[index(file)].second[_index];
 }
 
-fs::path ResourceManager::open(const std::string& project)
-{
-	std::string xml_name = fs::path(project).replace_extension(".xml").string();
-	std::string hkx_name = fs::path(project).replace_extension(".hkx").string();
-	for (auto& p : fs::recursive_directory_iterator(_workspace_folder))
-	{
-		if (p.path().filename() == xml_name) {
-			if (p.path().string().find("characters") != string::npos)
-				continue;
-			return p.path();
-		}
-		else if (p.path().filename() == hkx_name) {
-			if (p.path().string().find("characters") != string::npos)
-				continue;
-			return p.path();
-		}
-	}
-	return fs::path();
-}
+//fs::path ResourceManager::open(const std::string& project)
+//{
+//	std::string xml_name = fs::path(project).replace_extension(".xml").string();
+//	std::string hkx_name = fs::path(project).replace_extension(".hkx").string();
+//	for (auto& p : fs::recursive_directory_iterator(_workspace_folder))
+//	{
+//		if (p.path().filename() == xml_name) {
+//			if (p.path().string().find("characters") != string::npos)
+//				continue;
+//			return p.path();
+//		}
+//		else if (p.path().filename() == hkx_name) {
+//			if (p.path().string().find("characters") != string::npos)
+//				continue;
+//			return p.path();
+//		}
+//	}
+//	return fs::path();
+//}
 
 hkx_file_t& ResourceManager::get(const fs::path& file)
 {
@@ -84,4 +84,19 @@ hkx_file_t& ResourceManager::get(const fs::path& file)
 		_files.push_back(file);
 	}
 	return _contents[index(file)];
+}
+
+bool ResourceManager::isHavokProject(const fs::path& file)
+{
+	HKXWrapper wrap;
+	try {
+		auto root = wrap.read(file);
+		if (root)
+			return root->findObjectByType(hkbProjectDataClass.getName()) != NULL;
+		return false;
+	}
+	catch (...) {
+		return false;
+	}
+
 }

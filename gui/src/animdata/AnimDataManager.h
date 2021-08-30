@@ -1,8 +1,12 @@
 #pragma once
 
 #include <src/config.h>
-#include <src/log.h>
+#include <src/workspace.h>
 #include <src/models/ProjectNode.h>
+#include <src/hkx/ResourceManager.h>
+
+#include <core/AnimationCache.h>
+
 
 #include <set>
 
@@ -11,15 +15,16 @@ namespace ckcmd {
 
 		class AnimationManager {
 
-			const fs::path& _workspace_folder;
-			const fs::path	_data_folder;
-			const fs::path	_sets_folder;
+			WorkspaceConfig& _workspace;
+			ResourceManager& _resource_manager;
+			AnimationCache _cache;
 
-			std::set<std::string> _characters;
-			std::set<std::string> _miscellanous;
+			void scanWorkspace();
 
 		public:
-			AnimationManager(const fs::path& workspace_folder);
+			AnimationManager(WorkspaceConfig& _workspace, ResourceManager& resource_manager);
+
+			bool empty();
 
 			void buildProjectTree(ProjectNode* root);
 		};

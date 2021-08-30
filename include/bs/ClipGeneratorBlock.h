@@ -8,8 +8,8 @@ namespace AnimData {
 		std::string name = "";
 		int cacheIndex = 0;
 		std::string playbackSpeed = "0";
-		std::string unknown = "0";
-		std::string unknown2 = "0";
+		std::string cropStartTime = "0";
+		std::string cropEndTime = "0";
 		StringListBlock events; // = new StringListBlock();
 	public:
 		
@@ -37,20 +37,20 @@ namespace AnimData {
 			this->playbackSpeed = playbackSpeed;
 		}
 
-		std::string getUnknown() {
-			return unknown;
+		std::string getCropStartTime() {
+			return cropStartTime;
 		}
 
-		void setUnknown(std::string unknown) {
-			this->unknown = unknown;
+		void setCropStartTime(std::string cropStartTime) {
+			this->cropStartTime = cropStartTime;
 		}
 
-		std::string getUnknown2() {
-			return unknown2;
+		std::string getCropEndTime() {
+			return cropEndTime;
 		}
 
-		void setUnknown2(std::string unknown2) {
-			this->unknown2 = unknown2;
+		void setCropEndTime(std::string unknown2) {
+			this->cropEndTime = cropEndTime;
 		}
 
 		StringListBlock getEvents() {
@@ -65,8 +65,8 @@ namespace AnimData {
 			std::string out = name + "\n";
 			out += std::to_string(cacheIndex) + "\n";
 			out += playbackSpeed + "\n";
-			out += unknown + "\n";
-			out += unknown2 + "\n";
+			out += cropStartTime + "\n";
+			out += cropEndTime + "\n";
 			out += events.toASCII() + "\n";
 			return out;
 		}
@@ -75,8 +75,8 @@ namespace AnimData {
 			name = input.nextLine();
 			cacheIndex = input.nextInt();
 			playbackSpeed = input.nextLine();
-			unknown = input.nextLine();
-			unknown2 = input.nextLine();
+			cropStartTime = input.nextLine();
+			cropEndTime = input.nextLine();
 			events.fromASCII(input);
 		}
 	};

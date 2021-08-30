@@ -23,7 +23,7 @@ ProjectBuilder::ProjectBuilder(
 	_resourceManager(resourceManager),
 	_name(name)
 {
-	auto project_path = _resourceManager.open(_name);
+	auto project_path = fs::path(_name);
 	auto project_folder = project_path.parent_path();
 	hkVariant project_root;
 	hkbProjectStringData* project_data = loadHkxFile<hkbProjectStringData>(project_path, hkbProjectStringDataClass, project_root);

@@ -124,7 +124,7 @@ namespace ckcmd {
 				std::ifstream fss(path.c_str());
 				//allocate
 				fss.seekg(0, std::ios::end);
-				result.reserve(fss.tellg());
+				result.reserve(static_cast<size_t>(fss.tellg()));
 				//reset and assign
 				fss.seekg(0, std::ios::beg);
 				result.assign(std::istreambuf_iterator<char>(fss),

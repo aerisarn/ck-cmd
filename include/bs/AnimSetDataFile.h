@@ -19,7 +19,7 @@ namespace AnimData {
 
 		int getProjectAttackBlock(const string& name) {
 			const std::vector<std::string>& projects = projectsList.getStrings();
-			for (int i = 0; i < projects.size(); i++)
+			for (size_t i = 0; i < projects.size(); i++)
 			{
 				if (projects[i] == name)
 					return i;

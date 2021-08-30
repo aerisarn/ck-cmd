@@ -21,12 +21,14 @@ namespace ckcmd {
 
 			hkx_file_t& get(const fs::path& file);
 
-			fs::path ResourceManager::open(const std::string& project);
+			//fs::path ResourceManager::open(const std::string& project);
 
 			size_t index(const fs::path& file) const;
 
 			int findIndex(int file_index, const void* object) const;
 			int findIndex(const fs::path& file, const void* object) const;
+
+			bool isHavokProject(const fs::path& file);
 
 			hkVariant* at(const fs::path& file, size_t _index);
 

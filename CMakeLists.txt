@@ -495,6 +495,7 @@ set (PROJECT_SRC "${CMAKE_SOURCE_DIR}/src/core/FBXCommon.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/geometry.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/MathHelper.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/EulerAngles.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/core/AnimationCache.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/spt/sptconvert.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/spt/SPT.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/spt/Export.cpp")
