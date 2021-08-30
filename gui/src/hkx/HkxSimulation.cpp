@@ -161,7 +161,7 @@ void HkxSimulation::CreateController(CharacterContext& character)
 #ifdef HK_DEBUG
 	HK_SET_OBJECT_COLOR((hkUlong)character._phantom->getCollidable(), hkColor::rgbFromChars(240, 200, 0, 20));
 #else
-	HK_REMOVE_GEOMETRY((hkUlong)m_phantom->getCollidable());
+	HK_REMOVE_GEOMETRY((hkUlong)character._phantom->getCollidable());
 #endif
 
 	character._phantom->removeReference();
