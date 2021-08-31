@@ -27,12 +27,12 @@ QVariant HkxItemTableModel::data(const QModelIndex& index, int role) const
 		RowCalculator r;
 		ColumnCalculator c;
 		h.accept(r);
-		size_t rows = r.rows();
+		int rows = r.rows();
 		h.accept(c);
-		size_t columns = c.column(index.row());
+		int columns = c.column(index.row());
 		if (index.row() < rows && index.column() < columns)
 		{
-			Getter g(index.row(), index.column(), _file);
+			Getter g(index.row(), index.column(), _file, _handlers);
 			h.accept(g);
 			return g.value();
 		}

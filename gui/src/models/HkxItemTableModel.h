@@ -2,11 +2,12 @@
 
 #include <QAbstractTableModel>
 #include <core/HKXWrangler.h>
+#include <src/hkx/ISpecialFieldsHandler.h>
 
 namespace ckcmd {
     namespace HKX {
 
-        class HkxItemTableModel : public QAbstractTableModel {
+        class HkxItemTableModel : public QAbstractTableModel, public SpecialFieldsListener {
             Q_OBJECT
 
             hkVariant* _variant;

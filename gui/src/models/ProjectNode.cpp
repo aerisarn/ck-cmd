@@ -102,6 +102,15 @@ ProjectNode* ProjectNode::createHkxFieldNode(const QVector<QVariant>& data, Proj
 	return new ProjectNode(ProjectNode::NodeType::hkx_field_node, data, parentItem);
 }
 
+ProjectNode* ProjectNode::createEventNode(const QVector<QVariant>& data, ProjectNode* parentItem) {
+	return new ProjectNode(ProjectNode::NodeType::event_node, data, parentItem);
+}
+
+ProjectNode* ProjectNode::createVariableNode(const QVector<QVariant>& data, ProjectNode* parentItem) {
+	return new ProjectNode(ProjectNode::NodeType::variable_node, data, parentItem);
+}
+
+
 
 bool ProjectNode::isProjectRoot() {
 	return m_type == ProjectNode::NodeType::character_node 

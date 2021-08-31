@@ -56,6 +56,18 @@ ProjectBuilder::ProjectBuilder(
 				throw std::runtime_error("hkbBehaviorGraph variant not found in " + behavior_path.string());
 			ProjectNode* behavior_node = ProjectNode::createBehavior({ behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
 			character_node->appendChild(behavior_node);
+			auto behavior_index = _resourceManager.index(behavior_path);
+			auto behavior_handler = new BehaviorBuilder();
+			_resourceManager.setClassHandler(
+				behavior_index,
+				static_cast<ITreeBuilderClassHandler*>(behavior_handler)
+			);
+
+
+			_resourceManager.setFieldHandler(
+				behavior_index,
+				static_cast<ISpecialFieldsHandler*>(behavior_handler)
+			);
 			buildBranch(behavior_root, behavior_node, behavior_path);
 
 			//skeleton

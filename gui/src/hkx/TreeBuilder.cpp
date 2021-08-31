@@ -6,7 +6,21 @@ TreeBuilder::TreeBuilder(ProjectNode* parent, ResourceManager& resourceManager, 
 	: _resourceManager(resourceManager), _parent(parent), _file(file), _visited_objects(visited_objects),
 	HkxConcreteVisitor(*this)
 {
+	auto file_index = resourceManager.index(file);
+	auto handler = resourceManager.classHandler(file_index);
+	if (NULL != handler)
+		registerClassHandler(handler);
+}
 
+TreeBuilder::TreeBuilder(
+	ProjectNode* parent,
+	ResourceManager& resourceManager,
+	const fs::path& file,
+	std::set<void*>& visited_objects,
+	const std::map<const hkClass*, ITreeBuilderClassHandler*>& handlers
+) : TreeBuilder(parent, resourceManager, file, visited_objects)
+{
+	_handlers = handlers;
 }
 
 void TreeBuilder::visit(char* value) {}
@@ -19,27 +33,40 @@ void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Fla
 	if (object_index >= 0)
 	{
 		auto* variant = _resourceManager.at(_file, object_index);
-		QString display_name = variant->m_class->getName();
-		//check if the object has a name we can display
-		auto member = variant->m_class->getMemberByName("name");
-		if (HK_NULL != member)
+		ProjectNode* object_node = NULL;
+		if (_handlers.find(variant->m_class) != _handlers.end())
 		{
-			auto member_ptr = ((char*)variant->m_object) + member->getOffset();
-			auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
-			display_name = QString("%1 \"%2\"").arg(display_name).arg(c_str_ptr);
+			object_node = _handlers[variant->m_class]->visit(
+				_file, 
+				object_index, 
+				_parent, 
+				_resourceManager
+			);
 		}
+		else {
 
-		QString name = QString("[%1] %2").arg(object_index).arg(display_name);
-		ProjectNode* object_node = _parent->appendChild(
-			ProjectNode::createHkxNode(
-				{
-					name,
-					(unsigned long long)_resourceManager.at(_file, object_index),
-					(int)_resourceManager.index(_file)
-				}, 
-				_parent));
-		HkxTableVariant h(*const_cast<hkVariant*>(_resourceManager.at(_file, object_index)));
-		TreeBuilder t(object_node, _resourceManager, _file, _visited_objects);
+			QString display_name = variant->m_class->getName();
+			//check if the object has a name we can display
+			auto member = variant->m_class->getMemberByName("name");
+			if (HK_NULL != member)
+			{
+				auto member_ptr = ((char*)variant->m_object) + member->getOffset();
+				auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
+				display_name = QString("%1 \"%2\"").arg(display_name).arg(c_str_ptr);
+			}
+
+			QString name = QString("[%1] %2").arg(object_index).arg(display_name);
+			object_node = _parent->appendChild(
+				ProjectNode::createHkxNode(
+					{
+						name,
+						(unsigned long long)_resourceManager.at(_file, object_index),
+						(int)_resourceManager.index(_file)
+					},
+					_parent));
+		}
+		HkxTableVariant h(*variant);
+		TreeBuilder t(object_node, _resourceManager, _file, _visited_objects, _handlers);
 		h.accept(t);
 	}
 }
@@ -68,7 +95,7 @@ void TreeBuilder::visit(void* object, const hkClassMember& definition) {
 						v.m_class = definition.getClass();
 						v.m_object = element;
 						HkxTableVariant h(v);
-						TreeBuilder t(_parent, _resourceManager, _file, _visited_objects);
+						TreeBuilder t(_parent, _resourceManager, _file, _visited_objects, _handlers);
 						h.accept(t);
 					}
 					else {
@@ -95,7 +122,7 @@ void TreeBuilder::visit(void* object, const hkClass& object_type, const char* me
 		v.m_class = &object_type;
 		v.m_object = object;
 		HkxTableVariant h(v);
-		TreeBuilder t(_parent, _resourceManager, _file, _visited_objects);
+		TreeBuilder t(_parent, _resourceManager, _file, _visited_objects, _handlers);
 		h.accept(t);
 	}
 }

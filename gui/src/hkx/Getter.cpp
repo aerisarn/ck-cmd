@@ -66,7 +66,7 @@ void Getter::visit(void* object, const hkClassMember& definition)
 					v.m_class = &arrayclass;
 					v.m_object = element;
 					HkxTableVariant h(v);
-					Getter g(_row, _column, _file_index);
+					Getter g(_row, _column, _file_index, _handlers);
 					h.accept(g);
 					_value = g.value();
 				}
@@ -141,7 +141,7 @@ void Getter::visit(void* object, const hkClass& object_type, const char* member_
 		int next_rows = _row - array_rows;
 		if (_row >=0 && next_rows < 0)
 		{
-			Getter g(_row, _column, _file_index);
+			Getter g(_row, _column, _file_index, _handlers);
 			h.accept(g);
 			_value = g.value();
 		}

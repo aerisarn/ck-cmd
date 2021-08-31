@@ -2,18 +2,17 @@
 
 #include <src/models/ProjectNode.h>
 #include <src/hkx/ResourceManager.h>
+#include <src/hkx/BehaviorBuilder.h>
 
 namespace ckcmd {
 	namespace HKX {
 
 		class ProjectBuilder {
 
-			//TODO: consolidate builders into heirarchy
+			//TODO: consolidate builders into hierarchy
 			ProjectNode* _parent;
 			ResourceManager& _resourceManager;
 			const std::string& _name; // unique id. Maybe
-
-			ProjectNode* buildProject();
 			void ProjectBuilder::buildBranch(hkVariant& root, ProjectNode* root_node, const fs::path& path);
 
 			template<typename T>

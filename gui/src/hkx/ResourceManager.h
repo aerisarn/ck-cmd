@@ -2,6 +2,8 @@
 
 #include <core/HKXWrangler.h>
 #include <src/Log.h>
+#include <src/hkx/ITreeBuilderClassHandler.h>
+#include <src/hkx/ISpecialFieldsHandler.h>
 
 #include <map>
 
@@ -13,6 +15,8 @@ namespace ckcmd {
 
 			std::vector<fs::path> _files;
 			std::map<size_t, hkx_file_t> _contents;
+			std::map<size_t, ITreeBuilderClassHandler*> _class_handlers;
+			std::map<size_t, ISpecialFieldsHandler*> _field_handlers;
 			const fs::path _workspace_folder;
 
 		public:
@@ -31,6 +35,12 @@ namespace ckcmd {
 			bool isHavokProject(const fs::path& file);
 
 			hkVariant* at(const fs::path& file, size_t _index);
+
+			void setClassHandler(size_t index, ITreeBuilderClassHandler* handler);
+			void setFieldHandler(size_t index, ISpecialFieldsHandler* handler);
+
+			ITreeBuilderClassHandler* classHandler(size_t index) const;
+			ISpecialFieldsHandler* fieldsHandler(size_t index) const;
 
 		};
 	}

@@ -100,3 +100,25 @@ bool ResourceManager::isHavokProject(const fs::path& file)
 	}
 
 }
+
+void ResourceManager::setClassHandler(size_t index, ITreeBuilderClassHandler* handler)
+{
+	_class_handlers[index] = handler;
+}
+
+void ResourceManager::setFieldHandler(size_t index, ISpecialFieldsHandler* handler)
+{
+	_field_handlers[index] = handler;
+}
+
+ITreeBuilderClassHandler* ResourceManager::classHandler(size_t index) const {
+	if (_class_handlers.find(index) != _class_handlers.end())
+		return _class_handlers.at(index);
+	return NULL;
+}
+
+ISpecialFieldsHandler* ResourceManager::fieldsHandler(size_t index) const {
+	if (_field_handlers.find(index) != _field_handlers.end())
+		return _field_handlers.find(index)->second;
+	return NULL;
+}

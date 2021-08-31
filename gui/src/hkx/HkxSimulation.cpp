@@ -117,9 +117,6 @@ void HkxSimulation::worldStep()
 
 HkxSimulation::~HkxSimulation()
 {
-	// Release the visual debugger
-	_visualDebugger->removeReference();
-
 	// Release the reference on the world
 	_world->removeReference();
 

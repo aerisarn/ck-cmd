@@ -27,9 +27,14 @@ ValuesWidget::~ValuesWidget()
 void ValuesWidget::setVariant(int file_index, hkVariant* v)
 {
 	auto actual_model = ui->valuesView->model();
-	ui->valuesView->setModel(
-		new HkxItemTableModel(v, file_index, this)
-	);
+	auto new_model = new HkxItemTableModel(v, file_index, this);
+	ISpecialFieldsHandler* fields_handler = _manager.fieldsHandler(file_index);
+	if (fields_handler != NULL)
+	{
+		std::vector<member_id_t> hand = fields_handler->getHandledFields();
+		new_model->registerFieldHandler(fields_handler);
+	}
+	ui->valuesView->setModel(new_model);
 	ui->valuesView->setVisible(false);
 	QRect vporig = ui->valuesView->viewport()->geometry();
 	QRect vpnew = vporig;

@@ -22,9 +22,15 @@ namespace ckcmd {
                 hkx_character_node,
                 hkx_field_node,
                 hkx_node,
+                event_node,
+                variable_node
             } m_type;
 
-            explicit ProjectNode(NodeType type, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+            explicit ProjectNode(
+                NodeType type, 
+                const QVector<QVariant>& data, 
+                ProjectNode* parentItem = nullptr
+            );
             ~ProjectNode();
 
             static ProjectNode* createSupport(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
@@ -38,6 +44,8 @@ namespace ckcmd {
             static ProjectNode* createHkxCharacter(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
             static ProjectNode* createHkxNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
             static ProjectNode* createHkxFieldNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+            static ProjectNode* createEventNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+            static ProjectNode* createVariableNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 
             bool isProjectRoot();
             bool isSkeleton();
