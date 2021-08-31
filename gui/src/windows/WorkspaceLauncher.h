@@ -9,11 +9,7 @@ namespace Ui {
 }
 QT_END_NAMESPACE
 
-/**
- * This example shows, how to place a dock widget container and a static
- * sidebar into a QMainWindow
- */
-    class WorkspaceLauncher : public QDialog
+class WorkspaceLauncher : public QDialog
 {
     Q_OBJECT
 

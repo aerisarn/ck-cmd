@@ -41,7 +41,7 @@
        <string>Select a workspace
 
 CK-CMD GUI unpacks and stores your projects in a folder called a workspace.
-Chose a workspace folder to use</string>
+Choose a workspace folder to use</string>
       </property>
       <property name="textInteractionFlags">
        <set>Qt::NoTextInteraction</set>
