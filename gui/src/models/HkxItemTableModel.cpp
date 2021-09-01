@@ -2,6 +2,7 @@
 
 #include <src\hkx\NameGetter.h>
 #include <src\hkx\Getter.h>
+#include <src\hkx\Setter.h>
 #include <src\hkx\RowCalculator.h>
 #include <src\hkx\ColumnCalculator.h>
 #include <src\hkx\HkxItemPointer.h>
@@ -9,8 +10,8 @@
 
 using namespace ckcmd::HKX;
 
-HkxItemTableModel::HkxItemTableModel(hkVariant* variant, int file, QObject* parent) :
-	_variant(variant), _file(file),
+HkxItemTableModel::HkxItemTableModel(hkVariant* variant, int file, hkVariant* variant_parent, QObject* parent) :
+	_variant(variant), _file(file), _parent(variant_parent),
 	QAbstractTableModel(parent)
 {
 }
@@ -19,20 +20,28 @@ hkVariant* HkxItemTableModel::getObject(const QModelIndex& index) const {
 	return (hkVariant*)index.internalId();
 }
 
+bool HkxItemTableModel::indexValid(const QModelIndex& index) const
+{
+	HkxTableVariant h(*_variant);
+	RowCalculator r;
+	ColumnCalculator c;
+	h.accept(r);
+	int rows = r.rows();
+	h.accept(c);
+	int columns = c.column(index.row());
+	return (index.row() < rows && index.column() < columns);
+}
+
 QVariant HkxItemTableModel::data(const QModelIndex& index, int role) const
 {
-	if (role == Qt::DisplayRole)
+	if (role == Qt::DisplayRole || 
+		role == Qt::EditRole)
 	{
-		HkxTableVariant h(*_variant);
-		RowCalculator r;
-		ColumnCalculator c;
-		h.accept(r);
-		int rows = r.rows();
-		h.accept(c);
-		int columns = c.column(index.row());
-		if (index.row() < rows && index.column() < columns)
+		if (indexValid(index))
 		{
+			HkxTableVariant h(*_variant);
 			Getter g(index.row(), index.column(), _file, _handlers);
+			g.setParentVariant(_parent);
 			h.accept(g);
 			return g.value();
 		}
@@ -82,5 +91,21 @@ QVariant HkxItemTableModel::headerData(int section, Qt::Orientation orientation,
 bool HkxItemTableModel::setData(const QModelIndex& index, const QVariant& value,
 	int role)
 {
+	if (role == Qt::EditRole)
+	{
+		if (indexValid(index))
+		{
+			HkxTableVariant h(*_variant);
+			Setter s(index.row(), index.column(), _file, _handlers);
+			s.setParentVariant(_parent);
+			h.accept(s);
+			return true;
+		}
+	}
 	return false;
+}
+
+Qt::ItemFlags HkxItemTableModel::flags(const QModelIndex& index) const
+{
+	return Qt::ItemIsEditable | QAbstractTableModel::flags(index);
 }

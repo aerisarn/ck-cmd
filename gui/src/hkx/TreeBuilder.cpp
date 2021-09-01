@@ -61,6 +61,7 @@ void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Fla
 					{
 						name,
 						(unsigned long long)_resourceManager.at(_file, object_index),
+						(unsigned long long)_parent->isVariant() ? _parent->data(1) : 0,
 						(int)_resourceManager.index(_file)
 					},
 					_parent));

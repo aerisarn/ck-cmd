@@ -1,5 +1,6 @@
 #include "ProjectBuilder.h"
 #include <src/hkx/TreeBuilder.h>
+#include <src/hkx/SkeletonBuilder.h>
 
 #include <hkbProjectStringData_1.h>
 #include <hkbCharacterStringData_5.h>
@@ -48,6 +49,26 @@ ProjectBuilder::ProjectBuilder(
 			characters_node->appendChild(character_node);
 			buildBranch(character_root, character_node, character_path);
 
+			//skeleton
+			auto skeleton_builder = new SkeletonBuilder();
+			if (!std::string(character_data->m_rigName).empty())
+			{
+				auto rig_path = project_folder / character_data->m_rigName.cString();
+				auto& rig_contents = _resourceManager.get(rig_path);
+				auto rig_index = _resourceManager.index(rig_path);			
+				ProjectNode* rig_node = ProjectNode::createSkeleton({ "Skeleton", rig_path.string().c_str() }, character_node);
+				character_node->appendChild(rig_node);
+				_resourceManager.setClassHandler(
+					rig_index,
+					static_cast<ITreeBuilderClassHandler*>(skeleton_builder)
+				);
+				_resourceManager.setFieldHandler(
+					rig_index,
+					static_cast<ISpecialFieldsHandler*>(skeleton_builder)
+				);
+				buildBranch(rig_contents.first, rig_node, rig_path);
+			}
+
 			//behavior
 			auto behavior_path = project_folder / character_data->m_behaviorFilename.cString();
 			hkVariant behavior_root;
@@ -58,27 +79,18 @@ ProjectBuilder::ProjectBuilder(
 			character_node->appendChild(behavior_node);
 			auto behavior_index = _resourceManager.index(behavior_path);
 			auto behavior_handler = new BehaviorBuilder();
+			behavior_handler->setSkeleton(skeleton_builder);
 			_resourceManager.setClassHandler(
 				behavior_index,
 				static_cast<ITreeBuilderClassHandler*>(behavior_handler)
 			);
-
-
 			_resourceManager.setFieldHandler(
 				behavior_index,
 				static_cast<ISpecialFieldsHandler*>(behavior_handler)
 			);
 			buildBranch(behavior_root, behavior_node, behavior_path);
 
-			//skeleton
-			if (!std::string(character_data->m_rigName).empty())
-			{
-				auto rig_path = project_folder / character_data->m_rigName.cString();
-				auto& rig_contents = _resourceManager.get(rig_path);
-				ProjectNode* rig_node = ProjectNode::createSkeleton({ "Skeleton", rig_path.string().c_str() }, character_node);
-				character_node->appendChild(rig_node);
-				buildBranch(rig_contents.first, rig_node, rig_path);
-			}
+
 
 			//animations
 			if (character_data->m_animationNames.getSize() > 0)
@@ -88,10 +100,14 @@ ProjectBuilder::ProjectBuilder(
 				for (int a = 0; a < character_data->m_animationNames.getSize(); a++)
 				{
 					auto animation_path = project_folder / character_data->m_animationNames[a].cString();
-					auto& animation_contents = _resourceManager.get(animation_path);
-					ProjectNode* animation_node = ProjectNode::createAnimation({ character_data->m_animationNames[a].cString(), animation_path.string().c_str() }, animations_node);
-					animations_node->appendChild(animation_node);
-					buildBranch(animation_contents.first, animation_node, animation_path);
+					if (fs::exists(animation_path))
+					{
+						auto& animation_contents = _resourceManager.get(animation_path);
+						ProjectNode* animation_node = ProjectNode::createAnimation({ character_data->m_animationNames[a].cString(), animation_path.string().c_str() }, animations_node);
+						animations_node->appendChild(animation_node);
+						//kinda pointless to open all the animations
+						//buildBranch(animation_contents.first, animation_node, animation_path);
+					}
 				}
 			}
 		}

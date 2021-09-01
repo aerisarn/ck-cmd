@@ -24,6 +24,6 @@ std::ostream& ckcmd::log_endl(std::ostream& out)
     Log* log = dynamic_cast<Log*>(&out);
     out << std::endl;
     log->_backend->print(log->str());
-    log->clear();
+    log->str(std::string());
     return out;
 }

@@ -26,6 +26,17 @@ void RefDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, c
         auto* object_address_ = data.get();
         auto object_index = _manager.findIndex(data.file_index(), data.get());
         QString label = QString("[%1]").arg(object_index);
+        if (object_index > 0)
+        {
+            auto* variant = _manager.at(data.file_index(), object_index);
+            auto member = variant->m_class->getMemberByName("name");
+            if (HK_NULL != member)
+            {
+                auto member_ptr = ((char*)variant->m_object) + member->getOffset();
+                auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
+                label = QString("[%1] \"%2\"").arg(object_index).arg(c_str_ptr);
+            }
+        }
 
         if (option.state & QStyle::State_Selected)
         {
@@ -94,7 +105,19 @@ QSize RefDelegate::sizeHint(const QStyleOptionViewItem& option,
     if (index.data().canConvert<HkxItemPointer>()) {
 
         HkxItemPointer data = index.data().value<HkxItemPointer>();
-        QString label = QString("[%1]").arg(_manager.findIndex(data.file_index(), data.get()));
+        auto object_index = _manager.findIndex(data.file_index(), data.get());
+        QString label = QString("[%1]").arg(object_index);
+        if (object_index > 0)
+        {
+            auto* variant = _manager.at(data.file_index(), object_index);
+            auto member = variant->m_class->getMemberByName("name");
+            if (HK_NULL != member)
+            {
+                auto member_ptr = ((char*)variant->m_object) + member->getOffset();
+                auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
+                label = QString("[%1] \"%2\"").arg(object_index).arg(c_str_ptr);
+            }
+        }
         auto rect = option.fontMetrics.boundingRect(label);
         return {rect.width() + 2 * CUSTOM_SIZE_PADDING, rect.height()};
     }

@@ -24,10 +24,10 @@ ValuesWidget::~ValuesWidget()
 
 #undef max
 
-void ValuesWidget::setVariant(int file_index, hkVariant* v)
+void ValuesWidget::setVariant(int file_index, hkVariant* v, hkVariant* parent)
 {
 	auto actual_model = ui->valuesView->model();
-	auto new_model = new HkxItemTableModel(v, file_index, this);
+	auto new_model = new HkxItemTableModel(v, file_index, parent, this);
 	ISpecialFieldsHandler* fields_handler = _manager.fieldsHandler(file_index);
 	if (fields_handler != NULL)
 	{

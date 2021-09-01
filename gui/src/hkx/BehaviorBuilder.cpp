@@ -40,6 +40,11 @@ std::vector<member_id_t> BehaviorBuilder::getHandledFields() {
 	result.reserve(events.size() + variables.size());
 	result.insert(result.end(), events.begin(), events.end());
 	result.insert(result.end(), variables.begin(), variables.end());
+	if (_skeleton_builder != NULL) {
+		auto skeleton = _skeleton_builder->getHandledFields();
+		result.reserve(events.size() + variables.size() + skeleton.size());
+		result.insert(result.end(), skeleton.begin(), skeleton.end());
+	}
 	return result;
 }
 
@@ -108,7 +113,34 @@ void BehaviorBuilder::buildVariables(const buildContext& context)
 }
 void BehaviorBuilder::buildProperties(const buildContext& context)
 {
+	if (context.data->m_variableInfos.getSize() > 0)
+	{
+		auto properties_node = context.parent->appendChild(
+			ProjectNode::createSupport(
+				{
+					"Properties"
+				},
+				context.parent)
+		);
 
+		for (int i = 0; i < context.data->m_characterPropertyInfos.getSize(); i++)
+		{
+			auto property_name = context.string_data->m_characterPropertyNames[i];
+			auto property_info = context.data->m_characterPropertyInfos[i];
+
+			QString name = QString("[%1] %2").arg(i).arg(property_name.cString());
+			auto variable_node = properties_node->appendChild(
+				ProjectNode::createPropertyNode(
+					{
+						name,
+						(unsigned long long)context.resourceManager.at(context._file, context.object_index),
+						(int)context.resourceManager.index(context._file),
+						i
+					},
+					properties_node)
+			);
+		}
+	}
 }
 
 ProjectNode* BehaviorBuilder::visit(
@@ -141,10 +173,9 @@ ProjectNode* BehaviorBuilder::visit(
 	return parent;
 }
 
-QVariant BehaviorBuilder::handle(void* value, const hkClass* hkclass, const hkClassMember* hkmember)
+QVariant BehaviorBuilder::handle(void* value, const hkClass* hkclass, const hkClassMember* hkmember, const hkVariant* container, const hkVariant* parent_container)
 {
 	auto events = getEventFields();
-	auto variables = getVariableFields();
 	if (std::find_if(events.begin(), events.end(), 
 		[&hkclass, &hkmember](const member_id_t& element){ return element.first == hkclass && element.second == hkmember; }) != events.end())
 	{
@@ -153,6 +184,7 @@ QVariant BehaviorBuilder::handle(void* value, const hkClass* hkclass, const hkCl
 			return _strings->m_eventNames[*(int*)value].cString();
 		return "Invalid Event";
 	}
+	auto variables = getVariableFields();
 	if (std::find_if(variables.begin(), variables.end(),
 		[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != variables.end())
 	{
@@ -160,6 +192,12 @@ QVariant BehaviorBuilder::handle(void* value, const hkClass* hkclass, const hkCl
 		if (int_value >= 0 && int_value < _strings->m_variableNames.getSize())
 			return _strings->m_variableNames[*(int*)value].cString();
 		return "Invalid Variable";
+	}
+	auto bones = _skeleton_builder->getHandledFields();
+	if (std::find_if(bones.begin(), bones.end(),
+		[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != bones.end())
+	{
+		return _skeleton_builder->handle(value, hkclass, hkmember, container, parent_container);
 	}
 	return "BehaviorBuilder - Not set";
 }

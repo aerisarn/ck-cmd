@@ -24,7 +24,7 @@ public:
     ~ValuesWidget();
 
 public slots:
-    void setVariant(int file_index, hkVariant* v);
+    void setVariant(int file_index, hkVariant* v, hkVariant* parent);
 
 private:
     Ui::ValuesWidget* ui;

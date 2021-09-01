@@ -38,7 +38,7 @@ public slots:
 
 signals:
     //file index in resource manager, object in file
-    void variantSelected(size_t, hkVariant*);
+    void variantSelected(size_t, hkVariant*, hkVariant*);
 
 private:
     Ui::ProjectsWidget* ui;

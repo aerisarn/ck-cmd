@@ -118,12 +118,12 @@ void HkxSimulation::worldStep()
 HkxSimulation::~HkxSimulation()
 {
 	// Release the reference on the world
-	_world->removeReference();
+	//_world->removeReference();
 
 	// Contexts are not reference counted at the base class level by the VDB as
 	// they are just interfaces really. So only delete the context after you have
 	// finished using the VDB.
-	_context->removeReference();
+	//_context->removeReference();
 
 	_worldTimer->stop();
 	delete _worldTimer;

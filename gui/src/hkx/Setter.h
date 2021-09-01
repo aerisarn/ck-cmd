@@ -14,7 +14,7 @@
 namespace ckcmd {
 	namespace HKX {
 
-		class Getter : public HkxConcreteVisitor<Getter>, public SpecialFieldsListener {
+		class Setter : public HkxConcreteVisitor<Setter>, public SpecialFieldsListener {
 			QVariant _value;
 			int _row;
 			int _column;
@@ -26,11 +26,11 @@ namespace ckcmd {
 
 		public:
 
-			Getter(const size_t row, const size_t column, int file_index) :
+			Setter(const size_t row, const size_t column, int file_index) :
 				HkxConcreteVisitor(*this), 
 				_row(row), _column(column), _file_index(file_index) {}
 
-			Getter(const size_t row, const size_t column, int file_index, const std::map<member_id_t, ISpecialFieldsHandler*>& handlers) :
+			Setter(const size_t row, const size_t column, int file_index, const std::map<member_id_t, ISpecialFieldsHandler*>& handlers) :
 				HkxConcreteVisitor(*this),
 				_row(row), _column(column), _file_index(file_index) 
 			{
@@ -65,7 +65,7 @@ namespace ckcmd {
 		};
 
 		template<typename T>
-		void Getter::check(T& value) {
+		void Setter::check(T& value) {
 			if (_row == 0)
 			{
 				if (_handlers.find({ _class, _classmember }) != _handlers.end())
@@ -80,26 +80,26 @@ namespace ckcmd {
 		}
 
 		template<typename T>
-		void Getter::visit(T& value) {
+		void Setter::visit(T& value) {
 			check(value);
 		}
 
 		template<>
-		void Getter::visit(hkVector4& value) {
+		void Setter::visit(hkVector4& value) {
 			if (_row == 0)
 				_value.setValue(HkxItemReal({ { value(0), value(1), value(2) } }));
 			_row -= 1;
 		}
 
 		template<>
-		void Getter::visit(::hkQuaternion& value) {
+		void Setter::visit(::hkQuaternion& value) {
 			if (_row == 0)
 				_value.setValue(HkxItemReal({ { value(0), value(1), value(2), value(3) } }));
 			_row -= 1;
 		}
 
 		template<>
-		void Getter::visit(hkMatrix3& value) {
+		void Setter::visit(hkMatrix3& value) {
 			if (_row == 0)
 				_value.setValue(HkxItemReal(
 					{ 
@@ -112,7 +112,7 @@ namespace ckcmd {
 		}
 
 		template<>
-		void Getter::visit(hkRotation& value) {
+		void Setter::visit(hkRotation& value) {
 			if (_row == 0)
 				_value.setValue(HkxItemReal(
 					{
@@ -125,7 +125,7 @@ namespace ckcmd {
 		}
 
 		template<>
-		void Getter::visit(hkQsTransform& value) {
+		void Setter::visit(hkQsTransform& value) {
 			if (_row == 0)
 				_value.setValue(HkxItemReal(
 					{
@@ -138,7 +138,7 @@ namespace ckcmd {
 		}
 
 		template<>
-		void Getter::visit(hkMatrix4& value) {
+		void Setter::visit(hkMatrix4& value) {
 			if (_row == 0)
 				_value.setValue(HkxItemReal(
 					{
@@ -152,7 +152,7 @@ namespace ckcmd {
 		}
 
 		template<>
-		void Getter::visit(hkTransform& value) {
+		void Setter::visit(hkTransform& value) {
 			if (_row == 0)
 				_value.setValue(HkxItemReal(
 					{
@@ -166,28 +166,28 @@ namespace ckcmd {
 		}
 
 		template<>
-		void Getter::visit(hkBool& value) {
+		void Setter::visit(hkBool& value) {
 			if (_row == 0)
 				_value = value.operator bool();
 			_row -= 1;
 		}
 
 		template<>
-		void Getter::visit(hkUlong& value) {
+		void Setter::visit(hkUlong& value) {
 			if (_row == 0)
 				_value = (unsigned int)value;
 			_row -= 1;
 		}
 
 		template<>
-		void Getter::visit(hkHalf& value) {
+		void Setter::visit(hkHalf& value) {
 			if (_row == 0)
 				_value = (unsigned short)value;
 			_row -= 1;
 		}
 
 		template<>
-		void Getter::visit(hkStringPtr& value) { 
+		void Setter::visit(hkStringPtr& value) {
 			if (_row == 0)
 				if (NULL != value.cString())
 					_value = QString::fromStdString(value.cString());
@@ -197,7 +197,7 @@ namespace ckcmd {
 		}
 
 		template<>
-		void Getter::visit(hkVariant& value) {
+		void Setter::visit(hkVariant& value) {
 			HkxTableVariant h(value);
 			RowCalculator r;
 			h.accept(r);

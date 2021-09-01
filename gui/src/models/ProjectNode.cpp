@@ -110,6 +110,9 @@ ProjectNode* ProjectNode::createVariableNode(const QVector<QVariant>& data, Proj
 	return new ProjectNode(ProjectNode::NodeType::variable_node, data, parentItem);
 }
 
+ProjectNode* ProjectNode::createPropertyNode(const QVector<QVariant>& data, ProjectNode* parentItem) {
+	return new ProjectNode(ProjectNode::NodeType::property_node, data, parentItem);
+}
 
 
 bool ProjectNode::isProjectRoot() {

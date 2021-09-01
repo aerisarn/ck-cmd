@@ -35,6 +35,10 @@ namespace ckcmd {
 			bool isHavokProject(const fs::path& file);
 
 			hkVariant* at(const fs::path& file, size_t _index);
+			const hkVariant* at(const fs::path& file, size_t _index) const;
+			hkVariant* ResourceManager::at(size_t file_index, size_t _index);
+			const hkVariant* ResourceManager::at(size_t file_index, size_t _index) const;
+
 
 			void setClassHandler(size_t index, ITreeBuilderClassHandler* handler);
 			void setFieldHandler(size_t index, ISpecialFieldsHandler* handler);

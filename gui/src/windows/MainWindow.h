@@ -38,7 +38,9 @@ public:
     ~MainWindow();
 
     ILogger* getLogger() { return _logger; }
-    void simulationStart();
+
+    void saveWindowSettings();
+    void loadWindowSettings();
 
 protected:
     virtual void closeEvent(QCloseEvent* event) override;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QAbstractTableModel>
+#include <QUndoStack>
 #include <core/HKXWrangler.h>
 #include <src/hkx/ISpecialFieldsHandler.h>
 
@@ -11,12 +12,15 @@ namespace ckcmd {
             Q_OBJECT
 
             hkVariant* _variant;
+            hkVariant* _parent;
             int _file;
             hkVariant* getObject(const QModelIndex& index) const;
 
+            bool indexValid(const QModelIndex& index) const;
+
         public:
 
-            HkxItemTableModel(hkVariant* variant, int file, QObject* parent = 0);
+            HkxItemTableModel(hkVariant* variant, int file, hkVariant* variant_parent, QObject* parent = 0);
             ~HkxItemTableModel() {}
 
             QVariant headerData(int section, Qt::Orientation orientation,
@@ -30,6 +34,7 @@ namespace ckcmd {
             int rowCount(const QModelIndex& parent = QModelIndex()) const override;
             int columnCount(const QModelIndex& parent = QModelIndex()) const override;
 
+            Qt::ItemFlags flags(const QModelIndex& index) const override;
         };
     }
 }

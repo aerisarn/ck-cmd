@@ -6,6 +6,8 @@ using namespace ckcmd::HKX;
 void HkxTableVariant::accept(HkxItemVisitor& visitor) const
 {
 	visitor.setClass(_variant.m_class);
+	if (hkReferencedObjectClass.isSuperClass(*_variant.m_class))
+		visitor.setLastVariant(&_variant);
 	for (size_t i = 0; i < _variant.m_class->getNumMembers(); i++) {
 		const auto& member_declaration = _variant.m_class->getMember(i);
 		visitor.setClassMember(&member_declaration);

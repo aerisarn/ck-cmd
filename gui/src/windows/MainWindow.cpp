@@ -82,6 +82,8 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	m_DockManager->addDockWidgetTab(ads::CenterDockWidgetArea, GLWidget);
 	m_DockManager->addDockWidget(ads::LeftDockWidgetArea, _projectTreeView);
 	m_DockManager->addDockWidget(ads::BottomDockWidgetArea, LogWidget);
+
+	loadWindowSettings();
 }
 
 MainWindow::~MainWindow()
@@ -93,9 +95,32 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+	saveWindowSettings();
 	QMainWindow::closeEvent(event);
 	if (m_DockManager)
 	{
 		m_DockManager->deleteLater();
 	}
+}
+
+void MainWindow::saveWindowSettings()
+{
+	QSettings settings("layout.ini", QSettings::IniFormat);
+	settings.setValue("geometry", saveGeometry());
+	settings.setValue("windowState", saveState());
+	m_DockManager->addPerspective("dockLayout");
+	m_DockManager->savePerspectives(settings);
+	qDebug() << "Settings saved under:" << settings.fileName();
+}
+
+void MainWindow::loadWindowSettings()
+{
+	QSettings settings("layout.ini", QSettings::IniFormat);
+	QByteArray saved_geometry = settings.value("geometry").toByteArray();
+	restoreGeometry(saved_geometry);
+	QByteArray saved_state = settings.value("windowState").toByteArray();
+	restoreState(saved_state);
+	m_DockManager->loadPerspectives(settings);
+	m_DockManager->openPerspective("dockLayout");
+	qDebug() << "Settings loaded.";
 }

@@ -23,7 +23,8 @@ namespace ckcmd {
                 hkx_field_node,
                 hkx_node,
                 event_node,
-                variable_node
+                variable_node,
+                property_node
             } m_type;
 
             explicit ProjectNode(
@@ -46,6 +47,7 @@ namespace ckcmd {
             static ProjectNode* createHkxFieldNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
             static ProjectNode* createEventNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
             static ProjectNode* createVariableNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+            static ProjectNode* createPropertyNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 
             bool isProjectRoot();
             bool isSkeleton();

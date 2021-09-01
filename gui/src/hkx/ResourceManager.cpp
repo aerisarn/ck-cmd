@@ -32,8 +32,21 @@ int ResourceManager::findIndex(const fs::path& file, const void* object) const
 }
 
 hkVariant* ResourceManager::at(const fs::path& file, size_t _index) {
-	return &_contents[index(file)].second[_index];
+	return const_cast<hkVariant*>(static_cast<const ResourceManager&>(*this).at(file, _index));
 }
+
+const hkVariant* ResourceManager::at(const fs::path& file, size_t _index) const {
+	return &_contents.at(index(file)).second[_index];
+}
+
+hkVariant* ResourceManager::at(size_t file_index, size_t _index) {
+	return const_cast<hkVariant*>(static_cast<const ResourceManager&>(*this).at(file_index, _index));
+}
+
+const hkVariant* ResourceManager::at(size_t file_index, size_t _index) const {
+	return &_contents.at(file_index).second[_index];
+}
+
 
 //fs::path ResourceManager::open(const std::string& project)
 //{
@@ -71,7 +84,10 @@ hkx_file_t& ResourceManager::get(const fs::path& file)
 		else if (fs::exists(hkx_path))
 			root = wrap.read(hkx_path, new_file.second);
 		else
-			throw std::runtime_error("Unable to find: " + file.string());
+		{
+			LOG << "Unable to find: " + file.string() << log_endl;
+			//throw std::runtime_error("Unable to find: " + file.string());
+		}
 
 		for (int i = 0; i < new_file.second.getSize(); i++) {
 			if (new_file.second[i].m_object == root)

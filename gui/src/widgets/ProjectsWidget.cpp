@@ -54,8 +54,9 @@ void ProjectsWidget::nodeClicked(const QModelIndex& index)
 	ProjectNode* node_clicked = _model->getNode(index);
 	if (node_clicked->isVariant()) {
 		emit variantSelected(
-			node_clicked->data(2).value<int>(), 
-			(hkVariant*)node_clicked->data(1).toULongLong()
+			node_clicked->data(3).value<int>(), 
+			(hkVariant*)node_clicked->data(1).toULongLong(),
+			(hkVariant*)node_clicked->data(2).toULongLong()
 		);
 	}
 }

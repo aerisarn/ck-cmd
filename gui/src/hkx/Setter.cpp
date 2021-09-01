@@ -1,4 +1,4 @@
-#include "Getter.h"
+#include "Setter.h"
 #include "HkxItemPointer.h"
 #include "HkxItemEnum.h"
 #include "HkxItemFlags.h"
@@ -7,24 +7,24 @@
 using namespace ckcmd::HKX;
 
 
-void Getter::visit(char* value) {
+void Setter::visit(char* value) {
 	if (_row == 0)
 		_value = QString::fromStdString(value);
 	_row -= 1;
 }
 
-void Getter::check(void* value) {
+void Setter::check(void* value) {
 	_row -= 1;
 }
 
-void Getter::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags)
+void Setter::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
 	if (_row == 0)
 		_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)v));
 	_row -= 1;
 }
 
-void Getter::visit(void* object, const hkClassMember& definition)
+void Setter::visit(void* object, const hkClassMember& definition)
 {
 	//array
 	const auto& arraytype = definition.getArrayType();
@@ -66,7 +66,9 @@ void Getter::visit(void* object, const hkClassMember& definition)
 					v.m_class = &arrayclass;
 					v.m_object = element;
 					HkxTableVariant h(v);
+					//Getter g(_row, _column, _file_index, _handlers);
 					h.accept(*this);
+					//_value = g.value();
 				}
 				else {
 					_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)element));
@@ -82,10 +84,14 @@ void Getter::visit(void* object, const hkClassMember& definition)
 
 
 
-void Getter::visit(void* value, const hkClassEnum& enum_type, hkClassMember::Type type)
+void Setter::visit(void* value, const hkClassEnum& enum_type, hkClassMember::Type type)
 {
 	if (_row == 0)
 	{
+		//char* name = new char(256);
+		//enum_type.getNameOfValue(*(int*)value, (const char**)&name);
+		//_value = QString::fromStdString(name);
+
 		int enum_value = 0;
 
 		switch (type) {
@@ -120,7 +126,7 @@ void Getter::visit(void* value, const hkClassEnum& enum_type, hkClassMember::Typ
 
 
 
-void Getter::visit(void* object, const hkClass& object_type, const char* member_name)
+void Setter::visit(void* object, const hkClass& object_type, const char* member_name)
 {
 	size_t array_rows = 1;
 	if (&object_type != &hkReferencedObjectClass)
@@ -135,7 +141,9 @@ void Getter::visit(void* object, const hkClass& object_type, const char* member_
 		int next_rows = _row - array_rows;
 		if (_row >=0 && next_rows < 0)
 		{
+			//Getter g(_row, _column, _file_index, _handlers);
 			h.accept(*this);
+			//_value = g.value();
 		}
 	}
 	else {
@@ -144,7 +152,7 @@ void Getter::visit(void* object, const hkClass& object_type, const char* member_
 	_row -= array_rows;
 }
 
-void Getter::visit(void* value, const hkClassEnum& enum_type, size_t storage)
+void Setter::visit(void* value, const hkClassEnum& enum_type, size_t storage)
 {
 	if (_row == 0)
 	{
@@ -154,12 +162,15 @@ void Getter::visit(void* value, const hkClassEnum& enum_type, size_t storage)
 		{
 		case 1:
 			enum_value = *(unsigned char*)value;
+			//enum_type.getNameOfValue(*(unsigned char*)value, (const char**)&name);
 			break;
 		case 2:
 			enum_value = _byteswap_ushort(*(unsigned short*)value);
+			//enum_type.getNameOfValue(_byteswap_ushort(*(unsigned short*)value), (const char**)&name);
 			break;
 		default:
 			enum_value = _byteswap_ulong(*(unsigned int*)value);
+			//enum_type.getNameOfValue(_byteswap_ulong(*(unsigned int*)value), (const char**)&name);
 			break;
 		}
 		_value.setValue(HkxItemFlags(enum_value, &enum_type, storage));
