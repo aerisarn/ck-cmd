@@ -11,6 +11,9 @@ typedef std::pair< hkVariant, hkArray<hkVariant>> hkx_file_t;
 
 namespace ckcmd {
 	namespace HKX {
+
+		typedef std::vector<std::pair<int, const hkVariant*>> hk_object_list_t;
+
 		class ResourceManager {
 
 			std::vector<fs::path> _files;
@@ -45,6 +48,8 @@ namespace ckcmd {
 
 			ITreeBuilderClassHandler* classHandler(size_t index) const;
 			ISpecialFieldsHandler* fieldsHandler(size_t index) const;
+
+			hk_object_list_t findCompatibleNodes(size_t file_index, const hkClassMember* member_class) const;
 
 		};
 	}

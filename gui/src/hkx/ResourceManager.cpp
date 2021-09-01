@@ -47,26 +47,19 @@ const hkVariant* ResourceManager::at(size_t file_index, size_t _index) const {
 	return &_contents.at(file_index).second[_index];
 }
 
-
-//fs::path ResourceManager::open(const std::string& project)
-//{
-//	std::string xml_name = fs::path(project).replace_extension(".xml").string();
-//	std::string hkx_name = fs::path(project).replace_extension(".hkx").string();
-//	for (auto& p : fs::recursive_directory_iterator(_workspace_folder))
-//	{
-//		if (p.path().filename() == xml_name) {
-//			if (p.path().string().find("characters") != string::npos)
-//				continue;
-//			return p.path();
-//		}
-//		else if (p.path().filename() == hkx_name) {
-//			if (p.path().string().find("characters") != string::npos)
-//				continue;
-//			return p.path();
-//		}
-//	}
-//	return fs::path();
-//}
+hk_object_list_t ResourceManager::findCompatibleNodes(size_t file_index, const hkClassMember* member_class) const
+{
+	hk_object_list_t result;
+	auto& file_contents = _contents.at(file_index).second;
+	for (int i = 0; i < file_contents.getSize(); i++) {
+		const auto& object = file_contents[i];
+		if (member_class->getClass() == object.m_class ||
+			member_class->getClass()->isSuperClass(*object.m_class)) {
+			result.push_back({ i, &object });
+		}
+	}
+	return result;
+}
 
 hkx_file_t& ResourceManager::get(const fs::path& file)
 {

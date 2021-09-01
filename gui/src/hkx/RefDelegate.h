@@ -6,6 +6,9 @@ class RefDelegate : public QStyledItemDelegate
     Q_OBJECT
 
     const ckcmd::HKX::ResourceManager& _manager;
+
+    QString ObjectText(int object_index, size_t file_index) const;
+
 public:
     RefDelegate(const ckcmd::HKX::ResourceManager& _manager, QObject* parent = 0);
 

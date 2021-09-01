@@ -1,6 +1,7 @@
 #include "RefDelegate.h"
 
 #include <QLabel>
+#include <QComboBox>
 #include <qpainter.h>
 #include <src/hkx/HkxItemPointer.h>
 #include <src/hkx/HkxItemEnum.h>
@@ -17,6 +18,22 @@ RefDelegate::RefDelegate(const ResourceManager& manager, QObject* parent)
 {
 }
 
+QString RefDelegate::ObjectText(int object_index, size_t file_index) const {
+    QString label = QString("[%1]").arg(object_index);
+    if (object_index > 0)
+    {
+        auto* variant = _manager.at(file_index, object_index);
+        auto member = variant->m_class->getMemberByName("name");
+        if (HK_NULL != member)
+        {
+            auto member_ptr = ((char*)variant->m_object) + member->getOffset();
+            auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
+            label = QString("[%1] \"%2\"").arg(object_index).arg(c_str_ptr);
+        }
+    }
+    return label;
+}
+
 void RefDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
     if (index.data().canConvert<HkxItemPointer>()) {
@@ -25,18 +42,7 @@ void RefDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, c
         auto file_index_ = data.file_index();
         auto* object_address_ = data.get();
         auto object_index = _manager.findIndex(data.file_index(), data.get());
-        QString label = QString("[%1]").arg(object_index);
-        if (object_index > 0)
-        {
-            auto* variant = _manager.at(data.file_index(), object_index);
-            auto member = variant->m_class->getMemberByName("name");
-            if (HK_NULL != member)
-            {
-                auto member_ptr = ((char*)variant->m_object) + member->getOffset();
-                auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
-                label = QString("[%1] \"%2\"").arg(object_index).arg(c_str_ptr);
-            }
-        }
+        QString label = ObjectText(object_index, file_index_);
 
         if (option.state & QStyle::State_Selected)
         {
@@ -106,18 +112,7 @@ QSize RefDelegate::sizeHint(const QStyleOptionViewItem& option,
 
         HkxItemPointer data = index.data().value<HkxItemPointer>();
         auto object_index = _manager.findIndex(data.file_index(), data.get());
-        QString label = QString("[%1]").arg(object_index);
-        if (object_index > 0)
-        {
-            auto* variant = _manager.at(data.file_index(), object_index);
-            auto member = variant->m_class->getMemberByName("name");
-            if (HK_NULL != member)
-            {
-                auto member_ptr = ((char*)variant->m_object) + member->getOffset();
-                auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
-                label = QString("[%1] \"%2\"").arg(object_index).arg(c_str_ptr);
-            }
-        }
+        QString label = ObjectText(object_index, data.file_index());
         auto rect = option.fontMetrics.boundingRect(label);
         return {rect.width() + 2 * CUSTOM_SIZE_PADDING, rect.height()};
     }
@@ -143,7 +138,7 @@ QWidget* RefDelegate::createEditor(QWidget* parent,
     const QModelIndex& index ) const
 {
     if (index.data().canConvert<HkxItemPointer>()) {
-        return new QLabel(parent);
+        return new QComboBox(parent);
     }
 
     return QStyledItemDelegate::createEditor(parent, option, index);
@@ -152,15 +147,20 @@ QWidget* RefDelegate::createEditor(QWidget* parent,
 void RefDelegate::setEditorData(QWidget* editor,
     const QModelIndex& index) const
 {
-    int value = index.model()->data(index, Qt::EditRole).toInt();
+    //int value = index.model()->data(index, Qt::EditRole).toInt();
 
     //QSpinBox* spinBox = static_cast<QSpinBox*>(editor);
     //spinBox->setValue(value);
 
     if (index.data().canConvert<HkxItemPointer>()) {
-        QLabel* editor = qobject_cast<QLabel*>(editor);
+        QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
         HkxItemPointer ptr = index.data().value<HkxItemPointer>();
-        editor->setText(QString((uintptr_t)ptr.get()));
+        auto objects = _manager.findCompatibleNodes(ptr.file_index(), ptr.field_class());
+        QStringList options;
+        for (const auto& object : objects)
+            options << ObjectText(object.first, ptr.file_index());
+        ptr_editor->addItems(options);
+        return;
     }
 
     QStyledItemDelegate::setEditorData(editor, index);
@@ -178,3 +178,5 @@ void RefDelegate::updateEditorGeometry(QWidget* editor,
     //editor->setGeometry(option.rect);
     QStyledItemDelegate::updateEditorGeometry(editor, option, index);
 }
+
+QString asString();

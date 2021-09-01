@@ -20,7 +20,7 @@ void Setter::check(void* value) {
 void Setter::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
 	if (_row == 0)
-		_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)v));
+		_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)v, _classmember));
 	_row -= 1;
 }
 
@@ -71,7 +71,7 @@ void Setter::visit(void* object, const hkClassMember& definition)
 					//_value = g.value();
 				}
 				else {
-					_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)element));
+					_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)element, _classmember));
 				}
 			}
 			_row -= array_rows;
@@ -147,7 +147,7 @@ void Setter::visit(void* object, const hkClass& object_type, const char* member_
 		}
 	}
 	else {
-		_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)object));
+		_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)object, _classmember));
 	}
 	_row -= array_rows;
 }
