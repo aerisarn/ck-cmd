@@ -60,6 +60,9 @@ namespace ckcmd {
 			void paint(QPainter* painter, const QStyleOptionViewItem& option) const;
 			QSize WidgetSizeHint(const QFontMetrics& metrics) const;
 
+			QWidget* CreateEditor(QWidget* parent) const;
+			void FillEditor(QWidget* editor) const;
+			void FillFromEditor(QWidget* editor);
 		};
 	}
 }

@@ -4,6 +4,7 @@
 #include <QCheckBox>
 #include <QPainter>
 #include <QStylePainter>
+#include <QDoubleSpinBox>
 
 using namespace ckcmd::HKX;
 
@@ -84,4 +85,61 @@ void HkxItemReal::paint(QPainter* painter, const QStyleOptionViewItem& option) c
 	painter->translate(option.rect.topLeft());
 	fillTemplate()->render(painter, QPoint(), QRegion(), QWidget::DrawChildren);
 	painter->restore();
+}
+
+QWidget* HkxItemReal::CreateEditor(QWidget* parent) const
+{
+	size_t rows = _value.size();
+	size_t columns = _value.at(0).size();
+	auto _template = new QWidget(parent);
+	_template->setAutoFillBackground(true);
+	QGridLayout* _layout = new QGridLayout(_template);
+	for (size_t row = 0; row < rows; row++)
+	{
+		for (size_t column = 0; column < columns; column++)
+		{
+			QDoubleSpinBox* cell_editor = new QDoubleSpinBox();
+			cell_editor->setMaximum(std::numeric_limits<int>::max());
+			cell_editor->setMinimum(std::numeric_limits<int>::min());
+			cell_editor->setDecimals(4);
+			cell_editor->setObjectName(QString("%1,%2").arg(row).arg(column));
+			_layout->addWidget(
+				cell_editor,
+				row,
+				column
+			);
+		}
+	}
+	_template->adjustSize();
+	return _template;
+}
+
+void HkxItemReal::FillEditor(QWidget* editor) const
+{
+	size_t rows = _value.size();
+	size_t columns = _value.at(0).size();
+	for (size_t row = 0; row < rows; row++)
+	{
+		for (size_t column = 0; column < columns; column++)
+		{
+			QDoubleSpinBox* label = editor->findChild<QDoubleSpinBox*>(QString("%1,%2").arg(row).arg(column));
+			auto this_value = _value.at(row).at(column);
+			label->setValue(this_value);
+		}
+	}
+	editor->adjustSize();
+}
+
+void HkxItemReal::FillFromEditor(QWidget* editor)
+{
+	size_t rows = _value.size();
+	size_t columns = _value.at(0).size();
+	for (size_t row = 0; row < rows; row++)
+	{
+		for (size_t column = 0; column < columns; column++)
+		{
+			QDoubleSpinBox* label = editor->findChild<QDoubleSpinBox*>(QString("%1,%2").arg(row).arg(column));
+			_value[row][column] = label->value();
+		}
+	}
 }

@@ -145,3 +145,51 @@ void HkxItemFlags::Templates::InitTemplates() {
 	thirtytwo_bit_widget->setAttribute(Qt::WA_DontShowOnScreen, true);
 	thirtytwo_bit_widget->show();
 }
+
+QWidget* HkxItemFlags::CreateEditor(QWidget* parent) {
+	QWidget* editor = new QWidget(parent);
+	editor->setAutoFillBackground(true);
+	QVBoxLayout* editor_layout = new QVBoxLayout(editor);
+	QCheckBox* checkbox;
+	for (int i = 0; i < _storage * 8; i++)
+	{
+		checkbox = new QCheckBox(QString("Unknown %1").arg(i));
+		checkbox->setObjectName(QString("%1").arg(i));
+		editor_layout->addWidget(checkbox);
+	}
+	return editor;
+}
+
+void HkxItemFlags::setFlag(size_t flag_index, bool value)
+{
+	if (value)
+		_value |= (1 << flag_index);
+	else
+		_value &= ~(1 << flag_index);
+}
+
+void HkxItemFlags::FillEditor(QWidget* editor)
+{
+	for (int i = 0; i < _storage * 8; i++) {
+		QCheckBox* checkbox = editor->findChild<QCheckBox*>(QString("%1").arg(i));
+		if (i < _enum_class->getNumItems()) {
+			QString name = _enum_class->getItem(i).getName();
+			checkbox->setText(name);
+		}
+		else {
+			checkbox->setText(QString("Unknown %1").arg(i));
+		}
+		if (_value & (1 << i))
+		{
+			checkbox->setChecked(true);
+		}
+		else {
+			checkbox->setChecked(false);
+		}
+		QObject::connect(
+			checkbox, &QCheckBox::stateChanged,
+			[=](int state) { this->setFlag(i, state == Qt::Checked); }
+		);
+	}
+	editor->resize(editor->minimumSizeHint());
+}

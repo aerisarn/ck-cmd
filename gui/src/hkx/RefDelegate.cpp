@@ -106,6 +106,25 @@ void RefDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, c
     }
 }
 
+QSize RefDelegate::ComboBoxSizeHint(const QStyleOptionViewItem& option, const QStringList& options) const
+{
+    QStyleOptionComboBox comboBoxOption;
+    comboBoxOption.rect = option.rect;
+    comboBoxOption.state = option.state;
+    comboBoxOption.state |= QStyle::State_Enabled;
+    QSize contentsSize = { 0 , 0 };
+    qApp->style()->sizeFromContents(QStyle::CT_ComboBox, &comboBoxOption, contentsSize, nullptr);
+    for (const auto& label : options)
+        contentsSize = contentsSize.expandedTo(qApp->style()->sizeFromContents(
+            QStyle::CT_ComboBox,
+            &comboBoxOption,
+            option.fontMetrics.boundingRect(label).size(),
+            nullptr
+        ));
+    return contentsSize;
+}
+
+
 QSize RefDelegate::sizeHint(const QStyleOptionViewItem& option,
     const QModelIndex& index) const
 {
@@ -113,30 +132,17 @@ QSize RefDelegate::sizeHint(const QStyleOptionViewItem& option,
         HkxItemPointer data = index.data().value<HkxItemPointer>();
         auto object_index = _manager.findIndex(data.file_index(), data.get());
         QString label = ObjectText(object_index, data.file_index());
-        QStyleOptionComboBox comboBoxOption;
-        comboBoxOption.rect = option.rect;
-        comboBoxOption.state = option.state;
-        comboBoxOption.state |= QStyle::State_Enabled;
-        QSize contentsSize = option.fontMetrics.boundingRect(label).size();
-        qApp->style()->sizeFromContents(QStyle::CT_ComboBox, &comboBoxOption, contentsSize, nullptr);
         auto objects = _manager.findCompatibleNodes(data.file_index(), data.field_class());
         QStringList options;
         for (const auto& object : objects)
-            contentsSize = contentsSize.expandedTo(qApp->style()->sizeFromContents(
-                QStyle::CT_ComboBox, 
-                &comboBoxOption, 
-                option.fontMetrics.boundingRect(ObjectText(object.first, data.file_index())).size(),
-                nullptr
-            ));
-        //auto rect = option.fontMetrics.boundingRect(label);
-        //return {rect.width() + 2 * CUSTOM_SIZE_PADDING, rect.height()};
-        return contentsSize;
+            options << ObjectText(object.first, data.file_index());
+
+        return ComboBoxSizeHint(option, options);
     }
     if (index.data().canConvert<HkxItemEnum>()) {
-
-        QString data = index.data().value<HkxItemEnum>().value_literal();
-        auto rect = option.fontMetrics.boundingRect(data);
-        return { rect.width() + 2 * CUSTOM_SIZE_PADDING, rect.height() };
+        HkxItemEnum data = index.data().value<HkxItemEnum>();
+        QStringList options = data.enumValues();
+        return ComboBoxSizeHint(option, options);
     }
     if (index.data().canConvert<HkxItemFlags>()) {
         HkxItemFlags flags = index.data().value<HkxItemFlags>();
@@ -156,26 +162,60 @@ QWidget* RefDelegate::createEditor(QWidget* parent,
     if (index.data().canConvert<HkxItemPointer>()) {
         return new QComboBox(parent);
     }
-
+    if (index.data().canConvert<HkxItemEnum>()) {
+        return new QComboBox(parent);
+    }
+    if (index.data().canConvert<HkxItemFlags>()) {
+        HkxItemFlags flags = index.data().value<HkxItemFlags>();
+        return flags.CreateEditor(parent);
+    }
+    if (index.data().canConvert<HkxItemReal>()) {
+        HkxItemReal real = index.data().value<HkxItemReal>();
+        return  real.CreateEditor(parent);
+    }
     return QStyledItemDelegate::createEditor(parent, option, index);
 }
 
 void RefDelegate::setEditorData(QWidget* editor,
     const QModelIndex& index) const
 {
-    //int value = index.model()->data(index, Qt::EditRole).toInt();
-
-    //QSpinBox* spinBox = static_cast<QSpinBox*>(editor);
-    //spinBox->setValue(value);
-
     if (index.data().canConvert<HkxItemPointer>()) {
         QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
         HkxItemPointer ptr = index.data().value<HkxItemPointer>();
         auto objects = _manager.findCompatibleNodes(ptr.file_index(), ptr.field_class());
         QStringList options;
+        options << "<clear>";
+        int index = 0;
+        int i = 0;
         for (const auto& object : objects)
+        {
             options << ObjectText(object.first, ptr.file_index());
+            if (object.second->m_object == ptr.get())
+                index = i;
+            i++;
+        }
         ptr_editor->addItems(options);
+        ptr_editor->setCurrentIndex(index);
+        return;
+    }
+    if (index.data().canConvert<HkxItemEnum>()) {
+        QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
+        HkxItemEnum data = index.data().value<HkxItemEnum>();
+        QStringList options = data.enumValues();
+        ptr_editor->addItems(options);
+        ptr_editor->setCurrentIndex(data.value());
+        return;
+    }
+    if (index.data().canConvert<HkxItemFlags>()) {
+        QWidget* ptr_editor = dynamic_cast<QWidget*>(editor);
+        HkxItemFlags data = index.data().value<HkxItemFlags>();
+        data.FillEditor(ptr_editor);
+        return;
+    }
+    if (index.data().canConvert<HkxItemReal>()) {
+        QWidget* ptr_editor = dynamic_cast<QWidget*>(editor);
+        HkxItemReal data = index.data().value<HkxItemReal>();
+        data.FillEditor(ptr_editor);
         return;
     }
 
@@ -185,14 +225,43 @@ void RefDelegate::setEditorData(QWidget* editor,
 void RefDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
     const QModelIndex& index) const
 {
-    QStyledItemDelegate::setModelData(editor, model, index);
+    if (index.data().canConvert<HkxItemPointer>()) {
+        QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
+        HkxItemPointer ptr = index.data().value<HkxItemPointer>();
+        auto objects = _manager.findCompatibleNodes(ptr.file_index(), ptr.field_class());
+        QVariant new_value;
+        if (ptr_editor->currentIndex() == 0)
+        {
+            new_value.setValue(HkxItemPointer(ptr.file_index(), 0, ptr.field_class()));
+        }
+        else if (!objects.empty())
+        {
+            auto selected_object = objects[ptr_editor->currentIndex()-1];
+            new_value.setValue(HkxItemPointer(ptr.file_index(), selected_object.second->m_object, ptr.field_class()));
+        }
+        model->setData(index, new_value, Qt::EditRole);
+    }
+    else if (index.data().canConvert<HkxItemEnum>()) {
+        QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
+        auto value = index.data().value<HkxItemEnum>();
+        value.setValue(ptr_editor->currentIndex());
+        QVariant new_value; new_value.setValue(value);
+        model->setData(index, new_value, Qt::EditRole);
+    }
+    else if (index.data().canConvert<HkxItemReal>()) {
+        QWidget* ptr_editor = dynamic_cast<QWidget*>(editor);
+        HkxItemReal data = index.data().value<HkxItemReal>();
+        data.FillFromEditor(ptr_editor);
+        QVariant new_value; new_value.setValue(data);
+        model->setData(index, new_value, Qt::EditRole);
+    }
+    else {
+        QStyledItemDelegate::setModelData(editor, model, index);
+    }
 }
 
 void RefDelegate::updateEditorGeometry(QWidget* editor,
-    const QStyleOptionViewItem& option, const QModelIndex& index ) const
+    const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
-    
     QStyledItemDelegate::updateEditorGeometry(editor, option, index);
 }
-
-QString asString();

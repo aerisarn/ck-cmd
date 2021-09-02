@@ -33,8 +33,13 @@ namespace ckcmd {
 
 			SkeletonBuilder* _skeleton_builder;
 			hkbBehaviorGraphStringData* _strings;
+			std::set<std::string> _referenced_behaviors;
+
+			ProjectNode* buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& path, ResourceManager& _resourceManager);
 
 		public:
+
+			const std::set<std::string>& referenced_behaviors() { return _referenced_behaviors; }
 
 			virtual std::vector<const hkClass*> getHandledClasses() override;
 

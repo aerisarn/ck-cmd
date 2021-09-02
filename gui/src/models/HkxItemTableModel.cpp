@@ -107,5 +107,5 @@ bool HkxItemTableModel::setData(const QModelIndex& index, const QVariant& value,
 
 Qt::ItemFlags HkxItemTableModel::flags(const QModelIndex& index) const
 {
-	return Qt::ItemIsEditable | QAbstractTableModel::flags(index);
+	return Qt::ItemIsEditable | Qt::ItemIsUserCheckable | QAbstractTableModel::flags(index);
 }

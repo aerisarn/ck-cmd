@@ -40,6 +40,7 @@ namespace ckcmd {
 			
 			int value();
 			void setValue(int value);
+			void setFlag(size_t flag_index, bool value);
 			
 			QString value_literal();
 
@@ -48,6 +49,8 @@ namespace ckcmd {
 			void paint(QPainter* painter, const QStyleOptionViewItem& option) const;
 			QSize WidgetSizeHint(const QFontMetrics& metrics) const;
 
+			QWidget* CreateEditor(QWidget* parent);
+			void FillEditor(QWidget* editor);
 		};
 	}
 }

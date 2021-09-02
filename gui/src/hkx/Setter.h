@@ -100,105 +100,104 @@ namespace ckcmd {
 		template<>
 		void Setter::visit(::hkQuaternion& value) {
 			if (_row == 0)
-				_value.setValue(HkxItemReal({ { value(0), value(1), value(2), value(3) } }));
+			{
+				auto inner_value = _value.value<HkxItemReal>();
+				value.set(
+					inner_value.value(0, 0),
+					inner_value.value(0, 1),
+					inner_value.value(0, 2),
+					inner_value.value(0, 3)
+				);
+			}
 			_row -= 1;
 		}
 
 		template<>
 		void Setter::visit(hkMatrix3& value) {
 			if (_row == 0)
-				_value.setValue(HkxItemReal(
-					{ 
-						{ value(0,0), value(0,1), value(0,2) },
-						{ value(1,0), value(1,1), value(1,2) },
-						{ value(2,0), value(2,1), value(2,2) }
-					}
-				));
+			{
+				auto inner_value = _value.value<HkxItemReal>();
+				value(0, 0) = inner_value.value(0, 0); value(0, 1) = inner_value.value(0, 1); value(0, 2) = inner_value.value(0, 2);
+				value(1, 0) = inner_value.value(1, 0); value(1, 1) = inner_value.value(1, 1); value(1, 2) = inner_value.value(1, 2);
+				value(2, 0) = inner_value.value(2, 0); value(2, 1) = inner_value.value(2, 1); value(2, 2) = inner_value.value(2, 2);
+			}
 			_row -= 1;
 		}
 
 		template<>
 		void Setter::visit(hkRotation& value) {
 			if (_row == 0)
-				_value.setValue(HkxItemReal(
-					{
-						{ value(0,0), value(0,1), value(0,2) },
-						{ value(1,0), value(1,1), value(1,2) },
-						{ value(2,0), value(2,1), value(2,2) }
-					}
-				));
+			{
+				auto inner_value = _value.value<HkxItemReal>();
+				value(0, 0) = inner_value.value(0, 0); value(0, 1) = inner_value.value(0, 1); value(0, 2) = inner_value.value(0, 2);
+				value(1, 0) = inner_value.value(1, 0); value(1, 1) = inner_value.value(1, 1); value(1, 2) = inner_value.value(1, 2);
+				value(2, 0) = inner_value.value(2, 0); value(2, 1) = inner_value.value(2, 1); value(2, 2) = inner_value.value(2, 2);
+			}
 			_row -= 1;
 		}
 
 		template<>
 		void Setter::visit(hkQsTransform& value) {
-			if (_row == 0)
-				_value.setValue(HkxItemReal(
-					{
-						{ value.m_translation(0), value.m_translation(1), value.m_translation(2),  value.m_translation(3) },
-						{ value.m_rotation(0), value.m_rotation(1), value.m_rotation(2),  value.m_rotation(3) },
-						{ value.m_scale(0), value.m_scale(1), value.m_scale(2),  value.m_scale(3) }
-					}
-			));
+			if (_row == 0) {
+				auto inner_value = _value.value<HkxItemReal>();
+				value.m_translation(0) = inner_value.value(0, 0); value.m_translation(1) = inner_value.value(0, 1); value.m_translation(2) = inner_value.value(0, 2); value.m_translation(3) = inner_value.value(0, 3);
+				value.m_rotation.set(inner_value.value(1, 0), inner_value.value(1, 1), inner_value.value(1, 2), inner_value.value(1, 3)); 
+				value.m_scale(0) = inner_value.value(2, 0); value.m_scale(1) = inner_value.value(2, 1); value.m_scale(2) = inner_value.value(2, 2); value.m_scale(3) = inner_value.value(2, 3);
+			}
 			_row -= 1;
 		}
 
 		template<>
 		void Setter::visit(hkMatrix4& value) {
 			if (_row == 0)
-				_value.setValue(HkxItemReal(
-					{
-						{ value(0,0), value(0,1), value(0,2), value(0,3) },
-						{ value(1,0), value(1,1), value(1,2), value(1,3) },
-						{ value(2,0), value(2,1), value(2,2), value(2,3) },
-						{ value(3,0), value(3,1), value(3,2), value(3,3) }
-					}
-			));
+			{
+				auto inner_value = _value.value<HkxItemReal>();
+				value(0, 0) = inner_value.value(0, 0); value(0, 1) = inner_value.value(0, 1); value(0, 2) = inner_value.value(0, 2); value(0, 3) = inner_value.value(0, 3);
+				value(1, 0) = inner_value.value(1, 0); value(1, 1) = inner_value.value(1, 1); value(1, 2) = inner_value.value(1, 2); value(1, 3) = inner_value.value(1, 3);
+				value(2, 0) = inner_value.value(2, 0); value(2, 1) = inner_value.value(2, 1); value(2, 2) = inner_value.value(2, 2); value(2, 3) = inner_value.value(2, 3);
+				value(3, 0) = inner_value.value(3, 0); value(3, 1) = inner_value.value(3, 1); value(3, 2) = inner_value.value(3, 2); value(3, 3) = inner_value.value(3, 3);
+			}
 			_row -= 1;
 		}
 
 		template<>
 		void Setter::visit(hkTransform& value) {
 			if (_row == 0)
-				_value.setValue(HkxItemReal(
-					{
-						{ value(0,0), value(0,1), value(0,2), value(0,3) },
-						{ value(1,0), value(1,1), value(1,2), value(1,3) },
-						{ value(2,0), value(2,1), value(2,2), value(2,3) },
-						{ value(3,0), value(3,1), value(3,2), value(3,3) }
-					}
-			));
+			{
+				auto inner_value = _value.value<HkxItemReal>();
+				value(0, 0) = inner_value.value(0, 0); value(0, 1) = inner_value.value(0, 1); value(0, 2) = inner_value.value(0, 2); value(0, 3) = inner_value.value(0, 3);
+				value(1, 0) = inner_value.value(1, 0); value(1, 1) = inner_value.value(1, 1); value(1, 2) = inner_value.value(1, 2); value(1, 3) = inner_value.value(1, 3);
+				value(2, 0) = inner_value.value(2, 0); value(2, 1) = inner_value.value(2, 1); value(2, 2) = inner_value.value(2, 2); value(2, 3) = inner_value.value(2, 3);
+				value(3, 0) = inner_value.value(3, 0); value(3, 1) = inner_value.value(3, 1); value(3, 2) = inner_value.value(3, 2); value(3, 3) = inner_value.value(3, 3);
+			}
 			_row -= 1;
 		}
 
 		template<>
 		void Setter::visit(hkBool& value) {
 			if (_row == 0)
-				_value = value.operator bool();
+				value = _value.value<bool>();
 			_row -= 1;
 		}
 
 		template<>
 		void Setter::visit(hkUlong& value) {
 			if (_row == 0)
-				_value = (unsigned int)value;
+				value = _value.value<unsigned int>();
 			_row -= 1;
 		}
 
 		template<>
 		void Setter::visit(hkHalf& value) {
 			if (_row == 0)
-				_value = (unsigned short)value;
+				value = _value.value<unsigned short>();
 			_row -= 1;
 		}
 
 		template<>
 		void Setter::visit(hkStringPtr& value) {
 			if (_row == 0)
-				if (NULL != value.cString())
-					_value = QString::fromStdString(value.cString());
-				else
-					_value = "";
+				value = _value.value<QString>().toUtf8().constData();
 			_row -= 1;
 		}
 

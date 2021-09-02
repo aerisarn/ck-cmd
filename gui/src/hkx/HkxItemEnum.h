@@ -21,11 +21,10 @@ namespace ckcmd {
 			int value();
 			void setValue(int value);
 
-			
 			QString value_literal();
-
 			QStringList enumValues();
 
+			
 		};
 	}
 }

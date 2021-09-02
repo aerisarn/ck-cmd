@@ -5,6 +5,7 @@
 #include <hkbStateMachineTransitionInfo_1.h>
 #include <hkbStateMachineTimeInterval_0.h>
 #include <hkbVariableBindingSet_2.h>
+#include <hkbBehaviorReferenceGenerator_0.h>
 
 using namespace ckcmd::HKX;
 
@@ -13,7 +14,8 @@ std::vector<const hkClass*> BehaviorBuilder::getHandledClasses()
 	return {
 		&hkbBehaviorGraphClass,
 		&hkbBehaviorGraphDataClass,
-		&hkbBehaviorGraphStringDataClass
+		&hkbBehaviorGraphStringDataClass,
+		&hkbBehaviorReferenceGeneratorClass
 	};
 };
 
@@ -79,7 +81,6 @@ void BehaviorBuilder::buildEvents(const buildContext& context)
 		}
 	}
 }
-
 void BehaviorBuilder::buildVariables(const buildContext& context)
 {
 	if (context.data->m_variableInfos.getSize() > 0)
@@ -143,6 +144,32 @@ void BehaviorBuilder::buildProperties(const buildContext& context)
 	}
 }
 
+
+//TODO: common to all builders
+ProjectNode* BehaviorBuilder::buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& path, ResourceManager& _resourceManager) {
+	QString display_name = variant.m_class->getName();
+	//check if the object has a name we can display
+	auto member = variant.m_class->getMemberByName("name");
+	if (HK_NULL != member)
+	{
+		auto member_ptr = ((char*)variant.m_object) + member->getOffset();
+		auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
+		display_name = QString("%1 \"%2\"").arg(display_name).arg(c_str_ptr);
+	}
+
+	auto object_index = _resourceManager.findIndex(path, variant.m_object);
+	QString name = QString("[%1] %2").arg(object_index).arg(display_name);
+	return root_node->appendChild(
+		ProjectNode::createHkxNode(
+			{
+				name,
+				(unsigned long long)_resourceManager.at(path, object_index),
+				(unsigned long long) root_node->isVariant() ? root_node->data(1) : 0,
+				(int)_resourceManager.index(path)
+			},
+			root_node));
+}
+
 ProjectNode* BehaviorBuilder::visit(
 	const fs::path& _file,
 	int object_index,
@@ -169,6 +196,11 @@ ProjectNode* BehaviorBuilder::visit(
 		buildEvents(context);
 		buildVariables(context);
 		buildProperties(context);
+	}
+	else if (variant->m_class == &hkbBehaviorReferenceGeneratorClass) {
+		hkbBehaviorReferenceGenerator* reference = (hkbBehaviorReferenceGenerator*)variant->m_object;
+		_referenced_behaviors.insert(reference->m_behaviorName.cString());
+		return buildBranch(*variant, parent, _file, resourceManager);
 	}
 	return parent;
 }

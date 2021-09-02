@@ -9,7 +9,7 @@ using namespace ckcmd::HKX;
 
 void Setter::visit(char* value) {
 	if (_row == 0)
-		_value = QString::fromStdString(value);
+		throw std::runtime_error("Cannot set a constant string!");
 	_row -= 1;
 }
 
@@ -20,7 +20,7 @@ void Setter::check(void* value) {
 void Setter::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
 	if (_row == 0)
-		_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)v, _classmember));
+		*(uintptr_t*)v = (uintptr_t)_value.value<HkxItemPointer>().get();
 	_row -= 1;
 }
 
@@ -66,12 +66,10 @@ void Setter::visit(void* object, const hkClassMember& definition)
 					v.m_class = &arrayclass;
 					v.m_object = element;
 					HkxTableVariant h(v);
-					//Getter g(_row, _column, _file_index, _handlers);
 					h.accept(*this);
-					//_value = g.value();
 				}
 				else {
-					_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)element, _classmember));
+					*(uintptr_t*)element = (uintptr_t)_value.value<HkxItemPointer>().get();
 				}
 			}
 			_row -= array_rows;
@@ -88,38 +86,33 @@ void Setter::visit(void* value, const hkClassEnum& enum_type, hkClassMember::Typ
 {
 	if (_row == 0)
 	{
-		//char* name = new char(256);
-		//enum_type.getNameOfValue(*(int*)value, (const char**)&name);
-		//_value = QString::fromStdString(name);
-
-		int enum_value = 0;
+		int enum_value = _value.value<HkxItemEnum>().value();
 
 		switch (type) {
 		case hkClassMember::TYPE_CHAR:
-			enum_value = *(char*)value;
+			*(char*)value = (char)enum_value;
 			break;
 		case hkClassMember::TYPE_INT8:
-			enum_value = *(unsigned char*)value;
+			*(unsigned char*)value = (unsigned char)enum_value;
 			break;
 		case hkClassMember::TYPE_UINT8:
-			enum_value = *(char*)value;
+			*(char*)value = (char)enum_value;
 			break;
 		case hkClassMember::TYPE_INT16:
-			enum_value = _byteswap_ushort(*(short*)value);
+			*(short*)value = _byteswap_ushort((short)enum_value);
 			break;
 		case hkClassMember::TYPE_UINT16:
-			enum_value = _byteswap_ushort(*(unsigned short*)value);
+			*(unsigned short*)value = _byteswap_ushort((unsigned short)enum_value);
 			break;
 		case hkClassMember::TYPE_INT32:
-			enum_value = _byteswap_ulong(*(int*)value);
+			*(int*)value = _byteswap_ulong(enum_value);
 			break;
 		case hkClassMember::TYPE_UINT32:
-			enum_value = _byteswap_ulong(*(unsigned int*)value);
+			*(unsigned int*)value = _byteswap_ulong((unsigned int)enum_value);
 			break;
 		default:
 			throw std::runtime_error(std::string("Unknown storage type for enum: ") + std::to_string(type));
 		}
-		_value.setValue(HkxItemEnum(enum_value, &enum_type));
 	}
 	_row -= 1;
 }
@@ -141,13 +134,11 @@ void Setter::visit(void* object, const hkClass& object_type, const char* member_
 		int next_rows = _row - array_rows;
 		if (_row >=0 && next_rows < 0)
 		{
-			//Getter g(_row, _column, _file_index, _handlers);
 			h.accept(*this);
-			//_value = g.value();
 		}
 	}
 	else {
-		_value.setValue(HkxItemPointer(_file_index, (void*)*(uintptr_t*)object, _classmember));
+		*(uintptr_t*)object = (uintptr_t)_value.value<HkxItemPointer>().get();
 	}
 	_row -= array_rows;
 }
@@ -157,23 +148,19 @@ void Setter::visit(void* value, const hkClassEnum& enum_type, size_t storage)
 	if (_row == 0)
 	{
 		//char* name = new char(256);
-		int enum_value = 0;
+		int enum_value = _value.value<HkxItemFlags>().value();
 		switch (storage)
 		{
 		case 1:
-			enum_value = *(unsigned char*)value;
-			//enum_type.getNameOfValue(*(unsigned char*)value, (const char**)&name);
+			*(unsigned char*)value = (unsigned char)enum_value;
 			break;
 		case 2:
-			enum_value = _byteswap_ushort(*(unsigned short*)value);
-			//enum_type.getNameOfValue(_byteswap_ushort(*(unsigned short*)value), (const char**)&name);
+			*(unsigned short*)value = _byteswap_ushort((unsigned short)enum_value);
 			break;
 		default:
-			enum_value = _byteswap_ulong(*(unsigned int*)value);
-			//enum_type.getNameOfValue(_byteswap_ulong(*(unsigned int*)value), (const char**)&name);
+			*(unsigned int*)value = _byteswap_ulong((unsigned int)enum_value);
 			break;
 		}
-		_value.setValue(HkxItemFlags(enum_value, &enum_type, storage));
 	}
 	_row -= 1;
 }
