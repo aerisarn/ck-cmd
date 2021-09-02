@@ -36,9 +36,9 @@ namespace ckcmd {
 
 
 
-            bool isProjectRoot();
-            bool isSkeleton();
-            bool isVariant();
+            bool isProjectRoot() const;
+            bool isSkeleton() const;
+            bool isVariant() const;
 
             ProjectNode* appendChild(ProjectNode* child);
 

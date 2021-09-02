@@ -58,17 +58,17 @@ ProjectNode::NodeType ProjectNode::type() const {
 	return m_type;
 }
 
-bool ProjectNode::isProjectRoot() {
+bool ProjectNode::isProjectRoot() const {
 	return m_type == ProjectNode::NodeType::character_node 
 		|| m_type == ProjectNode::NodeType::misc_node 
 		|| m_type == ProjectNode::NodeType::project_node;
 }
 
-bool ProjectNode::isSkeleton() {
+bool ProjectNode::isSkeleton() const {
 	return m_type == ProjectNode::NodeType::skeleton_node;
 }
 
-bool ProjectNode::isVariant() {
+bool ProjectNode::isVariant() const {
 	return m_type == ProjectNode::NodeType::hkx_character_node
 		|| m_type == ProjectNode::NodeType::hkx_project_node
 		|| m_type == ProjectNode::NodeType::hkx_node;

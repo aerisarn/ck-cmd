@@ -55,6 +55,7 @@ void ProjectsWidget::modelHasSetNewHkxItemPointer(
 	int file, 
 	hkVariant* variant)
 {
+	ProjectNode* modified_node = _manager->findNode(file, variant);
 
 }
 

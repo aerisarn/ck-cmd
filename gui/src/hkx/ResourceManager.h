@@ -69,6 +69,8 @@ namespace ckcmd {
 			ProjectNode* createVariableNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createPropertyNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 
+			ProjectNode* findNode(int file, hkVariant* variant) const;
+
 		};
 	}
 }

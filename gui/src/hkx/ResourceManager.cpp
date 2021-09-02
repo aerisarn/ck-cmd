@@ -219,3 +219,13 @@ ProjectNode* ResourceManager::createPropertyNode(size_t file_index, const QVecto
 	_nodes[file_index].push_back(node);
 	return node;
 }
+
+ProjectNode* ResourceManager::findNode(int file, hkVariant* variant) const
+{
+	const auto& nodes = _nodes.at(file);
+	auto node_it = std::find_if(nodes.begin(), nodes.end(),
+		[&variant](const ProjectNode* element) { return element->isVariant() && variant == (hkVariant*)element->data(1).value<unsigned long long>(); });
+	if (node_it != nodes.end())
+		return *node_it;
+	return nullptr;
+}
