@@ -49,6 +49,15 @@ void ProjectsWidget::nodeDoubleClicked(const QModelIndex& index)
 
 }
 
+void ProjectsWidget::modelHasSetNewHkxItemPointer(
+	ckcmd::HKX::HkxItemPointer old_value, 
+	ckcmd::HKX::HkxItemPointer new_value, 
+	int file, 
+	hkVariant* variant)
+{
+
+}
+
 void ProjectsWidget::nodeClicked(const QModelIndex& index)
 {
 	ProjectNode* node_clicked = _model->getNode(index);

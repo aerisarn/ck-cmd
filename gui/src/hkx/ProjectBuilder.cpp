@@ -28,13 +28,14 @@ ProjectBuilder::ProjectBuilder(
 	auto project_folder = project_path.parent_path();
 	hkVariant project_root;
 	hkbProjectStringData* project_data = loadHkxFile<hkbProjectStringData>(project_path, hkbProjectStringDataClass, project_root);
-	ProjectNode* project_node = ProjectNode::createSupport({"Projects", project_path.string().c_str() }, _parent);
+	auto project_file_index = _resourceManager.index(project_path);
+	ProjectNode* project_node = _resourceManager.createSupport(project_file_index, {"Projects", project_path.string().c_str() }, _parent);
 	_parent->appendChild(project_node);
 	buildBranch(project_root, project_node, project_path);
 	
 	if (project_data)
 	{
-		ProjectNode* characters_node = ProjectNode::createSupport({ "Characters" }, _parent);
+		ProjectNode* characters_node = _resourceManager.createSupport(project_file_index, { "Characters" }, _parent);
 		_parent->appendChild(characters_node);
 		//Load characters
 		for (int c = 0; c < project_data->m_characterFilenames.getSize(); c++)
@@ -45,18 +46,20 @@ ProjectBuilder::ProjectBuilder(
 			hkbCharacterStringData* character_data = loadHkxFile<hkbCharacterStringData>(character_path, hkbCharacterStringDataClass, character_root);
 			if (character_data == NULL)
 				throw std::runtime_error("hkbCharacterStringData variant not found in " + character_path.string());
-			ProjectNode* character_node = ProjectNode::createCharacter({ character_data->m_name.cString(), character_path.string().c_str() }, characters_node);
+			auto character_file_index = _resourceManager.index(character_path);
+			ProjectNode* character_node = _resourceManager.createCharacter(character_file_index, { character_data->m_name.cString(), character_path.string().c_str() }, characters_node);
 			characters_node->appendChild(character_node);
 			buildBranch(character_root, character_node, character_path);
 
 			//skeleton
-			auto skeleton_builder = new SkeletonBuilder();
+			SkeletonBuilder* skeleton_builder = nullptr;
 			if (!std::string(character_data->m_rigName).empty())
 			{
 				auto rig_path = project_folder / character_data->m_rigName.cString();
 				auto& rig_contents = _resourceManager.get(rig_path);
-				auto rig_index = _resourceManager.index(rig_path);			
-				ProjectNode* rig_node = ProjectNode::createSkeleton({ "Skeleton", rig_path.string().c_str() }, character_node);
+				auto rig_index = _resourceManager.index(rig_path);
+				skeleton_builder = new SkeletonBuilder(_resourceManager, rig_index);
+				ProjectNode* rig_node = _resourceManager.createSkeleton(rig_index, { "Skeleton", rig_path.string().c_str() }, character_node);
 				character_node->appendChild(rig_node);
 				_resourceManager.setClassHandler(
 					rig_index,
@@ -75,10 +78,10 @@ ProjectBuilder::ProjectBuilder(
 			hkbBehaviorGraph* behavior_data = loadHkxFile<hkbBehaviorGraph>(behavior_path, hkbBehaviorGraphClass, behavior_root);
 			if (behavior_data == NULL)
 				throw std::runtime_error("hkbBehaviorGraph variant not found in " + behavior_path.string());
-			ProjectNode* behavior_node = ProjectNode::createBehavior({ behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
-			character_node->appendChild(behavior_node);
 			auto behavior_index = _resourceManager.index(behavior_path);
-			auto behavior_handler = new BehaviorBuilder();
+			ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
+			character_node->appendChild(behavior_node);
+			auto behavior_handler = new BehaviorBuilder(_resourceManager, behavior_index);
 			behavior_handler->setSkeleton(skeleton_builder);
 			_resourceManager.setClassHandler(
 				behavior_index,
@@ -97,10 +100,11 @@ ProjectBuilder::ProjectBuilder(
 				hkbBehaviorGraph* behavior_data = loadHkxFile<hkbBehaviorGraph>(behavior_path, hkbBehaviorGraphClass, behavior_root);
 				if (behavior_data == NULL)
 					throw std::runtime_error("hkbBehaviorGraph variant not found in " + behavior_path.string());
-				ProjectNode* behavior_node = ProjectNode::createBehavior({ behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
-				character_node->appendChild(behavior_node);
 				auto behavior_index = _resourceManager.index(behavior_path);
-				auto behavior_handler = new BehaviorBuilder();
+				ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
+				character_node->appendChild(behavior_node);
+				
+				auto behavior_handler = new BehaviorBuilder(_resourceManager, behavior_index);
 				behavior_handler->setSkeleton(skeleton_builder);
 				_resourceManager.setClassHandler(
 					behavior_index,
@@ -117,7 +121,7 @@ ProjectBuilder::ProjectBuilder(
 			//animations
 			if (character_data->m_animationNames.getSize() > 0)
 			{
-				ProjectNode* animations_node = ProjectNode::createSupport({ "Animations" }, character_node);
+				ProjectNode* animations_node = _resourceManager.createSupport(character_file_index, { "Animations" }, character_node);
 				character_node->appendChild(animations_node);
 				for (int a = 0; a < character_data->m_animationNames.getSize(); a++)
 				{
@@ -125,7 +129,7 @@ ProjectBuilder::ProjectBuilder(
 					if (fs::exists(animation_path))
 					{
 						auto& animation_contents = _resourceManager.get(animation_path);
-						ProjectNode* animation_node = ProjectNode::createAnimation({ character_data->m_animationNames[a].cString(), animation_path.string().c_str() }, animations_node);
+						ProjectNode* animation_node = _resourceManager.createAnimation(character_file_index, { character_data->m_animationNames[a].cString(), animation_path.string().c_str() }, animations_node);
 						animations_node->appendChild(animation_node);
 						//kinda pointless to open all the animations
 						//buildBranch(animation_contents.first, animation_node, animation_path);

@@ -7,6 +7,7 @@
 #include <src/models/ProjectTreeModel.h>
 #include <src/hkx/ResourceManager.h>
 #include <src/hkx/HkxSimulation.h>
+#include <src/hkx/HkxItemPointer.h>
 
 
 QT_BEGIN_NAMESPACE
@@ -35,6 +36,7 @@ public slots:
     void nodeDoubleClicked(const QModelIndex& index);
     void nodeClicked(const QModelIndex& index);
     void treeMenu(QPoint);
+    void modelHasSetNewHkxItemPointer(ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
 
 signals:
     //file index in resource manager, object in file

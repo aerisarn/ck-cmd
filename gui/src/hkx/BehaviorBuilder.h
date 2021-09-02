@@ -21,7 +21,6 @@ namespace ckcmd {
 				const fs::path& _file;
 				int object_index;
 				ProjectNode* parent;
-				ResourceManager& resourceManager;
 			};
 
 			virtual std::vector<member_id_t> getEventFields();
@@ -35,9 +34,14 @@ namespace ckcmd {
 			hkbBehaviorGraphStringData* _strings;
 			std::set<std::string> _referenced_behaviors;
 
-			ProjectNode* buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& path, ResourceManager& _resourceManager);
+			size_t _file_index;
+			ResourceManager& _manager;
+
+			ProjectNode* buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& pathr);
 
 		public:
+
+			BehaviorBuilder(ResourceManager& manager, size_t file_index);
 
 			const std::set<std::string>& referenced_behaviors() { return _referenced_behaviors; }
 
@@ -46,8 +50,7 @@ namespace ckcmd {
 			virtual ProjectNode* visit(
 				const fs::path& _file,
 				int object_index,
-				ProjectNode* parent,
-				ResourceManager& resourceManager) override;
+				ProjectNode* parent) override;
 
 			virtual std::vector<member_id_t> getHandledFields() override;
 

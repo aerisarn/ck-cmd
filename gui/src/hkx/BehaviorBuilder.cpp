@@ -34,7 +34,6 @@ std::vector<member_id_t> BehaviorBuilder::getVariableFields()
 	};
 }
 
-
 std::vector<member_id_t> BehaviorBuilder::getHandledFields() {
 	std::vector<member_id_t> result;
 	auto events = getEventFields();
@@ -50,12 +49,19 @@ std::vector<member_id_t> BehaviorBuilder::getHandledFields() {
 	return result;
 }
 
+BehaviorBuilder::BehaviorBuilder(ResourceManager& manager, size_t file_index) :
+	_manager(manager),
+	_file_index(file_index)
+{
+}
+
 void BehaviorBuilder::buildEvents(const buildContext& context)
 {
 	if (context.data->m_eventInfos.getSize() > 0)
 	{
 		auto events_node = context.parent->appendChild(
-			ProjectNode::createSupport(
+			_manager.createSupport(
+				_file_index,
 				{
 					"Events"
 				},
@@ -69,11 +75,12 @@ void BehaviorBuilder::buildEvents(const buildContext& context)
 
 			QString name = QString("[%1] %2").arg(i).arg(event_name.cString());
 			auto event_node = events_node->appendChild(
-				ProjectNode::createEventNode(
+				_manager.createEventNode(
+					_file_index,
 					{
 						name,
-						(unsigned long long)context.resourceManager.at(context._file, context.object_index),
-						(int)context.resourceManager.index(context._file),
+						(unsigned long long)_manager.at(context._file, context.object_index),
+						(int)_manager.index(context._file),
 						i,
 					},
 					events_node)
@@ -86,7 +93,8 @@ void BehaviorBuilder::buildVariables(const buildContext& context)
 	if (context.data->m_variableInfos.getSize() > 0)
 	{
 		auto variables_node = context.parent->appendChild(
-			ProjectNode::createSupport(
+			_manager.createSupport(
+				_file_index,
 				{
 					"Variables"
 				},
@@ -100,11 +108,12 @@ void BehaviorBuilder::buildVariables(const buildContext& context)
 
 			QString name = QString("[%1] %2").arg(i).arg(variable_name.cString());
 			auto variable_node = variables_node->appendChild(
-				ProjectNode::createEventNode(
+				_manager.createEventNode(
+					_file_index,
 					{
 						name,
-						(unsigned long long)context.resourceManager.at(context._file, context.object_index),
-						(int)context.resourceManager.index(context._file),
+						(unsigned long long)_manager.at(context._file, context.object_index),
+						(int)_manager.index(context._file),
 						i
 					},
 					variables_node)
@@ -117,7 +126,8 @@ void BehaviorBuilder::buildProperties(const buildContext& context)
 	if (context.data->m_variableInfos.getSize() > 0)
 	{
 		auto properties_node = context.parent->appendChild(
-			ProjectNode::createSupport(
+			_manager.createSupport(
+				_file_index,
 				{
 					"Properties"
 				},
@@ -131,11 +141,12 @@ void BehaviorBuilder::buildProperties(const buildContext& context)
 
 			QString name = QString("[%1] %2").arg(i).arg(property_name.cString());
 			auto variable_node = properties_node->appendChild(
-				ProjectNode::createPropertyNode(
+				_manager.createPropertyNode(
+					_file_index,
 					{
 						name,
-						(unsigned long long)context.resourceManager.at(context._file, context.object_index),
-						(int)context.resourceManager.index(context._file),
+						(unsigned long long)_manager.at(context._file, context.object_index),
+						(int)_manager.index(context._file),
 						i
 					},
 					properties_node)
@@ -146,7 +157,7 @@ void BehaviorBuilder::buildProperties(const buildContext& context)
 
 
 //TODO: common to all builders
-ProjectNode* BehaviorBuilder::buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& path, ResourceManager& _resourceManager) {
+ProjectNode* BehaviorBuilder::buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& path) {
 	QString display_name = variant.m_class->getName();
 	//check if the object has a name we can display
 	auto member = variant.m_class->getMemberByName("name");
@@ -157,15 +168,16 @@ ProjectNode* BehaviorBuilder::buildBranch(hkVariant& variant, ProjectNode* root_
 		display_name = QString("%1 \"%2\"").arg(display_name).arg(c_str_ptr);
 	}
 
-	auto object_index = _resourceManager.findIndex(path, variant.m_object);
+	auto object_index = _manager.findIndex(path, variant.m_object);
 	QString name = QString("[%1] %2").arg(object_index).arg(display_name);
 	return root_node->appendChild(
-		ProjectNode::createHkxNode(
+		_manager.createHkxNode(
+			_file_index,
 			{
 				name,
-				(unsigned long long)_resourceManager.at(path, object_index),
+				(unsigned long long)_manager.at(path, object_index),
 				(unsigned long long) root_node->isVariant() ? root_node->data(1) : 0,
-				(int)_resourceManager.index(path)
+				(int)_manager.index(path)
 			},
 			root_node));
 }
@@ -173,10 +185,9 @@ ProjectNode* BehaviorBuilder::buildBranch(hkVariant& variant, ProjectNode* root_
 ProjectNode* BehaviorBuilder::visit(
 	const fs::path& _file,
 	int object_index,
-	ProjectNode* parent,
-	ResourceManager& resourceManager)
+	ProjectNode* parent)
 {
-	auto* variant = resourceManager.at(_file, object_index);
+	auto* variant = _manager.at(_file, object_index);
 	if (variant->m_class == &hkbBehaviorGraphClass)
 	{
 		hkbBehaviorGraph* graph = (hkbBehaviorGraph*)variant->m_object;
@@ -190,7 +201,6 @@ ProjectNode* BehaviorBuilder::visit(
 			_file,
 			object_index,
 			parent,
-			resourceManager
 		};
 
 		buildEvents(context);
@@ -200,7 +210,7 @@ ProjectNode* BehaviorBuilder::visit(
 	else if (variant->m_class == &hkbBehaviorReferenceGeneratorClass) {
 		hkbBehaviorReferenceGenerator* reference = (hkbBehaviorReferenceGenerator*)variant->m_object;
 		_referenced_behaviors.insert(reference->m_behaviorName.cString());
-		return buildBranch(*variant, parent, _file, resourceManager);
+		return buildBranch(*variant, parent, _file);
 	}
 	return parent;
 }

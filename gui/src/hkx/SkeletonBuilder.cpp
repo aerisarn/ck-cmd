@@ -8,9 +8,11 @@
 
 using namespace ckcmd::HKX;
 
-SkeletonBuilder::SkeletonBuilder() :
+SkeletonBuilder::SkeletonBuilder(ResourceManager& manager, size_t file_index) :
 	_skeleton(NULL),
-	_ragdoll(NULL)
+	_ragdoll(NULL),
+	_manager(manager),
+	_file_index(file_index)
 {
 }
 
@@ -53,7 +55,7 @@ void SkeletonBuilder::buildSkeleton(const buildContext& context)
 }
 
 //TODO: common to all builders
-ProjectNode* SkeletonBuilder::buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& path, ResourceManager& _resourceManager) {
+ProjectNode* SkeletonBuilder::buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& path) {
 	QString display_name = variant.m_class->getName();
 	//check if the object has a name we can display
 	auto member = variant.m_class->getMemberByName("name");
@@ -64,15 +66,16 @@ ProjectNode* SkeletonBuilder::buildBranch(hkVariant& variant, ProjectNode* root_
 		display_name = QString("%1 \"%2\"").arg(display_name).arg(c_str_ptr);
 	}
 
-	auto object_index = _resourceManager.findIndex(path, variant.m_object);
+	auto object_index = _manager.findIndex(path, variant.m_object);
 	QString name = QString("[%1] %2").arg(object_index).arg(display_name);
 	return root_node->appendChild(
-		ProjectNode::createHkxNode(
+		_manager.createHkxNode(
+			_file_index,
 			{
 				name,
-				(unsigned long long)_resourceManager.at(path, object_index),
+				(unsigned long long)_manager.at(path, object_index),
 				(unsigned long long) root_node->isVariant() ? root_node->data(1) : 0,
-				(int)_resourceManager.index(path)
+				(int)_manager.index(path)
 			},
 			root_node));
 }
@@ -80,10 +83,9 @@ ProjectNode* SkeletonBuilder::buildBranch(hkVariant& variant, ProjectNode* root_
 ProjectNode* SkeletonBuilder::visit(
 	const fs::path& _file,
 	int object_index,
-	ProjectNode* parent,
-	ResourceManager& resourceManager)
+	ProjectNode* parent)
 {
-	auto* variant = resourceManager.at(_file, object_index);
+	auto* variant = _manager.at(_file, object_index);
 	if (variant->m_class == &hkaAnimationContainerClass)
 	{
 		hkaAnimationContainer* container = (hkaAnimationContainer*)variant->m_object;
@@ -94,7 +96,6 @@ ProjectNode* SkeletonBuilder::visit(
 			_file,
 			object_index,
 			parent,
-			resourceManager
 		};
 
 		if (container->m_skeletons.getSize() > 1)
@@ -116,14 +117,13 @@ ProjectNode* SkeletonBuilder::visit(
 		{
 			_file,
 			object_index,
-			parent,
-			resourceManager
+			parent
 		};
 
 		buildSkeleton(context);
 	}
 
-	return buildBranch(*variant, parent, _file, resourceManager);
+	return buildBranch(*variant, parent, _file);
 }
 
 QVariant SkeletonBuilder::handle(void* value, const hkClass* hkclass, const hkClassMember* hkmember, const hkVariant* hkcontainer, const hkVariant* parent_container)

@@ -17,8 +17,7 @@ namespace ckcmd {
 			virtual ProjectNode* visit(
 				const fs::path& _file,
 				int object_index,
-				ProjectNode* parent,
-				ResourceManager& resourceManager) = 0;
+				ProjectNode* parent) = 0;
 		};
 	}
 }

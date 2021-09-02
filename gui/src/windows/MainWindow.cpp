@@ -62,7 +62,7 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	LogWidget->setWidget(_logger);
 	
 
-	_model._rootNode = ckcmd::HKX::ProjectNode::createSupport({ _workspace.getFolder().string().c_str() }, NULL);
+	_model._rootNode = _resource_manager.createStatic({ _workspace.getFolder().string().c_str() }, NULL);
 	_animation_manager.buildProjectTree(_model._rootNode);
 	_simulation = new HkxSimulation(havok_router, _resource_manager);
 
@@ -73,6 +73,7 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	GLWidget->setWidget(createHDBWidget());
 
 	connect(_projectTreeView, &ProjectsWidget::variantSelected, _valuesTableView, &ValuesWidget::setVariant);
+	connect(_valuesTableView, &ValuesWidget::HkxItemPointerChanged, _projectTreeView, &ProjectsWidget::modelHasSetNewHkxItemPointer);
 
 	ui->menuView->addAction(LogWidget->toggleViewAction());
 	ui->menuView->addAction(_projectTreeView->toggleViewAction());

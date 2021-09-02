@@ -11,6 +11,7 @@ namespace ckcmd {
         public:
 
             enum class NodeType {
+                fixed,
                 support,
                 project_node,
                 character_node,
@@ -20,7 +21,6 @@ namespace ckcmd {
                 misc_node,
                 hkx_project_node,
                 hkx_character_node,
-                hkx_field_node,
                 hkx_node,
                 event_node,
                 variable_node,
@@ -34,20 +34,7 @@ namespace ckcmd {
             );
             ~ProjectNode();
 
-            static ProjectNode* createSupport(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-            static ProjectNode* createProject(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-            static ProjectNode* createCharacter(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-            static ProjectNode* createBehavior(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-            static ProjectNode* createSkeleton(const QVector<QVariant>& data, ProjectNode* parentItemm = nullptr);
-            static ProjectNode* createAnimation(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-            static ProjectNode* createMisc(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-            static ProjectNode* createHkxProject(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-            static ProjectNode* createHkxCharacter(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-            static ProjectNode* createHkxNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-            static ProjectNode* createHkxFieldNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-            static ProjectNode* createEventNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-            static ProjectNode* createVariableNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-            static ProjectNode* createPropertyNode(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+
 
             bool isProjectRoot();
             bool isSkeleton();

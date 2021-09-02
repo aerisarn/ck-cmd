@@ -27,8 +27,6 @@ void TreeBuilder::visit(char* value) {}
 
 void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
-	//ProjectNode* member_node = _parent->appendChild(
-	//	ProjectNode::createHkxFieldNode({ QString::fromStdString(_classmember->getName()) }, _parent));
 	int object_index = _resourceManager.findIndex(_file, (const void*)*(uintptr_t*)(v));
 	if (object_index >= 0)
 	{
@@ -39,8 +37,7 @@ void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Fla
 			object_node = _handlers[variant->m_class]->visit(
 				_file, 
 				object_index, 
-				_parent, 
-				_resourceManager
+				_parent
 			);
 		}
 		else {
@@ -57,7 +54,8 @@ void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Fla
 
 			QString name = QString("[%1] %2").arg(object_index).arg(display_name);
 			object_node = _parent->appendChild(
-				ProjectNode::createHkxNode(
+				_resourceManager.createHkxNode(
+					_resourceManager.index(_file),
 					{
 						name,
 						(unsigned long long)_resourceManager.at(_file, object_index),

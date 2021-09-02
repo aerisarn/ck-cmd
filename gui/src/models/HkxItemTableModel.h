@@ -4,6 +4,7 @@
 #include <QUndoStack>
 #include <core/HKXWrangler.h>
 #include <src/hkx/ISpecialFieldsHandler.h>
+#include <src/hkx/HkxItemPointer.h>
 
 namespace ckcmd {
     namespace HKX {
@@ -35,6 +36,14 @@ namespace ckcmd {
             int columnCount(const QModelIndex& parent = QModelIndex()) const override;
 
             Qt::ItemFlags flags(const QModelIndex& index) const override;
+
+            hkVariant* variant() const { return _variant; }
+            int file() const { return _file; }
+
+        signals:
+
+            void HkxItemPointerChanged(HkxItemPointer old_value, HkxItemPointer new_value, int file, hkVariant* variant);
+
         };
     }
 }

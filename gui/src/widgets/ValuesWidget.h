@@ -25,6 +25,10 @@ public:
 
 public slots:
     void setVariant(int file_index, hkVariant* v, hkVariant* parent);
+    void modelHasSetNewHkxItemPointer(ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
+
+signals:
+    void HkxItemPointerChanged(ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
 
 private:
     Ui::ValuesWidget* ui;

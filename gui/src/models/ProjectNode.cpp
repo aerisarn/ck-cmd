@@ -58,63 +58,6 @@ ProjectNode::NodeType ProjectNode::type() const {
 	return m_type;
 }
 
-ProjectNode* ProjectNode::createSupport(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::support, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createProject(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::project_node, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createCharacter(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::character_node, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createBehavior(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::behavior_node, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createSkeleton(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::skeleton_node, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createAnimation(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::animation_node, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createMisc(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::misc_node, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createHkxProject(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::hkx_project_node, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createHkxCharacter(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::hkx_character_node, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createHkxNode(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::hkx_node, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createHkxFieldNode(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::hkx_field_node, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createEventNode(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::event_node, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createVariableNode(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::variable_node, data, parentItem);
-}
-
-ProjectNode* ProjectNode::createPropertyNode(const QVector<QVariant>& data, ProjectNode* parentItem) {
-	return new ProjectNode(ProjectNode::NodeType::property_node, data, parentItem);
-}
-
-
 bool ProjectNode::isProjectRoot() {
 	return m_type == ProjectNode::NodeType::character_node 
 		|| m_type == ProjectNode::NodeType::misc_node 

@@ -2,6 +2,7 @@
 
 #include <core/HKXWrangler.h>
 #include <src/Log.h>
+#include <src/models/ProjectNode.h>
 #include <src/hkx/ITreeBuilderClassHandler.h>
 #include <src/hkx/ISpecialFieldsHandler.h>
 
@@ -20,6 +21,7 @@ namespace ckcmd {
 			std::map<size_t, hkx_file_t> _contents;
 			std::map<size_t, ITreeBuilderClassHandler*> _class_handlers;
 			std::map<size_t, ISpecialFieldsHandler*> _field_handlers;
+			std::map<size_t, std::vector<ProjectNode*>> _nodes;
 			const fs::path _workspace_folder;
 
 		public:
@@ -50,6 +52,22 @@ namespace ckcmd {
 			ISpecialFieldsHandler* fieldsHandler(size_t index) const;
 
 			hk_object_list_t findCompatibleNodes(size_t file_index, const hkClassMember* member_class) const;
+
+			ProjectNode* createStatic(const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createStatic(const QVector<QVariant>& data, ProjectNode* parentItem, ProjectNode::NodeType type);
+			ProjectNode* createSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createProject(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createCharacter(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createBehavior(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createSkeleton(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItemm = nullptr);
+			ProjectNode* createAnimation(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createMisc(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createHkxProject(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createHkxCharacter(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createHkxNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createVariableNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createPropertyNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 
 		};
 	}

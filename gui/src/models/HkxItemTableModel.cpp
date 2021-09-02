@@ -95,7 +95,18 @@ bool HkxItemTableModel::setData(const QModelIndex& index, const QVariant& value,
 	{
 		if (indexValid(index))
 		{
+			HkxItemPointer old_value(-1, nullptr, nullptr);
+			HkxItemPointer new_value(-1, nullptr, nullptr);
 			HkxTableVariant h(*_variant);
+
+			if (value.canConvert<HkxItemPointer>())
+			{
+				Getter g(index.row(), index.column(), _file, _handlers);
+				h.accept(g);
+				old_value = g.value().value<HkxItemPointer>();
+				new_value = value.value<HkxItemPointer>();
+				emit HkxItemPointerChanged(old_value, new_value, _file, _variant);
+			}
 			Setter s(index.row(), index.column(), _file, value, _handlers);
 			s.setParentVariant(_parent);
 			h.accept(s);

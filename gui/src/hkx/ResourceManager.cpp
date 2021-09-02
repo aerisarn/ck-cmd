@@ -131,3 +131,91 @@ ISpecialFieldsHandler* ResourceManager::fieldsHandler(size_t index) const {
 		return _field_handlers.find(index)->second;
 	return NULL;
 }
+
+ProjectNode* ResourceManager::createStatic(const QVector<QVariant>& data, ProjectNode* parentItem)
+{
+	return new ProjectNode(ProjectNode::NodeType::fixed, data, parentItem);
+}
+
+ProjectNode* ResourceManager::createStatic(const QVector<QVariant>& data, ProjectNode* parentItem, ProjectNode::NodeType type)
+{
+	return new ProjectNode(type, data, parentItem);
+}
+
+ProjectNode* ResourceManager::createSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::support, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createProject(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::project_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createCharacter(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::character_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createBehavior(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::behavior_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createSkeleton(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::skeleton_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createAnimation(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::animation_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createMisc(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::misc_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createHkxProject(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::hkx_project_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createHkxCharacter(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::hkx_character_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createHkxNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::hkx_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::event_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createVariableNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::variable_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createPropertyNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::property_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
