@@ -2,7 +2,8 @@
 
 #include <QLabel>
 #include <QComboBox>
-#include <qpainter.h>
+#include <QPainter>
+#include <QApplication>
 #include <src/hkx/HkxItemPointer.h>
 #include <src/hkx/HkxItemEnum.h>
 #include <src/hkx/HkxItemFlags.h>
@@ -109,12 +110,27 @@ QSize RefDelegate::sizeHint(const QStyleOptionViewItem& option,
     const QModelIndex& index) const
 {
     if (index.data().canConvert<HkxItemPointer>()) {
-
         HkxItemPointer data = index.data().value<HkxItemPointer>();
         auto object_index = _manager.findIndex(data.file_index(), data.get());
         QString label = ObjectText(object_index, data.file_index());
-        auto rect = option.fontMetrics.boundingRect(label);
-        return {rect.width() + 2 * CUSTOM_SIZE_PADDING, rect.height()};
+        QStyleOptionComboBox comboBoxOption;
+        comboBoxOption.rect = option.rect;
+        comboBoxOption.state = option.state;
+        comboBoxOption.state |= QStyle::State_Enabled;
+        QSize contentsSize = option.fontMetrics.boundingRect(label).size();
+        qApp->style()->sizeFromContents(QStyle::CT_ComboBox, &comboBoxOption, contentsSize, nullptr);
+        auto objects = _manager.findCompatibleNodes(data.file_index(), data.field_class());
+        QStringList options;
+        for (const auto& object : objects)
+            contentsSize = contentsSize.expandedTo(qApp->style()->sizeFromContents(
+                QStyle::CT_ComboBox, 
+                &comboBoxOption, 
+                option.fontMetrics.boundingRect(ObjectText(object.first, data.file_index())).size(),
+                nullptr
+            ));
+        //auto rect = option.fontMetrics.boundingRect(label);
+        //return {rect.width() + 2 * CUSTOM_SIZE_PADDING, rect.height()};
+        return contentsSize;
     }
     if (index.data().canConvert<HkxItemEnum>()) {
 
@@ -175,7 +191,7 @@ void RefDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
 void RefDelegate::updateEditorGeometry(QWidget* editor,
     const QStyleOptionViewItem& option, const QModelIndex& index ) const
 {
-    //editor->setGeometry(option.rect);
+    
     QStyledItemDelegate::updateEditorGeometry(editor, option, index);
 }
 

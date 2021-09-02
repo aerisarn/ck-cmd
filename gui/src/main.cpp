@@ -7,7 +7,7 @@
 #include <QTranslator>
 
 #include <src/windows/WorkspaceLauncher.h>
-//#include <src/windows/SkyrimSelector.h>
+#include <src/windows/SkyrimSelector.h>
 
 #include <commands/CommandBase.h>
 #include <core/games.h>
@@ -125,12 +125,12 @@ int main(int argc, char *argv[])
 				while (!fs::exists(data_path / "Skyrim - Animations.bsa") 
 					|| !fs::is_regular_file(data_path / "Skyrim - Animations.bsa"))
 				{
-					//SkyrimSelector selector;
-					//if (selector.exec() != QDialog::Accepted) {
-					//	return 1; // Error, for example
-					//}
-					//data_path = selector._skyrim_folder.toStdString();
-					//data_path /= "Data";
+					SkyrimSelector selector;
+					if (selector.exec() != QDialog::Accepted) {
+						return 1; // Error, for example
+					}
+					data_path = selector._skyrim_folder.toStdString();
+					data_path /= "Data";
 				}
 				
 			}

@@ -105,7 +105,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 void MainWindow::saveWindowSettings()
 {
-	QSettings settings("layout.ini", QSettings::IniFormat);
+	QSettings settings((_workspace.getFolder() / "layout.ini").string().c_str(), QSettings::IniFormat);
 	settings.setValue("geometry", saveGeometry());
 	settings.setValue("windowState", saveState());
 	m_DockManager->addPerspective("dockLayout");
@@ -115,7 +115,7 @@ void MainWindow::saveWindowSettings()
 
 void MainWindow::loadWindowSettings()
 {
-	QSettings settings("layout.ini", QSettings::IniFormat);
+	QSettings settings((_workspace.getFolder() / "layout.ini").string().c_str(), QSettings::IniFormat);
 	QByteArray saved_geometry = settings.value("geometry").toByteArray();
 	restoreGeometry(saved_geometry);
 	QByteArray saved_state = settings.value("windowState").toByteArray();

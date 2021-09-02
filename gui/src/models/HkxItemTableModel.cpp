@@ -96,7 +96,7 @@ bool HkxItemTableModel::setData(const QModelIndex& index, const QVariant& value,
 		if (indexValid(index))
 		{
 			HkxTableVariant h(*_variant);
-			Setter s(index.row(), index.column(), _file, _handlers);
+			Setter s(index.row(), index.column(), _file, value, _handlers);
 			s.setParentVariant(_parent);
 			h.accept(s);
 			return true;

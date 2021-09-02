@@ -26,13 +26,13 @@ namespace ckcmd {
 
 		public:
 
-			Setter(const size_t row, const size_t column, int file_index) :
+			Setter(const size_t row, const size_t column, int file_index, const QVariant& value) :
 				HkxConcreteVisitor(*this), 
-				_row(row), _column(column), _file_index(file_index) {}
+				_row(row), _column(column), _file_index(file_index), _value(value) {}
 
-			Setter(const size_t row, const size_t column, int file_index, const std::map<member_id_t, ISpecialFieldsHandler*>& handlers) :
+			Setter(const size_t row, const size_t column, int file_index, const QVariant& value, const std::map<member_id_t, ISpecialFieldsHandler*>& handlers) :
 				HkxConcreteVisitor(*this),
-				_row(row), _column(column), _file_index(file_index) 
+				_row(row), _column(column), _file_index(file_index), _value(value)
 			{
 				_handlers = handlers;
 			}
@@ -68,13 +68,13 @@ namespace ckcmd {
 		void Setter::check(T& value) {
 			if (_row == 0)
 			{
-				if (_handlers.find({ _class, _classmember }) != _handlers.end())
-				{
-					_value = _handlers[{_class, _classmember}]->value(value, _class, _classmember, _lastVariant, _parentVariant);
-				}
-				else {
-					_value = value;
-				}
+				//if (_handlers.find({ _class, _classmember }) != _handlers.end())
+				//{
+				//	_value = _handlers[{_class, _classmember}]->value(value, _class, _classmember, _lastVariant, _parentVariant);
+				//}
+				//else {
+					value = _value.value<T>();
+				//}
 			}
 			_row -= 1;
 		}
@@ -86,8 +86,14 @@ namespace ckcmd {
 
 		template<>
 		void Setter::visit(hkVector4& value) {
-			if (_row == 0)
-				_value.setValue(HkxItemReal({ { value(0), value(1), value(2) } }));
+			if (_row == 0) {
+				auto inner_value = _value.value<HkxItemReal>();
+				value.set(
+					inner_value.value(0, 0),
+					inner_value.value(0, 1),
+					inner_value.value(0, 2)
+				);
+			}
 			_row -= 1;
 		}
 
