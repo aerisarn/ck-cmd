@@ -32,13 +32,13 @@ void ProjectsWidget::nodeDoubleClicked(const QModelIndex& index)
 {
 	ProjectNode* node_clicked = _model->getNode(index);
 	if (node_clicked->isProjectRoot() && node_clicked->childCount() == 0) {
-		_model->beginModify(index, 0, 2);
+		_model->notifyBeginInsertRows(index, index.row(), index.row() + 1);
 		ProjectBuilder b(
 			node_clicked,
 			*_manager,
 			node_clicked->data(0).toString().toUtf8().constData()
 		);
-		_model->endModify(index);
+		_model->notifyEndInsertRows(index);
 	}
 	else if (node_clicked->isSkeleton()) {
 		
@@ -55,8 +55,18 @@ void ProjectsWidget::modelHasSetNewHkxItemPointer(
 	int file, 
 	hkVariant* variant)
 {
-	ProjectNode* modified_node = _manager->findNode(file, variant);
-
+	//auto old_index = _manager->findIndex(file, old_value.get());
+	//auto new_index = _manager->findIndex(file, new_value.get());
+	//auto old_variant = _manager->at(file, old_index);
+	//auto new_variant = _manager->at(file, new_index);
+	//ProjectNode* old_node = _manager->findNode(file, old_variant);
+	//ProjectNode* new_node = _manager->findNode(file, new_variant);
+	//auto old_model_index = _model->getIndex(old_node);
+	//auto new_model_index = _model->getIndex(new_node);
+	//_model->notifyBeginMoveRows(old_model_index, old_model_index.row(), old_model_index.row()+1, new_model_index, new_model_index.row());
+	//old_node->parentItem()->setChild(new_model_index.row(), new_node);
+	//// TODO: relink
+	//_model->notifyEndMoveRows();
 }
 
 void ProjectsWidget::nodeClicked(const QModelIndex& index)

@@ -107,3 +107,13 @@ bool ProjectTreeModel::setData(const QModelIndex& index, const QVariant& value,
 {
 	return false;
 }
+
+QModelIndex ProjectTreeModel::getIndex(ProjectNode* node) const
+{
+	ProjectNode* parentItem = node->parentItem();
+
+	if (parentItem == _rootNode)
+		return QModelIndex();
+
+	return createIndex(parentItem->row(), 0, parentItem);
+}

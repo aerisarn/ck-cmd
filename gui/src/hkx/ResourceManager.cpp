@@ -229,3 +229,4 @@ ProjectNode* ResourceManager::findNode(int file, hkVariant* variant) const
 		return *node_it;
 	return nullptr;
 }
+

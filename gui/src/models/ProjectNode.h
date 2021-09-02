@@ -43,6 +43,7 @@ namespace ckcmd {
             ProjectNode* appendChild(ProjectNode* child);
 
             ProjectNode* child(int row);
+            ProjectNode* setChild(int row, ProjectNode* new_child);
             int childCount() const;
             int columnCount() const;
             QVariant data(int column) const;

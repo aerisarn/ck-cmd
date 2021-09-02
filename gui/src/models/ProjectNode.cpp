@@ -24,6 +24,15 @@ ProjectNode* ProjectNode::child(int row)
 	return m_childItems.at(row);
 }
 
+ProjectNode* ProjectNode::setChild(int row, ProjectNode* new_child)
+{
+	if (row < 0 || row >= m_childItems.size())
+		return nullptr;
+	auto old_node = m_childItems.at(row);
+	m_childItems[row] = new_child;
+	return old_node;
+}
+
 int ProjectNode::childCount() const
 {
 	return m_childItems.count();

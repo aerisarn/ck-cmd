@@ -70,6 +70,7 @@ namespace ckcmd {
 			ProjectNode* createPropertyNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 
 			ProjectNode* findNode(int file, hkVariant* variant) const;
+			QModelIndex getIndex(ProjectNode* node) const;
 
 		};
 	}

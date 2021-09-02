@@ -19,12 +19,20 @@ namespace ckcmd {
 
 
             ProjectNode* getNode(const QModelIndex& index) const;
-            void beginModify(const QModelIndex& index, int first, int last) {
+            void notifyBeginInsertRows(const QModelIndex& index, int first, int last) {
                 emit beginInsertRows(index, first, last);
             }
 
-            void endModify(const QModelIndex& index) {
+            void notifyEndInsertRows(const QModelIndex& index) {
                 emit endInsertRows();
+            }
+
+            void notifyBeginMoveRows(const QModelIndex& sourceParent, int sourceFirst, int sourceLast, const QModelIndex& destinationParent, int destinationRow) {
+                emit beginMoveRows(sourceParent, sourceFirst, sourceLast, destinationParent, destinationRow);
+            }
+
+            void notifyEndMoveRows() {
+                emit endMoveRows();
             }
 
             /*
@@ -42,6 +50,7 @@ namespace ckcmd {
             bool setData(const QModelIndex& index, const QVariant& value,
                 int role = Qt::EditRole) override;
 
+            QModelIndex getIndex(ProjectNode* node) const;
 
             ProjectNode* _rootNode = NULL;
         };
