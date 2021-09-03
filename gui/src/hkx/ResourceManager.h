@@ -8,7 +8,7 @@
 
 #include <map>
 
-typedef std::pair< hkVariant, hkArray<hkVariant>> hkx_file_t;
+typedef std::pair< hkVariant, std::vector<hkVariant>> hkx_file_t;
 
 namespace ckcmd {
 	namespace HKX {
@@ -27,6 +27,9 @@ namespace ckcmd {
 		public:
 
 			ResourceManager(const fs::path& workspace_folder);
+
+			~ResourceManager() {
+			}
 
 			hkx_file_t& get(const fs::path& file);
 

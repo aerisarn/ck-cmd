@@ -24,6 +24,10 @@ namespace ckcmd {
 		public:
 			AnimationManager(WorkspaceConfig& _workspace, ResourceManager& resource_manager);
 
+			~AnimationManager() {
+
+			}
+
 			bool empty();
 
 			void buildProjectTree(ProjectNode* root);

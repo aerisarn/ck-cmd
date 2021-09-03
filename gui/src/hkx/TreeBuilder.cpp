@@ -3,11 +3,10 @@
 using namespace ckcmd::HKX;
 
 TreeBuilder::TreeBuilder(ProjectNode* parent, ResourceManager& resourceManager, const fs::path& file, std::set<void*>& visited_objects)
-	: _resourceManager(resourceManager), _parent(parent), _file(file), _visited_objects(visited_objects),
+	: _resourceManager(resourceManager), _parent(parent), _file(file), _file_index(resourceManager.index(file)), _visited_objects(visited_objects),
 	HkxConcreteVisitor(*this)
 {
-	auto file_index = resourceManager.index(file);
-	auto handler = resourceManager.classHandler(file_index);
+	auto handler = resourceManager.classHandler(_file_index);
 	if (NULL != handler)
 		registerClassHandler(handler);
 }
@@ -23,14 +22,27 @@ TreeBuilder::TreeBuilder(
 	_handlers = handlers;
 }
 
+TreeBuilder::TreeBuilder(
+	ProjectNode* parent,
+	ResourceManager& resourceManager,
+	const fs::path& file,
+	size_t file_index,
+	std::set<void*>& visited_objects,
+	const std::map<const hkClass*, ITreeBuilderClassHandler*>& handlers
+) : TreeBuilder(parent, resourceManager, file, visited_objects)
+{
+	_file_index = file_index;
+	_handlers = handlers;
+}
+
 void TreeBuilder::visit(char* value) {}
 
 void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
-	int object_index = _resourceManager.findIndex(_file, (const void*)*(uintptr_t*)(v));
+	int object_index = _resourceManager.findIndex(_file_index, (const void*)*(uintptr_t*)(v));
 	if (object_index >= 0)
 	{
-		auto* variant = _resourceManager.at(_file, object_index);
+		auto* variant = _resourceManager.at(_file_index, object_index);
 		ProjectNode* object_node = NULL;
 		if (_handlers.find(variant->m_class) != _handlers.end())
 		{
@@ -55,18 +67,17 @@ void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Fla
 			QString name = QString("[%1] %2").arg(object_index).arg(display_name);
 			object_node = _parent->appendChild(
 				_resourceManager.createHkxNode(
-					_resourceManager.index(_file),
+					_file_index,
 					{
 						name,
-						(unsigned long long)_resourceManager.at(_file, object_index),
+						(unsigned long long)variant,
 						(unsigned long long)_parent->isVariant() ? _parent->data(1) : 0,
-						(int)_resourceManager.index(_file)
+						_file_index
 					},
 					_parent));
 		}
 		HkxTableVariant h(*variant);
-		TreeBuilder t(object_node, _resourceManager, _file, _visited_objects, _handlers);
-		h.accept(t);
+		h.accept(TreeBuilder(object_node, _resourceManager, _file, _file_index, _visited_objects, _handlers));
 	}
 }
 void TreeBuilder::visit(void* object, const hkClassMember& definition) {
@@ -94,12 +105,11 @@ void TreeBuilder::visit(void* object, const hkClassMember& definition) {
 						v.m_class = definition.getClass();
 						v.m_object = element;
 						HkxTableVariant h(v);
-						TreeBuilder t(_parent, _resourceManager, _file, _visited_objects, _handlers);
-						h.accept(t);
+						h.accept(*this);
 					}
 					else {
-						size_t ref_index = _resourceManager.findIndex(_file, (const void*)*(uintptr_t*)(element));
-						hkVariant* v = _resourceManager.at(_file, ref_index);
+						size_t ref_index = _resourceManager.findIndex(_file_index, (const void*)*(uintptr_t*)(element));
+						hkVariant* v = _resourceManager.at(_file_index, ref_index);
 						visit(element, *v->m_class, hkClassMember::Flags());
 					}
 				}
@@ -121,8 +131,7 @@ void TreeBuilder::visit(void* object, const hkClass& object_type, const char* me
 		v.m_class = &object_type;
 		v.m_object = object;
 		HkxTableVariant h(v);
-		TreeBuilder t(_parent, _resourceManager, _file, _visited_objects, _handlers);
-		h.accept(t);
+		h.accept(*this);
 	}
 }
 

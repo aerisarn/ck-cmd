@@ -5,6 +5,7 @@
 #include <src/hkx/HkxTableVariant.h>
 #include <src/models/ProjectNode.h>
 #include <src/hkx/ITreeBuilderClassHandler.h>
+#include <queue>
 
 namespace ckcmd {
 	namespace HKX {
@@ -12,10 +13,10 @@ namespace ckcmd {
 		class TreeBuilder : public HkxConcreteVisitor<TreeBuilder> {
 			ResourceManager& _resourceManager;
 			const fs::path& _file;
+			size_t _file_index;
 			ProjectNode* _parent;
 			std::set<void*>& _visited_objects;
 			std::map<const hkClass*, ITreeBuilderClassHandler*> _handlers;
-
 		public:
 			TreeBuilder(
 				ProjectNode* parent, 
@@ -28,6 +29,15 @@ namespace ckcmd {
 				ProjectNode* parent,
 				ResourceManager& resourceManager,
 				const fs::path& file,
+				std::set<void*>& _visited_objects,
+				const std::map<const hkClass*, ITreeBuilderClassHandler*>& _handlers
+			);
+
+			TreeBuilder(
+				ProjectNode* parent,
+				ResourceManager& resourceManager,
+				const fs::path& file,
+				size_t _file_index,
 				std::set<void*>& _visited_objects,
 				const std::map<const hkClass*, ITreeBuilderClassHandler*>& _handlers
 			);

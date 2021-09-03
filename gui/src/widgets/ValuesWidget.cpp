@@ -27,10 +27,13 @@ ValuesWidget::~ValuesWidget()
 void ValuesWidget::setVariant(int file_index, hkVariant* v, hkVariant* parent)
 {
 	auto actual_model = dynamic_cast<HkxItemTableModel*>(ui->valuesView->model());
-	disconnect(
-		actual_model, &HkxItemTableModel::HkxItemPointerChanged,
-		this, &ValuesWidget::modelHasSetNewHkxItemPointer
-	);
+	if (actual_model)
+	{
+		disconnect(
+			actual_model, &HkxItemTableModel::HkxItemPointerChanged,
+			this, &ValuesWidget::modelHasSetNewHkxItemPointer
+		);
+	}
 	auto new_model = new HkxItemTableModel(v, file_index, parent, this);
 	ISpecialFieldsHandler* fields_handler = _manager.fieldsHandler(file_index);
 	if (fields_handler != NULL)

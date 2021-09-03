@@ -32,7 +32,7 @@ void ProjectsWidget::nodeDoubleClicked(const QModelIndex& index)
 {
 	ProjectNode* node_clicked = _model->getNode(index);
 	if (node_clicked->isProjectRoot() && node_clicked->childCount() == 0) {
-		_model->notifyBeginInsertRows(index, index.row(), index.row() + 1);
+		_model->notifyBeginInsertRows(index, 0, 2);
 		ProjectBuilder b(
 			node_clicked,
 			*_manager,

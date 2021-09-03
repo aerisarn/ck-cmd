@@ -19,7 +19,7 @@ size_t ResourceManager::index(const fs::path& file) const {
 int ResourceManager::findIndex(int file_index, const void* object) const
 {
 	auto& _objects = _contents.at(file_index).second;
-	for (int i = 0; i < _objects.getSize(); i++) {
+	for (int i = 0; i < _objects.size(); i++) {
 		if (_objects[i].m_object == object)
 			return i;
 	}
@@ -51,7 +51,7 @@ hk_object_list_t ResourceManager::findCompatibleNodes(size_t file_index, const h
 {
 	hk_object_list_t result;
 	auto& file_contents = _contents.at(file_index).second;
-	for (int i = 0; i < file_contents.getSize(); i++) {
+	for (int i = 0; i < file_contents.size(); i++) {
 		const auto& object = file_contents[i];
 		if (member_class->getClass() == object.m_class ||
 			member_class->getClass()->isSuperClass(*object.m_class)) {
@@ -70,19 +70,24 @@ hkx_file_t& ResourceManager::get(const fs::path& file)
 		
 		hkRootLevelContainer* root;
 		hkx_file_t new_file;
+		hkArray<hkVariant> to_read;
 		if (fs::exists(xml_path))
 		{
-			root = wrap.read(xml_path, new_file.second);
+			root = wrap.read(xml_path, to_read);
 		}
 		else if (fs::exists(hkx_path))
-			root = wrap.read(hkx_path, new_file.second);
+			root = wrap.read(hkx_path, to_read);
 		else
 		{
 			LOG << "Unable to find: " + file.string() << log_endl;
 			//throw std::runtime_error("Unable to find: " + file.string());
 		}
+		new_file.second.resize(to_read.getSize());
+		for (int i = 0; i < to_read.getSize(); i++) {
+			new_file.second[i] = to_read[i];
+		}
 
-		for (int i = 0; i < new_file.second.getSize(); i++) {
+		for (int i = 0; i < new_file.second.size(); i++) {
 			if (new_file.second[i].m_object == root)
 			{
 				new_file.first = new_file.second[i];
@@ -90,6 +95,7 @@ hkx_file_t& ResourceManager::get(const fs::path& file)
 			}
 		}	
 		_contents[_files.size()] = new_file;
+		_nodes[_files.size()].reserve(new_file.second.size());
 		_files.push_back(file);
 	}
 	return _contents[index(file)];

@@ -42,16 +42,16 @@ namespace ckcmd {
 
             ProjectNode* appendChild(ProjectNode* child);
 
-            ProjectNode* child(int row);
+            virtual ProjectNode* child(int row);
             ProjectNode* setChild(int row, ProjectNode* new_child);
-            int childCount() const;
-            int columnCount() const;
-            QVariant data(int column) const;
-            int row() const;
-            ProjectNode* parentItem();
-            NodeType type() const;
+            virtual int childCount() const;
+            virtual int columnCount() const;
+            virtual QVariant data(int column) const;
+            virtual int row() const;
+            virtual ProjectNode* parentItem();
+            virtual NodeType type() const;
 
-        private:
+        protected:
             QVector<ProjectNode*> m_childItems;
             QVector<QVariant> m_itemData;
             ProjectNode* m_parentItem;

@@ -15,7 +15,9 @@ namespace ckcmd {
         public:
 
             ProjectTreeModel(QObject* parent = 0);
-            ~ProjectTreeModel() {}
+            ~ProjectTreeModel() {
+            
+            }
 
 
             ProjectNode* getNode(const QModelIndex& index) const;

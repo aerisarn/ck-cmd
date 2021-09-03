@@ -79,8 +79,8 @@ void BehaviorBuilder::buildEvents(const buildContext& context)
 					_file_index,
 					{
 						name,
-						(unsigned long long)_manager.at(context._file, context.object_index),
-						(int)_manager.index(context._file),
+						(unsigned long long)_manager.at(_file_index, context.object_index),
+						(int)_file_index,
 						i,
 					},
 					events_node)
@@ -112,8 +112,8 @@ void BehaviorBuilder::buildVariables(const buildContext& context)
 					_file_index,
 					{
 						name,
-						(unsigned long long)_manager.at(context._file, context.object_index),
-						(int)_manager.index(context._file),
+						(unsigned long long)_manager.at(_file_index, context.object_index),
+						(int)_file_index,
 						i
 					},
 					variables_node)
@@ -145,8 +145,8 @@ void BehaviorBuilder::buildProperties(const buildContext& context)
 					_file_index,
 					{
 						name,
-						(unsigned long long)_manager.at(context._file, context.object_index),
-						(int)_manager.index(context._file),
+						(unsigned long long)_manager.at(_file_index, context.object_index),
+						_file_index,
 						i
 					},
 					properties_node)
@@ -175,9 +175,9 @@ ProjectNode* BehaviorBuilder::buildBranch(hkVariant& variant, ProjectNode* root_
 			_file_index,
 			{
 				name,
-				(unsigned long long)_manager.at(path, object_index),
+				(unsigned long long)_manager.at(_file_index, object_index),
 				(unsigned long long) root_node->isVariant() ? root_node->data(1) : 0,
-				(int)_manager.index(path)
+				(int)_file_index
 			},
 			root_node));
 }

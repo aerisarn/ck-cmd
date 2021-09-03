@@ -20,7 +20,7 @@ namespace ckcmd {
 			{
 				auto& content = _resourceManager.get(path);
 				int data_index = -1;
-				for (int v = 0; v < content.second.getSize(); v++)
+				for (int v = 0; v < content.second.size(); v++)
 				{
 					if (content.second[v].m_class == &hk_class)
 					{
