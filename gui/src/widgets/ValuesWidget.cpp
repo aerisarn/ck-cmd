@@ -6,7 +6,8 @@
 
 using namespace ckcmd::HKX;
 
-ValuesWidget::ValuesWidget(const ckcmd::HKX::ResourceManager& manager, QWidget* parent) :
+ValuesWidget::ValuesWidget(CommandManager& command_manager, const ResourceManager& manager, QWidget* parent) :
+	_command_manager(command_manager),
 	_manager(manager),
 	ui(new Ui::ValuesWidget),
 	ads::CDockWidget("Values",parent)
@@ -34,7 +35,7 @@ void ValuesWidget::setVariant(int file_index, hkVariant* v, hkVariant* parent)
 			this, &ValuesWidget::modelHasSetNewHkxItemPointer
 		);
 	}
-	auto new_model = new HkxItemTableModel(v, file_index, parent, this);
+	auto new_model = new HkxItemTableModel(_command_manager, v, file_index, parent, this);
 	ISpecialFieldsHandler* fields_handler = _manager.fieldsHandler(file_index);
 	if (fields_handler != NULL)
 	{

@@ -10,8 +10,17 @@
 
 using namespace ckcmd::HKX;
 
-HkxItemTableModel::HkxItemTableModel(hkVariant* variant, int file, hkVariant* variant_parent, QObject* parent) :
-	_variant(variant), _file(file), _parent(variant_parent),
+HkxItemTableModel::HkxItemTableModel(
+	CommandManager& command_manager,
+	hkVariant* variant, 
+	int file, 
+	hkVariant* variant_parent, 
+	QObject* parent
+) :
+	_command_manager(command_manager),
+	_variant(variant), 
+	_file(file), 
+	_parent(variant_parent),
 	QAbstractTableModel(parent)
 {
 }
@@ -88,6 +97,36 @@ QVariant HkxItemTableModel::headerData(int section, Qt::Orientation orientation,
 	return QVariant();
 }
 
+QVariant HkxItemTableModel::internalSetData(const QModelIndex& index, const QVariant& value,
+	int role)
+{
+	if (role == Qt::EditRole)
+	{
+		if (indexValid(index))
+		{
+			QVariant old_value;
+			HkxTableVariant h(*_variant);
+
+			Getter g(index.row(), index.column(), _file, _handlers);
+			h.accept(g);
+			old_value = g.value();
+
+			if (value.canConvert<HkxItemPointer>())
+			{
+				HkxItemPointer new_value(-1, nullptr, nullptr);
+				HkxItemPointer old_value_ptr = g.value().value<HkxItemPointer>();
+				new_value = value.value<HkxItemPointer>();
+				emit HkxItemPointerChanged(old_value_ptr, new_value, _file, _variant);
+			}
+			Setter s(index.row(), index.column(), _file, value, _handlers);
+			s.setParentVariant(_parent);
+			h.accept(s);
+			return old_value;
+		}
+	}
+	return QVariant();
+}
+
 bool HkxItemTableModel::setData(const QModelIndex& index, const QVariant& value,
 	int role)
 {
@@ -95,25 +134,12 @@ bool HkxItemTableModel::setData(const QModelIndex& index, const QVariant& value,
 	{
 		if (indexValid(index))
 		{
-			HkxItemPointer old_value(-1, nullptr, nullptr);
-			HkxItemPointer new_value(-1, nullptr, nullptr);
-			HkxTableVariant h(*_variant);
-
-			if (value.canConvert<HkxItemPointer>())
-			{
-				Getter g(index.row(), index.column(), _file, _handlers);
-				h.accept(g);
-				old_value = g.value().value<HkxItemPointer>();
-				new_value = value.value<HkxItemPointer>();
-				emit HkxItemPointerChanged(old_value, new_value, _file, _variant);
-			}
-			Setter s(index.row(), index.column(), _file, value, _handlers);
-			s.setParentVariant(_parent);
-			h.accept(s);
-			return true;
+			_command_manager.pushCommand(
+				new ChangeValue(*this, index, value)
+			);
 		}
 	}
-	return false;
+	return true;
 }
 
 Qt::ItemFlags HkxItemTableModel::flags(const QModelIndex& index) const

@@ -5,6 +5,7 @@
 #include <core/HKXWrangler.h>
 #include <src/hkx/ISpecialFieldsHandler.h>
 #include <src/hkx/HkxItemPointer.h>
+#include <src/hkx/CommandManager.h>
 
 namespace ckcmd {
     namespace HKX {
@@ -12,6 +13,10 @@ namespace ckcmd {
         class HkxItemTableModel : public QAbstractTableModel, public SpecialFieldsListener {
             Q_OBJECT
 
+            
+            friend class ChangeValue;
+
+            CommandManager& _command_manager;
             hkVariant* _variant;
             hkVariant* _parent;
             int _file;
@@ -19,9 +24,40 @@ namespace ckcmd {
 
             bool indexValid(const QModelIndex& index) const;
 
+            class ChangeValue : public QUndoCommand {
+                QVariant _old_value;
+                QVariant _new_value;
+                QModelIndex _index;
+                HkxItemTableModel& _model;
+            public:
+                ChangeValue(HkxItemTableModel& model, const QModelIndex& index, const QVariant& new_value) :
+                    _new_value(new_value),
+                    _index(index),
+                    _model(model)
+                {}
+
+                virtual void undo() override {
+                    _new_value = _model.internalSetData(_index, _old_value, Qt::EditRole);
+                    emit _model.dataChanged(_index, _index, { Qt::DisplayRole, Qt::EditRole });
+                }
+                virtual void redo() override {
+                    _old_value = _model.internalSetData(_index, _new_value, Qt::EditRole);
+                    emit _model.dataChanged(_index, _index, { Qt::DisplayRole, Qt::EditRole });
+                }
+
+            };
+
+            QVariant internalSetData(const QModelIndex& index, const QVariant& value,
+                int role = Qt::EditRole);
+
         public:
 
-            HkxItemTableModel(hkVariant* variant, int file, hkVariant* variant_parent, QObject* parent = 0);
+            HkxItemTableModel(
+                CommandManager& command_manager,
+                hkVariant* variant, 
+                int file, hkVariant* 
+                variant_parent, 
+                QObject* parent = 0);
             ~HkxItemTableModel() {}
 
             QVariant headerData(int section, Qt::Orientation orientation,

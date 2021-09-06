@@ -67,7 +67,7 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	_simulation = new HkxSimulation(havok_router, _resource_manager);
 
 	_projectTreeView = new ProjectsWidget(&_model, &_resource_manager, _simulation, this);
-	_valuesTableView = new ValuesWidget(_resource_manager, this);
+	_valuesTableView = new ValuesWidget(_command_manager, _resource_manager, this);
 
 	ads::CDockWidget*  GLWidget = new ads::CDockWidget("Havok Preview", this);
 	GLWidget->setWidget(createHDBWidget());
@@ -75,10 +75,17 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	connect(_projectTreeView, &ProjectsWidget::variantSelected, _valuesTableView, &ValuesWidget::setVariant);
 	connect(_valuesTableView, &ValuesWidget::HkxItemPointerChanged, _projectTreeView, &ProjectsWidget::modelHasSetNewHkxItemPointer);
 
+	//Edit
+	ui->menuEdit->addAction(_command_manager.createUndoAction(this));
+	ui->menuEdit->addAction(_command_manager.createRedoAction(this));
+
+	//View
 	ui->menuView->addAction(LogWidget->toggleViewAction());
 	ui->menuView->addAction(_projectTreeView->toggleViewAction());
 	ui->menuView->addAction(_valuesTableView->toggleViewAction());
 	ui->menuView->addAction(GLWidget->toggleViewAction());
+
+	//Widgets
 	m_DockManager->addDockWidget(ads::CenterDockWidgetArea, _valuesTableView);
 	m_DockManager->addDockWidgetTab(ads::CenterDockWidgetArea, GLWidget);
 	m_DockManager->addDockWidget(ads::LeftDockWidgetArea, _projectTreeView);

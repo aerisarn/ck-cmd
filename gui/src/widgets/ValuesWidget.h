@@ -18,9 +18,12 @@ class ValuesWidget : public ::ads::CDockWidget
 {
     Q_OBJECT
 
-   const ckcmd::HKX::ResourceManager & _manager;
+    ckcmd::HKX::CommandManager& _command_manager;
+    const ckcmd::HKX::ResourceManager & _manager;
+    Ui::ValuesWidget* ui;
+
 public:
-    explicit ValuesWidget(const ckcmd::HKX::ResourceManager& manager, QWidget* parent = 0);
+    explicit ValuesWidget(ckcmd::HKX::CommandManager& command_manager, const ckcmd::HKX::ResourceManager& manager, QWidget* parent = 0);
     ~ValuesWidget();
 
 public slots:
@@ -29,9 +32,6 @@ public slots:
 
 signals:
     void HkxItemPointerChanged(ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
-
-private:
-    Ui::ValuesWidget* ui;
 };
 
 #endif //VALUESWIDGET_H

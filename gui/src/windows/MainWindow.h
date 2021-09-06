@@ -14,6 +14,7 @@
 
 #include <src/animdata/AnimDataManager.h>
 #include <src/hkx/HkxSimulation.h>
+#include <src/hkx/CommandManager.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -66,6 +67,7 @@ private:
     //Data
     WorkspaceConfig _workspace;
     ckcmd::HKX::ProjectTreeModel _model;
+    ckcmd::HKX::CommandManager _command_manager;
     ckcmd::HKX::ResourceManager _resource_manager;
     ckcmd::HKX::AnimationManager _animation_manager;
 
