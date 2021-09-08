@@ -224,7 +224,7 @@ QVariant BehaviorBuilder::handle(void* value, const hkClass* hkclass, const hkCl
 		auto int_value = *(int*)value;
 		if (int_value >= 0 && int_value < _strings->m_eventNames.getSize())
 			return _strings->m_eventNames[*(int*)value].cString();
-		return "Invalid Event";
+		return "No Event";
 	}
 	auto variables = getVariableFields();
 	if (std::find_if(variables.begin(), variables.end(),
@@ -233,7 +233,7 @@ QVariant BehaviorBuilder::handle(void* value, const hkClass* hkclass, const hkCl
 		auto int_value = *(int*)value;
 		if (int_value >= 0 && int_value < _strings->m_variableNames.getSize())
 			return _strings->m_variableNames[*(int*)value].cString();
-		return "Invalid Variable";
+		return "No Variable";
 	}
 	auto bones = _skeleton_builder->getHandledFields();
 	if (std::find_if(bones.begin(), bones.end(),

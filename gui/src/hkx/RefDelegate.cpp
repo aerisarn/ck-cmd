@@ -195,7 +195,7 @@ void RefDelegate::setEditorData(QWidget* editor,
             i++;
         }
         ptr_editor->addItems(options);
-        ptr_editor->setCurrentIndex(index);
+        ptr_editor->setCurrentIndex(index+1);
         return;
     }
     if (index.data().canConvert<HkxItemEnum>()) {
