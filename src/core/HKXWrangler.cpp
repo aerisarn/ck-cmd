@@ -198,6 +198,17 @@ void HKXWrapper::write(hkRootLevelContainer& rootCont, string subfolder, string 
 	{
 		Log::Error("Havok reports save failed.");
 	}
+
+	pkFormat = HKPF_XML;
+	flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT | hkSerializeUtil::SAVE_TEXT_NUMBERS);
+	packFileOptions = GetWriteOptionsFromFormat(pkFormat);
+	fs::path xml_out = final_out_path_se; xml_out.replace_extension(".xml");
+	hkOstream xml_stream(xml_out.string().c_str());
+	res = hkSerializeUtilSave(pkFormat, root, xml_stream, flags, packFileOptions);
+	if (res != HK_SUCCESS)
+	{
+		Log::Error("Havok reports XML save failed.");
+	}
 }
 
 hkRootLevelContainer* HKXWrapper::read(const fs::path& path, hkArray<hkVariant>& objects) {
@@ -286,7 +297,7 @@ void HKXWrapper::create_character(const set<string>& havok_sequences_names) {
 
 	// hkbCharacterStringData
 	string_data.m_name = "character";
-	string_data.m_rigName = ASSETS_SUBFOLDER"\\skeleton.hkx";
+	string_data.m_rigName = ASSETS_SUBFOLDER"\\SingleBoneSkeleton.hkx";
 	string_data.m_behaviorFilename = BEHAVIORS_SUBFOLDER"\\behavior.hkx";
 
 	for (const auto& animation : havok_sequences_names)
@@ -339,7 +350,7 @@ void HKXWrapper::create_skeleton() {
 	container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Merged Animation Container", &anim_container, &anim_container.staticClass()));
 	container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Resource Data", &mem_container, &mem_container.staticClass()));
 
-	write(container, ASSETS_SUBFOLDER, "skeleton");
+	write(container, ASSETS_SUBFOLDER, "SingleBoneSkeleton");
 }
 
 hkQsTransform getBoneTransform(FbxNode* pNode, FbxTime time) {
@@ -564,6 +575,160 @@ void HKXWrapper::create_behavior(const set<string>& kf_sequences_names, const se
 	write(container, BEHAVIORS_SUBFOLDER, "behavior");
 }
 
+void HKXWrapper::create_behavior(const DefaultBehaviors& behavior_type) {
+	hkbBehaviorGraph graph;
+	hkbStateMachine root_fsm;
+	hkbBehaviorGraphData root_data;
+	hkbBehaviorGraphStringData root_string_data;
+	hkbVariableValueSet root_data_init_vars;
+	hkbBlendingTransitionEffect transition_effect;
+
+	size_t event_count = 0;
+	map<string, int> event_map;
+	vector<string> events;
+
+	if (behavior_type == autoplay_with_transitions) {
+		event_map["Unequip"] = event_count++;
+		events.push_back("Unequip");
+		event_map["Unequipped"] = event_count++;
+		events.push_back("Unequipped");
+		event_map["Reset"] = event_count++;
+		events.push_back("Reset");
+		event_map["Equipped"] = event_count++;
+		events.push_back("Equipped");
+
+	}
+	else if (behavior_type == equip_forward_unequip) {
+		event_map["Reset"] = event_count++;
+		events.push_back("Reset");
+	}
+	event_map["end"] = event_count++;
+	events.push_back("end");
+
+
+	//String Data
+	root_string_data.m_eventNames.setSize(event_count);
+	int count = 0;
+	for (string event : events)
+		root_string_data.m_eventNames[count++] = event.c_str();
+
+	//Data
+	root_data.m_eventInfos.setSize(event_count);
+	for (int e = 0; e < event_count; e++)
+		root_data.m_eventInfos[e].m_flags = 0;
+
+	root_data.m_variableInitialValues = &root_data_init_vars;
+	root_data.m_stringData = &root_string_data;
+
+	//prepare transition effect
+	transition_effect.m_name = "zero_duration";
+	transition_effect.m_userData = 0;
+	transition_effect.m_selfTransitionMode = hkbBlendingTransitionEffect::SELF_TRANSITION_MODE_CONTINUE_IF_CYCLIC_BLEND_IF_ACYCLIC;
+	transition_effect.m_eventMode = hkbBlendingTransitionEffect::EVENT_MODE_DEFAULT;
+	transition_effect.m_duration = 0.0;
+	transition_effect.m_toGeneratorStartTimeFraction = 0.0;
+	transition_effect.m_flags = 0;
+	transition_effect.m_endMode = hkbBlendingTransitionEffect::END_MODE_NONE;
+	transition_effect.m_blendCurve = hkbBlendCurveUtils::BLEND_CURVE_SMOOTH;
+
+	//Root FSM
+	root_fsm.m_name = "root_fsm";
+	root_fsm.m_startStateId = 0;
+	root_fsm.m_returnToPreviousStateEventId = -1;
+	root_fsm.m_randomTransitionEventId = -1;
+	root_fsm.m_transitionToNextHigherStateEventId = -1;
+	root_fsm.m_transitionToNextLowerStateEventId = -1;
+	root_fsm.m_syncVariableIndex = -1;
+	root_fsm.m_userData = 0;
+	root_fsm.m_eventToSendWhenStateOrTransitionChanges.m_id = -1;
+	root_fsm.m_eventToSendWhenStateOrTransitionChanges.m_payload = NULL;
+	root_fsm.m_wrapAroundStateId = false;
+	root_fsm.m_maxSimultaneousTransitions = 32;
+	root_fsm.m_startStateMode = hkbStateMachine::START_STATE_MODE_DEFAULT;
+	root_fsm.m_selfTransitionMode = hkbStateMachine::SELF_TRANSITION_MODE_NO_TRANSITION;
+
+	int state_index = 0;
+
+	auto make_state = [&](const char* sequence, const char* notify_event = "")->hkRefPtr<hkbStateMachineStateInfo> {
+		hkRefPtr<hkbStateMachineStateInfo> state = new hkbStateMachineStateInfo(); state_index++;
+
+		hkRefPtr<hkbStateMachineEventPropertyArray> enter_notification = new hkbStateMachineEventPropertyArray();
+		enter_notification->m_events.setSize(1);
+		enter_notification->m_events[0].m_id = event_map[notify_event];
+		enter_notification->m_events[0].m_payload = NULL;
+		state->m_enterNotifyEvents = enter_notification;
+
+		hkRefPtr<BGSGamebryoSequenceGenerator> generator = new BGSGamebryoSequenceGenerator();
+		generator->m_name = sequence;
+		generator->m_userData = 0;
+		generator->m_pSequence = (char*)sequence;
+		generator->m_eBlendModeFunction = BGSGamebryoSequenceGenerator::BMF_NONE;
+		generator->m_fPercent = 1.0;
+		state->m_generator = generator;
+
+		state->m_name = sequence;
+		state->m_stateId = state_index - 1;
+		state->m_probability = 1.000000;
+		state->m_enable = true;
+
+		return state;
+	};
+
+	auto make_transition = [&](const char* transition_event, int next_state_id) ->hkRefPtr<hkbStateMachineTransitionInfoArray> {
+		hkRefPtr<hkbStateMachineTransitionInfoArray> transition = new hkbStateMachineTransitionInfoArray();
+		transition->m_transitions.setSize(1);
+		transition->m_transitions[0].m_triggerInterval.m_enterEventId = -1;
+		transition->m_transitions[0].m_triggerInterval.m_exitEventId = -1;
+		transition->m_transitions[0].m_triggerInterval.m_enterTime = 0.0;
+		transition->m_transitions[0].m_triggerInterval.m_exitTime = 0.0;
+
+		transition->m_transitions[0].m_initiateInterval.m_enterEventId = -1;
+		transition->m_transitions[0].m_initiateInterval.m_exitEventId = -1;
+		transition->m_transitions[0].m_initiateInterval.m_enterTime = 0.0;
+		transition->m_transitions[0].m_initiateInterval.m_exitTime = 0.0;
+
+		transition->m_transitions[0].m_transition = &transition_effect;
+		transition->m_transitions[0].m_eventId = event_map[transition_event];
+
+		transition->m_transitions[0].m_toStateId = next_state_id;
+		transition->m_transitions[0].m_fromNestedStateId = 0;
+		transition->m_transitions[0].m_toNestedStateId = 0;
+		transition->m_transitions[0].m_priority = 0;
+		transition->m_transitions[0].m_flags = hkbStateMachineTransitionInfo::FLAG_DISABLE_CONDITION;
+
+		return transition;
+	};
+
+	if (behavior_type == autoplay_with_transitions) {
+
+		auto forward_state = make_state("Forward");
+		auto special_idle = make_state("SpecialIdle", "Equipped");
+		auto unequip = make_state("Unequip");
+		auto backward = make_state("Backward", "Unequipped");
+
+		forward_state->m_transitions = make_transition("end", special_idle->m_stateId);
+		special_idle->m_transitions = make_transition("Unequip", unequip->m_stateId);
+		unequip->m_transitions = make_transition("end", backward->m_stateId);
+		backward->m_transitions = make_transition("Reset", forward_state->m_stateId);
+
+		root_fsm.m_states.pushBack(forward_state);
+		root_fsm.m_states.pushBack(special_idle);
+		root_fsm.m_states.pushBack(unequip);
+		root_fsm.m_states.pushBack(backward);
+	}
+
+	graph.m_name = "behavior";
+	graph.m_userData = 0;
+	graph.m_variableMode = hkbBehaviorGraph::VARIABLE_MODE_DISCARD_WHEN_INACTIVE;
+	graph.m_rootGenerator = &root_fsm;
+	graph.m_data = &root_data;
+
+	hkRootLevelContainer container;
+	container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("hkbBehaviorGraph", &graph, &graph.staticClass()));
+
+	write(container, BEHAVIORS_SUBFOLDER, "behavior");
+}
+
 HKXWrapper::HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix)
 	: out_name(out_name), out_path(out_path), out_path_abs(out_path_abs), prefix(prefix)
 {
@@ -577,6 +742,15 @@ HKXWrapper::HKXWrapper(const string& out_name, const string& out_path, const str
 	create_character({});
 	create_skeleton();
 	create_behavior(sequences_names, {});
+}
+
+HKXWrapper::HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix, const DefaultBehaviors& behavior_type)
+	: out_name(out_name), out_path(out_path), out_path_abs(out_path_abs), prefix(prefix)
+{
+	create_project();
+	create_character({});
+	create_skeleton();
+	create_behavior(behavior_type);
 }
 
 vector<string> HKXWrapper::read_track_list(const fs::path& path, string& skeleton_name, string& root_name, vector<string>& floats) {
@@ -3274,6 +3448,18 @@ string HKXWrapperCollection::wrap(const string& out_name, const string& out_path
 		wrappers[sequences_names] = move(HKXWrapper(out_name, out_path, out_path_root, prefix, sequences_names));
 	}
 	return wrappers[sequences_names].GetPath();
+}
+
+string HKXWrapperCollection::wrap(const string& out_name,
+	const string& out_path,
+	const string& out_path_root,
+	const string& prefix, const
+	HKXWrapper::DefaultBehaviors& behavior_type)
+{
+	if (wrappers.find({ to_string(behavior_type) }) == wrappers.end()) {
+		wrappers[{ to_string(behavior_type) }] = move(HKXWrapper(out_name, out_path, out_path_root, prefix, behavior_type));
+	}
+	return wrappers[{ to_string(behavior_type) }].GetGenericPath();
 }
 
 bool iequals(const string& a, const string& b)

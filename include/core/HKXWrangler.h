@@ -127,6 +127,12 @@ namespace ckcmd {
 		};
 
 		class HKXWrapper {
+		public:
+			enum DefaultBehaviors {
+				autoplay_with_transitions = 0,
+				equip_forward_unequip = 1
+			};
+		private:
 			string out_name;
 			string out_path;
 			string out_path_abs;
@@ -162,6 +168,7 @@ namespace ckcmd {
 			void create_skeleton();
 
 			void create_behavior(const set<string>& kf_sequences_names, const set<string>& havok_sequences_names);
+			void create_behavior(const DefaultBehaviors& kf_sequences_names);
 
 			vector<FbxNode*> add(hkaSkeleton* skeleton, FbxNode* root, vector<FbxProperty>& float_tracks);
 			void add(const string& name, hkaAnimation* animation, hkaAnimationBinding* binding, vector<FbxNode*>& ordered_skeleton, vector<FbxProperty>& float_tracks, RootMovement& root_movements);
@@ -171,6 +178,8 @@ namespace ckcmd {
 			HKXWrapper() {}
 			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix);
 			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix, const set<string>& sequences_names);
+			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix, const DefaultBehaviors& sequences_names);
+
 
 			hkRootLevelContainer* read(const fs::path& path, hkArray<hkVariant>& objects);
 			hkRootLevelContainer* read(const fs::path& path);
@@ -202,6 +211,8 @@ namespace ckcmd {
 			}
 
 			inline string GetPath() { return out_path + "\\" + out_name + "\\" + out_name + ".hkx"; }
+
+			inline string GetGenericPath() { return out_path + "\\" + out_name + ".hkx"; }
 
 			vector<string> read_track_list(const fs::path& path, string& skeleton_name = string(""), string& root_name = string(""), vector<string>& floats = vector<string>());
 
@@ -269,12 +280,20 @@ namespace ckcmd {
 
 		class HKXWrapperCollection {
 			wrap_map wrappers;
+
 		public:
 			string wrap(const string& out_name, 
 				const string& out_path, 
 				const string& out_path_root, 
 				const string& prefix, const 
 				set<string>& sequences_names);
+
+
+			string wrap(const string& out_name,
+				const string& out_path,
+				const string& out_path_root,
+				const string& prefix, const
+				HKXWrapper::DefaultBehaviors& behavior_type);
 		};
 	}
 }

@@ -23,6 +23,21 @@ struct SEmbeddedTexCoords {
 
 union alpha_flags
 {
+
+	enum gl_blend_modes {
+		GL_ONE = 0,
+		GL_ZERO = 1,
+		GL_SRC_COLOR = 2,
+		GL_ONE_MINUS_SRC_COLOR = 3,
+		GL_DST_COLOR = 4,
+		GL_ONE_MINUS_DST_COLOR = 5,
+		GL_SRC_ALPHA = 6,
+		GL_ONE_MINUS_SRC_ALPHA = 7,
+		GL_DST_ALPHA = 8,
+		GL_ONE_MINUS_DST_ALPHA = 9,
+		GL_SRC_ALPHA_SATURATE = 10
+	};
+
 	enum gl_test_modes {
 		GL_ALWAYS = 0,
 		GL_LESS = 1,
@@ -47,6 +62,16 @@ union alpha_flags
 		unsigned alpha_test_mode : 3;
 		// Bit 13 : no sorter flag ( disables triangle sorting )
 		unsigned no_sorter_flag : 1;
+
+		bool readsAlphaSource() {
+			return
+				source_blend_mode == GL_SRC_ALPHA ||
+				source_blend_mode == GL_ONE_MINUS_SRC_ALPHA ||
+				source_blend_mode == GL_DST_ALPHA ||
+				source_blend_mode == GL_ONE_MINUS_DST_ALPHA ||
+				source_blend_mode == GL_SRC_ALPHA_SATURATE;
+		}
+
 	} bits;
 	unsigned int value;
 };

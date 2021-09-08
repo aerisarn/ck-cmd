@@ -1343,6 +1343,16 @@ vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes, const NifI
 
 
 template<>
+class Accessor<NiBlendFloatInterpolator> {
+public:
+	float play_speed;
+
+	Accessor(NiBlendFloatInterpolator& obj) {
+		play_speed = obj.unknownByte;
+	}
+};
+
+template<>
 class Accessor<bhkRigidBodyUpgrader> {
 
 	bhkBallAndSocketConstraintRef create_ball_socket(bhkMalleableConstraintRef& descriptor) {
@@ -1656,6 +1666,62 @@ public:
 	}
 };
 
+void checkDiffuseAlpha(const string& diffuse_name, const string& export_path) {
+	DirectX::ScratchImage g_image;
+	DirectX::ScratchImage g_timage;
+	DirectX::TexMetadata g_original_info;
+	vector<uint8_t> dds_bin;
+	games.load(Games::TES4, diffuse_name, dds_bin);
+	HRESULT result = DirectX::LoadFromDDSMemory(dds_bin.data(), dds_bin.size(),
+		DirectX::DDS_FLAGS_NONE, &g_original_info, g_image);
+	if (FAILED(result)) {
+		Log::Info("Unable to load DDS Diffuse Map %s", diffuse_name);
+		return;
+	}
+
+	if (DirectX::IsCompressed(g_image.GetMetadata().format))
+	{
+		size_t nimg = g_image.GetImageCount();
+		result = DirectX::Decompress(g_image.GetImages(), nimg, g_original_info, DXGI_FORMAT_UNKNOWN /* picks good default */, g_timage);
+	}
+	else {
+		g_timage = move(g_image);
+	}
+	const auto& g_meta = g_timage.GetMetadata();
+
+	auto img = g_timage.GetImage(0, 0, 0);
+	assert(img);
+	size_t nimg = g_timage.GetImageCount();
+	auto& info = g_timage.GetMetadata();
+
+	string out_name = diffuse_name;
+	out_name.insert(9, "tes4\\");
+	fs::path out_path = fs::path(export_path) / out_name;
+	fs::create_directories(out_path.parent_path());
+
+	DirectX::ScratchImage converted;
+	converted.InitializeFromImage(*img);
+
+
+	HRESULT hr = DirectX::Convert(img, nimg, info, DXGI_FORMAT_R8G8B8A8_UNORM, DirectX::TEX_FILTER_FORCE_NON_WIC | DirectX::TEX_FILTER_SRGB_OUT, DirectX::TEX_THRESHOLD_DEFAULT, converted);
+	int error = GetLastError();
+
+	DirectX::ScratchImage compressed;
+	compressed.InitializeFromImage(*converted.GetImage(0, 0, 0));
+	hr = DirectX::Compress(converted.GetImages(), converted.GetImageCount(), converted.GetMetadata(), DXGI_FORMAT_BC1_UNORM_SRGB, DirectX::TEX_COMPRESS_DEFAULT, DirectX::TEX_THRESHOLD_DEFAULT, compressed);
+	if (FAILED(hr))
+	{
+		Log::Info("Unable to compress glow map %s", diffuse_name);
+		hr = DirectX::SaveToDDSFile(converted.GetImages(), converted.GetImageCount(), converted.GetMetadata(),
+			DirectX::DDS_FLAGS_NONE,
+			out_path.wstring().c_str());
+		return;
+	}
+	hr = DirectX::SaveToDDSFile(compressed.GetImages(), compressed.GetImageCount(), compressed.GetMetadata(),
+		DirectX::DDS_FLAGS_NONE,
+		out_path.wstring().c_str());
+}
+
 void convertGlowMap(const string& glow_name, const string& export_path) {
 	DirectX::ScratchImage g_image;
 	DirectX::ScratchImage g_timage;
@@ -1720,7 +1786,7 @@ public:
 
 	vector<pair<float, float>> uv_atlas;
 
-	FlipBookConverter(NiFlipControllerRef controller, BSShaderPropertyRef property, bool& hasGlow)
+	FlipBookConverter(NiFlipControllerRef controller, BSShaderPropertyRef property, bool& hasGlow, const string& export_path)
 	{
 
 		if (controller->GetTextureSlot() != BASE_MAP)
@@ -1904,7 +1970,7 @@ public:
 		auto& cinfo = compressed.GetMetadata();
 	
 		path.insert(9, "tes4\\");
-		fs::path out_path = nif_out / path;
+		fs::path out_path = fs::path(export_path) / path;
 		fs::create_directories(out_path.parent_path());
 
 		hr = DirectX::SaveToDDSFile(cimg, cnimg, cinfo,
@@ -1923,7 +1989,7 @@ public:
 			auto& info = g_collage_img.GetMetadata();
 
 			glow_name.insert(9, "tes4\\");
-			fs::path out_path = nif_out / glow_name;
+			fs::path out_path = fs::path(export_path) / glow_name;
 			fs::create_directories(out_path.parent_path());
 
 			DirectX::ScratchImage converted;
@@ -2075,7 +2141,7 @@ public:
 map<NiMaterialColorControllerRef, NiPoint3InterpControllerRef> material_controllers_map;
 map<NiAlphaControllerRef, NiFloatInterpControllerRef> material_alpha_controllers_map;
 map<NiFlipControllerRef, NiFloatInterpControllerRef> material_flip_controllers_map;
-map<NiFlipControllerRef, vector<pair<float, float>>> deferred_blends;
+map<NiFlipControllerRef, pair< float, vector<pair<float, float>>>> deferred_blends;
 map<NiTextureTransformControllerRef, NiFloatInterpControllerRef> material_transform_controllers_map;
 
 void convert_tt_rotate(NiTextureTransformControllerRef oldController, NiFloatInterpControllerRef newController, NiInterpolatorRef oldInterpolator, NiFloatInterpControllerRef& new_v_controller, NiInterpolatorRef& newInterpolatorU, NiInterpolatorRef& newInterpolatorV)
@@ -2216,7 +2282,7 @@ class ConverterVisitor : public RecursiveFieldVisitor<ConverterVisitor> {
 
 public:
 
-	set<string> nisequences;
+	vector<string> nisequences;
 	Vector3 _collision_translation;
 	Vector3 _translation;
 
@@ -2254,7 +2320,7 @@ public:
 						if (cc != material_flip_controllers_map.end())
 						{
 							//check if it's a blend defer
-							map<NiFlipControllerRef, vector<pair<float, float>>>::iterator df = deferred_blends.find(DynamicCast<NiFlipController>(blocks[i].controller));
+							auto df = deferred_blends.find(DynamicCast<NiFlipController>(blocks[i].controller));
 							if (df != deferred_blends.end())
 							{
 								NiFloatInterpControllerRef u_controller = cc->second;
@@ -2263,7 +2329,7 @@ public:
 								NiFloatInterpolatorRef f_ref = DynamicCast<NiFloatInterpolator>(blocks[i].interpolator);
 								if (f_ref == NULL)
 									throw runtime_error("NiFlipControllerRef Deferred interpolator without interpolator!");
-								vector<pair<float, float>>& uv_atlas = df->second;
+								vector<pair<float, float>>& uv_atlas = df->second.second;
 								NiFloatInterpolatorRef u_interpolator = new NiFloatInterpolator();
 								NiFloatInterpolatorRef v_interpolator = new NiFloatInterpolator();						
 								
@@ -2281,8 +2347,8 @@ public:
 										Key<float> u_value;
 										Key<float> v_value;
 
-										u_value.time = frame.time;
-										v_value.time = frame.time;
+										u_value.time = frame.time * df->second.first;
+										v_value.time = frame.time * df->second.first;
 
 										int atlas_key = (int)frame.data;
 
@@ -2715,6 +2781,10 @@ public:
 				children.erase(children.begin() + index);
 				continue;
 			}
+			if (block->IsSameType(NiDirectionalLight::TYPE)) {
+				children.erase(children.begin() + index);
+				continue;
+			}
 			if (block->IsSameType(NiTriStrips::TYPE)) {
 				NiTriStripsRef stripsRef = DynamicCast<NiTriStrips>(block);
 				if (stripsRef->IsSameType(NiTriStrips::TYPE)) {
@@ -2807,6 +2877,9 @@ public:
 		property.SetGlossiness(material->GetGlossiness());
 		property.SetAlpha(material->GetAlpha());
 
+
+		//TODO: check alpha property!
+
 		Color3 em = material->GetEmissiveColor();
 		if (em.r > 0.0 || em.g > 0.0 || em.b > 0)
 			hasOwnEmit = true;
@@ -2859,6 +2932,7 @@ public:
 		bool hasGlow = false;
 		bool hasOwnEmit = false;
 		bool hasEnv = false;
+		bool hasRefract = false;
 		BSShaderPropertyRef lightingProperty; // = new BSLightingShaderProperty();
 		BSShaderTextureSetRef textureSet = new BSShaderTextureSet();
 		NiMaterialPropertyRef material = new NiMaterialProperty();
@@ -2899,6 +2973,8 @@ public:
 			lightingProperty = temp;
 		}
 
+
+		bool niflip = false;
 		for (NiPropertyRef property : properties)
 		{
 			if (property->IsSameType(NiMaterialProperty::TYPE)) {
@@ -3012,6 +3088,10 @@ public:
 					//fix for orconebraid
 					if (textureName == "Grey.dds" || textureName == "grey.dds")
 						textureName = "textures\\characters\\hair\\Grey.dds";
+
+					if (textureName.find("Refract.dds") != std::string::npos)
+						hasRefract = true;
+
 					string basename = textureName;
 					basename.erase(basename.end() - 4, basename.end());
 					if (basename.rfind('_') != string::npos)
@@ -3071,17 +3151,23 @@ public:
 					continue;
 
 				if (texturing->GetController()->IsSameType(NiFlipController::TYPE)) {
-
+					niflip = true;
 					//FlipController packs up sprites, but skyrim doesn't support that.
 					//instead, we have to load all the images into one and transform this into an UV animation.
 					NiFlipControllerRef oldController = DynamicCast<NiFlipController>(texturing->GetController());
-					FlipBookConverter conv(oldController, lightingProperty, hasGlow);
+					float speed = 1.;
+					auto blend = DynamicCast<NiBlendFloatInterpolator>(oldController->GetInterpolator());
+					if (NULL != blend && blend->GetFlags() == 3)
+					{
+						speed = (float)Accessor<NiBlendFloatInterpolator>(*blend).play_speed;
+					}
+					FlipBookConverter conv(oldController, lightingProperty, hasGlow, _export_path.string());
 
 					if (!conv.uv_atlas.empty())
 					{
-						if (deferred_blends.find(oldController) != deferred_blends.end())
-							printf("lol");
-						deferred_blends[oldController] = conv.uv_atlas;
+						//if (deferred_blends.find(oldController) != deferred_blends.end())
+						//	printf("lol");
+						deferred_blends[oldController] = { speed, conv.uv_atlas };
 					}
 					material_flip_controllers_map[oldController] = DynamicCast<NiFloatInterpController>(lightingProperty->GetController());
 				}
@@ -3115,13 +3201,48 @@ public:
 				alpha->SetFlags(DynamicCast<NiAlphaProperty>(property)->GetFlags());
 				alpha->SetThreshold(DynamicCast<NiAlphaProperty>(property)->GetThreshold());
 
+				//WRONG!
 				//check if both blending and testing are set
+				//alpha_flags a_flags; a_flags.value = alpha->GetFlags();
+				//if (a_flags.bits.alpha_test_enable && a_flags.bits.color_blending_enable)
+				//{
+				//	//prefer test
+				//	a_flags.bits.color_blending_enable = 0;
+				//	alpha->SetFlags(a_flags.value);
+				//}
+
 				alpha_flags a_flags; a_flags.value = alpha->GetFlags();
-				if (a_flags.bits.alpha_test_enable && a_flags.bits.color_blending_enable)
+				string texture_diffuse = "";
+				if (a_flags.bits.color_blending_enable && a_flags.bits.readsAlphaSource() && !niflip)
 				{
-					//prefer test
-					a_flags.bits.color_blending_enable = 0;
-					alpha->SetFlags(a_flags.value);
+					//check if diffuse has alpha
+					vector<string>& textures = textureSet->GetTextures();
+					if (textures.empty()) {
+						for (NiPropertyRef property : properties)
+						{
+							if (property->IsSameType(NiTexturingProperty::TYPE)) {
+								texturing = DynamicCast<NiTexturingProperty>(property);
+								if (texturing->GetBaseTexture().source != NULL) {
+									texture_diffuse = texturing->GetBaseTexture().source->GetFileName();
+									break;
+								}
+							}
+						}
+					}
+					else {
+						texture_diffuse = textures[0];
+						texture_diffuse = replace_all(texture_diffuse, "tes4\\", "");
+					}
+					if (!texture_diffuse.empty())
+					{
+						checkDiffuseAlpha(texture_diffuse, _export_path.string());
+					}
+					else {
+						Log::Error("Alpha blend with no textures! Model will CTD");
+						//avoid crash
+							a_flags.bits.color_blending_enable = 0;
+							alpha->SetFlags(a_flags.value);
+					}
 				}
 
 				obj.SetAlphaProperty(alpha);
@@ -3157,6 +3278,11 @@ public:
 		if (hasZbuffer) {
 			shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 & ~SkyrimShaderPropertyFlags2::SLSF2_ZBUFFER_WRITE);
 		}
+
+		if (hasRefract) {
+			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_REFRACTION);
+		}
+
 		if (obj.GetSkinInstance() != NULL)
 		{
 			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_SKINNED);
@@ -3182,9 +3308,6 @@ public:
 
 		if (!hasGlow && !hasOwnEmit && hasEnv) {
 			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_ENVIRONMENT_MAPPING);
-
-
-
 		}
 
 		if (lightingProperty->IsSameType(BSLightingShaderProperty::TYPE))
@@ -3347,10 +3470,15 @@ public:
 
 					if (texturing->GetController()->IsSameType(NiFlipController::TYPE)) {
 						NiFlipControllerRef oldController = DynamicCast<NiFlipController>(texturing->GetController());
-						FlipBookConverter conv(oldController, StaticCast<BSShaderProperty>(lightingProperty), hasGlow);
-
+						FlipBookConverter conv(oldController, StaticCast<BSShaderProperty>(lightingProperty), hasGlow, _export_path.string());
+						float speed = 1.;
+						auto blend = DynamicCast<NiBlendFloatInterpolator>(oldController->GetInterpolator());
+						if (NULL != blend && blend->GetFlags() == 3)
+						{
+							speed = (float)Accessor<NiBlendFloatInterpolator>(*blend).play_speed;
+						}
 						if (!conv.uv_atlas.empty())
-							deferred_blends[oldController] = conv.uv_atlas;
+							deferred_blends[oldController] = { speed, conv.uv_atlas };
 						material_flip_controllers_map[oldController] = DynamicCast<NiFloatInterpController>(lightingProperty->GetController());
 					}
 
@@ -3569,7 +3697,8 @@ public:
 	inline void visit_object(NiControllerSequence& obj)
 	{
 
-		nisequences.insert(obj.GetName());
+		if (find(nisequences.begin(), nisequences.end(), obj.GetName()) == nisequences.end())
+			nisequences.push_back(obj.GetName());
 		vector<ControlledBlock> cblocks = obj.GetControlledBlocks();
 		vector<ControlledBlock> nblocks;
 
@@ -3578,11 +3707,11 @@ public:
 			NiInterpolator* intp = cblocks[i].interpolator;
 			if (intp == NULL)
 				continue;
-			if (intp->IsDerivedType(NiTransformInterpolator::TYPE)) {
-				NiTransformInterpolator* tintp = DynamicCast<NiTransformInterpolator>(intp);
-				if (tintp->GetData() == NULL)
-					continue;
-			}
+			//if (intp->IsDerivedType(NiTransformInterpolator::TYPE)) {
+			//	NiTransformInterpolator* tintp = DynamicCast<NiTransformInterpolator>(intp);
+			//	if (tintp->GetData() == NULL)
+			//		continue;
+			//}
 			if (cblocks[i].stringPalette != NULL)
 			{
 				//Deprecated. Maybe we can handle with tri facegens
@@ -3707,7 +3836,6 @@ public:
 		}
 
 		obj.SetTextKeys(textKeys);
-
 	}
 
 	//from now on, we must switch from an old type to hkTransform, so it is useful to directly use havok data
@@ -4841,7 +4969,7 @@ void convert_blocks(
 	info.userVersion = 12;
 	info.userVersion2 = 83;
 	info.version = Niflib::VER_20_2_0_7;
-	set<string> sequences = fimpl.nisequences;
+	vector<string> sequences = fimpl.nisequences;
 	if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
 		root = convert_root(root);
 		BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
@@ -4868,6 +4996,51 @@ void convert_blocks(
 		//	bsroot->SetExtraDataList(list);
 		//}
 
+		if (!sequences.empty()) {
+			if (sequences == vector<string>({ "Open", "Close" }))
+			{
+				//NTD, doors do not need behaviors
+			}
+			else
+			{
+				fs::path relative_path = fs::path("meshes") / fs::path("tes4") / fs::path("behaviors") / "two_idle_trans";
+				fs::path out_path_abs = exportPath / relative_path;
+				string BGED_file = "";
+
+				if (exportPath.empty())
+					out_path_abs = games.data(Games::TES5SE) / relative_path;
+
+				if (sequences == vector<string>({ "SpecialIdle", "Forward", "Unequip", "Backward" })) {
+					//Oblivion Gates!
+					BGED_file = wrappers.wrap(
+						"AutoPlayRagdoll", 
+						relative_path.string(), 
+						out_path_abs.string(), 
+						"TES4", 
+						HKXWrapper::DefaultBehaviors::autoplay_with_transitions
+					);
+				}
+				else if (sequences == vector<string>({ "Left", "Equip", "SpecialIdle", "Forward", "Unequip", "Backward" })) {
+					//Oblivion Gates!
+
+				}
+				else if (sequences == vector<string>({ "Equip", "Forward", "Unequip" })) {
+					//Oblivion Gates!
+
+				}
+
+				if (!BGED_file.empty())
+				{
+					vector<Ref<NiExtraData > > list = bsroot->GetExtraDataList();
+					BSBehaviorGraphExtraDataRef havokp = new BSBehaviorGraphExtraData();
+					havokp->SetName(string("BGED"));
+					havokp->SetBehaviourGraphFile(BGED_file);
+					havokp->SetControlsBaseSkeleton(false);
+					list.insert(list.begin(), StaticCast<NiExtraData>(havokp));
+					bsroot->SetExtraDataList(list);
+				}
+			}
+		}
 
 		std::vector<NiAVObjectRef> children;
 
