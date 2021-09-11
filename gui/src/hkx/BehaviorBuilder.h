@@ -4,8 +4,11 @@
 #include "ISpecialFieldsHandler.h"
 #include "SkeletonBuilder.h"
 
+#include <core/AnimationCache.h>
+
 #include <hkbBehaviorGraphData_2.h>
 #include <hkbBehaviorGraphStringData_1.h>
+#include <hkbClipGenerator_2.h>
 
 
 namespace ckcmd {
@@ -34,14 +37,18 @@ namespace ckcmd {
 			hkbBehaviorGraphStringData* _strings;
 			std::set<std::string> _referenced_behaviors;
 
+
 			size_t _file_index;
 			ResourceManager& _manager;
+			CacheEntry* _cache;
+			ProjectNode* _animationsNode;
 
-			ProjectNode* buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& pathr);
+			ProjectNode* buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& path);
+			void addCacheToClipNode(ProjectNode* clip_node, const hkbClipGenerator* clip);
 
 		public:
 
-			BehaviorBuilder(ResourceManager& manager, size_t file_index);
+			BehaviorBuilder(ResourceManager& manager, CacheEntry* cache, size_t file_index, ProjectNode* animationsNode);
 
 			const std::set<std::string>& referenced_behaviors() { return _referenced_behaviors; }
 
@@ -60,6 +67,10 @@ namespace ckcmd {
 
 			void setSkeleton(SkeletonBuilder* skeleton_builder) { _skeleton_builder = skeleton_builder; }
 
+			QStringList getEvents() const;
+			QString getEvent(size_t index) const;
+			QStringList getVariables() const;
+			QString getVariable(size_t index) const;
 		};
 	}
 }

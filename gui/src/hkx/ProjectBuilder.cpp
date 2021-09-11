@@ -15,6 +15,7 @@ void ProjectBuilder::buildBranch(hkVariant& root, ProjectNode* root_node, const 
 	h.accept(b);
 }
 
+
 ProjectBuilder::ProjectBuilder(
 	ProjectNode* parent,
 	ResourceManager& resourceManager,
@@ -32,6 +33,7 @@ ProjectBuilder::ProjectBuilder(
 	ProjectNode* project_node = _resourceManager.createSupport(project_file_index, {"Projects", project_path.string().c_str() }, _parent);
 	_parent->appendChild(project_node);
 	buildBranch(project_root, project_node, project_path);
+	auto project_cache = _resourceManager.findCacheEntry(project_file_index);
 	
 	if (project_data)
 	{
@@ -72,6 +74,70 @@ ProjectBuilder::ProjectBuilder(
 				buildBranch(rig_contents.first, rig_node, rig_path);
 			}
 
+			//animations
+			ProjectNode* animations_node = nullptr;
+			if (character_data->m_animationNames.getSize() > 0)
+			{
+				animations_node = _resourceManager.createSupport(character_file_index, { "Animations" }, character_node);
+				character_node->appendChild(animations_node);
+				//check cache;
+				auto movements = project_cache->getMovements();
+				if (project_cache->hasCache() && movements.size() != character_data->m_animationNames.getSize())
+				{
+					LOG << "Cached movements number is different from animation number!" << log_endl;
+				}
+
+				map<string, ProjectNode*> sets;
+
+				for (int a = 0; a < character_data->m_animationNames.getSize(); a++)
+				{
+					auto animation_path = project_folder / character_data->m_animationNames[a].cString();
+					if (fs::exists(animation_path))
+					{
+						auto& animation_contents = _resourceManager.get(animation_path);
+						if (project_cache->hasCache()) {
+							CreatureCacheEntry* creature_cache = dynamic_cast<CreatureCacheEntry*>(project_cache);
+							auto files = creature_cache->findProjectFile(character_data->m_animationNames[a].cString());
+							if (files.empty()) {
+								files.push_back("No Set");
+							}
+							for (auto& file : creature_cache->findProjectFile(character_data->m_animationNames[a].cString())) {
+								if (sets.find(file) == sets.end()) {
+									auto node = _resourceManager.createSupport(
+										character_file_index,
+										{
+											QString::fromStdString(file)
+										},
+										animations_node);
+									animations_node->appendChild(node);
+									sets[file] = node;
+								}
+								auto parent_node = sets[file];
+								ProjectNode* animation_node = _resourceManager.createAnimation(
+									character_file_index, {
+										character_data->m_animationNames[a].cString(),
+										animation_path.string().c_str()
+									},
+									parent_node);
+								parent_node->appendChild(animation_node);
+							}
+						}
+						else {
+							ProjectNode* animation_node = _resourceManager.createAnimation(
+								character_file_index, {
+									character_data->m_animationNames[a].cString(),
+									animation_path.string().c_str()
+								},
+								animations_node);
+							animations_node->appendChild(animation_node);
+						}
+
+						//kinda pointless to open all the animations
+						//buildBranch(animation_contents.first, animation_node, animation_path);
+					}
+				}
+			}
+
 			//behavior
 			auto behavior_path = project_folder / character_data->m_behaviorFilename.cString();
 			hkVariant behavior_root;
@@ -81,7 +147,7 @@ ProjectBuilder::ProjectBuilder(
 			auto behavior_index = _resourceManager.index(behavior_path);
 			ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
 			character_node->appendChild(behavior_node);
-			auto behavior_handler = new BehaviorBuilder(_resourceManager, behavior_index);
+			auto behavior_handler = new BehaviorBuilder(_resourceManager, project_cache, behavior_index, animations_node);
 			behavior_handler->setSkeleton(skeleton_builder);
 			_resourceManager.setClassHandler(
 				behavior_index,
@@ -104,7 +170,7 @@ ProjectBuilder::ProjectBuilder(
 				ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
 				character_node->appendChild(behavior_node);
 				
-				auto behavior_handler = new BehaviorBuilder(_resourceManager, behavior_index);
+				auto behavior_handler = new BehaviorBuilder(_resourceManager, project_cache, behavior_index, animations_node);
 				behavior_handler->setSkeleton(skeleton_builder);
 				_resourceManager.setClassHandler(
 					behavior_index,
@@ -115,27 +181,7 @@ ProjectBuilder::ProjectBuilder(
 					static_cast<ISpecialFieldsHandler*>(behavior_handler)
 				);
 				buildBranch(behavior_root, behavior_node, behavior_path);
-			}
-
-
-			//animations
-			if (character_data->m_animationNames.getSize() > 0)
-			{
-				ProjectNode* animations_node = _resourceManager.createSupport(character_file_index, { "Animations" }, character_node);
-				character_node->appendChild(animations_node);
-				for (int a = 0; a < character_data->m_animationNames.getSize(); a++)
-				{
-					auto animation_path = project_folder / character_data->m_animationNames[a].cString();
-					if (fs::exists(animation_path))
-					{
-						auto& animation_contents = _resourceManager.get(animation_path);
-						ProjectNode* animation_node = _resourceManager.createAnimation(character_file_index, { character_data->m_animationNames[a].cString(), animation_path.string().c_str() }, animations_node);
-						animations_node->appendChild(animation_node);
-						//kinda pointless to open all the animations
-						//buildBranch(animation_contents.first, animation_node, animation_path);
-					}
-				}
-			}
+			}	
 		}
 	}
 }

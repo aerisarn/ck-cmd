@@ -18,7 +18,7 @@ void ColumnCalculator::visit(void* object, const hkClassMember& definition)
 	size_t num_elements = definition.getSizeInBytes() / definition.getArrayMemberSize();
 	if (hkClassMember::TYPE_ARRAY == definition.getType())
 	{
-		num_elements = *(int*)((char*)object + sizeof(uintptr_t)); // m_size
+		num_elements = (*(int*)((char*)object + sizeof(uintptr_t))) & int(0x3FFFFFFF); // m_size
 	}
 	if (definition.hasClass() && hkClassMember::TYPE_POINTER != arraysubtype)
 	{

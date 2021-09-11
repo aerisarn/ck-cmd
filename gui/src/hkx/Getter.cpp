@@ -45,7 +45,7 @@ void Getter::visit(void* object, const hkClassMember& definition)
 	if (hkClassMember::TYPE_ARRAY == definition.getType())
 	{
 		base = (char*)*(uintptr_t*)object; //m_data
-		elements = *(int*)((char*)object + sizeof(uintptr_t)); // m_size
+		elements = (*(int*)((char*)object + sizeof(uintptr_t))) & int(0x3FFFFFFF);; // m_size
 	}
 	if (_column < elements)
 	{

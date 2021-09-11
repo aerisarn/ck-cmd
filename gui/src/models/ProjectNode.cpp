@@ -11,6 +11,11 @@ ProjectNode::~ProjectNode()
 	qDeleteAll(m_childItems);
 }
 
+void ProjectNode::appendData(const QVariant& value)
+{
+	m_itemData.append(value);
+}
+
 ProjectNode* ProjectNode::appendChild(ProjectNode* item)
 {
 	m_childItems.append(item);

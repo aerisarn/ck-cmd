@@ -46,6 +46,11 @@ namespace ckcmd {
 			hkRefPtr<hkaSkeleton> skeleton() { return _skeleton; }
 			hkRefPtr<hkaSkeleton> ragdoll() { return _ragdoll; }
 
+			QStringList getSkeletonBones() const;
+			QString getSkeletonBone(size_t index) const;
+			QStringList getRagdollBones() const;
+			QString getRagdollBone(size_t index) const;
+
 		};
 	}
 }

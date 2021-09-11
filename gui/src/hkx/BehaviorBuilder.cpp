@@ -1,7 +1,9 @@
 #include "BehaviorBuilder.h"
 
-#include <hkbBehaviorGraph_1.h>
+#include <src/hkx/HkxItemEvent.h>
+#include <src/hkx/HkxItemVar.h>
 
+#include <hkbBehaviorGraph_1.h>
 #include <hkbStateMachineTransitionInfo_1.h>
 #include <hkbStateMachineTimeInterval_0.h>
 #include <hkbVariableBindingSet_2.h>
@@ -15,7 +17,8 @@ std::vector<const hkClass*> BehaviorBuilder::getHandledClasses()
 		&hkbBehaviorGraphClass,
 		&hkbBehaviorGraphDataClass,
 		&hkbBehaviorGraphStringDataClass,
-		&hkbBehaviorReferenceGeneratorClass
+		&hkbBehaviorReferenceGeneratorClass,
+		&hkbClipGeneratorClass
 	};
 };
 
@@ -49,9 +52,11 @@ std::vector<member_id_t> BehaviorBuilder::getHandledFields() {
 	return result;
 }
 
-BehaviorBuilder::BehaviorBuilder(ResourceManager& manager, size_t file_index) :
+BehaviorBuilder::BehaviorBuilder(ResourceManager& manager, CacheEntry* cache, size_t file_index, ProjectNode* animationsNode) :
 	_manager(manager),
-	_file_index(file_index)
+	_cache(cache),
+	_file_index(file_index),
+	_animationsNode(animationsNode)
 {
 }
 
@@ -182,6 +187,57 @@ ProjectNode* BehaviorBuilder::buildBranch(hkVariant& variant, ProjectNode* root_
 			root_node));
 }
 
+void BehaviorBuilder::addCacheToClipNode(ProjectNode* clip_node, const hkbClipGenerator* clip)
+{
+	auto events = _cache->getEvents(clip->m_name.cString());
+	const std::string delimiter = ":";
+
+	for (const auto& clip_event : events) {
+		auto delim_pos = clip_event.find(delimiter);
+		std::string event_name = clip_event.substr(0, delim_pos);
+		float time = stof(clip_event.substr(++delim_pos, clip_event.size() - 1));
+		//sanity check;
+		size_t event_index = (size_t )-1;
+		for (int i = 0; i < _strings->m_eventNames.getSize(); i++) {
+			if (_strings->m_eventNames[i].cString() == event_name)
+			{
+				event_index = i;
+				break;
+			}
+		}
+		if (event_index == (size_t)-1)
+		{
+			LOG << "Event not found into behavior: " << event_name << log_endl;
+		}
+
+		clip_node->appendChild(
+			_manager.createClipEventNode(
+				_file_index,
+				{
+					QString::fromStdString(clip_event),
+					time,
+					event_index
+				},
+				clip_node)
+		);
+	}
+
+	auto movements = _cache->findMovement(clip->m_name.cString());
+	if (movements.empty())
+	{
+		LOG << "Unable to find the movement for " << clip->m_name.cString() << log_endl;
+	}
+	if (!movements.empty() && _animationsNode != nullptr) {
+		for (int i = 0; i < _animationsNode->childCount(); i++)
+		{
+			if (_animationsNode->child(i)->data(0).value<QString>() == clip->m_animationName.cString()) {
+				_animationsNode->child(i)->appendData(QString::fromStdString(movements));
+				break;
+			}
+		}
+	}
+}
+
 ProjectNode* BehaviorBuilder::visit(
 	const fs::path& _file,
 	int object_index,
@@ -212,6 +268,14 @@ ProjectNode* BehaviorBuilder::visit(
 		_referenced_behaviors.insert(reference->m_behaviorName.cString());
 		return buildBranch(*variant, parent, _file);
 	}
+	else if (variant->m_class == &hkbClipGeneratorClass) {
+		auto clip_node = buildBranch(*variant, parent, _file);
+		hkbClipGenerator* clip = (hkbClipGenerator*)variant->m_object;
+		if (_cache->hasCache()) {
+			addCacheToClipNode(clip_node, clip);
+		}
+		return clip_node;
+	}
 	return parent;
 }
 
@@ -221,19 +285,13 @@ QVariant BehaviorBuilder::handle(void* value, const hkClass* hkclass, const hkCl
 	if (std::find_if(events.begin(), events.end(), 
 		[&hkclass, &hkmember](const member_id_t& element){ return element.first == hkclass && element.second == hkmember; }) != events.end())
 	{
-		auto int_value = *(int*)value;
-		if (int_value >= 0 && int_value < _strings->m_eventNames.getSize())
-			return _strings->m_eventNames[*(int*)value].cString();
-		return "No Event";
+		return HkxItemEvent(this, *(int*)value);
 	}
 	auto variables = getVariableFields();
 	if (std::find_if(variables.begin(), variables.end(),
 		[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != variables.end())
 	{
-		auto int_value = *(int*)value;
-		if (int_value >= 0 && int_value < _strings->m_variableNames.getSize())
-			return _strings->m_variableNames[*(int*)value].cString();
-		return "No Variable";
+		return HkxItemVar(this, *(int*)value);
 	}
 	auto bones = _skeleton_builder->getHandledFields();
 	if (std::find_if(bones.begin(), bones.end(),
@@ -242,4 +300,38 @@ QVariant BehaviorBuilder::handle(void* value, const hkClass* hkclass, const hkCl
 		return _skeleton_builder->handle(value, hkclass, hkmember, container, parent_container);
 	}
 	return "BehaviorBuilder - Not set";
+}
+
+QStringList BehaviorBuilder::getEvents() const
+{
+	QStringList out;
+	for (int i = 0; i < _strings->m_eventNames.getSize(); i++)
+	{
+		out << _strings->m_eventNames[i].cString();
+	}
+	return out;
+}
+
+QString BehaviorBuilder::getEvent(size_t index) const
+{
+	if (index < _strings->m_eventNames.getSize())
+		return _strings->m_eventNames[index].cString();
+	return "No Event";
+}
+
+QStringList BehaviorBuilder::getVariables() const
+{
+	QStringList out;
+	for (int i = 0; i < _strings->m_variableNames.getSize(); i++)
+	{
+		out << _strings->m_variableNames[i].cString();
+	}
+	return out;
+}
+
+QString BehaviorBuilder::getVariable(size_t index) const
+{
+	if (index < _strings->m_variableNames.getSize())
+		return _strings->m_variableNames[index].cString();
+	return "No Variable";
 }

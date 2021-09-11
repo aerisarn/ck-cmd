@@ -186,10 +186,18 @@ void HkxItemFlags::FillEditor(QWidget* editor)
 		else {
 			checkbox->setChecked(false);
 		}
-		QObject::connect(
-			checkbox, &QCheckBox::stateChanged,
-			[=](int state) { this->setFlag(i, state == Qt::Checked); }
-		);
+		//QObject::connect(
+		//	checkbox, &QCheckBox::stateChanged,
+		//	[=](int state) { this->setFlag(i, state == Qt::Checked); }
+		//);
 	}
 	editor->resize(editor->minimumSizeHint());
+}
+
+void HkxItemFlags::FillFromEditor(QWidget* editor)
+{
+	for (int i = 0; i < _storage * 8; i++) {
+		QCheckBox* checkbox = editor->findChild<QCheckBox*>(QString("%1").arg(i));
+		setFlag(i, checkbox->isChecked());
+	}
 }

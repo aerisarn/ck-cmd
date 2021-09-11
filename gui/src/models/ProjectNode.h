@@ -24,7 +24,8 @@ namespace ckcmd {
                 hkx_node,
                 event_node,
                 variable_node,
-                property_node
+                property_node,
+                clip_event_node
             } m_type;
 
             explicit ProjectNode(
@@ -41,6 +42,7 @@ namespace ckcmd {
             bool isVariant() const;
 
             ProjectNode* appendChild(ProjectNode* child);
+            void appendData(const QVariant& value);
 
             virtual ProjectNode* child(int row);
             ProjectNode* setChild(int row, ProjectNode* new_child);

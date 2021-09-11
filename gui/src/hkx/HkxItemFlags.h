@@ -51,6 +51,7 @@ namespace ckcmd {
 
 			QWidget* CreateEditor(QWidget* parent);
 			void FillEditor(QWidget* editor);
+			void FillFromEditor(QWidget* editor);
 		};
 	}
 }

@@ -28,7 +28,7 @@ namespace AnimData {
 			return projectFiles;
 		}
 
-		std::list<ClipGeneratorBlock> getClips() {
+		std::list<ClipGeneratorBlock>& getClips() {
 			return clips;
 		}
 

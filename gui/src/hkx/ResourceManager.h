@@ -5,6 +5,8 @@
 #include <src/models/ProjectNode.h>
 #include <src/hkx/ITreeBuilderClassHandler.h>
 #include <src/hkx/ISpecialFieldsHandler.h>
+#include <src/workspace.h>
+#include <core/AnimationCache.h>
 
 #include <map>
 
@@ -22,11 +24,12 @@ namespace ckcmd {
 			std::map<size_t, ITreeBuilderClassHandler*> _class_handlers;
 			std::map<size_t, ISpecialFieldsHandler*> _field_handlers;
 			std::map<size_t, std::vector<ProjectNode*>> _nodes;
-			const fs::path _workspace_folder;
+			WorkspaceConfig& _workspace;
+			AnimationCache _cache;
 
 		public:
 
-			ResourceManager(const fs::path& workspace_folder);
+			ResourceManager(WorkspaceConfig& _workspace);
 
 			~ResourceManager() {
 			}
@@ -71,9 +74,13 @@ namespace ckcmd {
 			ProjectNode* createEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createVariableNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createPropertyNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createClipEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 
 			ProjectNode* findNode(int file, hkVariant* variant) const;
 			QModelIndex getIndex(ProjectNode* node) const;
+
+			CacheEntry* findCacheEntry(const std::string& sanitized_name);
+			CacheEntry* findCacheEntry(size_t file_index);
 
 		};
 	}

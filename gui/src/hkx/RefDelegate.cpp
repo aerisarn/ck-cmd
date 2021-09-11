@@ -8,6 +8,10 @@
 #include <src/hkx/HkxItemEnum.h>
 #include <src/hkx/HkxItemFlags.h>
 #include <src/hkx/HkxItemReal.h>
+#include <src/hkx/HkxItemEvent.h>
+#include <src/hkx/HkxItemVar.h>
+#include <src/hkx/HkxItemBone.h>
+#include <src/hkx/HkxItemRagdollBone.h>
 
 using namespace ckcmd::HKX;
 
@@ -34,6 +38,24 @@ QString RefDelegate::ObjectText(int object_index, size_t file_index) const {
     }
     return label;
 }
+
+template <typename T>
+void paintReference(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index)
+{
+    QString data = index.data().value<T>().getValue();
+
+    if (option.state & QStyle::State_Selected)
+    {
+        painter->fillRect(option.rect, option.palette.highlight());
+        painter->setPen(Qt::white);
+    }
+    else {
+        painter->setPen(Qt::black);
+    }
+    auto rect = option.rect.adjusted(CUSTOM_SIZE_PADDING, 0, 0, 0);
+    painter->drawText(rect, Qt::AlignLeft | Qt::AlignVCenter, data);
+}
+
 
 void RefDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
@@ -101,12 +123,24 @@ void RefDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, c
 
         real.paint(painter, option);
     }
+    else if (index.data().canConvert<HkxItemEvent>()) {
+        paintReference<HkxItemEvent>(painter, option, index);
+    }
+    else if (index.data().canConvert<HkxItemVar>()) {
+        paintReference<HkxItemVar>(painter, option, index);
+    }
+    else if (index.data().canConvert<HkxItemBone>()) {
+        paintReference<HkxItemBone>(painter, option, index);
+    }
+    else if (index.data().canConvert<HkxItemRagdollBone>()) {
+        paintReference<HkxItemRagdollBone>(painter, option, index);
+    }
     else {
         QStyledItemDelegate::paint(painter, option, index);
     }
 }
 
-QSize RefDelegate::ComboBoxSizeHint(const QStyleOptionViewItem& option, const QStringList& options) const
+QSize ComboBoxSizeHint(const QStyleOptionViewItem& option, const QStringList& options)
 {
     QStyleOptionComboBox comboBoxOption;
     comboBoxOption.rect = option.rect;
@@ -122,6 +156,14 @@ QSize RefDelegate::ComboBoxSizeHint(const QStyleOptionViewItem& option, const QS
             nullptr
         ));
     return contentsSize;
+}
+
+template <typename T>
+QSize sizeHintReference(const QStyleOptionViewItem& option,
+    const QModelIndex& index)
+{
+    QStringList options = index.data().value<T>().getValues();
+    return ComboBoxSizeHint(option, options);
 }
 
 
@@ -152,6 +194,18 @@ QSize RefDelegate::sizeHint(const QStyleOptionViewItem& option,
         HkxItemReal real = index.data().value<HkxItemReal>();
         return  real.WidgetSizeHint(option.fontMetrics);
     }
+    if (index.data().canConvert<HkxItemEvent>()) {
+        return sizeHintReference<HkxItemEvent>(option, index);
+    }
+    if (index.data().canConvert<HkxItemVar>()) {
+        return sizeHintReference<HkxItemVar>(option, index);
+    }
+    if (index.data().canConvert<HkxItemBone>()) {
+        return sizeHintReference<HkxItemBone>(option, index);
+    }
+    if (index.data().canConvert<HkxItemRagdollBone>()) {
+        return sizeHintReference<HkxItemRagdollBone>(option, index);
+    }
     return QStyledItemDelegate::sizeHint(option, index);
 }
 
@@ -173,8 +227,32 @@ QWidget* RefDelegate::createEditor(QWidget* parent,
         HkxItemReal real = index.data().value<HkxItemReal>();
         return  real.CreateEditor(parent);
     }
+    if (index.data().canConvert<HkxItemEvent>()) {
+        return new QComboBox(parent);
+    }
+    if (index.data().canConvert<HkxItemVar>()) {
+        return new QComboBox(parent);
+    }
+    if (index.data().canConvert<HkxItemBone>()) {
+        return new QComboBox(parent);
+    }
+    if (index.data().canConvert<HkxItemRagdollBone>()) {
+        return new QComboBox(parent);
+    }
     return QStyledItemDelegate::createEditor(parent, option, index);
 }
+
+template <typename T>
+void setEditorDataReference(QWidget* editor,
+    const QModelIndex& index)
+{
+    QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
+    T data = index.data().value<T>();
+    QStringList options = data.getValues();
+    ptr_editor->addItems(options);
+    ptr_editor->setCurrentIndex(data.index());
+}
+
 
 void RefDelegate::setEditorData(QWidget* editor,
     const QModelIndex& index) const
@@ -218,9 +296,34 @@ void RefDelegate::setEditorData(QWidget* editor,
         data.FillEditor(ptr_editor);
         return;
     }
+    if (index.data().canConvert<HkxItemEvent>()) {
+        setEditorDataReference<HkxItemEvent>(editor, index);
+        return;
+    }
+    if (index.data().canConvert<HkxItemVar>()) {
+        setEditorDataReference<HkxItemVar>(editor, index);
+        return;
+    }
+    if (index.data().canConvert<HkxItemBone>()) {
+        setEditorDataReference<HkxItemBone>(editor, index);
+        return;
+    }
+    if (index.data().canConvert<HkxItemRagdollBone>()) {
+        setEditorDataReference<HkxItemRagdollBone>(editor, index);
+        return;
+    }
 
     QStyledItemDelegate::setEditorData(editor, index);
 }
+
+template <typename T>
+void setModelDataReference(QWidget* editor, QAbstractItemModel* model,
+    const QModelIndex& index)
+{
+    QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
+    model->setData(index, ptr_editor->currentIndex(), Qt::EditRole);
+}
+
 
 void RefDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
     const QModelIndex& index) const
@@ -254,6 +357,25 @@ void RefDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
         data.FillFromEditor(ptr_editor);
         QVariant new_value; new_value.setValue(data);
         model->setData(index, new_value, Qt::EditRole);
+    }
+    else if (index.data().canConvert<HkxItemFlags>()) {
+        QWidget* ptr_editor = dynamic_cast<QWidget*>(editor);
+        HkxItemFlags data = index.data().value<HkxItemFlags>();
+        data.FillFromEditor(ptr_editor);
+        QVariant new_value; new_value.setValue(data);
+        model->setData(index, new_value, Qt::EditRole);
+    }
+    else if (index.data().canConvert<HkxItemEvent>()) {
+        setModelDataReference<HkxItemEvent>(editor, model, index);
+    }
+    else if (index.data().canConvert<HkxItemVar>()) {
+        setModelDataReference<HkxItemVar>(editor, model, index);
+    }
+    else if (index.data().canConvert<HkxItemBone>()) {
+        setModelDataReference<HkxItemBone>(editor, model, index);
+    }
+    else if (index.data().canConvert<HkxItemRagdollBone>()) {
+        setModelDataReference<HkxItemRagdollBone>(editor, model, index);
     }
     else {
         QStyledItemDelegate::setModelData(editor, model, index);

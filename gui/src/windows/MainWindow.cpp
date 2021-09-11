@@ -46,7 +46,7 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	_workspace(Settings.get<std::string>("/general/workspace_folder")),
 	_logger(new ckcmd::GUI::LogControl()),
 	_log_setter(_logger),
-	_resource_manager(_workspace.getFolder()),
+	_resource_manager(_workspace),
 	_animation_manager(_workspace, _resource_manager),
 	_model(this),
 	ui(new Ui::MainWindow)

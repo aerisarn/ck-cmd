@@ -3,8 +3,9 @@
 
 using namespace ckcmd::HKX;
 
-ResourceManager::ResourceManager(const fs::path& workspace_folder) :
-	_workspace_folder(workspace_folder)
+ResourceManager::ResourceManager(WorkspaceConfig& workspace) :
+	_workspace(workspace),
+	_cache(_workspace.getFolder())
 {
 }
 
@@ -214,6 +215,12 @@ ProjectNode* ResourceManager::createEventNode(size_t file_index, const QVector<Q
 	return node;
 }
 
+ProjectNode* ResourceManager::createClipEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::clip_event_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
 ProjectNode* ResourceManager::createVariableNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
 	auto node = new ProjectNode(ProjectNode::NodeType::variable_node, data, parentItem);
 	_nodes[file_index].push_back(node);
@@ -236,3 +243,14 @@ ProjectNode* ResourceManager::findNode(int file, hkVariant* variant) const
 	return nullptr;
 }
 
+CacheEntry* ResourceManager::findCacheEntry(const std::string& sanitized_name)
+{
+	return _cache.find(sanitized_name);
+}
+
+CacheEntry* ResourceManager::findCacheEntry(size_t file_index)
+{
+	auto p = _files.at(file_index);
+	string sanitized_project_name = p.filename().replace_extension("").string();
+	return _cache.find(sanitized_project_name);
+}

@@ -46,6 +46,36 @@ struct CacheEntry
 
 	bool hasCache() { return block.getHasAnimationCache(); }
 
+	std::vector<std::string> getEvents(const std::string& clip_name) {
+		if (hasCache())
+		{
+			auto it = find_if(block.getClips().begin(), block.getClips().end(), [&clip_name](AnimData::ClipGeneratorBlock& block) {return block.getName() == clip_name; });
+			if (it != block.getClips().end())
+			{
+				return it->getEvents().getStrings();
+			}
+		}
+		return {};
+	}
+
+	std::vector<AnimData::ClipMovementData>& getMovements() {
+		return movements.getMovementData();
+	}
+
+	std::string findMovement(const std::string& clip_name)
+	{
+		if (hasCache())
+		{
+			auto it = find_if(block.getClips().begin(), block.getClips().end(), [&clip_name](AnimData::ClipGeneratorBlock& block) {return block.getName() == clip_name; });
+			if (it != block.getClips().end())
+			{
+				if (it->getCacheIndex() < movements.getMovementData().size())
+					return movements.getMovementData()[it->getCacheIndex()].getBlock();
+			}
+		}
+		return {};
+	}
+
 	virtual void none() {}
 };
 
@@ -70,6 +100,26 @@ struct CreatureCacheEntry : public CacheEntry
 	CreatureCacheEntry() : sets(AnimData::ProjectAttackListBlock()) {}
 	CreatureCacheEntry(const string& name, AnimData::ProjectBlock& block, AnimData::ProjectDataBlock& movements, AnimData::ProjectAttackListBlock& sets) :
 		CacheEntry(name, block, movements), sets(sets) {}
+
+	std::vector<string> findProjectFile(const std::string& file) {
+		std::vector<string> out;
+		std::string to_crc = fs::path(file).filename().replace_extension("").string();
+		transform(to_crc.begin(), to_crc.end(), to_crc.begin(), ::tolower);
+		long long crc = stoll(HkCRC::compute(to_crc), NULL, 16);
+		string crc_str = to_string(crc);
+
+		auto blocks = sets.getProjectAttackBlocks();
+		auto projectFiles = sets.getProjectFiles().getStrings();
+		for (int i = 0; i < blocks.size(); i++) {
+			for (auto& entry : blocks[i].getCrc32Data().getStrings()) {
+				if (entry == crc_str) {
+					out.push_back(projectFiles[i]);
+				}
+			}
+		}
+		return out;
+	}
+
 };
 
 struct AnimationCache {

@@ -1411,8 +1411,10 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			}
 			FbxNode* animatedNode = getBuiltNode(controlledBlockID/*, block.priority*/);
 
-			if (animatedNode == NULL)
-				throw runtime_error("exportKFSequence: Referenced node not found by name:" + controlledBlockID);
+			if (animatedNode == NULL) {
+				Log::Error("exportKFSequence: Referenced node not found by name: %s", controlledBlockID.c_str());
+				continue;
+			}
 			//TODO: use palette here too
 			//NiInterpolatorRef interpolator = block.interpolator;
 			if (block.interpolator != NULL) {

@@ -5299,6 +5299,10 @@ bool BeginConversion(string importPath, string exportPath) {
 					Log::Warn("temporarily ignoring: %s", nif.c_str());
 					continue;
 				}
+				if (nif.find("\\hair\\") != string::npos) {
+					Log::Warn("temporarily ignoring: %s", nif.c_str());
+					continue;
+				}
 				size_t size = -1;
 				const uint8_t* data = bsa_file.extract(nif, size);
 

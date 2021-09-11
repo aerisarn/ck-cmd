@@ -5,8 +5,6 @@
 #include <src/models/ProjectNode.h>
 #include <src/hkx/ResourceManager.h>
 
-#include <core/AnimationCache.h>
-
 
 #include <set>
 
@@ -17,7 +15,7 @@ namespace ckcmd {
 
 			WorkspaceConfig& _workspace;
 			ResourceManager& _resource_manager;
-			AnimationCache _cache;
+			
 
 			void scanWorkspace();
 
@@ -27,8 +25,6 @@ namespace ckcmd {
 			~AnimationManager() {
 
 			}
-
-			bool empty();
 
 			void buildProjectTree(ProjectNode* root);
 		};

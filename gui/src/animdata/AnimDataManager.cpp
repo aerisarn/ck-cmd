@@ -17,7 +17,7 @@ void AnimationManager::scanWorkspace()
 			if (_resource_manager.isHavokProject(p.path())) {
 				string sanitized_project_name = p.path().filename().replace_extension("").string();
 				//LOG << "Found project " << sanitized_project_name << log_endl;
-				CacheEntry* entry = _cache.find(sanitized_project_name);
+				CacheEntry* entry = _resource_manager.findCacheEntry(sanitized_project_name);
 				if (NULL == entry)
 				{
 					LOG << " WARNING: " << sanitized_project_name << " was not found into the animation cache. The project won't be loaded by the game" << log_endl;
@@ -40,8 +40,7 @@ void AnimationManager::scanWorkspace()
 
 AnimationManager::AnimationManager(WorkspaceConfig& workspace, ResourceManager& resource_manager) :
 	_resource_manager(resource_manager),
-	_workspace(workspace),
-	_cache(_workspace.getFolder())
+	_workspace(workspace)
 {
 	LOG << "Opening " << _workspace.getFolder() << log_endl;
 

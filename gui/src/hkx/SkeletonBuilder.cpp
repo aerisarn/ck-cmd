@@ -1,5 +1,8 @@
 #include "SkeletonBuilder.h"
 
+#include <src/hkx/HkxItemBone.h>
+#include <src/hkx/HkxItemRagdollBone.h>
+
 #include <Animation/Animation/hkaAnimationContainer.h>
 #include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
 #include <hkbBoneIndexArray_0.h>
@@ -138,17 +141,9 @@ QVariant SkeletonBuilder::handle(void* value, const hkClass* hkclass, const hkCl
 		auto int_value = *(short*)value;
 		if (p_class == &hkbKeyframeBonesModifierClass)
 		{
-			//skeleton
-			if (int_value >= 0 && int_value < _skeleton->m_bones.getSize())
-				return _skeleton->m_bones[int_value].m_name.cString();
-			return "Invalid Skeleton Bone";
+			return HkxItemBone(this, int_value);
 		}
-		else {
-			if (int_value >= 0 && int_value < _skeleton->m_bones.getSize())
-				return _skeleton->m_bones[int_value].m_name.cString();
-			return "Invalid Skeleton Bone";
-		}
-		return "Invalid boneIndices Index";
+		return HkxItemRagdollBone(this, int_value);
 	}
 
 	//special handling that needs parent
@@ -157,51 +152,69 @@ QVariant SkeletonBuilder::handle(void* value, const hkClass* hkclass, const hkCl
 	) {
 		//nearest object
 		auto& object = ((hkaSkeletonMapper*)hkcontainer->m_object)->m_mapping;
-		if (object.m_skeletonA == _skeleton) {
-			auto int_value = *(short*)value;
-			if (int_value >= 0 && int_value < _skeleton->m_bones.getSize())
-				return _skeleton->m_bones[int_value].m_name.cString();
-			return "Invalid Skeleton Bone";
+		auto int_value = *(short*)value;
+		if (object.m_skeletonA == _skeleton) 
+		{
+			return HkxItemBone(this, int_value);
 		}
-		else {
-			auto int_value = *(short*)value;
-			if (int_value >= 0 && int_value < _ragdoll->m_bones.getSize())
-				return _ragdoll->m_bones[int_value].m_name.cString();
-			return "Invalid Ragdoll Bone";
-		}
+		return HkxItemRagdollBone(this, int_value);
 	}
 	if (&hkaSkeletonMapperData::SimpleMapping::staticClass() == hkclass &&
 		hkaSkeletonMapperData::SimpleMapping::staticClass().getMemberByName("boneB") == hkmember
 	) {
 		auto& object = ((hkaSkeletonMapper*)hkcontainer->m_object)->m_mapping;
-		if (object.m_skeletonB == _skeleton) {
-			auto int_value = *(short*)value;
-			if (int_value >= 0 && int_value < _skeleton->m_bones.getSize())
-				return _skeleton->m_bones[int_value].m_name.cString();
-			return "Invalid Skeleton Bone";
+		auto int_value = *(short*)value;
+		if (object.m_skeletonB == _skeleton) 
+		{
+			return HkxItemBone(this, int_value);
 		}
-		else {
-			auto int_value = *(short*)value;
-			if (int_value >= 0 && int_value < _ragdoll->m_bones.getSize())
-				return _ragdoll->m_bones[int_value].m_name.cString();
-			return "Invalid Ragdoll Bone";
-		}
+		return HkxItemRagdollBone(this, int_value);
 	}
 	if (std::find_if(skeletons.begin(), skeletons.end(),
 		[&hkclass, &hkmember](const member_id_t& element){ return element.first == hkclass && element.second == hkmember; }) != skeletons.end())
 	{
 		auto int_value = *(short*)value;
-		if (int_value >= 0 && int_value < _skeleton->m_bones.getSize())
-			return _skeleton->m_bones[int_value].m_name.cString();
-		return "Invalid Skeleton Bone";
+		return HkxItemBone(this, int_value);
 	}
 	if (std::find_if(ragdolls.begin(), ragdolls.end(),
 		[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != ragdolls.end())
 	{
 		auto int_value = *(short*)value;
-		if (int_value >= 0 && int_value < _ragdoll->m_bones.getSize())
-			return _ragdoll->m_bones[int_value].m_name.cString();
-		return "Invalid Ragdoll Bone";
+		return HkxItemRagdollBone(this, int_value);
 	}
 	return "BehaviorBuilder - Not set";
+}
+
+QStringList SkeletonBuilder::getSkeletonBones() const
+{
+	QStringList out;
+	for (int i = 0; i < _skeleton->m_bones.getSize(); i++)
+	{
+		out << _skeleton->m_bones[i].m_name.cString();
+	}
+	return out;
+}
+
+QString SkeletonBuilder::getSkeletonBone(size_t index) const
+{
+	if (index < _skeleton->m_bones.getSize())
+		return _skeleton->m_bones[index].m_name.cString();
+	return "Invalid Skeleton Bone";
+}
+
+QStringList SkeletonBuilder::getRagdollBones() const
+{
+	QStringList out;
+	for (int i = 0; i < _ragdoll->m_bones.getSize(); i++)
+	{
+		out << _ragdoll->m_bones[i].m_name.cString();
+	}
+	return out;
+}
+
+QString SkeletonBuilder::getRagdollBone(size_t index) const
+{
+	if (index < _ragdoll->m_bones.getSize())
+		return _ragdoll->m_bones[index].m_name.cString();
+	return "Invalid Ragdoll Bone";
 }

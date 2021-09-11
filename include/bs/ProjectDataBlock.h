@@ -5,14 +5,14 @@
 namespace AnimData {
 	class ProjectDataBlock : public Block {
 
-		std::list<ClipMovementData> movementData; // = new ArrayList<>();
+		std::vector<ClipMovementData> movementData; // = new ArrayList<>();
 
 	public: 
-		std::list<ClipMovementData> getMovementData() {
+		std::vector<ClipMovementData>& getMovementData() {
 			return movementData;
 		}
 
-		void setMovementData(std::list<ClipMovementData> movementData) {
+		void setMovementData(std::vector<ClipMovementData> movementData) {
 			this->movementData = movementData;
 		}
 
