@@ -3,8 +3,10 @@
 using namespace ckcmd::HKX;
 
 ProjectNode::ProjectNode(NodeType type, const QVector<QVariant>& data, ProjectNode* parent)
-	: m_type(type), m_itemData(data), m_parentItem(parent)
-{}
+	: m_type(type), m_itemData(data)
+{
+	m_parentItems.push_back(parent);
+}
 
 ProjectNode::~ProjectNode()
 {
@@ -38,6 +40,22 @@ ProjectNode* ProjectNode::setChild(int row, ProjectNode* new_child)
 	return old_node;
 }
 
+ProjectNode* ProjectNode::removeChild(int row)
+{
+	if (row < 0 || row >= m_childItems.size())
+		return nullptr;
+	auto old_node = m_childItems.at(row);
+	m_childItems.remove(row);
+	return old_node;
+}
+
+void ProjectNode::insertChild(int row, ProjectNode* new_child)
+{
+	if (row < 0)
+		return;
+	m_childItems.insert(row, new_child);
+}
+
 int ProjectNode::childCount() const
 {
 	return m_childItems.count();
@@ -45,8 +63,8 @@ int ProjectNode::childCount() const
 
 int ProjectNode::row() const
 {
-	if (m_parentItem)
-		return m_parentItem->m_childItems.indexOf(const_cast<ProjectNode*>(this));
+	if (!m_parentItems.isEmpty())
+		return m_parentItems.first()->m_childItems.indexOf(const_cast<ProjectNode*>(this));
 
 	return 0;
 }
@@ -58,7 +76,23 @@ int ProjectNode::columnCount() const
 
 ProjectNode* ProjectNode::parentItem()
 {
-	return m_parentItem;
+	if (m_parentItems.isEmpty())
+		return nullptr;
+	return m_parentItems.first();
+}
+
+ProjectNode* ProjectNode::parentItem(int row)
+{
+	if (row < 0)
+		return nullptr;
+	if (m_parentItems.isEmpty())
+		return nullptr;
+	for (int i = 0; i < m_parentItems.size(); i++) {
+		if (m_parentItems[i]->child(row) == this)
+			return m_parentItems[i];
+	}
+
+	return m_parentItems.first();
 }
 
 QVariant ProjectNode::data(int column) const
@@ -86,4 +120,22 @@ bool ProjectNode::isVariant() const {
 	return m_type == ProjectNode::NodeType::hkx_character_node
 		|| m_type == ProjectNode::NodeType::hkx_project_node
 		|| m_type == ProjectNode::NodeType::hkx_node;
+}
+
+void ProjectNode::addParent(ProjectNode* new_parent)
+{
+	if (!m_parentItems.contains(new_parent))
+		m_parentItems.push_back(new_parent);
+}
+
+void ProjectNode::setParent(ProjectNode* new_parent)
+{
+	if (!m_parentItems.contains(new_parent))
+		m_parentItems.push_front(new_parent);
+}
+
+void ProjectNode::removeParent(ProjectNode* parent)
+{
+	if (m_parentItems.contains(parent))
+		m_parentItems.remove(m_parentItems.indexOf(parent));
 }

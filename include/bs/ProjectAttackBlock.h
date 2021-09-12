@@ -40,7 +40,7 @@ namespace AnimData {
 			this->attackData = attackData;
 		}
 		
-		ClipFilesCRC32Block getCrc32Data() {
+		ClipFilesCRC32Block& getCrc32Data() {
 			return crc32Data;
 		}
 		

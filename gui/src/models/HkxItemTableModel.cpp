@@ -50,7 +50,6 @@ QVariant HkxItemTableModel::data(const QModelIndex& index, int role) const
 		{
 			HkxTableVariant h(*_variant);
 			Getter g(index.row(), index.column(), _file, _handlers);
-			g.setParentVariant(_parent);
 			h.accept(g);
 			return g.value();
 		}
@@ -119,7 +118,6 @@ QVariant HkxItemTableModel::internalSetData(const QModelIndex& index, const QVar
 				emit HkxItemPointerChanged(old_value_ptr, new_value, _file, _variant);
 			}
 			Setter s(index.row(), index.column(), _file, value, _handlers);
-			s.setParentVariant(_parent);
 			h.accept(s);
 			return old_value;
 		}

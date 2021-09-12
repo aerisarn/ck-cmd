@@ -43,47 +43,54 @@ void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Fla
 	if (object_index >= 0)
 	{
 		auto* variant = _resourceManager.at(_file_index, object_index);
-		ProjectNode* object_node = NULL;
-		if (_handlers.find(variant->m_class) != _handlers.end())
-		{
-			object_node = _handlers[variant->m_class]->visit(
-				_file, 
-				object_index, 
-				_parent
-			);
+		if (_visited_objects.insert(v).second)
+		{		
+			ProjectNode* object_node = NULL;
+			if (_handlers.find(variant->m_class) != _handlers.end())
+			{
+				object_node = _handlers[variant->m_class]->visit(
+					_file,
+					object_index,
+					_parent
+				);
+			}
+			else {
+
+				QString display_name = variant->m_class->getName();
+				//check if the object has a name we can display
+				auto member = variant->m_class->getMemberByName("name");
+				if (HK_NULL != member)
+				{
+					auto member_ptr = ((char*)variant->m_object) + member->getOffset();
+					auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
+					display_name = QString("%1 \"%2\"").arg(display_name).arg(c_str_ptr);
+				}
+
+				QString name = QString("[%1] %2").arg(object_index).arg(display_name);
+				object_node = _parent->appendChild(
+					_resourceManager.createHkxNode(
+						_file_index,
+						{
+							name,
+							(unsigned long long)variant,
+							(unsigned long long)_parent->isVariant() ? _parent->data(1) : 0,
+							_file_index
+						},
+						_parent));
+			}
+			HkxTableVariant h(*variant);
+			h.accept(TreeBuilder(object_node, _resourceManager, _file, _file_index, _visited_objects, _handlers));
 		}
 		else {
-
-			QString display_name = variant->m_class->getName();
-			//check if the object has a name we can display
-			auto member = variant->m_class->getMemberByName("name");
-			if (HK_NULL != member)
-			{
-				auto member_ptr = ((char*)variant->m_object) + member->getOffset();
-				auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
-				display_name = QString("%1 \"%2\"").arg(display_name).arg(c_str_ptr);
-			}
-
-			QString name = QString("[%1] %2").arg(object_index).arg(display_name);
-			object_node = _parent->appendChild(
-				_resourceManager.createHkxNode(
-					_file_index,
-					{
-						name,
-						(unsigned long long)variant,
-						(unsigned long long)_parent->isVariant() ? _parent->data(1) : 0,
-						_file_index
-					},
-					_parent));
+			auto node = _resourceManager.findNode(_file_index, variant);
+			node->addParent(_parent);
 		}
-		HkxTableVariant h(*variant);
-		h.accept(TreeBuilder(object_node, _resourceManager, _file, _file_index, _visited_objects, _handlers));
 	}
 }
 void TreeBuilder::visit(void* object, const hkClassMember& definition) {
 	//array
-	if (_visited_objects.insert(object).second)
-	{
+	//if (_visited_objects.insert(object).second)
+	//{
 		const auto& arraytype = definition.getArrayType();
 		const auto& arrayclass = definition.getStructClass();
 		const auto& arraysubtype = definition.getSubType();
@@ -118,21 +125,21 @@ void TreeBuilder::visit(void* object, const hkClassMember& definition) {
 				}
 			}
 		}
-	}
+	//}
 }
 
 void TreeBuilder::visit(void*, const hkClassEnum& enum_type, hkClassMember::Type type) {}
 
 void TreeBuilder::visit(void* object, const hkClass& object_type, const char* member_name)
 {
-	if (_visited_objects.insert(object).second)
-	{
+	//if (_visited_objects.insert(object).second)
+	//{
 		hkVariant v;
 		v.m_class = &object_type;
 		v.m_object = object;
 		HkxTableVariant h(v);
 		h.accept(*this);
-	}
+	//}
 }
 
 void TreeBuilder::visit(void* v, const hkClassEnum& enum_type, size_t storage) {}

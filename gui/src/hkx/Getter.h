@@ -70,7 +70,7 @@ namespace ckcmd {
 			{
 				if (_handlers.find({ _class, _classmember }) != _handlers.end())
 				{
-					_value = _handlers[{_class, _classmember}]->value(value, _class, _classmember, _lastVariant, _parentVariant);
+					_value = _handlers[{_class, _classmember}]->value(value, _class, _classmember, _lastVariant);
 				}
 				else {
 					_value = value;

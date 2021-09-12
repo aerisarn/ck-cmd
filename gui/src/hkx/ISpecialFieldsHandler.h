@@ -14,11 +14,11 @@ namespace ckcmd {
         public:
             virtual std::vector<member_id_t> getHandledFields() = 0;
 
-            virtual QVariant handle(void* value, const hkClass*, const hkClassMember*, const hkVariant*, const hkVariant* parent_container) = 0;
+            virtual QVariant handle(void* value, const hkClass*, const hkClassMember*, const hkVariant*) = 0;
 
             template<typename T>
-            QVariant value(T& value, const hkClass* hkclass, const hkClassMember* hkmember, const hkVariant* container, const hkVariant* parent_container) {
-                return handle(&value, hkclass, hkmember, container, parent_container);
+            QVariant value(T& value, const hkClass* hkclass, const hkClassMember* hkmember, const hkVariant* container) {
+                return handle(&value, hkclass, hkmember, container);
             }
         };
 

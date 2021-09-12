@@ -38,7 +38,7 @@ void ProjectsWidget::nodeDoubleClicked(const QModelIndex& index)
 			*_manager,
 			node_clicked->data(0).toString().toUtf8().constData()
 		);
-		_model->notifyEndInsertRows(index);
+		_model->notifyEndInsertRows();
 	}
 	else if (node_clicked->isSkeleton()) {
 		
@@ -55,18 +55,28 @@ void ProjectsWidget::modelHasSetNewHkxItemPointer(
 	int file, 
 	hkVariant* variant)
 {
-	//auto old_index = _manager->findIndex(file, old_value.get());
-	//auto new_index = _manager->findIndex(file, new_value.get());
-	//auto old_variant = _manager->at(file, old_index);
-	//auto new_variant = _manager->at(file, new_index);
-	//ProjectNode* old_node = _manager->findNode(file, old_variant);
-	//ProjectNode* new_node = _manager->findNode(file, new_variant);
-	//auto old_model_index = _model->getIndex(old_node);
-	//auto new_model_index = _model->getIndex(new_node);
-	//_model->notifyBeginMoveRows(old_model_index, old_model_index.row(), old_model_index.row()+1, new_model_index, new_model_index.row());
-	//old_node->parentItem()->setChild(new_model_index.row(), new_node);
-	//// TODO: relink
-	//_model->notifyEndMoveRows();
+	auto old_index = _manager->findIndex(file, old_value.get());
+	auto new_index = _manager->findIndex(file, new_value.get());
+	auto old_variant = _manager->at(file, old_index);
+	auto new_variant = _manager->at(file, new_index);
+	ProjectNode* old_node = _manager->findNode(file, old_variant);
+	ProjectNode* new_node = _manager->findNode(file, new_variant);
+	auto old_model_index = _model->getIndex(old_node);
+	if (old_node != new_node)
+	{
+		auto old_parent = old_node->parentItem();
+		auto parent_index = _model->getIndex(old_parent);
+		_model->notifyBeginRemoveRows(parent_index, old_model_index.row(), old_model_index.row());
+		old_parent->removeChild(old_model_index.row());
+		old_node->removeParent(old_parent);
+		_model->notifyEndRemoveRows();
+		//auto old_parent = old_node->parentItem();
+		_model->notifyBeginInsertRows(parent_index, old_model_index.row(), old_model_index.row());
+		old_parent->insertChild(old_model_index.row(), new_node);
+		new_node->setParent(old_parent);
+		_model->notifyEndInsertRows();
+		//_model->notifyElementChanged(parent_index);
+	}
 }
 
 void ProjectsWidget::nodeClicked(const QModelIndex& index)

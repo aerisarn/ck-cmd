@@ -76,7 +76,7 @@ namespace ckcmd {
 			ProjectNode* createPropertyNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createClipEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 
-			ProjectNode* findNode(int file, hkVariant* variant) const;
+			ProjectNode* findNode(int file, const hkVariant* variant) const;
 			QModelIndex getIndex(ProjectNode* node) const;
 
 			CacheEntry* findCacheEntry(const std::string& sanitized_name);

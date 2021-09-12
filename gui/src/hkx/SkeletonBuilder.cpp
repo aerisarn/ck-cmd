@@ -129,7 +129,12 @@ ProjectNode* SkeletonBuilder::visit(
 	return buildBranch(*variant, parent, _file);
 }
 
-QVariant SkeletonBuilder::handle(void* value, const hkClass* hkclass, const hkClassMember* hkmember, const hkVariant* hkcontainer, const hkVariant* parent_container)
+QVariant SkeletonBuilder::handle(void* value, const hkClass* hkclass, const hkClassMember* hkmember, const hkVariant* hkcontainer)
+{
+	return handle(_file_index, value, hkclass, hkmember, hkcontainer);
+}
+
+QVariant SkeletonBuilder::handle(size_t file_index, void* value, const hkClass* hkclass, const hkClassMember* hkmember, const hkVariant* hkcontainer)
 {
 	auto skeletons = getSkeletonBoneFields();
 	auto ragdolls = getRagdollBoneFields();
@@ -137,6 +142,9 @@ QVariant SkeletonBuilder::handle(void* value, const hkClass* hkclass, const hkCl
 	if (&hkbBoneIndexArrayClass == hkclass &&
 		hkbBoneIndexArrayClass.getMemberByName("boneIndices") == hkmember
 	) {
+		auto node = _manager.findNode(file_index, hkcontainer);
+		auto parent_node = node->parentItem();
+		auto parent_container = (hkVariant*)parent_node->data(1).value<unsigned long long>();
 		auto p_class = parent_container->m_class;
 		auto int_value = *(short*)value;
 		if (p_class == &hkbKeyframeBonesModifierClass)

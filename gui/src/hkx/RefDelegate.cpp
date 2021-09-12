@@ -12,6 +12,7 @@
 #include <src/hkx/HkxItemVar.h>
 #include <src/hkx/HkxItemBone.h>
 #include <src/hkx/HkxItemRagdollBone.h>
+#include <src/hkx/HkxItemFSMState.h>
 
 using namespace ckcmd::HKX;
 
@@ -135,6 +136,9 @@ void RefDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, c
     else if (index.data().canConvert<HkxItemRagdollBone>()) {
         paintReference<HkxItemRagdollBone>(painter, option, index);
     }
+    else if (index.data().canConvert<HkxItemFSMState>()) {
+        paintReference<HkxItemFSMState>(painter, option, index);
+    }
     else {
         QStyledItemDelegate::paint(painter, option, index);
     }
@@ -206,6 +210,9 @@ QSize RefDelegate::sizeHint(const QStyleOptionViewItem& option,
     if (index.data().canConvert<HkxItemRagdollBone>()) {
         return sizeHintReference<HkxItemRagdollBone>(option, index);
     }
+    if (index.data().canConvert<HkxItemFSMState>()) {
+        return sizeHintReference<HkxItemFSMState>(option, index);
+    }
     return QStyledItemDelegate::sizeHint(option, index);
 }
 
@@ -237,6 +244,9 @@ QWidget* RefDelegate::createEditor(QWidget* parent,
         return new QComboBox(parent);
     }
     if (index.data().canConvert<HkxItemRagdollBone>()) {
+        return new QComboBox(parent);
+    }
+    if (index.data().canConvert<HkxItemFSMState>()) {
         return new QComboBox(parent);
     }
     return QStyledItemDelegate::createEditor(parent, option, index);
@@ -312,6 +322,10 @@ void RefDelegate::setEditorData(QWidget* editor,
         setEditorDataReference<HkxItemRagdollBone>(editor, index);
         return;
     }
+    if (index.data().canConvert<HkxItemFSMState>()) {
+        setEditorDataReference<HkxItemFSMState>(editor, index);
+        return;
+    }
 
     QStyledItemDelegate::setEditorData(editor, index);
 }
@@ -376,6 +390,11 @@ void RefDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
     }
     else if (index.data().canConvert<HkxItemRagdollBone>()) {
         setModelDataReference<HkxItemRagdollBone>(editor, model, index);
+    }
+    else if (index.data().canConvert<HkxItemFSMState>()) {
+        QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
+        auto value = index.data().value<HkxItemFSMState>();
+        model->setData(index, value.getStateId(ptr_editor->currentIndex()), Qt::EditRole);
     }
     else {
         QStyledItemDelegate::setModelData(editor, model, index);

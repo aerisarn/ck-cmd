@@ -41,7 +41,8 @@ namespace ckcmd {
 
 			virtual std::vector<member_id_t> getHandledFields() override;
 
-			virtual QVariant handle(void* value, const hkClass*, const hkClassMember*, const hkVariant*, const hkVariant* parent_container) override;
+			virtual QVariant handle(void* value, const hkClass*, const hkClassMember*, const hkVariant*) override;
+			virtual QVariant handle(size_t file_index, void* value, const hkClass*, const hkClassMember*, const hkVariant*);
 
 			hkRefPtr<hkaSkeleton> skeleton() { return _skeleton; }
 			hkRefPtr<hkaSkeleton> ragdoll() { return _ragdoll; }

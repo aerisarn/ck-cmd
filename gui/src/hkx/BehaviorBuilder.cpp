@@ -2,12 +2,15 @@
 
 #include <src/hkx/HkxItemEvent.h>
 #include <src/hkx/HkxItemVar.h>
+#include <src/hkx/HkxItemFSMState.h>
 
 #include <hkbBehaviorGraph_1.h>
 #include <hkbStateMachineTransitionInfo_1.h>
 #include <hkbStateMachineTimeInterval_0.h>
 #include <hkbVariableBindingSet_2.h>
 #include <hkbBehaviorReferenceGenerator_0.h>
+#include <hkbStateMachine_4.h>
+#include <hkbStateMachineStateInfo_4.h>
 
 using namespace ckcmd::HKX;
 
@@ -30,6 +33,12 @@ std::vector<member_id_t> BehaviorBuilder::getEventFields() {
 	};
 }
 
+std::vector<member_id_t> BehaviorBuilder::getStateIdFields() {
+	return {
+		{&hkbStateMachineTransitionInfoClass, hkbStateMachineTransitionInfoClass.getMemberByName("toStateId")},
+	};
+}
+
 std::vector<member_id_t> BehaviorBuilder::getVariableFields()
 {
 	return {
@@ -41,9 +50,11 @@ std::vector<member_id_t> BehaviorBuilder::getHandledFields() {
 	std::vector<member_id_t> result;
 	auto events = getEventFields();
 	auto variables = getVariableFields();
+	auto stateids = getStateIdFields();
 	result.reserve(events.size() + variables.size());
 	result.insert(result.end(), events.begin(), events.end());
 	result.insert(result.end(), variables.begin(), variables.end());
+	result.insert(result.end(), stateids.begin(), stateids.end());
 	if (_skeleton_builder != NULL) {
 		auto skeleton = _skeleton_builder->getHandledFields();
 		result.reserve(events.size() + variables.size() + skeleton.size());
@@ -279,7 +290,7 @@ ProjectNode* BehaviorBuilder::visit(
 	return parent;
 }
 
-QVariant BehaviorBuilder::handle(void* value, const hkClass* hkclass, const hkClassMember* hkmember, const hkVariant* container, const hkVariant* parent_container)
+QVariant BehaviorBuilder::handle(void* value, const hkClass* hkclass, const hkClassMember* hkmember, const hkVariant* container)
 {
 	auto events = getEventFields();
 	if (std::find_if(events.begin(), events.end(), 
@@ -293,11 +304,31 @@ QVariant BehaviorBuilder::handle(void* value, const hkClass* hkclass, const hkCl
 	{
 		return HkxItemVar(this, *(int*)value);
 	}
+	auto stateids = getStateIdFields();
+	if (std::find_if(stateids.begin(), stateids.end(),
+		[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != stateids.end())
+	{
+		size_t fsm_index;
+		auto node = _manager.findNode(_file_index, container);
+		auto parent_variant = (hkVariant*)(node->parentItem()->data(1).value<unsigned long long>());
+		if (parent_variant->m_class == &hkbStateMachineStateInfoClass) {
+			auto grandnode = node->parentItem();
+			auto grandparent_variant = (hkVariant*)(grandnode->parentItem()->data(1).value<unsigned long long>());
+			fsm_index = _manager.findIndex(_file_index, grandparent_variant->m_object);
+		}
+		else if (parent_variant->m_class == &hkbStateMachineClass) {
+			fsm_index = _manager.findIndex(_file_index, parent_variant->m_object);
+		}
+		else {
+			throw std::runtime_error("Unknown parent for state Id");
+		}
+		return HkxItemFSMState(this, fsm_index , *(int*)value);
+	}
 	auto bones = _skeleton_builder->getHandledFields();
 	if (std::find_if(bones.begin(), bones.end(),
 		[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != bones.end())
 	{
-		return _skeleton_builder->handle(value, hkclass, hkmember, container, parent_container);
+		return _skeleton_builder->handle(_file_index, value, hkclass, hkmember, container);
 	}
 	return "BehaviorBuilder - Not set";
 }
@@ -334,4 +365,43 @@ QString BehaviorBuilder::getVariable(size_t index) const
 	if (index < _strings->m_variableNames.getSize())
 		return _strings->m_variableNames[index].cString();
 	return "No Variable";
+}
+
+QStringList BehaviorBuilder::getFSMStates(size_t fsm_index) const
+{
+	QStringList out;
+	auto fsm_variant = _manager.at(_file_index, fsm_index);
+	if (fsm_variant->m_class = &hkbStateMachineClass) {
+		hkbStateMachine* fsm = (hkbStateMachine*)fsm_variant->m_object;
+		for (int i = 0; i < fsm->m_states.getSize(); i++)
+		{
+			out << fsm->m_states[i]->m_name.cString();
+		}
+		return out;
+	}
+	return { "Wrong Reference!" };
+}
+
+QString BehaviorBuilder::getFSMState(size_t fsm_index, size_t index) const
+{
+	auto fsm_variant = _manager.at(_file_index, fsm_index);
+	if (fsm_variant->m_class = &hkbStateMachineClass) {
+		hkbStateMachine* fsm = (hkbStateMachine*)fsm_variant->m_object;
+		for (int i = 0; i < fsm->m_states.getSize(); i++)
+		{
+			if (fsm->m_states[i]->m_stateId == index)
+				return fsm->m_states[i]->m_name.cString();
+		}
+	}
+	return "Invalid State";
+}
+
+size_t BehaviorBuilder::getFSMStateId(size_t fsm_index, size_t combo_index) const
+{
+	auto fsm_variant = _manager.at(_file_index, fsm_index);
+	if (fsm_variant->m_class = &hkbStateMachineClass) {
+		hkbStateMachine* fsm = (hkbStateMachine*)fsm_variant->m_object;
+		return fsm->m_states[combo_index]->m_stateId;
+	}
+	return -1;
 }

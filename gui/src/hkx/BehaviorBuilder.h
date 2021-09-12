@@ -27,6 +27,7 @@ namespace ckcmd {
 			};
 
 			virtual std::vector<member_id_t> getEventFields();
+			virtual std::vector<member_id_t> getStateIdFields();
 			virtual std::vector<member_id_t> getVariableFields();
 
 			void buildEvents(const buildContext& context);
@@ -61,7 +62,7 @@ namespace ckcmd {
 
 			virtual std::vector<member_id_t> getHandledFields() override;
 
-			virtual QVariant handle(void* value, const hkClass*, const hkClassMember*, const hkVariant*, const hkVariant* parent_container) override;
+			virtual QVariant handle(void* value, const hkClass*, const hkClassMember*, const hkVariant*) override;
 
 			SkeletonBuilder* skeletonBuilder() { return _skeleton_builder; }
 
@@ -71,6 +72,10 @@ namespace ckcmd {
 			QString getEvent(size_t index) const;
 			QStringList getVariables() const;
 			QString getVariable(size_t index) const;
+			QStringList getFSMStates(size_t fsm_index) const;
+			QString getFSMState(size_t fsm_index, size_t index) const;
+			size_t getFSMStateId(size_t fsm_index, size_t combo_index) const;
+
 		};
 	}
 }

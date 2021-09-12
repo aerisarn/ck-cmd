@@ -12,7 +12,7 @@ namespace AnimData {
 			this->strings = strings;
 		}
 
-		std::list<std::string> getStrings() {
+		std::list<std::string>& getStrings() {
 			return strings;
 		}
 

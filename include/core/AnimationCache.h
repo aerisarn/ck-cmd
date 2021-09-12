@@ -69,7 +69,7 @@ struct CacheEntry
 			auto it = find_if(block.getClips().begin(), block.getClips().end(), [&clip_name](AnimData::ClipGeneratorBlock& block) {return block.getName() == clip_name; });
 			if (it != block.getClips().end())
 			{
-				if (it->getCacheIndex() < movements.getMovementData().size())
+				if ((size_t)it->getCacheIndex() < movements.getMovementData().size())
 					return movements.getMovementData()[it->getCacheIndex()].getBlock();
 			}
 		}
@@ -110,8 +110,9 @@ struct CreatureCacheEntry : public CacheEntry
 
 		auto blocks = sets.getProjectAttackBlocks();
 		auto projectFiles = sets.getProjectFiles().getStrings();
-		for (int i = 0; i < blocks.size(); i++) {
-			for (auto& entry : blocks[i].getCrc32Data().getStrings()) {
+		for (size_t i = 0; i < blocks.size(); i++) {
+			auto& crc32 = blocks[i].getCrc32Data().getStrings();
+			for (auto& entry : crc32) {
 				if (entry == crc_str) {
 					out.push_back(projectFiles[i]);
 				}

@@ -25,8 +25,16 @@ namespace ckcmd {
                 emit beginInsertRows(index, first, last);
             }
 
-            void notifyEndInsertRows(const QModelIndex& index) {
+            void notifyEndInsertRows() {
                 emit endInsertRows();
+            }
+
+            void notifyBeginRemoveRows(const QModelIndex& index, int first, int last) {
+                emit beginRemoveRows(index, first, last);
+            }
+
+            void notifyEndRemoveRows() {
+                emit endRemoveRows();
             }
 
             void notifyBeginMoveRows(const QModelIndex& sourceParent, int sourceFirst, int sourceLast, const QModelIndex& destinationParent, int destinationRow) {
@@ -36,6 +44,11 @@ namespace ckcmd {
             void notifyEndMoveRows() {
                 emit endMoveRows();
             }
+
+            void notifyElementChanged(const QModelIndex& index) {
+                emit dataChanged(index, index, { Qt::DisplayRole, Qt::EditRole });
+            }
+
 
             /*
             ** AbstractItemModel(required methods)

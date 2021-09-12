@@ -82,7 +82,6 @@ namespace ckcmd {
 			const hkClass* _class;
 			const hkClassMember* _classmember;
 			const hkVariant* _lastVariant;
-			const hkVariant* _parentVariant;
 		public:
 			HkxConcreteVisitor(T& handler) : _handler(handler) {}
 
@@ -250,10 +249,6 @@ namespace ckcmd {
 
 			virtual void setLastVariant(const hkVariant* variant) {
 				_lastVariant = variant;
-			}
-
-			virtual void setParentVariant(const hkVariant* variant) {
-				_parentVariant = variant;
 			}
 		};
 

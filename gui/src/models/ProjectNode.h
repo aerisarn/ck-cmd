@@ -8,6 +8,7 @@ namespace ckcmd {
 
         class ProjectNode
         {
+
         public:
 
             enum class NodeType {
@@ -46,17 +47,23 @@ namespace ckcmd {
 
             virtual ProjectNode* child(int row);
             ProjectNode* setChild(int row, ProjectNode* new_child);
+            void addParent(ProjectNode* new_parent);
+            void setParent(ProjectNode* new_parent);
+            ProjectNode* removeChild(int row);
+            void removeParent(ProjectNode* parent);
+            void insertChild(int row, ProjectNode* new_child);
             virtual int childCount() const;
             virtual int columnCount() const;
             virtual QVariant data(int column) const;
             virtual int row() const;
             virtual ProjectNode* parentItem();
+            ProjectNode* parentItem(int row);
             virtual NodeType type() const;
 
         protected:
             QVector<ProjectNode*> m_childItems;
             QVector<QVariant> m_itemData;
-            ProjectNode* m_parentItem;
+            QVector<ProjectNode*> m_parentItems;
         };
     }
 }
