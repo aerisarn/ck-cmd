@@ -15,8 +15,6 @@
 namespace ckcmd {
 	namespace HKX {
 
-		class ReferencedBehaviorBuilder;
-
 		class BehaviorBuilder : 
 			public ITreeBuilderClassHandler, 
 			public ISpecialFieldsHandler
@@ -52,8 +50,6 @@ namespace ckcmd {
 			ProjectNode* _eventsNode;
 			ProjectNode* _variablesNode;
 
-			std::vector<ReferencedBehaviorBuilder*> _referenced_behaviors_builders;
-
 			ProjectNode* buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& path);
 			void addCacheToClipNode(ProjectNode* clip_node, const hkbClipGenerator* clip);
 
@@ -75,8 +71,8 @@ namespace ckcmd {
 			virtual QVariant handle(void* value, const hkClass*, const hkClassMember*, const hkVariant*) override;
 
 			SkeletonBuilder* skeletonBuilder() { return _skeleton_builder; }
-
 			void setSkeleton(SkeletonBuilder* skeleton_builder) { _skeleton_builder = skeleton_builder; }
+
 
 			QStringList getEvents() const;
 			QString getEvent(size_t index) const;
@@ -87,26 +83,12 @@ namespace ckcmd {
 			size_t getFSMStateId(size_t fsm_index, size_t combo_index) const;
 
 			//Actions
-
 			virtual size_t addEvent(const QString&);
 			virtual size_t removeEvent(const QString&);
 
 			virtual size_t addVariable(const QString&);
 			virtual size_t removeVariable(const QString&);
 		};
-	
-		class ReferencedBehaviorBuilder : public BehaviorBuilder
-		{
-		protected:
-			BehaviorBuilder* parent;
-
-			virtual size_t addEvent(const QString&) override;
-			virtual size_t removeEvent(const QString&) override;
-
-			virtual size_t addVariable(const QString&) override;
-			virtual size_t removeVariable(const QString&) override;
-		};
-	
 	}
 }
 

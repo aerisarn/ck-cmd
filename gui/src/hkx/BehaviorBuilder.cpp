@@ -258,9 +258,9 @@ ProjectNode* BehaviorBuilder::visit(
 	auto* variant = _manager.at(_file, object_index);
 	if (variant->m_class == &hkbBehaviorGraphClass)
 	{
-		hkbBehaviorGraph* graph = (hkbBehaviorGraph*)variant->m_object;
-		_data = graph->m_data;
-		_strings = graph->m_data->m_stringData;
+		auto _graph = (hkbBehaviorGraph*)variant->m_object;
+		_data = _graph->m_data;
+		_strings = _graph->m_data->m_stringData;
 
 		buildContext context =
 		{
@@ -469,24 +469,6 @@ size_t BehaviorBuilder::addVariable(const QString& variable_name)
 }
 
 size_t BehaviorBuilder::removeVariable(const QString& variable_name)
-{
-	return 0;
-}
-
-size_t ReferencedBehaviorBuilder::addEvent(const QString&)
-{
-	return 0;
-}
-size_t ReferencedBehaviorBuilder::removeEvent(const QString&)
-{
-	return 0;
-}
-
-size_t ReferencedBehaviorBuilder::addVariable(const QString&) 
-{
-	return 0;
-}
-size_t ReferencedBehaviorBuilder::removeVariable(const QString&) 
 {
 	return 0;
 }
