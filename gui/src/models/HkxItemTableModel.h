@@ -28,26 +28,30 @@ namespace ckcmd {
                 QVariant _old_value;
                 QVariant _new_value;
                 QModelIndex _index;
+                int _file;
+                hkVariant* _variant;
                 HkxItemTableModel& _model;
             public:
                 ChangeValue(HkxItemTableModel& model, const QModelIndex& index, const QVariant& new_value) :
                     _new_value(new_value),
                     _index(index),
+                    _file(model.file()),
+                    _variant(model.variant()),
                     _model(model)
                 {}
 
                 virtual void undo() override {
-                    _new_value = _model.internalSetData(_index, _old_value, Qt::EditRole);
+                    _new_value = _model.internalSetData(_file, _variant, _index, _old_value, Qt::EditRole);
                     emit _model.dataChanged(_index, _index, { Qt::DisplayRole, Qt::EditRole });
                 }
                 virtual void redo() override {
-                    _old_value = _model.internalSetData(_index, _new_value, Qt::EditRole);
+                    _old_value = _model.internalSetData(_file, _variant, _index, _new_value, Qt::EditRole);
                     emit _model.dataChanged(_index, _index, { Qt::DisplayRole, Qt::EditRole });
                 }
 
             };
 
-            QVariant internalSetData(const QModelIndex& index, const QVariant& value,
+            QVariant internalSetData(int file, hkVariant* variant, const QModelIndex& index, const QVariant& value,
                 int role = Qt::EditRole);
 
         public:
@@ -74,6 +78,7 @@ namespace ckcmd {
             Qt::ItemFlags flags(const QModelIndex& index) const override;
 
             hkVariant* variant() const { return _variant; }
+            void setVariant(int file, hkVariant* variant) { beginResetModel(); _file = file, _variant = variant; endResetModel(); }
             int file() const { return _file; }
 
         signals:

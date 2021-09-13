@@ -131,7 +131,10 @@ void ProjectNode::addParent(ProjectNode* new_parent)
 void ProjectNode::setParent(ProjectNode* new_parent)
 {
 	if (!m_parentItems.contains(new_parent))
+	{
 		m_parentItems.push_front(new_parent);
+		m_itemData[2] = new_parent->data(1);
+	}
 }
 
 void ProjectNode::removeParent(ProjectNode* parent)

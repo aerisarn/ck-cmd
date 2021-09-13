@@ -60,6 +60,8 @@ QVariant HkxItemTableModel::data(const QModelIndex& index, int role) const
 
 int HkxItemTableModel::rowCount(const QModelIndex& parent) const
 {
+	if (_variant == nullptr)
+		return 0;
 	RowCalculator r;
 	HkxTableVariant h(*_variant);
 	h.accept(r);
@@ -68,6 +70,8 @@ int HkxItemTableModel::rowCount(const QModelIndex& parent) const
 
 int HkxItemTableModel::columnCount(const QModelIndex& parent) const
 {
+	if (_variant == nullptr)
+		return 0;
 	ColumnCalculator c;
 	HkxTableVariant h(*_variant);
 	h.accept(c);
@@ -96,11 +100,13 @@ QVariant HkxItemTableModel::headerData(int section, Qt::Orientation orientation,
 	return QVariant();
 }
 
-QVariant HkxItemTableModel::internalSetData(const QModelIndex& index, const QVariant& value,
+QVariant HkxItemTableModel::internalSetData(int file, hkVariant* variant, const QModelIndex& index, const QVariant& value,
 	int role)
 {
 	if (role == Qt::EditRole)
 	{
+		_file = file;
+		_variant = variant;
 		if (indexValid(index))
 		{
 			QVariant old_value;
@@ -110,6 +116,8 @@ QVariant HkxItemTableModel::internalSetData(const QModelIndex& index, const QVar
 			h.accept(g);
 			old_value = g.value();
 
+
+			Setter s(index.row(), index.column(), _file, value, _handlers);
 			if (value.canConvert<HkxItemPointer>())
 			{
 				HkxItemPointer new_value(-1, nullptr, nullptr);
@@ -117,7 +125,6 @@ QVariant HkxItemTableModel::internalSetData(const QModelIndex& index, const QVar
 				new_value = value.value<HkxItemPointer>();
 				emit HkxItemPointerChanged(old_value_ptr, new_value, _file, _variant);
 			}
-			Setter s(index.row(), index.column(), _file, value, _handlers);
 			h.accept(s);
 			return old_value;
 		}

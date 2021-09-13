@@ -70,12 +70,12 @@ void ProjectsWidget::modelHasSetNewHkxItemPointer(
 		old_parent->removeChild(old_model_index.row());
 		old_node->removeParent(old_parent);
 		_model->notifyEndRemoveRows();
-		//auto old_parent = old_node->parentItem();
 		_model->notifyBeginInsertRows(parent_index, old_model_index.row(), old_model_index.row());
 		old_parent->insertChild(old_model_index.row(), new_node);
 		new_node->setParent(old_parent);
 		_model->notifyEndInsertRows();
-		//_model->notifyElementChanged(parent_index);
+		ui->treeView->setCurrentIndex(old_model_index);
+		nodeClicked(old_model_index);
 	}
 }
 
