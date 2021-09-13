@@ -1,6 +1,7 @@
 #pragma once
 
-#include "TreeBuilder.h"
+#include <src/hkx/TreeBuilder.h>
+#include <src/hkx/CommandManager.h>
 #include "ISpecialFieldsHandler.h"
 #include "SkeletonBuilder.h"
 
@@ -13,11 +14,14 @@
 
 namespace ckcmd {
 	namespace HKX {
+
+		class ReferencedBehaviorBuilder;
+
 		class BehaviorBuilder : 
 			public ITreeBuilderClassHandler, 
 			public ISpecialFieldsHandler
 		{
-
+		protected:
 			struct buildContext {
 				const hkbBehaviorGraphData* data;
 				const hkbBehaviorGraphStringData* string_data;
@@ -35,21 +39,27 @@ namespace ckcmd {
 			void buildProperties(const buildContext& context);
 
 			SkeletonBuilder* _skeleton_builder;
+			hkbBehaviorGraphData* _data;
 			hkbBehaviorGraphStringData* _strings;
 			std::set<std::string> _referenced_behaviors;
 
 
 			size_t _file_index;
 			ResourceManager& _manager;
+			CommandManager& _command_manager;
 			CacheEntry* _cache;
 			ProjectNode* _animationsNode;
+			ProjectNode* _eventsNode;
+			ProjectNode* _variablesNode;
+
+			std::vector<ReferencedBehaviorBuilder*> _referenced_behaviors_builders;
 
 			ProjectNode* buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& path);
 			void addCacheToClipNode(ProjectNode* clip_node, const hkbClipGenerator* clip);
 
 		public:
 
-			BehaviorBuilder(ResourceManager& manager, CacheEntry* cache, size_t file_index, ProjectNode* animationsNode);
+			BehaviorBuilder(CommandManager& commandManager, ResourceManager& manager, CacheEntry* cache, size_t file_index, ProjectNode* animationsNode);
 
 			const std::set<std::string>& referenced_behaviors() { return _referenced_behaviors; }
 
@@ -76,7 +86,27 @@ namespace ckcmd {
 			QString getFSMState(size_t fsm_index, size_t index) const;
 			size_t getFSMStateId(size_t fsm_index, size_t combo_index) const;
 
+			//Actions
+
+			virtual size_t addEvent(const QString&);
+			virtual size_t removeEvent(const QString&);
+
+			virtual size_t addVariable(const QString&);
+			virtual size_t removeVariable(const QString&);
 		};
+	
+		class ReferencedBehaviorBuilder : public BehaviorBuilder
+		{
+		protected:
+			BehaviorBuilder* parent;
+
+			virtual size_t addEvent(const QString&) override;
+			virtual size_t removeEvent(const QString&) override;
+
+			virtual size_t addVariable(const QString&) override;
+			virtual size_t removeVariable(const QString&) override;
+		};
+	
 	}
 }
 

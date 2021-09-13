@@ -155,6 +155,18 @@ ProjectNode* ResourceManager::createSupport(size_t file_index, const QVector<QVa
 	return node;
 }
 
+ProjectNode* ResourceManager::createEventsSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::events_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createVariablesSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::variables_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
 ProjectNode* ResourceManager::createProject(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
 	auto node = new ProjectNode(ProjectNode::NodeType::project_node, data, parentItem);
 	_nodes[file_index].push_back(node);

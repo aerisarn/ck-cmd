@@ -3,16 +3,19 @@
 #include "ui_ProjectsWidget.h"
 
 #include <src/hkx/ProjectBuilder.h>
+#include <src/widgets/TreeContextMenuBuilder.h>
 
 using namespace ckcmd::HKX;
 
 ProjectsWidget::ProjectsWidget(
-	ProjectTreeModel* model, 
-	ResourceManager* manager, 
+	ProjectTreeModel* model,
+	CommandManager& command_manager,
+	ResourceManager& manager, 
 	HkxSimulation* simulation,
 	QWidget* parent
 ) :
 	_model(model),
+	_commandManager(command_manager),
 	_manager(manager),
 	_simulation(simulation),
 	ads::CDockWidget("Projects", parent),
@@ -35,7 +38,8 @@ void ProjectsWidget::nodeDoubleClicked(const QModelIndex& index)
 		_model->notifyBeginInsertRows(index, 0, 2);
 		ProjectBuilder b(
 			node_clicked,
-			*_manager,
+			_commandManager,
+			_manager,
 			node_clicked->data(0).toString().toUtf8().constData()
 		);
 		_model->notifyEndInsertRows();
@@ -55,12 +59,12 @@ void ProjectsWidget::modelHasSetNewHkxItemPointer(
 	int file, 
 	hkVariant* variant)
 {
-	auto old_index = _manager->findIndex(file, old_value.get());
-	auto new_index = _manager->findIndex(file, new_value.get());
-	auto old_variant = _manager->at(file, old_index);
-	auto new_variant = _manager->at(file, new_index);
-	ProjectNode* old_node = _manager->findNode(file, old_variant);
-	ProjectNode* new_node = _manager->findNode(file, new_variant);
+	auto old_index = _manager.findIndex(file, old_value.get());
+	auto new_index = _manager.findIndex(file, new_value.get());
+	auto old_variant = _manager.at(file, old_index);
+	auto new_variant = _manager.at(file, new_index);
+	ProjectNode* old_node = _manager.findNode(file, old_variant);
+	ProjectNode* new_node = _manager.findNode(file, new_variant);
 	auto old_model_index = _model->getIndex(old_node);
 	if (old_node != new_node)
 	{
@@ -95,6 +99,10 @@ void ProjectsWidget::treeMenu(QPoint p)
 {
 	const QModelIndex& index = ui->treeView->indexAt(p);
 	ProjectNode* node_clicked = _model->getNode(index);
+	QMenu* menu = TreeContextMenuBuilder().build(node_clicked);
+	if (menu) {
+		menu->exec(this->mapToGlobal(p));
+	}
 }
 
 ProjectsWidget::~ProjectsWidget()

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <src/models/ProjectNode.h>
+#include <src/hkx/CommandManager.h>
 #include <src/hkx/ResourceManager.h>
 #include <src/hkx/BehaviorBuilder.h>
 
@@ -11,6 +12,7 @@ namespace ckcmd {
 
 			//TODO: consolidate builders into hierarchy
 			ProjectNode* _parent;
+			CommandManager& _commandManager;
 			ResourceManager& _resourceManager;
 			const std::string& _name; // unique id. Maybe
 			void ProjectBuilder::buildBranch(hkVariant& root, ProjectNode* root_node, const fs::path& path);
@@ -36,6 +38,7 @@ namespace ckcmd {
 		public:
 			ProjectBuilder(
 				ProjectNode* parent,
+				CommandManager& commandManager,
 				ResourceManager& resourceManager,
 				const std::string& _name
 			);

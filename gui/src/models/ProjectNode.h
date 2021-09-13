@@ -26,7 +26,9 @@ namespace ckcmd {
                 event_node,
                 variable_node,
                 property_node,
-                clip_event_node
+                clip_event_node,
+                events_node,
+                variables_node,
             } m_type;
 
             explicit ProjectNode(

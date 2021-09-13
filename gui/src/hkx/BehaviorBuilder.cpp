@@ -63,7 +63,8 @@ std::vector<member_id_t> BehaviorBuilder::getHandledFields() {
 	return result;
 }
 
-BehaviorBuilder::BehaviorBuilder(ResourceManager& manager, CacheEntry* cache, size_t file_index, ProjectNode* animationsNode) :
+BehaviorBuilder::BehaviorBuilder(CommandManager& commandManager, ResourceManager& manager, CacheEntry* cache, size_t file_index, ProjectNode* animationsNode) :
+	_command_manager(commandManager),
 	_manager(manager),
 	_cache(cache),
 	_file_index(file_index),
@@ -75,8 +76,8 @@ void BehaviorBuilder::buildEvents(const buildContext& context)
 {
 	if (context.data->m_eventInfos.getSize() > 0)
 	{
-		auto events_node = context.parent->appendChild(
-			_manager.createSupport(
+		_eventsNode = context.parent->appendChild(
+			_manager.createEventsSupport(
 				_file_index,
 				{
 					"Events"
@@ -90,7 +91,7 @@ void BehaviorBuilder::buildEvents(const buildContext& context)
 			auto event_info = context.data->m_eventInfos[i];
 
 			QString name = QString("[%1] %2").arg(i).arg(event_name.cString());
-			auto event_node = events_node->appendChild(
+			auto event_node = _eventsNode->appendChild(
 				_manager.createEventNode(
 					_file_index,
 					{
@@ -99,7 +100,7 @@ void BehaviorBuilder::buildEvents(const buildContext& context)
 						(int)_file_index,
 						i,
 					},
-					events_node)
+					_eventsNode)
 			);
 		}
 	}
@@ -108,8 +109,8 @@ void BehaviorBuilder::buildVariables(const buildContext& context)
 {
 	if (context.data->m_variableInfos.getSize() > 0)
 	{
-		auto variables_node = context.parent->appendChild(
-			_manager.createSupport(
+		_variablesNode = context.parent->appendChild(
+			_manager.createVariablesSupport(
 				_file_index,
 				{
 					"Variables"
@@ -123,16 +124,16 @@ void BehaviorBuilder::buildVariables(const buildContext& context)
 			auto variable_info = context.data->m_variableInfos[i];
 
 			QString name = QString("[%1] %2").arg(i).arg(variable_name.cString());
-			auto variable_node = variables_node->appendChild(
+			auto variable_node = _variablesNode->appendChild(
 				_manager.createEventNode(
 					_file_index,
 					{
 						name,
-						(unsigned long long)_manager.at(_file_index, context.object_index),
+						(unsigned long long)0,
 						(int)_file_index,
 						i
 					},
-					variables_node)
+					_variablesNode)
 			);
 		}
 	}
@@ -258,12 +259,12 @@ ProjectNode* BehaviorBuilder::visit(
 	if (variant->m_class == &hkbBehaviorGraphClass)
 	{
 		hkbBehaviorGraph* graph = (hkbBehaviorGraph*)variant->m_object;
-		auto data = graph->m_data;
+		_data = graph->m_data;
 		_strings = graph->m_data->m_stringData;
 
 		buildContext context =
 		{
-			data,
+			_data,
 			_strings,
 			_file,
 			object_index,
@@ -404,4 +405,88 @@ size_t BehaviorBuilder::getFSMStateId(size_t fsm_index, size_t combo_index) cons
 		return fsm->m_states[combo_index]->m_stateId;
 	}
 	return -1;
+}
+
+size_t BehaviorBuilder::addEvent(const QString& event_name)
+{
+	for (int i = 0; i < _strings->m_eventNames.getSize(); i++)
+	{
+		if (event_name == _strings->m_eventNames[i].cString()) {
+			return i;
+		}
+	}
+	size_t new_index = _strings->m_eventNames.getSize();
+	_strings->m_eventNames.pushBack(event_name.toUtf8().data());
+	_data->m_eventInfos.pushBack(hkbEventInfo());
+
+	QString name = QString("[%1] %2").arg(new_index).arg(event_name);
+	auto event_node = _eventsNode->appendChild(
+		_manager.createEventNode(
+			_file_index,
+			{
+				name,
+				(unsigned long long)0,
+				(int)_file_index,
+				new_index,
+			},
+			_eventsNode
+		)
+	);
+	return new_index;
+}
+
+size_t BehaviorBuilder::removeEvent(const QString& event_name)
+{
+	return 0;
+}
+
+size_t BehaviorBuilder::addVariable(const QString& variable_name)
+{
+	for (int i = 0; i < _strings->m_variableNames.getSize(); i++)
+	{
+		if (variable_name == _strings->m_variableNames[i].cString()) {
+			return i;
+		}
+	}
+	size_t new_index = _strings->m_variableNames.getSize();
+	_strings->m_variableNames.pushBack(variable_name.toUtf8().data());
+	_data->m_eventInfos.pushBack(hkbEventInfo());
+
+	QString name = QString("[%1] %2").arg(new_index).arg(variable_name);
+	auto event_node = _variablesNode->appendChild(
+		_manager.createVariableNode(
+			_file_index,
+			{
+				name,
+				(unsigned long long)0,
+				(int)_file_index,
+				new_index,
+			},
+			_variablesNode
+			)
+	);
+	return new_index;
+}
+
+size_t BehaviorBuilder::removeVariable(const QString& variable_name)
+{
+	return 0;
+}
+
+size_t ReferencedBehaviorBuilder::addEvent(const QString&)
+{
+	return 0;
+}
+size_t ReferencedBehaviorBuilder::removeEvent(const QString&)
+{
+	return 0;
+}
+
+size_t ReferencedBehaviorBuilder::addVariable(const QString&) 
+{
+	return 0;
+}
+size_t ReferencedBehaviorBuilder::removeVariable(const QString&) 
+{
+	return 0;
 }

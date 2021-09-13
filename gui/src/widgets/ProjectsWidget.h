@@ -5,6 +5,7 @@
 
 #include <src/log.h>
 #include <src/models/ProjectTreeModel.h>
+#include <src/hkx/CommandManager.h>
 #include <src/hkx/ResourceManager.h>
 #include <src/hkx/HkxSimulation.h>
 #include <src/hkx/HkxItemPointer.h>
@@ -21,13 +22,15 @@ class ProjectsWidget : public ::ads::CDockWidget
     Q_OBJECT
 
     ckcmd::HKX::ProjectTreeModel* _model;
-    ckcmd::HKX::ResourceManager* _manager;
+    ckcmd::HKX::CommandManager& _commandManager;
+    ckcmd::HKX::ResourceManager& _manager;
     HkxSimulation* _simulation;
 
 public:
     explicit ProjectsWidget(
         ckcmd::HKX::ProjectTreeModel* model,
-        ckcmd::HKX::ResourceManager* manager,
+        ckcmd::HKX::CommandManager& commandManager,
+        ckcmd::HKX::ResourceManager& manager,
         HkxSimulation* simulation,
         QWidget* parent = 0);
     ~ProjectsWidget();

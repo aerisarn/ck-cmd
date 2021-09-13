@@ -18,10 +18,12 @@ void ProjectBuilder::buildBranch(hkVariant& root, ProjectNode* root_node, const 
 
 ProjectBuilder::ProjectBuilder(
 	ProjectNode* parent,
+	CommandManager& commandManager,
 	ResourceManager& resourceManager,
 	const std::string& name
 ) :
 	_parent(parent),
+	_commandManager(commandManager),
 	_resourceManager(resourceManager),
 	_name(name)
 {
@@ -147,7 +149,7 @@ ProjectBuilder::ProjectBuilder(
 			auto behavior_index = _resourceManager.index(behavior_path);
 			ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
 			character_node->appendChild(behavior_node);
-			auto behavior_handler = new BehaviorBuilder(_resourceManager, project_cache, behavior_index, animations_node);
+			auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_cache, behavior_index, animations_node);
 			behavior_handler->setSkeleton(skeleton_builder);
 			_resourceManager.setClassHandler(
 				behavior_index,
@@ -170,7 +172,7 @@ ProjectBuilder::ProjectBuilder(
 				ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
 				character_node->appendChild(behavior_node);
 				
-				auto behavior_handler = new BehaviorBuilder(_resourceManager, project_cache, behavior_index, animations_node);
+				auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_cache, behavior_index, animations_node);
 				behavior_handler->setSkeleton(skeleton_builder);
 				_resourceManager.setClassHandler(
 					behavior_index,
