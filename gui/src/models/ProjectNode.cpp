@@ -122,6 +122,12 @@ bool ProjectNode::isVariant() const {
 		|| m_type == ProjectNode::NodeType::hkx_node;
 }
 
+bool ProjectNode::canSaveOrExport() const
+{
+	return m_type == ProjectNode::NodeType::misc_node
+		|| m_type == ProjectNode::NodeType::character_node;
+}
+
 void ProjectNode::addParent(ProjectNode* new_parent)
 {
 	if (!m_parentItems.contains(new_parent))

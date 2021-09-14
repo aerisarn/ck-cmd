@@ -10,6 +10,8 @@
 #include <src/hkx/HkxSimulation.h>
 #include <src/hkx/HkxItemPointer.h>
 
+#include <QTreeView>
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -34,6 +36,8 @@ public:
         HkxSimulation* simulation,
         QWidget* parent = 0);
     ~ProjectsWidget();
+
+    QTreeView& view();
 
 public slots:
     void nodeDoubleClicked(const QModelIndex& index);

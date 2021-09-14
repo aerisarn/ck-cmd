@@ -435,6 +435,16 @@ size_t BehaviorBuilder::addEvent(const QString& event_name)
 	return new_index;
 }
 
+bool BehaviorBuilder::renameEvent(size_t index, const QString& name)
+{
+	if (index < _strings->m_eventNames.getSize())
+	{
+		_strings->m_eventNames[index] = name.toUtf8().data();
+		return true;
+	}
+	return false;
+}
+
 size_t BehaviorBuilder::removeEvent(const QString& event_name)
 {
 	return 0;

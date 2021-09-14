@@ -1,11 +1,14 @@
 #include "ProjectTreeModel.h"
 
+#include <src/hkx/BehaviorBuilder.h>
+
 using namespace ckcmd::HKX;
 
-ProjectTreeModel::ProjectTreeModel(QObject* parent) :
+ProjectTreeModel::ProjectTreeModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent) :
+	_commandManager(commandManager),
+	_resourceManager(resourceManager),
 	QAbstractItemModel(parent)
 {
-
 }
 
 ProjectNode* ProjectTreeModel::getNode(const QModelIndex& index) const 
@@ -22,7 +25,7 @@ QVariant ProjectTreeModel::data(const QModelIndex& index, int role) const
 	if (!index.isValid())
 		return QVariant();
 
-	if (role != Qt::DisplayRole)
+	if (role != Qt::DisplayRole && role != Qt::EditRole)
 		return QVariant();
 
 	ProjectNode* item = static_cast<ProjectNode*>(index.internalPointer());
@@ -98,6 +101,9 @@ Qt::ItemFlags ProjectTreeModel::flags(const QModelIndex& index) const
 {
 	if (!index.isValid())
 		return Qt::NoItemFlags;
+	auto node = getNode(index);
+	if (node->type() == ProjectNode::NodeType::event_node)
+		return Qt::ItemIsEditable | QAbstractItemModel::flags(index);
 
 	return QAbstractItemModel::flags(index);
 }
@@ -105,6 +111,12 @@ Qt::ItemFlags ProjectTreeModel::flags(const QModelIndex& index) const
 bool ProjectTreeModel::setData(const QModelIndex& index, const QVariant& value,
 	int role)
 {
+	auto node = getNode(index);
+	if (node->type() == ProjectNode::NodeType::event_node)
+	{
+		BehaviorBuilder* builder = (BehaviorBuilder * )_resourceManager.fieldsHandler(node->data(1).value<int>());
+		return builder->renameEvent(node->data(3).value<int>(), value.value<QString>());
+	}
 	return false;
 }
 

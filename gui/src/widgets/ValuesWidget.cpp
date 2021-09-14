@@ -35,6 +35,11 @@ ValuesWidget::~ValuesWidget()
 void ValuesWidget::setVariant(int file_index, hkVariant* v, hkVariant* parent)
 {
 	auto actual_model = dynamic_cast<HkxItemTableModel*>(ui->valuesView->model());
+	ISpecialFieldsHandler* fields_handler = _manager.fieldsHandler(file_index);
+	if (fields_handler != NULL)
+	{
+		actual_model->registerFieldHandler(fields_handler);
+	}
 	actual_model->setVariant(file_index, v);
 	QRect vporig = ui->valuesView->viewport()->geometry();
 	QRect vpnew = vporig;

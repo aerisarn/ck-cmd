@@ -44,6 +44,8 @@ namespace ckcmd {
             bool isSkeleton() const;
             bool isVariant() const;
 
+            bool canSaveOrExport() const;
+
             ProjectNode* appendChild(ProjectNode* child);
             void appendData(const QVariant& value);
 

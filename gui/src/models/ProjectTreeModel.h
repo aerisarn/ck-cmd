@@ -2,6 +2,8 @@
 
 #include <QAbstractItemModel>
 #include <src/models/ProjectNode.h>
+#include <src/hkx/CommandManager.h>
+#include <src/hkx/ResourceManager.h>
 
 //Proof of concept, but unuseful. look for table/tree models instead
 
@@ -12,9 +14,12 @@ namespace ckcmd {
             Q_OBJECT
                 friend class TreeBuilder;
 
+            CommandManager& _commandManager;
+            ResourceManager& _resourceManager;
+
         public:
 
-            ProjectTreeModel(QObject* parent = 0);
+            ProjectTreeModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent = 0);
             ~ProjectTreeModel() {
             
             }

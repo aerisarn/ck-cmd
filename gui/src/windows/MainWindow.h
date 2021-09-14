@@ -11,6 +11,7 @@
 #include <src/models/ProjectTreeModel.h>
 #include <src/widgets/ProjectsWidget.h>
 #include <src/widgets/ValuesWidget.h>
+#include <src/widgets/ActionHandler.h>
 
 #include <src/animdata/AnimDataManager.h>
 #include <src/hkx/HkxSimulation.h>
@@ -63,7 +64,7 @@ private:
     ProjectsWidget* _projectTreeView;
     ValuesWidget* _valuesTableView;
     HkxSimulation* _simulation;
-    
+
     //Data
     WorkspaceConfig _workspace;
     ckcmd::HKX::ProjectTreeModel _model;
@@ -72,6 +73,8 @@ private:
     ckcmd::HKX::AnimationManager _animation_manager;
 
 
+    //Actions
+    ckcmd::HKX::ActionHandler* _handler;
 
 };
 

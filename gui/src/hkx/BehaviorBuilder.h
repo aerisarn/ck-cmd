@@ -84,6 +84,7 @@ namespace ckcmd {
 
 			//Actions
 			virtual size_t addEvent(const QString&);
+			virtual bool renameEvent(size_t index, const QString&);
 			virtual size_t removeEvent(const QString&);
 
 			virtual size_t addVariable(const QString&);

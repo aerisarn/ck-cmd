@@ -2,6 +2,9 @@
 
 #include <src/models/ProjectNode.h>
 
+#include <src/widgets/ActionHandler.h>
+
+#include <QObject>
 #include <QMenu>
 
 namespace ckcmd {
@@ -9,10 +12,13 @@ namespace ckcmd {
 
 		class TreeContextMenuBuilder
 		{
+
+			ActionHandler& _actionHandler;
+
 		public:
-			TreeContextMenuBuilder() {}
-
-
+			TreeContextMenuBuilder(ActionHandler& actionHandler)
+				: _actionHandler(actionHandler)
+			{}
 			QMenu* build(ProjectNode* node);
 		};
 	}

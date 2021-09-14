@@ -99,14 +99,19 @@ void ProjectsWidget::treeMenu(QPoint p)
 {
 	const QModelIndex& index = ui->treeView->indexAt(p);
 	ProjectNode* node_clicked = _model->getNode(index);
-	QMenu* menu = TreeContextMenuBuilder().build(node_clicked);
-	if (menu) {
+	/*QMenu* menu = TreeContextMenuBuilder().build(node_clicked);
+	if (menu != nullptr) {
 		menu->exec(this->mapToGlobal(p));
-	}
+	}*/
 }
 
 ProjectsWidget::~ProjectsWidget()
 {
 	delete ui;
+}
+
+QTreeView& ProjectsWidget::view()
+{
+	return *ui->treeView;
 }
 
