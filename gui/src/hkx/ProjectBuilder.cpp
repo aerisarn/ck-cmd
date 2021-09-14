@@ -111,6 +111,16 @@ ProjectBuilder::ProjectBuilder(
 											QString::fromStdString(file)
 										},
 										animations_node);
+									auto events = creature_cache->getProjectSetEvents(file);
+									for (auto& swap_event : events) {
+										auto event_node = _resourceManager.createSupport(
+											character_file_index,
+											{
+												QString::fromStdString(swap_event)
+											},
+											node);
+										node->appendChild(event_node);
+									}
 									animations_node->appendChild(node);
 									sets[file] = node;
 								}

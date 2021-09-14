@@ -2,7 +2,7 @@
 
 #include "ClipAttacksBlock.h"
 #include "ClipFilesCRC32Block.h"
-#include "UnkEventData.h"
+#include "HandVariableData.h"
 
 namespace AnimData {
 
@@ -12,24 +12,24 @@ namespace AnimData {
 		//behavior data, check how!
 		StringListBlock swapEventsList; //Used only when multiple sets of animations can swap istantly, list of events that can change the set
 		//behavior data, check iLeftHandType / iRightHandType values!
-		UnkEventData unkEventData; //in case of swap of equipped stuff, sets new values to the variable used by the attack set
+		HandVariableData handVariableData; //in case of swap of equipped stuff, sets new values to the variable used by the attack set
 		ClipAttacksBlock attackData;
 		ClipFilesCRC32Block crc32Data;
 	public:
-		StringListBlock getUnkEventList() {
+		StringListBlock getSwapEventsList() {
 			return swapEventsList;
 		}
 
-		void setUnkEventList(StringListBlock unkEventList) {
-			this->swapEventsList = unkEventList;
+		void setSwapEventsList(StringListBlock swapEventsList) {
+			this->swapEventsList = swapEventsList;
 		}
 
-		UnkEventData getUnkEventData() {
-			return unkEventData;
+		HandVariableData getHandVariableData() {
+			return handVariableData;
 		}
 
-		void setUnkEventData(UnkEventData unkEventData) {
-			this->unkEventData = unkEventData;
+		void setHandVariableData(HandVariableData handVariableData) {
+			this->handVariableData = handVariableData;
 		}
 
 		ClipAttacksBlock getAttackData() {
@@ -52,7 +52,7 @@ namespace AnimData {
 		void parseBlock(scannerpp::Scanner& input) override {
 			animVersion = input.nextLine();
 			swapEventsList.fromASCII(input);
-			unkEventData.fromASCII(input);
+			handVariableData.parseBlock(input);
 			int numAttackBlocks = input.nextInt();
 			attackData.setBlocks(numAttackBlocks);
 			attackData.parseBlock(input);
@@ -62,7 +62,7 @@ namespace AnimData {
 		std::string getBlock() override {
 			std::string out = animVersion + "\n";
 			out += swapEventsList.toASCII();
-			out += unkEventData.toASCII();
+			out += handVariableData.getBlock();
 			out += std::to_string(attackData.getBlocks()) + "\n";
 			out += attackData.getBlock();
 			out += crc32Data.toASCII();

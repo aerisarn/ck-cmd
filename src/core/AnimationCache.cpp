@@ -478,8 +478,8 @@ void AnimationCache::check_from_bsa(const ckcmd::BSA::BSAFile& bsa_file, const s
 		Log::Info("animations sets: %d", abs.size());
 		for (auto& ab : abs)
 		{
-			getUnkEventList += ab.getUnkEventList().getStrings().size();
-			getUnkEventData += ab.getUnkEventData().getStrings().size();
+			getUnkEventList += ab.getSwapEventsList().getStrings().size();
+			getUnkEventData += 3;//ab.getHandVariableData().getStrings().size();
 			auto& atts = ab.getAttackData().getAttackData();
 			auto& strings = ab.getCrc32Data().getStrings();
 			for (auto& att : atts)

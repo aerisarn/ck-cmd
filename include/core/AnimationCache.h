@@ -101,7 +101,7 @@ struct CreatureCacheEntry : public CacheEntry
 	CreatureCacheEntry(const string& name, AnimData::ProjectBlock& block, AnimData::ProjectDataBlock& movements, AnimData::ProjectAttackListBlock& sets) :
 		CacheEntry(name, block, movements), sets(sets) {}
 
-	std::vector<string> findProjectFile(const std::string& file) {
+	vector<string> findProjectFile(const std::string& file) {
 		std::vector<string> out;
 		std::string to_crc = fs::path(file).filename().replace_extension("").string();
 		transform(to_crc.begin(), to_crc.end(), to_crc.begin(), ::tolower);
@@ -119,6 +119,13 @@ struct CreatureCacheEntry : public CacheEntry
 			}
 		}
 		return out;
+	}
+
+	vector<string> getProjectSetEvents(const std::string& file) {
+		auto projectFiles = sets.getProjectFiles().getStrings();
+		auto blocks = sets.getProjectAttackBlocks();
+		size_t set_index = distance(projectFiles.begin(), find(projectFiles.begin(), projectFiles.end(), file));
+		return blocks[set_index].getSwapEventsList().getStrings();
 	}
 
 };
