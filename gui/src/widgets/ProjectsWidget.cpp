@@ -59,28 +59,50 @@ void ProjectsWidget::modelHasSetNewHkxItemPointer(
 	int file, 
 	hkVariant* variant)
 {
-	auto old_index = _manager.findIndex(file, old_value.get());
-	auto new_index = _manager.findIndex(file, new_value.get());
-	auto old_variant = _manager.at(file, old_index);
-	auto new_variant = _manager.at(file, new_index);
-	ProjectNode* old_node = _manager.findNode(file, old_variant);
-	ProjectNode* new_node = _manager.findNode(file, new_variant);
-	auto old_model_index = _model->getIndex(old_node);
-	if (old_node != new_node)
+	if (old_value.get() == new_value.get())
+		return;
+
+	QModelIndex parent_index;
+	size_t row = 0;
+	ProjectNode* old_parent = nullptr;
+
+	if (old_value.get() != nullptr)
 	{
-		auto old_parent = old_node->parentItem();
-		auto parent_index = _model->getIndex(old_parent);
-		_model->notifyBeginRemoveRows(parent_index, old_model_index.row(), old_model_index.row());
-		old_parent->removeChild(old_model_index.row());
+		auto old_index = _manager.findIndex(file, old_value.get());
+		auto old_variant = _manager.at(file, old_index);
+		ProjectNode* old_node = _manager.findNode(file, old_variant);
+		row = _model->getIndex(old_node).row();
+
+		old_parent = old_node->parentItem();
+		parent_index = _model->getIndex(old_parent);
+		_model->notifyBeginRemoveRows(parent_index, row, row);
+		old_parent->removeChild(row);
 		old_node->removeParent(old_parent);
 		_model->notifyEndRemoveRows();
-		_model->notifyBeginInsertRows(parent_index, old_model_index.row(), old_model_index.row());
-		old_parent->insertChild(old_model_index.row(), new_node);
+	}
+
+	if (new_value.get() != nullptr)
+	{
+		if (!parent_index.isValid())
+		{
+			old_parent = _manager.findNode(file, variant);
+			parent_index = _model->getIndex(old_parent);
+			row = old_parent->childCount();
+		}
+
+		auto new_index = _manager.findIndex(file, new_value.get());
+		auto new_variant = _manager.at(file, new_index);
+		ProjectNode* new_node = _manager.findNode(file, new_variant);
+
+		_model->notifyBeginInsertRows(parent_index, row, row);
+		old_parent->insertChild(row, new_node);
 		new_node->setParent(old_parent);
 		_model->notifyEndInsertRows();
-		ui->treeView->setCurrentIndex(old_model_index);
-		nodeClicked(old_model_index);
+
 	}
+	auto clicked = _model->index(row, 0, parent_index);
+	ui->treeView->setCurrentIndex(clicked);
+	nodeClicked(clicked);
 }
 
 void ProjectsWidget::nodeClicked(const QModelIndex& index)

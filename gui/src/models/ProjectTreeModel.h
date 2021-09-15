@@ -73,6 +73,7 @@ namespace ckcmd {
             QModelIndex getIndex(ProjectNode* node) const;
 
             ProjectNode* _rootNode = NULL;
+
         };
     }
 }

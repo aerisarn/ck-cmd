@@ -129,3 +129,19 @@ QModelIndex ProjectTreeModel::getIndex(ProjectNode* node) const
 
 	return createIndex(parentItem->row(), 0, parentItem);
 }
+
+//bool ProjectTreeModel::insertRows(int row, int count, const QModelIndex& parent = QModelIndex())
+//{
+//	beginInsertRows(parent,
+//		row,
+//		row + count);
+//
+//	for (int i = row; i < row + count; i++)
+//	{
+//		getNode(parent)->appendChild(new _resourceManager.);
+//	}
+//
+//	this->endInsertRows();
+//
+//	return true;
+//}
