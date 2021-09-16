@@ -24,7 +24,7 @@ namespace AnimData {
 			this->swapEventsList = swapEventsList;
 		}
 
-		HandVariableData getHandVariableData() {
+		HandVariableData& getHandVariableData() {
 			return handVariableData;
 		}
 

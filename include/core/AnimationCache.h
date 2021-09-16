@@ -121,11 +121,33 @@ struct CreatureCacheEntry : public CacheEntry
 		return out;
 	}
 
+	vector<string> getProjectSetFiles()
+	{
+		return sets.getProjectFiles().getStrings();
+	}
+
 	vector<string> getProjectSetEvents(const std::string& file) {
 		auto projectFiles = sets.getProjectFiles().getStrings();
 		auto blocks = sets.getProjectAttackBlocks();
 		size_t set_index = distance(projectFiles.begin(), find(projectFiles.begin(), projectFiles.end(), file));
 		return blocks[set_index].getSwapEventsList().getStrings();
+	}
+
+	AnimData::HandVariableData& getProjectSetVariables(const std::string& file) {
+		auto projectFiles = sets.getProjectFiles().getStrings();
+		auto blocks = sets.getProjectAttackBlocks();
+		size_t set_index = distance(projectFiles.begin(), find(projectFiles.begin(), projectFiles.end(), file));
+		return blocks[set_index].getHandVariableData();
+	}
+
+	pair<vector<string>, AnimData::HandVariableData> getProjectSetInfo(const std::string& project_set_key) {
+		auto projectFiles = sets.getProjectFiles().getStrings();
+		auto blocks = sets.getProjectAttackBlocks();
+		size_t set_index = distance(projectFiles.begin(), find(projectFiles.begin(), projectFiles.end(), project_set_key));
+		return { 
+			blocks[set_index].getSwapEventsList().getStrings(),
+			blocks[set_index].getHandVariableData() 
+		};
 	}
 
 };
