@@ -294,6 +294,29 @@ void AnimationCache::build(const string& animationDataContent, const string& ani
 	}
 	rebuildIndex();
 
+	for (const auto& creature : creature_entries)
+	{
+		string project_name = creature.name;
+		auto& movements = creature.movements.getMovementData();
+		for (auto& clip : creature.block.getClips()) {
+			movements_map[{project_name, clip.getName()}] = movements[clip.getCacheIndex()];
+		}
+		for (auto& set : creature.sets.getProjectAttackBlocks()) {
+			if (set.getHandVariableData().getVariables().size() == 0)
+			{
+				for (auto& idle_event : set.getSwapEventsList().getStrings()) {
+					events_map.insert({ {project_name, idle_event}, { event_type_t::idle, {} } });
+				}
+			}
+			else {
+				for (auto& attack_data : set.getAttackData().getAttackData()) {
+					events_map.insert({ {project_name, attack_data.getEventName()}, { event_type_t::attack, set.getHandVariableData().getVariables()} });
+				}
+			}
+		}
+	}
+
+
 	printInfo();
 #ifdef __TEST__
 	AnimData::AnimDataFile newAnimationData;
@@ -479,7 +502,7 @@ void AnimationCache::check_from_bsa(const ckcmd::BSA::BSAFile& bsa_file, const s
 		for (auto& ab : abs)
 		{
 			getUnkEventList += ab.getSwapEventsList().getStrings().size();
-			getUnkEventData += 3;//ab.getHandVariableData().getStrings().size();
+			getUnkEventData += ab.getHandVariableData().getVariables().size() * 3;
 			auto& atts = ab.getAttackData().getAttackData();
 			auto& strings = ab.getCrc32Data().getStrings();
 			for (auto& att : atts)

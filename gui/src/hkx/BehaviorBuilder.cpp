@@ -201,38 +201,38 @@ ProjectNode* BehaviorBuilder::buildBranch(hkVariant& variant, ProjectNode* root_
 
 void BehaviorBuilder::addCacheToClipNode(ProjectNode* clip_node, const hkbClipGenerator* clip)
 {
-	auto events = _cache->getEvents(clip->m_name.cString());
-	const std::string delimiter = ":";
+	//auto events = _cache->getEvents(clip->m_name.cString());
+	//const std::string delimiter = ":";
 
-	for (const auto& clip_event : events) {
-		auto delim_pos = clip_event.find(delimiter);
-		std::string event_name = clip_event.substr(0, delim_pos);
-		float time = stof(clip_event.substr(++delim_pos, clip_event.size() - 1));
-		//sanity check;
-		size_t event_index = (size_t )-1;
-		for (int i = 0; i < _strings->m_eventNames.getSize(); i++) {
-			if (_strings->m_eventNames[i].cString() == event_name)
-			{
-				event_index = i;
-				break;
-			}
-		}
-		if (event_index == (size_t)-1)
-		{
-			LOG << "Event not found into behavior: " << event_name << log_endl;
-		}
+	//for (const auto& clip_event : events) {
+	//	auto delim_pos = clip_event.find(delimiter);
+	//	std::string event_name = clip_event.substr(0, delim_pos);
+	//	float time = stof(clip_event.substr(++delim_pos, clip_event.size() - 1));
+	//	//sanity check;
+	//	size_t event_index = (size_t )-1;
+	//	for (int i = 0; i < _strings->m_eventNames.getSize(); i++) {
+	//		if (_strings->m_eventNames[i].cString() == event_name)
+	//		{
+	//			event_index = i;
+	//			break;
+	//		}
+	//	}
+	//	if (event_index == (size_t)-1)
+	//	{
+	//		LOG << "Event not found into behavior: " << event_name << log_endl;
+	//	}
 
-		clip_node->appendChild(
-			_manager.createClipEventNode(
-				_file_index,
-				{
-					QString::fromStdString(clip_event),
-					time,
-					event_index
-				},
-				clip_node)
-		);
-	}
+	//	clip_node->appendChild(
+	//		_manager.createClipEventNode(
+	//			_file_index,
+	//			{
+	//				QString::fromStdString(clip_event),
+	//				time,
+	//				event_index
+	//			},
+	//			clip_node)
+	//	);
+	//}
 
 	auto movements = _cache->findMovement(clip->m_name.cString());
 	if (movements.empty())

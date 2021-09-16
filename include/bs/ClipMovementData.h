@@ -3,6 +3,7 @@
 #include "StringListBlock.h"
 
 namespace AnimData {
+
 	class ClipMovementData : public BlockObject {
 
 		int cacheIndex = 0;

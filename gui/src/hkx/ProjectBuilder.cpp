@@ -89,115 +89,95 @@ ProjectBuilder::ProjectBuilder(
 					LOG << "Cached movements number is different from animation number!" << log_endl;
 				}
 
-				ProjectNode* idle = nullptr;
-				if (project_cache->hasCache()) {
-					CreatureCacheEntry* creature_cache = dynamic_cast<CreatureCacheEntry*>(project_cache);
-					if (creature_cache->getProjectSetFiles().size() > 1) {
-						idle = _resourceManager.createSupport(
-							character_file_index,
-							{
-								"Idles"
-							},
-							animations_node);
-						animations_node->appendChild(idle);
-					}
-				}
-				map<string, ProjectNode*> sets;
-				ProjectNode* base = _resourceManager.createSupport(
-					character_file_index,
-					{
-						"Base"
-					},
-					animations_node);
-				animations_node->appendChild(base);
+				//ProjectNode* idle = nullptr;
+				//if (project_cache->hasCache()) {
+				//	CreatureCacheEntry* creature_cache = dynamic_cast<CreatureCacheEntry*>(project_cache);
+				//	if (creature_cache->getProjectSetFiles().size() > 1) {
+				//		idle = _resourceManager.createSupport(
+				//			character_file_index,
+				//			{
+				//				"Idles"
+				//			},
+				//			animations_node);
+				//		animations_node->appendChild(idle);
+				//	}
+				//}
+				//map<string, ProjectNode*> sets;
+				//ProjectNode* base = _resourceManager.createSupport(
+				//	character_file_index,
+				//	{
+				//		"Base"
+				//	},
+				//	animations_node);
+				//animations_node->appendChild(base);
 
 				for (int a = 0; a < character_data->m_animationNames.getSize(); a++)
 				{
 					auto animation_path = project_folder / character_data->m_animationNames[a].cString();
 					if (fs::exists(animation_path))
 					{
-						auto& animation_contents = _resourceManager.get(animation_path);
-						if (project_cache->hasCache()) {
-							ProjectNode* parent = nullptr;
-							
-							CreatureCacheEntry* creature_cache = dynamic_cast<CreatureCacheEntry*>(project_cache);
-							auto files = creature_cache->findProjectFile(character_data->m_animationNames[a].cString());
-							for (auto& file : files) {
-								auto& info = creature_cache->getProjectSetInfo(file);
-								if (files.empty())
-									parent = base;
-								else {
-									auto& variables = info.second.getVariables();
-									auto& events = info.first;
-									if (variables.size() > 0) {
-										string set_name = variables.at(0).getHandString();
-										for (int i = 1; i < variables.size(); i++) {
-											set_name += string(" / ") + variables.at(i).getHandString();
-										}
-										if (sets.find(set_name) == sets.end()) {
-											auto node = _resourceManager.createSupport(
-												character_file_index,
-												{
-													QString::fromStdString(set_name)
-												},
-												animations_node);
-											animations_node->appendChild(node);
-											sets[set_name] = node;
-										}
-										parent = sets[set_name];
-									}
-									else if (events.size() > 0) {
-										string set_name = events.at(0);
-										for (int i = 1; i < events.size(); i++) {
-											set_name += string(" / ") + events.at(i);
-										}
-										if (sets.find(set_name) == sets.end()) {
-											auto node = _resourceManager.createSupport(
-												character_file_index,
-												{
-													QString::fromStdString(set_name)
-												},
-												idle);
-											idle->appendChild(node);
-											sets[set_name] = node;
-										}
-										parent = sets[set_name];
-									}
-									else {
-										parent = base;
-									}
-								}
-								/*if (sets.find(file) == sets.end()) {
-									auto node = _resourceManager.createSupport(
-										character_file_index,
-										{
-											QString::fromStdString(file)
-										},
-										animations_node);
-									auto info = creature_cache->getProjectSetEvents(file);
-									for (auto& swap_event : events) {
-										auto event_node = _resourceManager.createSupport(
-											character_file_index,
-											{
-												QString::fromStdString(swap_event)
-											},
-											node);
-										node->appendChild(event_node);
-									}
-									animations_node->appendChild(node);
-									sets[file] = node;
-								}
-								auto parent_node = sets[file];*/
-								ProjectNode* animation_node = _resourceManager.createAnimation(
-									character_file_index, {
-										character_data->m_animationNames[a].cString(),
-										animation_path.string().c_str()
-									},
-									parent);
-								parent->appendChild(animation_node);
-							}
-						}
-						else {
+						//TODO: do this on save just for exported projects
+						//auto& animation_contents = _resourceManager.get(animation_path);
+						//if (project_cache->hasCache()) {
+						//	ProjectNode* parent = animations_node;
+						//	
+						//	CreatureCacheEntry* creature_cache = dynamic_cast<CreatureCacheEntry*>(project_cache);
+						//	auto files = creature_cache->findProjectFile(character_data->m_animationNames[a].cString());
+						//	for (auto& file : files) {
+						//		/*auto& info = creature_cache->getProjectSetInfo(file);
+						//		if (files.empty())
+						//			parent = base;
+						//		else {
+						//			auto& variables = info.second.getVariables();
+						//			auto& events = info.first;
+						//			if (variables.size() > 0) {
+						//				string set_name = variables.at(0).getHandString();
+						//				for (int i = 1; i < variables.size(); i++) {
+						//					set_name += string(" / ") + variables.at(i).getHandString();
+						//				}
+						//				if (sets.find(set_name) == sets.end()) {
+						//					auto node = _resourceManager.createSupport(
+						//						character_file_index,
+						//						{
+						//							QString::fromStdString(set_name)
+						//						},
+						//						animations_node);
+						//					animations_node->appendChild(node);
+						//					sets[set_name] = node;
+						//				}
+						//				parent = sets[set_name];
+						//			}
+						//			else if (events.size() > 0) {
+						//				string set_name = events.at(0);
+						//				for (int i = 1; i < events.size(); i++) {
+						//					set_name += string(" / ") + events.at(i);
+						//				}
+						//				if (sets.find(set_name) == sets.end()) {
+						//					auto node = _resourceManager.createSupport(
+						//						character_file_index,
+						//						{
+						//							QString::fromStdString(set_name)
+						//						},
+						//						idle);
+						//					idle->appendChild(node);
+						//					sets[set_name] = node;
+						//				}
+						//				parent = sets[set_name];
+						//			}
+						//			else {
+						//				parent = base;
+						//			}
+						//		}*/
+						//		ProjectNode* animation_node = _resourceManager.createAnimation(
+						//			character_file_index, {
+						//				character_data->m_animationNames[a].cString(),
+						//				animation_path.string().c_str()
+						//			},
+						//			parent);
+						//		parent->appendChild(animation_node);
+						//	}
+						//}
+						//else {
 							ProjectNode* animation_node = _resourceManager.createAnimation(
 								character_file_index, {
 									character_data->m_animationNames[a].cString(),
@@ -205,7 +185,7 @@ ProjectBuilder::ProjectBuilder(
 								},
 								animations_node);
 							animations_node->appendChild(animation_node);
-						}
+						//}
 
 						//kinda pointless to open all the animations
 						//buildBranch(animation_contents.first, animation_node, animation_path);

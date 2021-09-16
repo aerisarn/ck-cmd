@@ -164,6 +164,39 @@ struct AnimationCache {
 	static constexpr const char* animation_set_data_folder = "animationsetdata";
 	static constexpr const char* animation_set_data_merged_file = "animationsetdatasinglefile.txt";
 
+	//project, clip -> movement
+	typedef pair<string, string> movement_key_t;
+	map< movement_key_t, AnimData::ClipMovementData> movements_map;
+
+	const AnimData::ClipMovementData& getMovement(string project, string clip) {
+		return movements_map.at({ project, clip });
+	}
+
+	enum event_type_t
+	{
+		idle,
+		attack
+	};
+
+	struct event_info_t
+	{
+		event_type_t type;
+		vector<AnimData::HandVariableData::Data> animation_set;
+	};
+
+	//project, event -> type
+	typedef pair<string, string> eventset_key_t;
+	multimap< eventset_key_t, event_info_t> events_map;
+
+	vector<event_info_t> getEventsInfo(string project, string anim_event) {
+		vector<event_info_t> out;
+		auto entries = events_map.equal_range({ project, anim_event });
+		for (auto it = entries.first; it != entries.second; it++) {
+			out.push_back(it->second);
+		}
+		return out;
+	}
+
 	static inline bool iequals(const string& a, const string& b)
 	{
 		return std::equal(a.begin(), a.end(),
