@@ -114,7 +114,7 @@ bool ProjectTreeModel::setData(const QModelIndex& index, const QVariant& value,
 	auto node = getNode(index);
 	if (node->type() == ProjectNode::NodeType::event_node)
 	{
-		BehaviorBuilder* builder = (BehaviorBuilder * )_resourceManager.fieldsHandler(node->data(1).value<int>());
+		BehaviorBuilder* builder = (BehaviorBuilder * )_resourceManager.fieldsHandler(node->data(2).value<int>());
 		return builder->renameEvent(node->data(3).value<int>(), value.value<QString>());
 	}
 	return false;
