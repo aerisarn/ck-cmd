@@ -24,6 +24,7 @@ namespace ckcmd {
                 hkx_character_node,
                 hkx_node,
                 event_node,
+                weapon_set_node,
                 variable_node,
                 property_node,
                 clip_event_node,

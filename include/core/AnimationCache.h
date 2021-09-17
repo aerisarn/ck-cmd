@@ -181,6 +181,7 @@ struct AnimationCache {
 	struct event_info_t
 	{
 		event_type_t type;
+		bool blended;
 		vector<AnimData::HandVariableData::Data> animation_set;
 	};
 

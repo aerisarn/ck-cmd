@@ -32,33 +32,33 @@ namespace AnimData {
 			std::string EquipTypeString(const EquipType& key) {
 				switch (key) {
 				case kHandToHandMelee:
-					return "H2H";
+					return "Unarmed";
 				case kOneHandSword:
-					return "1HS";
+					return "Sword";
 				case kOneHandDagger:
-					return "1HD";
+					return "Dagger";
 				case kOneHandAxe:
-					return "1HA";
+					return "Axe";
 				case kOneHandMace:
-					return "1HM";
+					return "Mace";
 				case kTwoHandSword:
-					return "2HS";
+					return "GreatSword";
 				case kTwoHandAxe:
-					return "2HA";
+					return "GreatAxe";
 				case kBow:
-					return "BOW";
+					return "Bow";
 				case kStaff:
-					return "STA";
+					return "Staff";
 				case kCrossbow:
-					return "XBW";
+					return "Crossbow";
 				case kSpell:
-					return "MAG";
+					return "Magic";
 				case kShield:
-					return "SHD";
+					return "Shield";
 				default:
-					return "UNK";
+					return "Unknown";
 				}
-				return "UNK";
+				return "Unknown";
 			}
 
 			std::string getHandString()

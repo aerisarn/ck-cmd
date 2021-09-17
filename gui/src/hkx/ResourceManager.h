@@ -24,8 +24,11 @@ namespace ckcmd {
 			std::map<size_t, ITreeBuilderClassHandler*> _class_handlers;
 			std::map<size_t, ISpecialFieldsHandler*> _field_handlers;
 			std::map<size_t, std::vector<ProjectNode*>> _nodes;
+			std::map<size_t, string> _sanitized_names;
 			WorkspaceConfig& _workspace;
 			AnimationCache _cache;
+
+			const std::string& get_sanitized_name(int file_index);
 
 		public:
 
@@ -63,6 +66,7 @@ namespace ckcmd {
 			ProjectNode* createStatic(const QVector<QVariant>& data, ProjectNode* parentItem, ProjectNode::NodeType type);
 			ProjectNode* createSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createEventsSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createWeaponSetNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem);
 			ProjectNode* createVariablesSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createProject(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createCharacter(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
@@ -81,8 +85,12 @@ namespace ckcmd {
 			ProjectNode* findNode(int file, const hkVariant* variant) const;
 			QModelIndex getIndex(ProjectNode* node) const;
 
+			bool isCreatureProject(int file_index);
 			CacheEntry* findCacheEntry(const std::string& sanitized_name);
 			CacheEntry* findCacheEntry(size_t file_index);
+			const AnimData::ClipMovementData& getMovement(size_t file_index, string clip);
+			vector<AnimationCache::event_info_t> getEventsInfo(size_t file_index, string anim_event);
+
 
 		};
 	}

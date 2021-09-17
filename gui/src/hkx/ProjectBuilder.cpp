@@ -35,7 +35,7 @@ ProjectBuilder::ProjectBuilder(
 	ProjectNode* project_node = _resourceManager.createSupport(project_file_index, {"Projects", project_path.string().c_str() }, _parent);
 	_parent->appendChild(project_node);
 	buildBranch(project_root, project_node, project_path);
-	auto project_cache = _resourceManager.findCacheEntry(project_file_index);
+	//auto project_cache = _resourceManager.findCacheEntry(project_file_index);
 	
 	if (project_data)
 	{
@@ -83,11 +83,11 @@ ProjectBuilder::ProjectBuilder(
 				animations_node = _resourceManager.createSupport(character_file_index, { "Animations" }, character_node);
 				character_node->appendChild(animations_node);
 				//check cache;
-				auto movements = project_cache->getMovements();
-				if (project_cache->hasCache() && movements.size() != character_data->m_animationNames.getSize())
-				{
-					LOG << "Cached movements number is different from animation number!" << log_endl;
-				}
+				//auto movements = project_cache->getMovements();
+				//if (project_cache->hasCache() && movements.size() != character_data->m_animationNames.getSize())
+				//{
+				//	LOG << "Cached movements number is different from animation number!" << log_endl;
+				//}
 
 				//ProjectNode* idle = nullptr;
 				//if (project_cache->hasCache()) {
@@ -202,7 +202,7 @@ ProjectBuilder::ProjectBuilder(
 			auto behavior_index = _resourceManager.index(behavior_path);
 			ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
 			character_node->appendChild(behavior_node);
-			auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_cache, behavior_index, animations_node);
+			auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_file_index, behavior_index, animations_node);
 			behavior_handler->setSkeleton(skeleton_builder);
 			_resourceManager.setClassHandler(
 				behavior_index,
@@ -225,7 +225,7 @@ ProjectBuilder::ProjectBuilder(
 				ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
 				character_node->appendChild(behavior_node);
 				
-				auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_cache, behavior_index, animations_node);
+				auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_file_index, behavior_index, animations_node);
 				behavior_handler->setSkeleton(skeleton_builder);
 				_resourceManager.setClassHandler(
 					behavior_index,

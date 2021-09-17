@@ -63,10 +63,10 @@ std::vector<member_id_t> BehaviorBuilder::getHandledFields() {
 	return result;
 }
 
-BehaviorBuilder::BehaviorBuilder(CommandManager& commandManager, ResourceManager& manager, CacheEntry* cache, size_t file_index, ProjectNode* animationsNode) :
+BehaviorBuilder::BehaviorBuilder(CommandManager& commandManager, ResourceManager& manager, size_t project_file_index, size_t file_index, ProjectNode* animationsNode) :
 	_command_manager(commandManager),
 	_manager(manager),
-	_cache(cache),
+	_project_file_index(project_file_index),
 	_file_index(file_index),
 	_animationsNode(animationsNode)
 {
@@ -91,6 +91,14 @@ void BehaviorBuilder::buildEvents(const buildContext& context)
 			auto event_info = context.data->m_eventInfos[i];
 
 			QString name = QString("[%1] %2").arg(i).arg(event_name.cString());
+			auto event_infos = _manager.getEventsInfo(_project_file_index, event_name.cString());
+			if (event_infos.size() == 1 && event_infos.at(0).type == AnimationCache::event_type_t::idle) {
+				name = QString("[%1] <IDLE> %2").arg(i).arg(event_name.cString());
+			}
+			else if (event_infos.size() > 0 && event_infos.at(0).type == AnimationCache::event_type_t::attack) {
+				name = QString("[%1] <ATTACK> %2").arg(i).arg(event_name.cString());
+			}
+			
 			auto event_node = _eventsNode->appendChild(
 				_manager.createEventNode(
 					_file_index,
@@ -102,6 +110,25 @@ void BehaviorBuilder::buildEvents(const buildContext& context)
 					},
 					_eventsNode)
 			);
+
+			if (event_infos.size() > 0 && event_infos.at(0).type == AnimationCache::event_type_t::attack) {
+				for (auto& info : event_infos) {
+					for (auto& data : info.animation_set)
+					{
+						auto weapon_set_node = event_node->appendChild(
+							_manager.createWeaponSetNode(
+								_file_index,
+								{
+									data.getHandString().c_str(),
+									(unsigned long long)_manager.at(_file_index, context.object_index),
+									(int)_file_index,
+									i,
+								},
+								event_node)
+								);
+					}
+				}
+			}
 		}
 	}
 }
@@ -233,19 +260,23 @@ void BehaviorBuilder::addCacheToClipNode(ProjectNode* clip_node, const hkbClipGe
 	//			clip_node)
 	//	);
 	//}
-
-	auto movements = _cache->findMovement(clip->m_name.cString());
-	if (movements.empty())
+	if (_manager.isCreatureProject(_project_file_index))
 	{
-		LOG << "Unable to find the movement for " << clip->m_name.cString() << log_endl;
-	}
-	if (!movements.empty() && _animationsNode != nullptr) {
-		for (int i = 0; i < _animationsNode->childCount(); i++)
-		{
-			if (_animationsNode->child(i)->data(0).value<QString>() == clip->m_animationName.cString()) {
-				_animationsNode->child(i)->appendData(QString::fromStdString(movements));
-				break;
+		try {
+			auto movement = _manager.getMovement(_project_file_index, clip->m_name.cString());
+			if (_animationsNode != nullptr) {
+				for (int i = 0; i < _animationsNode->childCount(); i++)
+				{
+					if (_animationsNode->child(i)->data(0).value<QString>() == clip->m_animationName.cString()) {
+						_animationsNode->child(i)->appendData(QString::fromStdString(movement.getBlock()));
+						break;
+					}
+				}
 			}
+		}
+		catch (out_of_range e)
+		{
+			LOG << "Unable to find the movement for " << clip->m_name.cString() << log_endl;
 		}
 	}
 }
@@ -283,9 +314,7 @@ ProjectNode* BehaviorBuilder::visit(
 	else if (variant->m_class == &hkbClipGeneratorClass) {
 		auto clip_node = buildBranch(*variant, parent, _file);
 		hkbClipGenerator* clip = (hkbClipGenerator*)variant->m_object;
-		if (_cache->hasCache()) {
-			addCacheToClipNode(clip_node, clip);
-		}
+		addCacheToClipNode(clip_node, clip);
 		return clip_node;
 	}
 	return parent;

@@ -227,6 +227,12 @@ ProjectNode* ResourceManager::createEventNode(size_t file_index, const QVector<Q
 	return node;
 }
 
+ProjectNode* ResourceManager::createWeaponSetNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::weapon_set_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
 ProjectNode* ResourceManager::createClipEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
 	auto node = new ProjectNode(ProjectNode::NodeType::clip_event_node, data, parentItem);
 	_nodes[file_index].push_back(node);
@@ -255,6 +261,23 @@ ProjectNode* ResourceManager::findNode(int file, const hkVariant* variant) const
 	return nullptr;
 }
 
+const std::string& ResourceManager::get_sanitized_name(int file_index) {
+	if (_sanitized_names.find(file_index) == _sanitized_names.end())
+	{
+		auto p = _files.at(file_index);
+		string sanitized_project_name = p.filename().replace_extension("").string();
+		_sanitized_names[file_index] = sanitized_project_name;
+	}
+	return _sanitized_names.at(file_index);
+}
+
+bool ResourceManager::isCreatureProject(int file_index) {
+	auto entry = findCacheEntry(file_index);
+	if (entry->hasCache())
+		return true;
+	return false;
+}
+
 CacheEntry* ResourceManager::findCacheEntry(const std::string& sanitized_name)
 {
 	return _cache.find(sanitized_name);
@@ -262,7 +285,14 @@ CacheEntry* ResourceManager::findCacheEntry(const std::string& sanitized_name)
 
 CacheEntry* ResourceManager::findCacheEntry(size_t file_index)
 {
-	auto p = _files.at(file_index);
-	string sanitized_project_name = p.filename().replace_extension("").string();
-	return _cache.find(sanitized_project_name);
+	return _cache.find(get_sanitized_name(file_index));
+}
+
+const AnimData::ClipMovementData& ResourceManager::getMovement(size_t file_index, string clip) {
+	return _cache.getMovement(get_sanitized_name(file_index), clip );
+}
+
+vector<AnimationCache::event_info_t> ResourceManager::getEventsInfo(size_t file_index, string anim_event) 
+{
+	return _cache.getEventsInfo(get_sanitized_name(file_index), anim_event);
 }

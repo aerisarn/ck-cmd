@@ -43,9 +43,9 @@ namespace ckcmd {
 
 
 			size_t _file_index;
+			size_t _project_file_index;
 			ResourceManager& _manager;
 			CommandManager& _command_manager;
-			CacheEntry* _cache;
 			ProjectNode* _animationsNode;
 			ProjectNode* _eventsNode;
 			ProjectNode* _variablesNode;
@@ -55,7 +55,7 @@ namespace ckcmd {
 
 		public:
 
-			BehaviorBuilder(CommandManager& commandManager, ResourceManager& manager, CacheEntry* cache, size_t file_index, ProjectNode* animationsNode);
+			BehaviorBuilder(CommandManager& commandManager, ResourceManager& manager, size_t _project_file_index, size_t file_index, ProjectNode* animationsNode);
 
 			const std::set<std::string>& referenced_behaviors() { return _referenced_behaviors; }
 

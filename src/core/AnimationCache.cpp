@@ -297,9 +297,12 @@ void AnimationCache::build(const string& animationDataContent, const string& ani
 	for (const auto& creature : creature_entries)
 	{
 		string project_name = creature.name;
+		transform(project_name.begin(), project_name.end(), project_name.begin(), [](unsigned char c) { return tolower(c); });
 		auto& movements = creature.movements.getMovementData();
 		for (auto& clip : creature.block.getClips()) {
-			movements_map[{project_name, clip.getName()}] = movements[clip.getCacheIndex()];
+			//Bethesda fuck up this
+			if (clip.getCacheIndex() < movements.size())
+				movements_map[{project_name, clip.getName()}] = movements[clip.getCacheIndex()];
 		}
 		for (auto& set : creature.sets.getProjectAttackBlocks()) {
 			if (set.getHandVariableData().getVariables().size() == 0)
@@ -308,10 +311,9 @@ void AnimationCache::build(const string& animationDataContent, const string& ani
 					events_map.insert({ {project_name, idle_event}, { event_type_t::idle, {} } });
 				}
 			}
-			else {
-				for (auto& attack_data : set.getAttackData().getAttackData()) {
-					events_map.insert({ {project_name, attack_data.getEventName()}, { event_type_t::attack, set.getHandVariableData().getVariables()} });
-				}
+
+			for (auto& attack_data : set.getAttackData().getAttackData()) {
+				events_map.insert({ {project_name, attack_data.getEventName()}, { event_type_t::attack, set.getHandVariableData().getVariables()} });
 			}
 		}
 	}
