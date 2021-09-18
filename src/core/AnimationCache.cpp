@@ -313,7 +313,10 @@ void AnimationCache::build(const string& animationDataContent, const string& ani
 			}
 
 			for (auto& attack_data : set.getAttackData().getAttackData()) {
-				events_map.insert({ {project_name, attack_data.getEventName()}, { event_type_t::attack, set.getHandVariableData().getVariables()} });
+				events_map.insert({ {project_name, attack_data.getEventName()}, 
+					{ event_type_t::attack, 
+					attack_data.getUnk1()>0,
+					set.getHandVariableData().getVariables()} });
 			}
 		}
 	}
