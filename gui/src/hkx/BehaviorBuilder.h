@@ -35,6 +35,7 @@ namespace ckcmd {
 			void buildEvents(const buildContext& context);
 			void buildVariables(const buildContext& context);
 			void buildProperties(const buildContext& context);
+			void buildAnimationStyles(const buildContext& context);
 
 			SkeletonBuilder* _skeleton_builder;
 			hkbBehaviorGraphData* _data;

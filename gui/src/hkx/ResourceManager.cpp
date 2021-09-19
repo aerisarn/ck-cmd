@@ -167,6 +167,18 @@ ProjectNode* ResourceManager::createVariablesSupport(size_t file_index, const QV
 	return node;
 }
 
+ProjectNode* ResourceManager::createAnimationStylesSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::animation_styles_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createAnimationStyle(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::animation_style_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
 ProjectNode* ResourceManager::createProject(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
 	auto node = new ProjectNode(ProjectNode::NodeType::project_node, data, parentItem);
 	_nodes[file_index].push_back(node);

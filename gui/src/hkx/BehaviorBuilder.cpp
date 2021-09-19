@@ -111,7 +111,7 @@ void BehaviorBuilder::buildEvents(const buildContext& context)
 					_eventsNode)
 			);
 
-			if (event_infos.size() > 0 && event_infos.at(0).type == AnimationCache::event_type_t::attack) {
+			/*if (event_infos.size() > 0 && event_infos.at(0).type == AnimationCache::event_type_t::attack) {
 				for (auto& info : event_infos) {
 					for (auto& data : info.animation_set)
 					{
@@ -128,7 +128,7 @@ void BehaviorBuilder::buildEvents(const buildContext& context)
 								);
 					}
 				}
-			}
+			}*/
 		}
 	}
 }
@@ -198,7 +198,94 @@ void BehaviorBuilder::buildProperties(const buildContext& context)
 		}
 	}
 }
+void BehaviorBuilder::buildAnimationStyles(const buildContext& context)
+{
+	if (_manager.isCreatureProject(_project_file_index))
+	{
+		auto cache_animation_entry = (CreatureCacheEntry*)_manager.findCacheEntry(_project_file_index);
+		auto cache_animation_sets_data = cache_animation_entry->getProjectAttackBlocks();
 
+		auto animation_styles_node = context.parent->appendChild(
+			_manager.createAnimationStylesSupport(
+				_file_index,
+				{
+					"Animation Styles"
+				},
+				context.parent)
+		);
+		if (cache_animation_sets_data.size() == 1)
+		{
+			ProjectNode* parent = animation_styles_node->appendChild(
+				_manager.createAnimationStyle(
+					_file_index,
+					{
+						"Unarmed"
+					},
+					animation_styles_node)
+			);
+			for (auto& attack : cache_animation_sets_data.at(0).getAttackData().getAttackData()) {
+				auto attack_node = parent->appendChild(
+					_manager.createAnimationStyle(
+						_file_index,
+						{
+							attack.getEventName().c_str(),
+							attack.getUnk1()
+						},
+						parent)
+				);
+			}
+		}
+		else {
+			for (auto& data : cache_animation_sets_data) {
+				ProjectNode* parent;
+				if (!data.getHandVariableData().getVariables().empty()) {
+
+					auto variables = data.getHandVariableData().getVariables();
+					QString style_name = QString::fromStdString(variables.at(0).getHandString());
+					for (int i = 1; i < variables.size(); i++)
+					{
+						style_name += "/" + QString::fromStdString(variables.at(i).getHandString());
+					}
+					QVector<QString> qvariables;
+					QVector<int> qmins;
+					QVector<int> qmaxs;
+					for (int i = 0; i < variables.size(); i++)
+					{
+						qvariables.push_back(QString::fromStdString(variables.at(i).variable_name));
+						qmins.push_back(variables.at(i).value_min);
+						qmins.push_back(variables.at(i).value_max);
+					}
+					QVariant value1; value1.setValue(qvariables);
+					QVariant value2; value2.setValue(qmins);
+					QVariant value3; value3.setValue(qmaxs);
+
+					parent = animation_styles_node->appendChild(
+						_manager.createAnimationStyle(
+							_file_index,
+							{
+								style_name,
+								value1,
+								value2,
+								value3
+							},
+							animation_styles_node)
+					);
+					for (auto& attack : data.getAttackData().getAttackData()) {
+						auto attack_node = parent->appendChild(
+							_manager.createAnimationStyle(
+								_file_index,
+								{
+									attack.getEventName().c_str(),
+									attack.getUnk1()
+								},
+								parent)
+						);
+					}
+				}			
+			}
+		}
+	}
+}
 
 //TODO: common to all builders
 ProjectNode* BehaviorBuilder::buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& path) {
@@ -228,38 +315,6 @@ ProjectNode* BehaviorBuilder::buildBranch(hkVariant& variant, ProjectNode* root_
 
 void BehaviorBuilder::addCacheToClipNode(ProjectNode* clip_node, const hkbClipGenerator* clip)
 {
-	//auto events = _cache->getEvents(clip->m_name.cString());
-	//const std::string delimiter = ":";
-
-	//for (const auto& clip_event : events) {
-	//	auto delim_pos = clip_event.find(delimiter);
-	//	std::string event_name = clip_event.substr(0, delim_pos);
-	//	float time = stof(clip_event.substr(++delim_pos, clip_event.size() - 1));
-	//	//sanity check;
-	//	size_t event_index = (size_t )-1;
-	//	for (int i = 0; i < _strings->m_eventNames.getSize(); i++) {
-	//		if (_strings->m_eventNames[i].cString() == event_name)
-	//		{
-	//			event_index = i;
-	//			break;
-	//		}
-	//	}
-	//	if (event_index == (size_t)-1)
-	//	{
-	//		LOG << "Event not found into behavior: " << event_name << log_endl;
-	//	}
-
-	//	clip_node->appendChild(
-	//		_manager.createClipEventNode(
-	//			_file_index,
-	//			{
-	//				QString::fromStdString(clip_event),
-	//				time,
-	//				event_index
-	//			},
-	//			clip_node)
-	//	);
-	//}
 	if (_manager.isCreatureProject(_project_file_index))
 	{
 		try {
@@ -305,6 +360,7 @@ ProjectNode* BehaviorBuilder::visit(
 		buildEvents(context);
 		buildVariables(context);
 		buildProperties(context);
+		buildAnimationStyles(context);
 	}
 	else if (variant->m_class == &hkbBehaviorReferenceGeneratorClass) {
 		hkbBehaviorReferenceGenerator* reference = (hkbBehaviorReferenceGenerator*)variant->m_object;

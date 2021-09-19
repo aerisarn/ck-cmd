@@ -68,6 +68,8 @@ namespace ckcmd {
 			ProjectNode* createEventsSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createWeaponSetNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem);
 			ProjectNode* createVariablesSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createAnimationStylesSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createAnimationStyle(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createProject(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createCharacter(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createBehavior(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);

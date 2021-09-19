@@ -126,6 +126,11 @@ struct CreatureCacheEntry : public CacheEntry
 		return sets.getProjectFiles().getStrings();
 	}
 
+	std::vector<AnimData::ProjectAttackBlock>& getProjectAttackBlocks()
+	{
+		return sets.getProjectAttackBlocks();
+	}
+
 	vector<string> getProjectSetEvents(const std::string& file) {
 		auto projectFiles = sets.getProjectFiles().getStrings();
 		auto blocks = sets.getProjectAttackBlocks();

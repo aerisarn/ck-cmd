@@ -30,6 +30,8 @@ namespace ckcmd {
                 clip_event_node,
                 events_node,
                 variables_node,
+                animation_styles_node,
+                animation_style_node
             } m_type;
 
             explicit ProjectNode(
