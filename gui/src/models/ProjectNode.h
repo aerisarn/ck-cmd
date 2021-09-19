@@ -20,6 +20,7 @@ namespace ckcmd {
                 skeleton_node,
                 animation_node,
                 misc_node,
+                creature_node,
                 hkx_project_node,
                 hkx_character_node,
                 hkx_node,
@@ -66,6 +67,74 @@ namespace ckcmd {
             virtual ProjectNode* parentItem();
             ProjectNode* parentItem(int row);
             virtual NodeType type() const;
+
+            template<typename Visitor>
+            void accept(Visitor& v) {
+                switch (m_type) {
+                case NodeType::fixed:
+                    v.visit<NodeType::fixed>(*this);
+                    break;
+                case NodeType::support:
+                    v.visit<NodeType::support>(*this);
+                    break;
+                case NodeType::project_node:
+                    v.visit<NodeType::project_node>(*this);
+                    break;
+                case NodeType::character_node:
+                    v.visit<NodeType::character_node>(*this);
+                    break;
+                case NodeType::behavior_node:
+                    v.visit<NodeType::behavior_node>(*this);
+                    break;
+                case NodeType::skeleton_node:
+                    v.visit<NodeType::skeleton_node>(*this);
+                    break;
+                case NodeType::animation_node:
+                    v.visit<NodeType::animation_node>(*this);
+                    break;
+                case NodeType::misc_node:
+                    v.visit<NodeType::misc_node>(*this);
+                    break;
+                case NodeType::hkx_project_node:
+                    v.visit<NodeType::hkx_project_node>(*this);
+                    break;
+                case NodeType::hkx_character_node:
+                    v.visit<NodeType::hkx_character_node>(*this);
+                    break;
+                case NodeType::hkx_node:
+                    v.visit<NodeType::hkx_node>(*this);
+                    break;
+                case NodeType::event_node:
+                    v.visit<NodeType::event_node>(*this);
+                    break;
+                case NodeType::weapon_set_node:
+                    v.visit<NodeType::weapon_set_node>(*this);
+                    break;
+                case NodeType::variable_node:
+                    v.visit<NodeType::variable_node>(*this);
+                    break;
+                case NodeType::property_node:
+                    v.visit<NodeType::property_node>(*this);
+                    break;
+                case NodeType::clip_event_node:
+                    v.visit<NodeType::clip_event_node>(*this);
+                    break;
+                case NodeType::events_node:
+                    v.visit<NodeType::events_node>(*this);
+                    break;
+                case NodeType::variables_node:
+                    v.visit<NodeType::variables_node>(*this);
+                    break;
+                case NodeType::animation_styles_node:
+                    v.visit<NodeType::animation_styles_node>(*this);
+                    break;
+                case NodeType::animation_style_node:
+                    v.visit<NodeType::animation_style_node>(*this);
+                    break;
+                default:
+                    break;
+                }
+            }
 
         protected:
             QVector<ProjectNode*> m_childItems;

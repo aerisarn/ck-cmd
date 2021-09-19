@@ -1,4 +1,5 @@
 #include "ResourceManager.h"
+
 #include <hkbProjectData_2.h>
 
 using namespace ckcmd::HKX;

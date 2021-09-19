@@ -24,7 +24,7 @@ namespace ckcmd {
 			void buildSaveAction();
 
 		public slots:
-			void save(ProjectNode* project_node);
+			void save();
 			void export_to(ProjectNode* project_node);
 
 			void selectionChanged(const QItemSelection& selected, const QItemSelection& deselected);

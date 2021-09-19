@@ -1,5 +1,7 @@
 #include "ActionHandler.h"
 
+#include <src/hkx/Saver.h>
+
 #include <src/models/ProjectTreeModel.h>
 
 using namespace ckcmd::HKX;
@@ -10,6 +12,7 @@ void ActionHandler::buildSaveAction()
 	_saveAction->setShortcuts(QKeySequence::Save);
 	_saveAction->setStatusTip(tr("Save current selected project"));
 	_saveAction->setEnabled(false);
+	connect(_saveAction, SIGNAL(triggered()), this, SLOT(save()));
 }
 
 void ActionHandler::selectionChanged(const QItemSelection& selected, const QItemSelection& deselected)
@@ -27,8 +30,16 @@ void ActionHandler::selectionChanged(const QItemSelection& selected, const QItem
 	}
 }
 
-void ActionHandler::save(ProjectNode* project_node)
-{}
+void ActionHandler::save()
+{
+	if (_modelview.selectionModel()->selection().size() == 1) {
+		auto selected = _modelview.selectionModel()->selection()[0];
+		auto model = (ProjectTreeModel*)_modelview.selectionModel()->selection()[0].model();
+		ProjectNode* node = model->getNode(selected.topLeft());
+		node->accept(Saver(_resourceManager));
+	}
+}
+
 void ActionHandler::export_to(ProjectNode* project_node)
 {}
 

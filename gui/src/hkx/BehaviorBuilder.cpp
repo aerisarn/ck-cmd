@@ -110,25 +110,6 @@ void BehaviorBuilder::buildEvents(const buildContext& context)
 					},
 					_eventsNode)
 			);
-
-			/*if (event_infos.size() > 0 && event_infos.at(0).type == AnimationCache::event_type_t::attack) {
-				for (auto& info : event_infos) {
-					for (auto& data : info.animation_set)
-					{
-						auto weapon_set_node = event_node->appendChild(
-							_manager.createWeaponSetNode(
-								_file_index,
-								{
-									data.getHandString().c_str(),
-									(unsigned long long)_manager.at(_file_index, context.object_index),
-									(int)_file_index,
-									i,
-								},
-								event_node)
-								);
-					}
-				}
-			}*/
 		}
 	}
 }

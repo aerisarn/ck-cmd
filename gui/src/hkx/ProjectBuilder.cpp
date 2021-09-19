@@ -32,8 +32,9 @@ ProjectBuilder::ProjectBuilder(
 	hkVariant project_root;
 	hkbProjectStringData* project_data = loadHkxFile<hkbProjectStringData>(project_path, hkbProjectStringDataClass, project_root);
 	auto project_file_index = _resourceManager.index(project_path);
-	ProjectNode* project_node = _resourceManager.createSupport(project_file_index, {"Projects", project_path.string().c_str() }, _parent);
+	ProjectNode* project_node = _resourceManager.createProject(project_file_index, {"Project", project_path.string().c_str() }, _parent);
 	_parent->appendChild(project_node);
+
 	buildBranch(project_root, project_node, project_path);
 	//auto project_cache = _resourceManager.findCacheEntry(project_file_index);
 	
@@ -51,7 +52,7 @@ ProjectBuilder::ProjectBuilder(
 			if (character_data == NULL)
 				throw std::runtime_error("hkbCharacterStringData variant not found in " + character_path.string());
 			auto character_file_index = _resourceManager.index(character_path);
-			ProjectNode* character_node = _resourceManager.createCharacter(character_file_index, { character_data->m_name.cString(), character_path.string().c_str() }, characters_node);
+			ProjectNode* character_node = _resourceManager.createHkxCharacter(character_file_index, { character_data->m_name.cString(), character_path.string().c_str() }, characters_node);
 			characters_node->appendChild(character_node);
 			buildBranch(character_root, character_node, character_path);
 
@@ -116,76 +117,13 @@ ProjectBuilder::ProjectBuilder(
 					auto animation_path = project_folder / character_data->m_animationNames[a].cString();
 					if (fs::exists(animation_path))
 					{
-						//TODO: do this on save just for exported projects
-						//auto& animation_contents = _resourceManager.get(animation_path);
-						//if (project_cache->hasCache()) {
-						//	ProjectNode* parent = animations_node;
-						//	
-						//	CreatureCacheEntry* creature_cache = dynamic_cast<CreatureCacheEntry*>(project_cache);
-						//	auto files = creature_cache->findProjectFile(character_data->m_animationNames[a].cString());
-						//	for (auto& file : files) {
-						//		/*auto& info = creature_cache->getProjectSetInfo(file);
-						//		if (files.empty())
-						//			parent = base;
-						//		else {
-						//			auto& variables = info.second.getVariables();
-						//			auto& events = info.first;
-						//			if (variables.size() > 0) {
-						//				string set_name = variables.at(0).getHandString();
-						//				for (int i = 1; i < variables.size(); i++) {
-						//					set_name += string(" / ") + variables.at(i).getHandString();
-						//				}
-						//				if (sets.find(set_name) == sets.end()) {
-						//					auto node = _resourceManager.createSupport(
-						//						character_file_index,
-						//						{
-						//							QString::fromStdString(set_name)
-						//						},
-						//						animations_node);
-						//					animations_node->appendChild(node);
-						//					sets[set_name] = node;
-						//				}
-						//				parent = sets[set_name];
-						//			}
-						//			else if (events.size() > 0) {
-						//				string set_name = events.at(0);
-						//				for (int i = 1; i < events.size(); i++) {
-						//					set_name += string(" / ") + events.at(i);
-						//				}
-						//				if (sets.find(set_name) == sets.end()) {
-						//					auto node = _resourceManager.createSupport(
-						//						character_file_index,
-						//						{
-						//							QString::fromStdString(set_name)
-						//						},
-						//						idle);
-						//					idle->appendChild(node);
-						//					sets[set_name] = node;
-						//				}
-						//				parent = sets[set_name];
-						//			}
-						//			else {
-						//				parent = base;
-						//			}
-						//		}*/
-						//		ProjectNode* animation_node = _resourceManager.createAnimation(
-						//			character_file_index, {
-						//				character_data->m_animationNames[a].cString(),
-						//				animation_path.string().c_str()
-						//			},
-						//			parent);
-						//		parent->appendChild(animation_node);
-						//	}
-						//}
-						//else {
-							ProjectNode* animation_node = _resourceManager.createAnimation(
-								character_file_index, {
-									character_data->m_animationNames[a].cString(),
-									animation_path.string().c_str()
-								},
-								animations_node);
-							animations_node->appendChild(animation_node);
-						//}
+						ProjectNode* animation_node = _resourceManager.createAnimation(
+							character_file_index, {
+								character_data->m_animationNames[a].cString(),
+								animation_path.string().c_str()
+							},
+							animations_node);
+						animations_node->appendChild(animation_node);
 
 						//kinda pointless to open all the animations
 						//buildBranch(animation_contents.first, animation_node, animation_path);
