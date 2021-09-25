@@ -269,7 +269,13 @@ void AnimationCache::rebuildIndex()
 		for (auto& clip : creature.block.getClips()) {
 			//Bethesda fuck up this
 			if (clip.getCacheIndex() < movements.size())
-				movements_map[{project_name, clip.getName()}] = movements[clip.getCacheIndex()];
+			{
+				for (auto& move : movements)
+				{
+					if (move.getCacheIndex() == clip.getCacheIndex())
+						movements_map[{project_name, clip.getName()}] = move;
+				}
+			}
 		}
 		for (auto& set : creature.sets.getProjectAttackBlocks()) {
 			if (set.getHandVariableData().getVariables().size() == 0)
