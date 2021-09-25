@@ -47,6 +47,7 @@ namespace ckcmd {
             bool isProjectRoot() const;
             bool isSkeleton() const;
             bool isVariant() const;
+            bool isCharacter() const;
 
             bool canSaveOrExport() const;
 
@@ -66,6 +67,7 @@ namespace ckcmd {
             virtual int row() const;
             virtual ProjectNode* parentItem();
             ProjectNode* parentItem(int row);
+            virtual int parentCount() const;
             virtual NodeType type() const;
 
             template<typename Visitor>

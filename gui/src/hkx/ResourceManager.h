@@ -37,11 +37,15 @@ namespace ckcmd {
 			~ResourceManager() {
 			}
 
+			WorkspaceConfig& workspace() { return _workspace; }
+
+			hkx_file_t& get(size_t index);
 			hkx_file_t& get(const fs::path& file);
 
 			//fs::path ResourceManager::open(const std::string& project);
 
 			size_t index(const fs::path& file) const;
+			fs::path path(int file_index) const;
 
 			int findIndex(int file_index, const void* object) const;
 			int findIndex(const fs::path& file, const void* object) const;
@@ -89,9 +93,12 @@ namespace ckcmd {
 
 			bool isCreatureProject(int file_index);
 			CacheEntry* findCacheEntry(const std::string& sanitized_name);
+			CacheEntry* findOrCreateCacheEntry(size_t file_index, bool character);
 			CacheEntry* findCacheEntry(size_t file_index);
 			const AnimData::ClipMovementData& getMovement(size_t file_index, string clip);
 			vector<AnimationCache::event_info_t> getEventsInfo(size_t file_index, string anim_event);
+			void save_cache(int file_index);
+
 
 
 		};

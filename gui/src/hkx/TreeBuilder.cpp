@@ -43,7 +43,15 @@ void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Fla
 	if (object_index >= 0)
 	{
 		auto* variant = _resourceManager.at(_file_index, object_index);
-		if (_visited_objects.insert(v).second)
+		auto temp_member = variant->m_class->getMemberByName("name");
+		//if (HK_NULL != temp_member)
+		//{
+		//	auto member_ptr = ((char*)variant->m_object) + temp_member->getOffset();
+		//	std::string c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
+		//	if (c_str_ptr == "1HM_Solo_Behavior")
+		//		__debugbreak();
+		//}
+		if (_visited_objects.insert(variant->m_object).second)
 		{		
 			ProjectNode* object_node = NULL;
 			if (_handlers.find(variant->m_class) != _handlers.end())

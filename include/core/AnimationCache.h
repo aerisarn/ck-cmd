@@ -103,6 +103,8 @@ struct CreatureCacheEntry : public CacheEntry
 
 	vector<string> findProjectFile(const std::string& file) {
 		std::vector<string> out;
+		//meshes\actors\dragon\animations
+		fs::path folder = "meshes" / fs::relative(fs::path(file).parent_path(), "meshes");
 		std::string to_crc = fs::path(file).filename().replace_extension("").string();
 		transform(to_crc.begin(), to_crc.end(), to_crc.begin(), ::tolower);
 		long long crc = stoll(HkCRC::compute(to_crc), NULL, 16);
@@ -220,6 +222,40 @@ struct AnimationCache {
 
 	map<string, CacheEntry*> projects_index;
 
+	CacheEntry* findOrCreate(const string& name, bool creature) {
+		CacheEntry* out = find(name);
+		if (NULL == out) {
+
+			auto index = animationData.putProject(name + ".txt", AnimData::ProjectBlock(), AnimData::ProjectDataBlock());
+			
+			if (creature)
+			{
+				auto creature_index = animationSetData.putProjectAttackBlock(name + "Data\\" + name + ".txt", AnimData::ProjectAttackListBlock());
+
+				creature_entries.push_back(
+					CreatureCacheEntry(
+						name,
+						animationData.getProjectBlock(index),
+						animationData.getprojectMovementBlock(index),
+						animationSetData.getProjectAttackBlock(creature_index)
+					)
+				);
+			}
+			else {
+				misc_entries.push_back(
+					CacheEntry(
+						name,
+						animationData.getProjectBlock(index),
+						animationData.getprojectMovementBlock(index)
+					)
+				);
+			}
+			rebuildIndex();
+			out = find(name);
+		}
+		return out;
+	}
+
 	CacheEntry* find(const string& name);
 	string project_at(size_t index) const;
 	size_t getNumCreatureProjects();
@@ -232,12 +268,10 @@ struct AnimationCache {
 	CreatureCacheEntry* cloneCreature(const std::string& source_project, const std::string& destination_project);
 
 	void save(const fs::path& animationDataPath, const  fs::path& animationSetDataPath);
-	void save_creature(const string& project, CacheEntry* project_entry, const fs::path& animationDataPath, const  fs::path& animationSetDataPath);
+	void save_creature(const string& project, CacheEntry* project_entry, const fs::path& animationDataPath, const  fs::path& animationSetDataPath, const fs::path& root_folder = ".");
 
 	void rebuildIndex();
 	void build(const string& animationDataContent, const string& animationSetDataContent);
-
-
 
 	static void get_entries(
 		StaticCacheEntry& entry,
@@ -257,50 +291,5 @@ struct AnimationCache {
 	void check_from_bsa(const ckcmd::BSA::BSAFile& bsa_file, const std::vector<string>& actors, const std::vector<string>& misc);
 
 	void printInfo();
-
-	//void checkInfo() {
-	//	for (const auto& pair : set_data_map) {
-	//		Log::Info("\tID:%d\tName: %s", pair.second, pair.first.c_str());
-
-	//		int data_index = data_map[pair.first];
-	//		int set_data_index = set_data_map[pair.first];
-
-	//		AnimData::ProjectBlock& this_data = animationData.getProjectBlock(data_index);
-	//		AnimData::ProjectDataBlock& this_movement_data = animationData.getprojectMovementBlock(data_index);
-	//		AnimData::ProjectAttackListBlock& this_set_data = animationSetData.getProjectAttackBlock(set_data_index);
-	//		Log::Info("\t\tHavok Files:%d", this_data.getProjectFiles().getStrings().size());
-	//		list<string> projects = this_data.getProjectFiles().getStrings();
-	//		for (auto& havok_file : projects)
-	//			Log::Info("\t\t\t%s", havok_file.c_str());
-
-	//		//Check CRC clips number
-	//		size_t movements = this_movement_data.getMovementData().size();
-	//		set<string> paths;
-	//		
-	//		for (auto& block : this_set_data.getProjectAttackBlocks())
-	//		{
-	//			auto& strings = block.getCrc32Data().getStrings();
-	//			std::list<std::string>::iterator it;
-	//			int i = 0;
-	//			string this_path;
-	//			for (it = strings.begin(); it != strings.end(); ++it) {
-	//				if (i % 3 == 0)
-	//					this_path = *it;
-	//				if (i % 3 == 1)
-	//					paths.insert(this_path + *it);
-	//				i++;
-	//			}
-	//		}
-	//		size_t crcs = paths.size();
-	//		if (movements != crcs)
-	//			Log::Info("Warning: unaddressed movement data!");
-
-	//	}
-	//}
-
-
-	//bool hasCreatureProject (const string& project_name) {
-	//	return set_data_map.find(project_name) != set_data_map.end();
-	//}
 
 };

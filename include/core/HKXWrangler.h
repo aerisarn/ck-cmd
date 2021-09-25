@@ -104,7 +104,7 @@ namespace ckcmd {
 
 		struct RootMovement
 		{
-			float duration;
+			float duration = 0.;
 
 			vector<tuple<hkReal, hkVector4>> translations;
 			vector<tuple<hkReal, ::hkQuaternion>> rotations;

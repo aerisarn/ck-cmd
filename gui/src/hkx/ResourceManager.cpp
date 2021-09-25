@@ -18,6 +18,11 @@ size_t ResourceManager::index(const fs::path& file) const {
 	return index;
 }
 
+fs::path ResourceManager::path(int file_index) const
+{
+	return _files.at(file_index);
+}
+
 int ResourceManager::findIndex(int file_index, const void* object) const
 {
 	auto& _objects = _contents.at(file_index).second;
@@ -61,6 +66,11 @@ hk_object_list_t ResourceManager::findCompatibleNodes(size_t file_index, const h
 		}
 	}
 	return result;
+}
+
+hkx_file_t& ResourceManager::get(size_t index)
+{
+	return _contents[index];
 }
 
 hkx_file_t& ResourceManager::get(const fs::path& file)
@@ -296,6 +306,11 @@ CacheEntry* ResourceManager::findCacheEntry(const std::string& sanitized_name)
 	return _cache.find(sanitized_name);
 }
 
+CacheEntry* ResourceManager::findOrCreateCacheEntry(size_t file_index, bool character)
+{
+	return _cache.findOrCreate(get_sanitized_name(file_index), character);
+}
+
 CacheEntry* ResourceManager::findCacheEntry(size_t file_index)
 {
 	return _cache.find(get_sanitized_name(file_index));
@@ -308,4 +323,16 @@ const AnimData::ClipMovementData& ResourceManager::getMovement(size_t file_index
 vector<AnimationCache::event_info_t> ResourceManager::getEventsInfo(size_t file_index, string anim_event) 
 {
 	return _cache.getEventsInfo(get_sanitized_name(file_index), anim_event);
+}
+
+void ResourceManager::save_cache(int file_index)
+{
+	string project = get_sanitized_name(file_index);
+	CacheEntry* project_entry = findCacheEntry(project);
+	fs::path animationDataPath = "animationdatasinglefile.txt";
+	fs::path animationSetDataPath = "animationsetdatasinglefile.txt";
+	fs::create_directories(_workspace.getFolder() / "test");
+	_cache.save_creature(
+		project, project_entry, animationDataPath, animationSetDataPath, _workspace.getFolder() / "test"
+	);
 }

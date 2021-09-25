@@ -112,23 +112,25 @@ ProjectBuilder::ProjectBuilder(
 				//	animations_node);
 				//animations_node->appendChild(base);
 
-				for (int a = 0; a < character_data->m_animationNames.getSize(); a++)
-				{
-					auto animation_path = project_folder / character_data->m_animationNames[a].cString();
-					if (fs::exists(animation_path))
-					{
-						ProjectNode* animation_node = _resourceManager.createAnimation(
-							character_file_index, {
-								character_data->m_animationNames[a].cString(),
-								animation_path.string().c_str()
-							},
-							animations_node);
-						animations_node->appendChild(animation_node);
+				//NO! Bethesda left all kind of unused animations here, which are referred by other projects.
+				//Instead we just create nodes for the clips actually present into the behaviors
+				//for (int a = 0; a < character_data->m_animationNames.getSize(); a++)
+				//{
+				//	auto animation_path = project_folder / character_data->m_animationNames[a].cString();
+				//	if (fs::exists(animation_path))
+				//	{
+				//		ProjectNode* animation_node = _resourceManager.createAnimation(
+				//			character_file_index, {
+				//				character_data->m_animationNames[a].cString(),
+				//				animation_path.string().c_str()
+				//			},
+				//			animations_node);
+				//		animations_node->appendChild(animation_node);
 
-						//kinda pointless to open all the animations
-						//buildBranch(animation_contents.first, animation_node, animation_path);
-					}
-				}
+				//		//kinda pointless to open all the animations
+				//		//buildBranch(animation_contents.first, animation_node, animation_path);
+				//	}
+				//}
 			}
 
 			//behavior
@@ -140,7 +142,7 @@ ProjectBuilder::ProjectBuilder(
 			auto behavior_index = _resourceManager.index(behavior_path);
 			ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
 			character_node->appendChild(behavior_node);
-			auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_file_index, behavior_index, animations_node);
+			auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_file_index, character_file_index, behavior_index, animations_node, true);
 			behavior_handler->setSkeleton(skeleton_builder);
 			_resourceManager.setClassHandler(
 				behavior_index,
@@ -160,10 +162,10 @@ ProjectBuilder::ProjectBuilder(
 				if (behavior_data == NULL)
 					throw std::runtime_error("hkbBehaviorGraph variant not found in " + behavior_path.string());
 				auto behavior_index = _resourceManager.index(behavior_path);
-				ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
+				ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str(), additional_behavior.c_str() }, character_node);
 				character_node->appendChild(behavior_node);
 				
-				auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_file_index, behavior_index, animations_node);
+				auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_file_index, character_file_index, behavior_index, animations_node, false);
 				behavior_handler->setSkeleton(skeleton_builder);
 				_resourceManager.setClassHandler(
 					behavior_index,

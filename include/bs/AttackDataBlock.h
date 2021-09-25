@@ -30,6 +30,10 @@ namespace AnimData {
 			this->clips = clips;
 		}
 
+		void addClip(const std::string& clip) {
+			this->clips.append(clip);
+		}
+
 		std::string eventName = "";
 		int unk1 = 0;
 		StringListBlock clips;

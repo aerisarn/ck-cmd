@@ -190,31 +190,31 @@ void AnimationCache::save(const fs::path& animationDataPath, const  fs::path& an
 	outstream.close();
 }
 
-void AnimationCache::save_creature(const string& project, CacheEntry* project_entry, const fs::path& animationDataPath, const  fs::path& animationSetDataPath) {
-	fs::create_directories(animation_data_folder);
+void AnimationCache::save_creature(const string& project, CacheEntry* project_entry, const fs::path& animationDataPath, const  fs::path& animationSetDataPath, const fs::path& root_folder) {
+	fs::create_directories(root_folder / animation_data_folder);
 
 	if (project_entry) {
 
 		std::ofstream outstream;
-		outstream.open(fs::path(animation_data_folder) / string(project + ".txt"));
+		outstream.open(root_folder / fs::path(animation_data_folder) / string(project + ".txt"));
 		outstream << project_entry->block.getBlock();
 		outstream.close();
-		outstream.open(fs::path(animation_data_folder) / string("dirlist.txt"));
+		outstream.open(root_folder / fs::path(animation_data_folder) / string("dirlist.txt"));
 		outstream << animationData.getProjectList().getBlock();
 		outstream.close();
 		if (project_entry->hasCache())
 		{
-			fs::create_directories(fs::path(animation_data_folder) / "boundanims");
-			outstream.open(fs::path(animation_data_folder) / "boundanims" / string("anims_" + project + ".txt"));
+			fs::create_directories(root_folder / fs::path(animation_data_folder) / "boundanims");
+			outstream.open(root_folder / fs::path(animation_data_folder) / "boundanims" / string("anims_" + project + ".txt"));
 			outstream << project_entry->movements.getBlock();
 			outstream.close();
 		}
 		auto creature_ptr = dynamic_cast<CreatureCacheEntry*>(project_entry);
 		if (NULL != creature_ptr)
 		{
-			fs::path set_data_directory = fs::path(animation_set_data_folder) / string(project + "data");
+			fs::path set_data_directory = root_folder / fs::path(animation_set_data_folder) / string(project + "data");
 			fs::create_directories(set_data_directory);
-			outstream.open(fs::path(animation_set_data_folder) / string("dirlist.txt"));
+			outstream.open(root_folder / fs::path(animation_set_data_folder) / string("dirlist.txt"));
 			outstream << animationSetData.getProjectsList().getBlock();
 			outstream.close();
 			auto sets = creature_ptr->sets;
@@ -222,13 +222,13 @@ void AnimationCache::save_creature(const string& project, CacheEntry* project_en
 			auto data = sets.getProjectAttackBlocks();
 			for (size_t i = 0; i < projects.size(); i++)
 			{
-				string outfile = (set_data_directory / projects[i]).string();
+				string outfile = (root_folder / set_data_directory / projects[i]).string();
 				transform(outfile.begin(), outfile.end(), outfile.begin(), ::tolower);
 				outstream.open(set_data_directory / projects[i]);
 				outstream << data[i].getBlock();
 				outstream.close();
 			}
-			string outfile = (set_data_directory / string(project + ".txt")).string();
+			string outfile = (root_folder / set_data_directory / string(project + ".txt")).string();
 			transform(outfile.begin(), outfile.end(), outfile.begin(), ::tolower);
 			outstream.open(outfile);
 			for (size_t i = 0; i < projects.size(); i++)
@@ -239,7 +239,7 @@ void AnimationCache::save_creature(const string& project, CacheEntry* project_en
 			outstream.close();
 		}
 
-		save(animationDataPath, animationSetDataPath);
+		save(root_folder / animationDataPath, root_folder / animationSetDataPath);
 	}
 }
 
@@ -257,6 +257,37 @@ void AnimationCache::rebuildIndex()
 		transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return tolower(c); });
 		projects_index[lower] = &entry;
 	}
+
+	movements_map.clear();
+	events_map.clear();
+
+	for (const auto& creature : creature_entries)
+	{
+		string project_name = creature.name;
+		transform(project_name.begin(), project_name.end(), project_name.begin(), [](unsigned char c) { return tolower(c); });
+		auto& movements = creature.movements.getMovementData();
+		for (auto& clip : creature.block.getClips()) {
+			//Bethesda fuck up this
+			if (clip.getCacheIndex() < movements.size())
+				movements_map[{project_name, clip.getName()}] = movements[clip.getCacheIndex()];
+		}
+		for (auto& set : creature.sets.getProjectAttackBlocks()) {
+			if (set.getHandVariableData().getVariables().size() == 0)
+			{
+				for (auto& idle_event : set.getSwapEventsList().getStrings()) {
+					events_map.insert({ {project_name, idle_event}, { event_type_t::idle, {} } });
+				}
+			}
+
+			for (auto& attack_data : set.getAttackData().getAttackData()) {
+				events_map.insert({ {project_name, attack_data.getEventName()},
+					{ event_type_t::attack,
+					attack_data.getUnk1() > 0,
+					set.getHandVariableData().getVariables()} });
+			}
+		}
+	}
+
 }
 
 void AnimationCache::build(const string& animationDataContent, const string& animationSetDataContent) {
@@ -293,34 +324,6 @@ void AnimationCache::build(const string& animationDataContent, const string& ani
 		index++;
 	}
 	rebuildIndex();
-
-	for (const auto& creature : creature_entries)
-	{
-		string project_name = creature.name;
-		transform(project_name.begin(), project_name.end(), project_name.begin(), [](unsigned char c) { return tolower(c); });
-		auto& movements = creature.movements.getMovementData();
-		for (auto& clip : creature.block.getClips()) {
-			//Bethesda fuck up this
-			if (clip.getCacheIndex() < movements.size())
-				movements_map[{project_name, clip.getName()}] = movements[clip.getCacheIndex()];
-		}
-		for (auto& set : creature.sets.getProjectAttackBlocks()) {
-			if (set.getHandVariableData().getVariables().size() == 0)
-			{
-				for (auto& idle_event : set.getSwapEventsList().getStrings()) {
-					events_map.insert({ {project_name, idle_event}, { event_type_t::idle, {} } });
-				}
-			}
-
-			for (auto& attack_data : set.getAttackData().getAttackData()) {
-				events_map.insert({ {project_name, attack_data.getEventName()}, 
-					{ event_type_t::attack, 
-					attack_data.getUnk1()>0,
-					set.getHandVariableData().getVariables()} });
-			}
-		}
-	}
-
 
 	printInfo();
 #ifdef __TEST__

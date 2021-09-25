@@ -82,9 +82,17 @@ namespace AnimData {
 			return variables;
 		}
 
+		void setVariables(const std::vector<Data>& _variables) {
+			variables = _variables;
+		}
+
+		void addVariable(const Data& variable_data) {
+			variables.push_back(variable_data);
+		}
+
 		std::string getBlock() override {
 			std::string out = "";
-			out += std::to_string(variables.size());
+			out += std::to_string(variables.size()) + "\n";
 			for (const auto& data : variables)
 			{
 				out += data.variable_name + "\n";

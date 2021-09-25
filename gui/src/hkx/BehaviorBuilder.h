@@ -41,10 +41,11 @@ namespace ckcmd {
 			hkbBehaviorGraphData* _data;
 			hkbBehaviorGraphStringData* _strings;
 			std::set<std::string> _referenced_behaviors;
-
+			bool _root_behavior;
 
 			size_t _file_index;
 			size_t _project_file_index;
+			size_t _character_file_index;
 			ResourceManager& _manager;
 			CommandManager& _command_manager;
 			ProjectNode* _animationsNode;
@@ -52,11 +53,19 @@ namespace ckcmd {
 			ProjectNode* _variablesNode;
 
 			ProjectNode* buildBranch(hkVariant& variant, ProjectNode* root_node, const fs::path& path);
-			void addCacheToClipNode(ProjectNode* clip_node, const hkbClipGenerator* clip);
+			void addCacheToClipNode(ProjectNode* animation_node, const hkbClipGenerator* clip);
 
 		public:
 
-			BehaviorBuilder(CommandManager& commandManager, ResourceManager& manager, size_t _project_file_index, size_t file_index, ProjectNode* animationsNode);
+			BehaviorBuilder(
+				CommandManager& commandManager, 
+				ResourceManager& manager, 
+				size_t _project_file_index,
+				size_t _character_file_index,
+				size_t file_index, 
+				ProjectNode* animationsNode,
+				bool root_behavior
+			);
 
 			const std::set<std::string>& referenced_behaviors() { return _referenced_behaviors; }
 

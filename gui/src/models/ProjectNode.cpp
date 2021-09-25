@@ -81,16 +81,23 @@ ProjectNode* ProjectNode::parentItem()
 	return m_parentItems.first();
 }
 
+int ProjectNode::parentCount() const
+{
+	return m_parentItems.count();
+}
+
 ProjectNode* ProjectNode::parentItem(int row)
 {
 	if (row < 0)
 		return nullptr;
 	if (m_parentItems.isEmpty())
 		return nullptr;
-	for (int i = 0; i < m_parentItems.size(); i++) {
+	/*for (int i = 0; i < m_parentItems.size(); i++) {
 		if (m_parentItems[i]->child(row) == this)
 			return m_parentItems[i];
-	}
+	}*/
+
+	return m_parentItems[row];
 
 	return m_parentItems.first();
 }
@@ -127,6 +134,12 @@ bool ProjectNode::canSaveOrExport() const
 	return m_type == ProjectNode::NodeType::misc_node
 		|| m_type == ProjectNode::NodeType::character_node;
 }
+
+bool ProjectNode::isCharacter() const
+{
+	return m_type == ProjectNode::NodeType::character_node;
+}
+
 
 void ProjectNode::addParent(ProjectNode* new_parent)
 {

@@ -24,6 +24,7 @@ namespace AnimData {
 		}
 
 		void setAttackData(std::list<AttackDataBlock> attackData) {
+			this->blocks = attackData.size();
 			this->attackData = attackData;
 		}
 

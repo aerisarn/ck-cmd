@@ -9,7 +9,18 @@ namespace AnimData {
 		std::vector<std::string> strings;
 
 	public:
+
+		StringListBlock() {}
 		
+		StringListBlock(const std::vector<std::string>& _strings) :
+			strings(_strings)
+		{
+		}
+
+		void append(const std::string& file) {
+			strings.push_back(file);
+		}
+
 		void setStrings(std::vector<std::string> strings) {
 			this->strings = strings;
 		}

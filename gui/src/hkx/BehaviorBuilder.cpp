@@ -63,12 +63,20 @@ std::vector<member_id_t> BehaviorBuilder::getHandledFields() {
 	return result;
 }
 
-BehaviorBuilder::BehaviorBuilder(CommandManager& commandManager, ResourceManager& manager, size_t project_file_index, size_t file_index, ProjectNode* animationsNode) :
+BehaviorBuilder::BehaviorBuilder(
+	CommandManager& commandManager, 
+	ResourceManager& manager, 
+	size_t project_file_index,
+	size_t character_file_index,
+	size_t file_index, ProjectNode* animationsNode,
+	bool root_behavior) :
 	_command_manager(commandManager),
 	_manager(manager),
 	_project_file_index(project_file_index),
+	_character_file_index(character_file_index),
 	_file_index(file_index),
-	_animationsNode(animationsNode)
+	_animationsNode(animationsNode),
+	_root_behavior(root_behavior)
 {
 }
 
@@ -234,7 +242,7 @@ void BehaviorBuilder::buildAnimationStyles(const buildContext& context)
 					{
 						qvariables.push_back(QString::fromStdString(variables.at(i).variable_name));
 						qmins.push_back(variables.at(i).value_min);
-						qmins.push_back(variables.at(i).value_max);
+						qmaxs.push_back(variables.at(i).value_max);
 					}
 					QVariant value1; value1.setValue(qvariables);
 					QVariant value2; value2.setValue(qmins);
@@ -294,21 +302,13 @@ ProjectNode* BehaviorBuilder::buildBranch(hkVariant& variant, ProjectNode* root_
 			root_node));
 }
 
-void BehaviorBuilder::addCacheToClipNode(ProjectNode* clip_node, const hkbClipGenerator* clip)
+void BehaviorBuilder::addCacheToClipNode(ProjectNode* animation_node, const hkbClipGenerator* clip)
 {
 	if (_manager.isCreatureProject(_project_file_index))
 	{
 		try {
 			auto movement = _manager.getMovement(_project_file_index, clip->m_name.cString());
-			if (_animationsNode != nullptr) {
-				for (int i = 0; i < _animationsNode->childCount(); i++)
-				{
-					if (_animationsNode->child(i)->data(0).value<QString>() == clip->m_animationName.cString()) {
-						_animationsNode->child(i)->appendData(QString::fromStdString(movement.getBlock()));
-						break;
-					}
-				}
-			}
+			animation_node->appendData(QString::fromStdString(movement.getBlock()));
 		}
 		catch (out_of_range e)
 		{
@@ -341,7 +341,8 @@ ProjectNode* BehaviorBuilder::visit(
 		buildEvents(context);
 		buildVariables(context);
 		buildProperties(context);
-		buildAnimationStyles(context);
+		if (_root_behavior)
+			buildAnimationStyles(context);
 	}
 	else if (variant->m_class == &hkbBehaviorReferenceGeneratorClass) {
 		hkbBehaviorReferenceGenerator* reference = (hkbBehaviorReferenceGenerator*)variant->m_object;
@@ -351,7 +352,36 @@ ProjectNode* BehaviorBuilder::visit(
 	else if (variant->m_class == &hkbClipGeneratorClass) {
 		auto clip_node = buildBranch(*variant, parent, _file);
 		hkbClipGenerator* clip = (hkbClipGenerator*)variant->m_object;
-		addCacheToClipNode(clip_node, clip);
+
+		fs::path project_folder = _manager.path(_project_file_index).parent_path();
+		auto animation_path = project_folder / clip->m_animationName.cString();
+		if (fs::exists(animation_path))
+		{
+			bool found = false;
+			if (_animationsNode != nullptr) {
+				for (int i = 0; i < _animationsNode->childCount(); i++)
+				{
+					if (_animationsNode->child(i)->data(0).value<QString>() == clip->m_animationName.cString()) {
+						found = true;
+						break;
+					}
+				}
+			}
+
+			if (!found)
+			{
+				ProjectNode* animation_node = _manager.createAnimation(
+					_character_file_index, {
+						clip->m_animationName.cString(),
+						animation_path.string().c_str()
+					},
+					_animationsNode);
+				_animationsNode->appendChild(animation_node);
+				addCacheToClipNode(animation_node, clip);
+			}
+
+			
+		}
 		return clip_node;
 	}
 	return parent;
