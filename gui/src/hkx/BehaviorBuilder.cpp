@@ -343,6 +343,7 @@ ProjectNode* BehaviorBuilder::visit(
 		buildProperties(context);
 		if (_root_behavior)
 			buildAnimationStyles(context);
+		return buildBranch(*variant, parent, _file);
 	}
 	else if (variant->m_class == &hkbBehaviorReferenceGeneratorClass) {
 		hkbBehaviorReferenceGenerator* reference = (hkbBehaviorReferenceGenerator*)variant->m_object;

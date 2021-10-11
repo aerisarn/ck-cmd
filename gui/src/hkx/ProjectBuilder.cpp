@@ -154,15 +154,18 @@ ProjectBuilder::ProjectBuilder(
 			);
 			buildBranch(behavior_root, behavior_node, behavior_path);
 			//additional behaviors
-			for (const auto& additional_behavior : behavior_handler->referenced_behaviors())
+			std::set<std::string> _referenced_behaviors = behavior_handler->referenced_behaviors();
+			std::vector<std::string> iterating_behaviors;
+			iterating_behaviors.insert(iterating_behaviors.end(), _referenced_behaviors.begin(), _referenced_behaviors.end());
+			for (size_t bb = 0; bb < iterating_behaviors.size(); bb++)
 			{
-				auto behavior_path = project_folder / additional_behavior;
+				auto behavior_path = project_folder / iterating_behaviors[bb];
 				hkVariant behavior_root;
 				hkbBehaviorGraph* behavior_data = loadHkxFile<hkbBehaviorGraph>(behavior_path, hkbBehaviorGraphClass, behavior_root);
 				if (behavior_data == NULL)
 					throw std::runtime_error("hkbBehaviorGraph variant not found in " + behavior_path.string());
 				auto behavior_index = _resourceManager.index(behavior_path);
-				ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str(), additional_behavior.c_str() }, character_node);
+				ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str(), iterating_behaviors[bb].c_str() }, character_node);
 				character_node->appendChild(behavior_node);
 				
 				auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_file_index, character_file_index, behavior_index, animations_node, false);
@@ -176,6 +179,13 @@ ProjectBuilder::ProjectBuilder(
 					static_cast<ISpecialFieldsHandler*>(behavior_handler)
 				);
 				buildBranch(behavior_root, behavior_node, behavior_path);
+				for (const auto& additional : behavior_handler->referenced_behaviors())
+				{
+					if (_referenced_behaviors.insert(additional).second)
+					{
+						iterating_behaviors.push_back(additional);
+					}
+				}
 			}	
 		}
 	}

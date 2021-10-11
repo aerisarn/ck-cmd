@@ -2,6 +2,8 @@
 #include <core/AnimationCache.h>
 #include <src/hkx/BehaviorBuilder.h>
 
+#include <deque>
+
 namespace ckcmd {
 	namespace HKX {
 
@@ -66,7 +68,7 @@ namespace ckcmd {
 			int _project_file_index;
 			std::vector<int> _character_files_indices;
 			std::vector<int> _behavior_files_indices;
-			std::map<string, ProjectNode*> _behavior_nodes;
+			std::vector<ProjectNode*> _behavior_nodes;
 			std::set<std::string> _animation_relative_files;
 			std::map<std::string, fs::path> _animation_absolute_files;
 			std::string _rig_file;
@@ -98,6 +100,7 @@ namespace ckcmd {
 			};
 		private:
 			std::vector<std::vector<StyleInfo>> _cache_styles;
+			std::map<int, std::set<std::string>> _cache_style_clips;
 			std::map<int, std::set<std::pair<std::string, bool>>> _cache_style_attacks;
 			std::set<std::string> _cache_attacks;
 			std::map<std::string, std::set<std::pair<int,std::string>>> _cache_attack_clips;
@@ -114,6 +117,8 @@ namespace ckcmd {
 			void handle_clip(hkbClipGenerator* clip, int file_index);
 			void handle_animation_style(ProjectNode& node);
 			void handle_transition(ProjectNode& node);
+
+			void handle_root_behavior(ProjectNode& node);
 
 		public: 
 
@@ -143,9 +148,10 @@ namespace ckcmd {
 			template<>
 			void visit<ProjectNode::NodeType::behavior_node>(ProjectNode& node)
 			{
-				fs::path project_path = node.data(1).value<QString>().toUtf8().constData();
-				_behavior_files_indices.push_back(_manager.index(project_path));
-				_behavior_nodes[node.data(1).value<QString>().toUtf8().constData()] = &node;
+				fs::path behavior_path = node.data(1).value<QString>().toUtf8().constData();
+				size_t behavior_index = _manager.index(behavior_path);
+				_behavior_files_indices.push_back(behavior_index);
+				_behavior_nodes.push_back(&node);
 				recurse(node);
 			}
 
@@ -175,21 +181,132 @@ namespace ckcmd {
 				handle_animation_style(node);
 			}
 
-			Saver(ResourceManager& manager, ProjectNode* project_root) :
-				_saving_character(false),
-				_manager(manager)
-			{
-				if (project_root->isCharacter())
-				{
-					_saving_character = true;
-				}
-				project_root->accept(*this);
-				save_cache();
-			}
+			Saver(ResourceManager& manager, ProjectNode* project_root);
 
 			~Saver()
 			{
 			}
+		};
+
+		template<typename Delegate>
+		class RecursiveBehaviorVisitor 
+		{
+			Delegate& _delegate;
+			ResourceManager& _manager;
+			std::deque<BehaviorBuilder*> _builders;
+			size_t _project_file_index;
+		
+		public:
+
+			RecursiveBehaviorVisitor(Delegate& node_delegate, ResourceManager& manager, size_t project_file_index) :
+				_delegate(node_delegate),
+				_manager(manager),
+				_project_file_index(project_file_index)
+			{
+			}
+
+			void handle_node(ProjectNode& node)
+			{
+				hkVariant* variant = nullptr;
+				if (node.isVariant())
+				{
+					variant = (hkVariant*)node.data(1).value<unsigned long long>();
+					//if (node.data(0).value<QString>() == "MT_H2H_State")
+					//	__debugbreak();
+				}
+				if (nullptr != variant && variant->m_class == &hkbBehaviorReferenceGeneratorClass)
+				{
+					fs::path project_folder = _manager.path(_project_file_index).parent_path();
+					hkbBehaviorReferenceGenerator* reference = (hkbBehaviorReferenceGenerator*)variant->m_object;
+					fs::path behavior_path = project_folder / reference->m_behaviorName.cString();
+					auto behavior_index = _manager.index(behavior_path);
+					auto& behavior_contents = _manager.get(behavior_path);
+					bool found = false;
+					for (const auto& content : behavior_contents.second)
+					{
+						if (content.m_class == &hkbBehaviorGraphClass) {
+							ProjectNode* behavior_root = _manager.findNode(behavior_index, &content);
+							BehaviorBuilder* builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(behavior_index));
+							_builders.push_front(builder);
+							behavior_root->accept(*this);
+							_builders.pop_front();
+							found = true;
+							break;
+						}
+					}
+					if (!found)
+						throw 666;
+
+				}
+				else {
+					bool result = _delegate.handle(node, _builders.front());
+					if (result) {
+						for (size_t child_index = 0; child_index < node.childCount(); child_index++)
+						{
+							node.child(child_index)->accept(*this);
+						}
+					}
+					_delegate.end_branch(node, _builders.front());
+				}
+			}
+
+			template<ProjectNode::NodeType>
+			void visit(ProjectNode& node)
+			{
+				handle_node(node);
+			}
+
+			template<>
+			void visit<ProjectNode::NodeType::behavior_node>(ProjectNode& node)
+			{
+				fs::path behavior_path = node.data(1).value<QString>().toUtf8().constData();
+				size_t behavior_index = _manager.index(behavior_path);
+				BehaviorBuilder* builder = (BehaviorBuilder*)_manager.classHandler(behavior_index);
+				_builders.push_front(builder);
+				handle_node(node);
+			}
+		};
+
+		class AnimationSetBuilder {
+			typedef std::set<std::string> events_list_t;
+			typedef std::set<std::map<std::string, std::vector<int>>> variable_list_t;
+			typedef std::set<std::map<std::string, std::vector<string>>> attack_list_t;
+			typedef std::set<std::string> clips_list_t;
+
+			typedef std::tuple< events_list_t, variable_list_t, attack_list_t, clips_list_t> animation_set_t;
+
+			std::vector<std::string> variables;
+			bool _attack_mode;
+			std::deque<std::pair<ProjectNode*, bool>> _msg_mode;
+			std::deque<std::pair<ProjectNode*, bool>> _fsm_mode;
+
+			std::deque<std::pair<ProjectNode*, animation_set_t>> sets_stack;
+
+			template<typename HkBindable>
+			int isVariableBinded(HkBindable* bindable, BehaviorBuilder* _builder)
+			{
+				if (bindable->m_variableBindingSet != NULL)
+				{
+					hkbVariableBindingSet* vbs = bindable->m_variableBindingSet;
+					for (int b = 0; b < vbs->m_bindings.getSize(); b++)
+					{
+						string variable_name = _builder->getVariable(vbs->m_bindings[b].m_variableIndex).toUtf8().constData();
+						for (int v = 0; v < variables.size(); v++) {
+							if (variables[v] == variable_name)
+							{
+								return v;
+							}
+						}
+					}
+				}
+				return -1;
+			}
+		public:
+			bool handle(ProjectNode& node, BehaviorBuilder* builder);
+
+			void end_branch(ProjectNode& node, BehaviorBuilder* builder) {
+			}
+
 		};
 
 		class ClipCollector {

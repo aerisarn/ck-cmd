@@ -32,6 +32,24 @@ void Saver::save_hkx(int file_index)
 
 }
 
+Saver::Saver(ResourceManager& manager, ProjectNode* project_root) :
+	_saving_character(false),
+	_manager(manager)
+{
+	if (project_root->isCharacter())
+	{
+		_saving_character = true;
+	}
+	project_root->accept(*this);
+	AnimationSetBuilder builder;
+	RecursiveBehaviorVisitor< AnimationSetBuilder> r_visitor(builder, _manager, _project_file_index);
+	if (!_behavior_nodes.empty())
+	{
+		_behavior_nodes.at(0)->accept(r_visitor);
+	}
+	//save_cache();
+}
+
 void NestedStateFinder::handle_node(ProjectNode& node)
 {
 	hkVariant* variant = (hkVariant*)node.data(1).value<unsigned long long>();
@@ -127,6 +145,9 @@ void Saver::handle_transition(ProjectNode& node)
 
 							if (!current_node->isVariant())
 							{
+								//valid Branch, cache clips
+								//auto style_set = ClipCollector(fsm_node, _cache_styles[style_index], builder)._result;
+								//_cache_style_clips[style_index].insert(style_set.begin(), style_set.end());
 								branch_valid_attack_styles_set.insert(style_index);
 							}
 						}
@@ -513,11 +534,6 @@ void Saver::save_cache() {
 		_cache->block.setClips(clips);
 
 		//Animation sets
-
-		//std::vector<std::vector<StyleInfo>> _cache_styles;
-		//std::map<int, std::set<std::pair<std::string, bool>>> _cache_style_attacks;
-		//std::set<std::string> _cache_attacks;
-		//std::map<std::string, std::set<std::pair<int, std::string>>> _cache_attack_clips;
 		CreatureCacheEntry* _creature_entry = dynamic_cast<CreatureCacheEntry*>(_cache);
 		AnimData::StringListBlock projectFiles;
 		std::vector<AnimData::ProjectAttackBlock> projectAttackBlocks;
@@ -595,7 +611,7 @@ void Saver::save_cache() {
 				{
 					auto& attacks = _cache_style_attacks.at(style_index);
 					AnimData::ClipAttacksBlock attacks_block;
-					AnimData::ClipFilesCRC32Block crc32s;
+					//AnimData::ClipFilesCRC32Block crc32s;
 					auto& crc_strings = crc32s.getStrings();
 					for (auto& attack : attacks) {
 						AnimData::AttackDataBlock block;
@@ -606,7 +622,7 @@ void Saver::save_cache() {
 							if (clip.first == style_index)
 							{
 								block.addClip(clip.second);
-								auto file = _animation_absolute_files[_cache_clip_info[clip.second].animation_name];
+								/*auto file = _animation_absolute_files[_cache_clip_info[clip.second].animation_name];
 
 								fs::path folder = "meshes" / fs::relative(file.parent_path(), _manager.workspace().getFolder());
 								std::string path_to_crc = folder.string();
@@ -622,19 +638,19 @@ void Saver::save_cache() {
 
 								crc_strings.push_back(path_crc_str);
 								crc_strings.push_back(crc_str);
-								crc_strings.push_back("7891816");
+								crc_strings.push_back("7891816");*/
 							}
 						}
 						attacks_block.attackData.push_back(block);
 					}
 					attacks_block.setBlocks(attacks_block.attackData.size());
 					style_block.setAttackData(attacks_block);
-					style_block.setCrc32Data(crc32s);
+
 				}
 				else {
 					//the engine is stupid enough to not load this? however works ingame
 				}
-
+				style_block.setCrc32Data(crc32s);
 				projectFiles.append(std::string("style")+to_string(style_index)+".txt");
 				projectAttackBlocks.push_back(style_block);
 			}
@@ -643,6 +659,7 @@ void Saver::save_cache() {
 		_creature_entry->sets.setProjectFiles(projectFiles);
 		_creature_entry->sets.setProjectAttackBlocks(projectAttackBlocks);
 	}
+
 	_manager.save_cache(_project_file_index);
 }
 
@@ -676,4 +693,24 @@ void Saver::handle_animation_style(ProjectNode& node)
 		);
 		_cache_attacks.insert(attack_node->data(0).value<QString>().toUtf8().constData());
 	}
+}
+
+bool AnimationSetBuilder::handle(ProjectNode& node, BehaviorBuilder* builder) {
+	if (node.isVariant())
+	{
+		hkVariant* variant = (hkVariant*)node.data(1).value<unsigned long long>();
+		if (variant->m_class == &hkbManualSelectorGeneratorClass) {
+			hkbManualSelectorGenerator* msg = (hkbManualSelectorGenerator*)variant->m_object;
+			int binding = isVariableBinded(msg, builder);
+			if (binding >= 0 && binding < variables.size())
+			{
+
+			}
+		}
+		else if (variant->m_class == &hkbStateMachineClass) {
+			hkbStateMachine* fsm = (hkbStateMachine*)variant->m_object;
+
+		}
+	}
+	return true;
 }

@@ -92,8 +92,84 @@ static void CloseHavok()
 #include <tchar.h>
 #include <windows.h>
 
+#include <stack>
+
 int main(int argc, char *argv[])
 {
+	//fs::path in_tex = "C:\\Users\\omen\\Documents\\cinzia\\tesi\\Tesi-corretta-pre-note.tex";
+	//if (!fs::exists(in_tex))
+	//	throw 666;
+	//std::stack<char> brackets;
+	//std::ifstream t(in_tex.string());
+	//std::stringstream buffer;
+	//buffer << t.rdbuf();
+	//std::string to_search = "\\textcolor[rgb]{0.5019608,0.5019608,0.5019608}";
+	//std::string teplace_with_space = "\\textcolor[rgb]{0.7490196,0.0,0.25490198}{ }";
+	//std::string teplace_with_space2 = "\\textcolor[rgb]{0.7490196,0.0,0.25490198}{ "; std::string teplace_actual = " \\textcolor[rgb]{0.7490196,0.0,0.25490198}{";
+	//std::string original = buffer.str();
+	//std::string new_file = "";
+
+	//bool matching;
+	//int last_size = -1;
+
+	//for (int i = 0; i < original.size(); i)
+	//{
+	//	if (i + to_search.size() < original.size() &&
+	//		original.substr(i, to_search.size()) == to_search)
+	//	{
+	//		last_size = brackets.size();
+	//		brackets.push('{');
+	//		i += to_search.size() + 1;
+	//		continue;
+	//	}
+	//	if (i + teplace_with_space.size() < original.size() &&
+	//		original.substr(i, teplace_with_space.size()) == teplace_with_space)
+	//	{
+	//		i += teplace_with_space.size();
+	//		new_file += " ";
+	//		continue;
+	//	}
+	//	if (i + teplace_with_space2.size() < original.size() &&
+	//		original.substr(i, teplace_with_space2.size()) == teplace_with_space2)
+	//	{
+	//		i += teplace_with_space2.size();
+	//		brackets.push('{');
+	//		new_file += teplace_actual;
+	//		continue;
+	//	}
+
+	//	if (original[i] == '{')
+	//	{
+	//		brackets.push(original[i]);
+	//	}
+	//	bool addspace = false;
+	//	if (original[i] == '}')
+	//	{
+	//		brackets.pop();
+	//		if (i + 1 < original.size() && std::isalpha(original[i + 1]) && !std::isspace(original[i + 1]))
+	//			addspace = true;
+	//		if (brackets.size() == last_size)
+	//		{
+	//			last_size = -1;
+	//			if (addspace)
+	//				new_file += " ";
+	//			i++;
+	//			continue;
+	//		}
+	//	}
+	//	new_file += original[i];
+	//	if (addspace)
+	//		new_file += " ";
+	//	i++;
+	//}
+
+	//std::ofstream out(in_tex.parent_path() / "Tesi-corretta-nuova.tex");
+	//out << new_file;
+	//out.close();
+
+	//return 0;
+
+
 	QApplication a(argc, argv);
 
 	std::string workspace_path = Settings.get<std::string>("/general/workspace_folder");

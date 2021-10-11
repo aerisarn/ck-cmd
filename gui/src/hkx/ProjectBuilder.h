@@ -15,7 +15,7 @@ namespace ckcmd {
 			CommandManager& _commandManager;
 			ResourceManager& _resourceManager;
 			const std::string& _name; // unique id. Maybe
-			void ProjectBuilder::buildBranch(hkVariant& root, ProjectNode* root_node, const fs::path& path);
+			void buildBranch(hkVariant& root, ProjectNode* root_node, const fs::path& path);
 
 			template<typename T>
 			T* loadHkxFile(const fs::path& path, const hkClass& hk_class, hkVariant& root)
