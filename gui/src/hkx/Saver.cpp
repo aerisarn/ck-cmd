@@ -41,12 +41,14 @@ Saver::Saver(ResourceManager& manager, ProjectNode* project_root) :
 		_saving_character = true;
 	}
 	project_root->accept(*this);
-	AnimationSetBuilder builder;
-	RecursiveBehaviorVisitor< AnimationSetBuilder> r_visitor(builder, _manager, _project_file_index);
+	NullBuilder builder;
+	RecursiveBehaviorVisitor< NullBuilder> r_visitor(builder, _manager, _project_file_index);
+	__debugbreak();
 	if (!_behavior_nodes.empty())
 	{
 		_behavior_nodes.at(0)->accept(r_visitor);
 	}
+	__debugbreak();
 	//save_cache();
 }
 
@@ -95,103 +97,103 @@ void Saver::handle_clip(hkbClipGenerator* clip, int file_index)
 
 void Saver::handle_transition(ProjectNode& node)
 {
-	hkVariant* variant = (hkVariant*)node.data(1).value<unsigned long long>();
-	int file_index = node.data(3).value<int>();
-	hkbStateMachineTransitionInfoArray* info_array = (hkbStateMachineTransitionInfoArray*)variant->m_object;
-	BehaviorBuilder* builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
-	for (int array_index = 0; array_index < info_array->m_transitions.getSize(); array_index++)
-	{
-		hkbStateMachineTransitionInfo& info = info_array->m_transitions[array_index];
-		QString event_name = builder->getEvent(info.m_eventId);
-		if (event_name != "No Event") {
-			std::string event_ = event_name.toUtf8().constData();
-			if (_cache_attacks.find(event_) != _cache_attacks.end()) {
-				int target_state_id = info.m_toStateId;
-				int nested_state_id = info.m_toNestedStateId;
-				vector<ProjectNode*> fsm_nodes;
-				for (int f = 0; f < node.parentCount(); f++)
-				{
-					auto parent = node.parentItem(f);
-					hkVariant* fsm_variant = (hkVariant*)parent->data(1).value<unsigned long long>();
-					if (fsm_variant->m_class == &hkbStateMachineStateInfoClass)
-					{
-						for (int ff = 0; ff < parent->parentCount(); ff++)
-							fsm_nodes.push_back(parent->parentItem(ff));
-						
-					}
-					else {
-						fsm_nodes.push_back(parent);
-					}
-				}
-				set<int> branch_valid_attack_styles_set = { -1 };
-				if (_cache_styles.size() > 1) {
-					branch_valid_attack_styles_set.clear();
-				}
-				for (auto fsm_node : fsm_nodes)
-				{
-					if (_cache_styles.size() > 1) {
-						//check if I'm into the correct branch, we need to match two manual selector generators
-						std::vector<int> valid_attack_styles;
-						for (auto& entry : _cache_style_attacks) {
-							if ((entry.second.find({ event_ , true }) != entry.second.end()) || (entry.second.find({ event_ , false }) != entry.second.end()))
-							{
-								valid_attack_styles.push_back(entry.first);
-							}
-						}
-						for (auto& style_index : valid_attack_styles)
-						{
-							auto& style_info = _cache_styles[style_index];
-							ProjectNode* current_node = AnimationStyleReverseWalker(fsm_node, style_info, builder)._root;
+	//hkVariant* variant = (hkVariant*)node.data(1).value<unsigned long long>();
+	//int file_index = node.data(3).value<int>();
+	//hkbStateMachineTransitionInfoArray* info_array = (hkbStateMachineTransitionInfoArray*)variant->m_object;
+	//BehaviorBuilder* builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+	//for (int array_index = 0; array_index < info_array->m_transitions.getSize(); array_index++)
+	//{
+	//	hkbStateMachineTransitionInfo& info = info_array->m_transitions[array_index];
+	//	QString event_name = builder->getEvent(info.m_eventId);
+	//	if (event_name != "No Event") {
+	//		std::string event_ = event_name.toUtf8().constData();
+	//		if (_cache_attacks.find(event_) != _cache_attacks.end()) {
+	//			int target_state_id = info.m_toStateId;
+	//			int nested_state_id = info.m_toNestedStateId;
+	//			vector<ProjectNode*> fsm_nodes;
+	//			for (int f = 0; f < node.parentCount(); f++)
+	//			{
+	//				auto parent = node.parentItem(f);
+	//				hkVariant* fsm_variant = (hkVariant*)parent->data(1).value<unsigned long long>();
+	//				if (fsm_variant->m_class == &hkbStateMachineStateInfoClass)
+	//				{
+	//					for (int ff = 0; ff < parent->parentCount(); ff++)
+	//						fsm_nodes.push_back(parent->parentItem(ff));
+	//					
+	//				}
+	//				else {
+	//					fsm_nodes.push_back(parent);
+	//				}
+	//			}
+	//			set<int> branch_valid_attack_styles_set = { -1 };
+	//			if (_cache_styles.size() > 1) {
+	//				branch_valid_attack_styles_set.clear();
+	//			}
+	//			for (auto fsm_node : fsm_nodes)
+	//			{
+	//				if (_cache_styles.size() > 1) {
+	//					//check if I'm into the correct branch, we need to match two manual selector generators
+	//					std::vector<int> valid_attack_styles;
+	//					for (auto& entry : _cache_style_attacks) {
+	//						if ((entry.second.find({ event_ , true }) != entry.second.end()) || (entry.second.find({ event_ , false }) != entry.second.end()))
+	//						{
+	//							valid_attack_styles.push_back(entry.first);
+	//						}
+	//					}
+	//					for (auto& style_index : valid_attack_styles)
+	//					{
+	//						auto& style_info = _cache_styles[style_index];
+	//						ProjectNode* current_node = AnimationStyleReverseWalker(fsm_node, style_info, builder)._root;
 
-							if (!current_node->isVariant())
-							{
-								//valid Branch, cache clips
-								//auto style_set = ClipCollector(fsm_node, _cache_styles[style_index], builder)._result;
-								//_cache_style_clips[style_index].insert(style_set.begin(), style_set.end());
-								branch_valid_attack_styles_set.insert(style_index);
-							}
-						}
-					}
-					vector<int> branch_valid_attack_styles;
-					for (const auto& style : branch_valid_attack_styles_set)
-					{
-						branch_valid_attack_styles.push_back(style);
-					}
-					if (!branch_valid_attack_styles.empty())
-					{
-						for (int fsm_child_row = 0; fsm_child_row < fsm_node->childCount(); fsm_child_row++)
-						{
-							ProjectNode* fsm_child = fsm_node->child(fsm_child_row);
-							hkVariant* fsm_child_variant = (hkVariant*)fsm_child->data(1).value<unsigned long long>();
-							if (fsm_child_variant->m_class == &hkbStateMachineStateInfoClass) {
-								hkbStateMachineStateInfo* state = (hkbStateMachineStateInfo*)fsm_child_variant->m_object;
-								if (state->m_stateId == target_state_id) {
-									NestedStateFinder finder(fsm_child, nested_state_id);
-									if (finder._result != NULL)
-									{
-										fsm_child = finder._result;
-									}
-									for (int branch_style = 0; branch_style < branch_valid_attack_styles.size(); branch_style++)
-									{
-										set<string> clips;
-										if (branch_valid_attack_styles.size() == 1 && branch_valid_attack_styles[0] == -1)
-											clips = ClipCollector(fsm_child, {}, builder)._result;
-										else
-											clips = ClipCollector(fsm_child, _cache_styles[branch_valid_attack_styles[branch_style]], builder)._result;
-										for (auto clip : clips)
-										{
-											_cache_attack_clips[event_].insert({ branch_valid_attack_styles[branch_style],clip });
-										}
-									}
-									break;
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
+	//						if (!current_node->isVariant())
+	//						{
+	//							//valid Branch, cache clips
+	//							//auto style_set = ClipCollector(fsm_node, _cache_styles[style_index], builder)._result;
+	//							//_cache_style_clips[style_index].insert(style_set.begin(), style_set.end());
+	//							branch_valid_attack_styles_set.insert(style_index);
+	//						}
+	//					}
+	//				}
+	//				vector<int> branch_valid_attack_styles;
+	//				for (const auto& style : branch_valid_attack_styles_set)
+	//				{
+	//					branch_valid_attack_styles.push_back(style);
+	//				}
+	//				if (!branch_valid_attack_styles.empty())
+	//				{
+	//					for (int fsm_child_row = 0; fsm_child_row < fsm_node->childCount(); fsm_child_row++)
+	//					{
+	//						ProjectNode* fsm_child = fsm_node->child(fsm_child_row);
+	//						hkVariant* fsm_child_variant = (hkVariant*)fsm_child->data(1).value<unsigned long long>();
+	//						if (fsm_child_variant->m_class == &hkbStateMachineStateInfoClass) {
+	//							hkbStateMachineStateInfo* state = (hkbStateMachineStateInfo*)fsm_child_variant->m_object;
+	//							if (state->m_stateId == target_state_id) {
+	//								NestedStateFinder finder(fsm_child, nested_state_id);
+	//								if (finder._result != NULL)
+	//								{
+	//									fsm_child = finder._result;
+	//								}
+	//								for (int branch_style = 0; branch_style < branch_valid_attack_styles.size(); branch_style++)
+	//								{
+	//									set<string> clips;
+	//									if (branch_valid_attack_styles.size() == 1 && branch_valid_attack_styles[0] == -1)
+	//										clips = ClipCollector(fsm_child, {}, builder)._result;
+	//									else
+	//										clips = ClipCollector(fsm_child, _cache_styles[branch_valid_attack_styles[branch_style]], builder)._result;
+	//									for (auto clip : clips)
+	//									{
+	//										_cache_attack_clips[event_].insert({ branch_valid_attack_styles[branch_style],clip });
+	//									}
+	//								}
+	//								break;
+	//							}
+	//						}
+	//					}
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
 }
 
 void AnimationStyleReverseWalker::handle_node(ProjectNode& node)
@@ -696,21 +698,114 @@ void Saver::handle_animation_style(ProjectNode& node)
 }
 
 bool AnimationSetBuilder::handle(ProjectNode& node, BehaviorBuilder* builder) {
+	_branch.push_front(node.data(0).value<QString>().toUtf8().constData());
 	if (node.isVariant())
 	{
 		hkVariant* variant = (hkVariant*)node.data(1).value<unsigned long long>();
+		
 		if (variant->m_class == &hkbManualSelectorGeneratorClass) {
 			hkbManualSelectorGenerator* msg = (hkbManualSelectorGenerator*)variant->m_object;
 			int binding = isVariableBinded(msg, builder);
-			if (binding >= 0 && binding < variables.size())
+			if (binding >= 0 && binding < _variables.size())
 			{
 
 			}
 		}
 		else if (variant->m_class == &hkbStateMachineClass) {
 			hkbStateMachine* fsm = (hkbStateMachine*)variant->m_object;
-
+			_states_stack.push_front({ &node , -1 });
+			//check if we find an attack
+			if (fsm->m_wildcardTransitions != NULL) {
+				for (int wt = 0; wt < fsm->m_wildcardTransitions->m_transitions.getSize(); wt++)
+				{
+					auto& transition = fsm->m_wildcardTransitions->m_transitions[wt];
+					auto event_name = builder->getEvent(transition.m_eventId);
+					if ((event_name.startsWith("attackStart", Qt::CaseInsensitive)) ||
+						(event_name.startsWith("attackPowerStart", Qt::CaseInsensitive)) ||
+						(event_name.startsWith("bashStart", Qt::CaseInsensitive)))
+					{
+						//it is an attack, check if we already have it (multiple transitions over the same attack from different states)
+						attack_state_id_t attack_id = { &node, event_name.toUtf8().constData(), transition.m_toStateId, transition.m_toNestedStateId };
+						auto id_it = std::find(_attack_state.begin(), _attack_state.end(), attack_id);
+						if (id_it == _attack_state.end())
+							_attack_state.push_back(attack_id);
+					}
+				}
+			}
+			//check into state transitions too
+			for (int state_id = 0; state_id < fsm->m_states.getSize(); ++state_id)
+			{
+				auto* state = fsm->m_states[state_id];
+				if (state->m_transitions != NULL) {
+					for (int t = 0; t < state->m_transitions->m_transitions.getSize(); ++t)
+					{
+						auto& transition = state->m_transitions->m_transitions[t];
+						auto event_name = builder->getEvent(transition.m_eventId);
+						if ((event_name.startsWith("attackStart", Qt::CaseInsensitive)) ||
+							(event_name.startsWith("attackPowerStart", Qt::CaseInsensitive)) ||
+							(event_name.startsWith("bashStart", Qt::CaseInsensitive)))
+						{
+							//it is an attack, check if we already have it (multiple transitions over the same attack from different states)
+							attack_state_id_t attack_id = { &node, event_name.toUtf8().constData(), transition.m_toStateId, transition.m_toNestedStateId };
+							auto id_it = std::find(_attack_state.begin(), _attack_state.end(), attack_id);
+							if (id_it == _attack_state.end())
+								_attack_state.push_back(attack_id);
+						}
+					}
+				}
+			}
+		}
+		else if (variant->m_class == &hkbStateMachineStateInfoClass)
+		{
+			hkbStateMachineStateInfo* info = (hkbStateMachineStateInfo*)variant->m_object;
+			_states_stack.push_front({ &node , info->m_stateId });
+			if (!_attack_state.empty()) {			
+				if (_states_stack.size() > 3)
+				{
+					for (std::vector<attack_state_id_t>::iterator it = _attack_state.begin();
+						it != _attack_state.end();) {
+						auto& attack_transition = *it;
+						auto& fsm_node = get<0>(attack_transition);
+						auto& state = get<2>(attack_transition);
+						auto& nested_state = get<3>(attack_transition);
+						if (_states_stack.at(3).first == fsm_node &&
+							_states_stack.at(2).second == state && 
+							/*unimportant FSM for nested state*/
+							_states_stack.at(0).second == nested_state)
+						{
+							auto& current_set = get<2>(sets_stack.front().second);
+							//found the nested state, initialize the set
+							auto attack_name = get<1>(attack_transition);
+							_attacks_nodes.push_front({ &node, attack_name });
+							_attack_state.erase(it);
+							break;
+						}
+						it++;
+					}
+				}
+			}
+		}
+		else if (variant->m_class == &hkbClipGeneratorClass)
+		{
+			hkbClipGenerator* info = (hkbClipGenerator*)variant->m_object;
+			if (!_attacks_nodes.empty()) {
+				auto& current_set = get<2>(sets_stack.front().second);
+				auto attack_name = _attacks_nodes.front().second;
+				current_set[attack_name].insert(info->m_name.cString());
+			}
 		}
 	}
 	return true;
+}
+
+void AnimationSetBuilder::end_branch(ProjectNode& node, BehaviorBuilder* builder) 
+{
+	if (!_attacks_nodes.empty() && _attacks_nodes.front().first == &node) {
+		_attacks_nodes.pop_front();
+	}
+	if (!_states_stack.empty() && _states_stack.front().first == &node)
+	{
+		_states_stack.pop_front();
+	}
+	_branch.pop_front();
 }

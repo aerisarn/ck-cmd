@@ -267,20 +267,50 @@ namespace ckcmd {
 			}
 		};
 
+		struct NullBuilder {
+
+			bool handle(ProjectNode& node, BehaviorBuilder* builder) { return true; }
+
+			void end_branch(ProjectNode& node, BehaviorBuilder* builder) {}
+
+		};
+
 		class AnimationSetBuilder {
+
+			/*it is unclear wether this actually has any effect on caching
+			in some cases, like draugr, it lists entering effects and all the animations until
+			we get back to the initial state machine. Which is unlikely something done automatically*/
 			typedef std::set<std::string> events_list_t;
-			typedef std::set<std::map<std::string, std::vector<int>>> variable_list_t;
-			typedef std::set<std::map<std::string, std::vector<string>>> attack_list_t;
+
+			/*each file is either a weapon set with these valorized (variable name/ value pairs)
+			or this is empty and the file is just a list of animations. My guess is that these just get merged in a single map*/
+			typedef std::map<std::string, std::vector<int>> variable_list_t;
+			
+			/*lists all the clips that can be played in response of an attackStart or bashStart event,
+			ck uses this to determine attack entries and movements*/
+			typedef std::map<std::string, std::set<string>> attack_list_t;
+
+			/*crc32 of the clips*/
 			typedef std::set<std::string> clips_list_t;
 
 			typedef std::tuple< events_list_t, variable_list_t, attack_list_t, clips_list_t> animation_set_t;
 
-			std::vector<std::string> variables;
-			bool _attack_mode;
-			std::deque<std::pair<ProjectNode*, bool>> _msg_mode;
-			std::deque<std::pair<ProjectNode*, bool>> _fsm_mode;
+			/*variables to consider for the set switch*/
+			std::vector<std::string> _variables;
 
+			/*current set stack*/
 			std::deque<std::pair<ProjectNode*, animation_set_t>> sets_stack;
+
+			typedef std::tuple<ProjectNode*, std::string, int, int> attack_state_id_t;
+
+			/*attack event, state id, nested state id*/
+			std::vector<attack_state_id_t> _attack_state;
+			std::deque<std::pair<ProjectNode*, std::string>> _attacks_nodes;
+			std::deque<std::pair<ProjectNode*, int>> _states_stack;
+
+
+			/*nodes stack*/
+			std::deque<std::string> _branch;
 
 			template<typename HkBindable>
 			int isVariableBinded(HkBindable* bindable, BehaviorBuilder* _builder)
@@ -291,8 +321,8 @@ namespace ckcmd {
 					for (int b = 0; b < vbs->m_bindings.getSize(); b++)
 					{
 						string variable_name = _builder->getVariable(vbs->m_bindings[b].m_variableIndex).toUtf8().constData();
-						for (int v = 0; v < variables.size(); v++) {
-							if (variables[v] == variable_name)
+						for (int v = 0; v < _variables.size(); v++) {
+							if (_variables[v] == variable_name)
 							{
 								return v;
 							}
@@ -301,11 +331,16 @@ namespace ckcmd {
 				}
 				return -1;
 			}
+
 		public:
+
+			AnimationSetBuilder() {
+				sets_stack.push_front({});
+			}
+
 			bool handle(ProjectNode& node, BehaviorBuilder* builder);
 
-			void end_branch(ProjectNode& node, BehaviorBuilder* builder) {
-			}
+			void end_branch(ProjectNode& node, BehaviorBuilder* builder);
 
 		};
 
