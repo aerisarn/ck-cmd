@@ -23,18 +23,18 @@ message( "[MAIN]: generator " ${CMAKE_GENERATOR_PLATFORM})
 ExternalProject_Add(googletest
                     PREFIX "external"
                     GIT_REPOSITORY https://github.com/google/googletest.git
-					GIT_TAG master
+					GIT_TAG main
                     INSTALL_COMMAND "")
 ExternalProject_Get_Property(googletest SOURCE_DIR BINARY_DIR)
 set (GTEST_INCLUDE_DIRS "${SOURCE_DIR}/googletest/include")
-set (GTEST_LIBRARIES debug "${BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtestd${CMAKE_STATIC_LIBRARY_SUFFIX}"
+set (GTEST_LIBRARIES debug "${BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}"
 					optimized "${BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
 set (TEST_SRC "${CMAKE_SOURCE_DIR}/test/main.cpp")
 
 ExternalProject_Add(zlib
                     PREFIX "external"
-                    URL "https://zlib.net/zlib-1.2.11.tar.gz"
+                    URL "https://zlib.net/zlib-1.2.12.tar.gz"
                     INSTALL_COMMAND "")
 ExternalProject_Get_Property(zlib SOURCE_DIR BINARY_DIR)
 set (ZLIB_INCLUDE_DIRS ${SOURCE_DIR} ${BINARY_DIR})
@@ -56,8 +56,8 @@ ExternalProject_Get_Property(docopt_parser SOURCE_DIR BINARY_DIR)
 set (DOCOPT_INCLUDE_DIRS ${SOURCE_DIR} ${BINARY_DIR})
 message("DOCOPT_INCLUDE_DIRS:" ${DOCOPT_INCLUDE_DIRS})
 IF (MSVC)
-    set (DOCOPT_LIBRARIES optimized "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt_s${CMAKE_STATIC_LIBRARY_SUFFIX}"
-                    debug "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt_s${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set (DOCOPT_LIBRARIES optimized "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}"
+                    debug "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}")
 ELSE ()
     set (DOCOPT_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}")
 ENDIF ()
@@ -665,6 +665,11 @@ IF (PROJECT_GUI)
             IMPORTED_LOCATION ${imported_location}
         )
     endif()
+
+	find_package(OpenMP REQUIRED)
+
+	message( "[MAIN]: CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS})
+
 endif()
 
 # modules
