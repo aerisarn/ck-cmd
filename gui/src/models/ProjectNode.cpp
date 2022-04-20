@@ -20,8 +20,14 @@ void ProjectNode::appendData(const QVariant& value)
 
 ProjectNode* ProjectNode::appendChild(ProjectNode* item)
 {
+	m_childIndices[item].push_back(m_childItems.size());
 	m_childItems.append(item);
 	return m_childItems.last();
+}
+
+void ProjectNode::appendIndex(ProjectNode* item)
+{
+	m_childIndices[item].push_back(m_childIndices[item].size());
 }
 
 ProjectNode* ProjectNode::child(int row)
@@ -92,6 +98,8 @@ ProjectNode* ProjectNode::parentItem(int row)
 		return nullptr;
 	if (m_parentItems.isEmpty())
 		return nullptr;
+	if (row >= m_parentItems.count())
+		return nullptr;
 	/*for (int i = 0; i < m_parentItems.size(); i++) {
 		if (m_parentItems[i]->child(row) == this)
 			return m_parentItems[i];
@@ -111,6 +119,13 @@ QVariant ProjectNode::data(int column) const
 
 ProjectNode::NodeType ProjectNode::type() const {
 	return m_type;
+}
+
+
+const std::vector<int>& ProjectNode::indicesOf(ProjectNode* child) const {
+	if (child != nullptr && m_childIndices.find(child) != m_childIndices.end())
+		return m_childIndices.at(child);
+	return {};
 }
 
 bool ProjectNode::isProjectRoot() const {

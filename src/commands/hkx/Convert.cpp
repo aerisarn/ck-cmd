@@ -276,11 +276,18 @@ bool Convert::InternalRunCommand(map<string, docopt::value> parsedArgs)
    LPCSTR defextn = (pkFormat == HKPF_XML || pkFormat == HKPF_TAGXML) ? ".xml" : (pkFormat == HKPF_TAGFILE) ?  ".hkt" : ".hkx";
 
 	vector<string> files;
-	FindFiles(files, inpath.c_str());
-	if (files.empty())
+	if (fs::is_directory(inpath))
 	{
-		Log::Error("No files found in '%s'", inpath.c_str());
-		return false;
+		FindFiles(files, inpath.c_str());
+		if (files.empty())
+		{
+			Log::Error("No files found in '%s'", inpath.c_str());
+			return false;
+		}
+	}
+	else if (fs::is_regular_file(inpath))
+	{
+		files.push_back(inpath);
 	}
 
    if (!flagsSpecified && pkFormat == HKPF_DEFAULT)

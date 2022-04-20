@@ -3,6 +3,9 @@
 #include <src/hkx/BehaviorBuilder.h>
 
 #include <deque>
+#include <stack>
+
+class hkbStateMachine;
 
 namespace ckcmd {
 	namespace HKX {
@@ -55,10 +58,15 @@ namespace ckcmd {
 
 		class Saver {
 
+			std::set<ProjectNode*> _visited;
+
 			virtual void recurse(ProjectNode& node)
 			{
 				for (int i = 0; i < node.childCount(); i++)
+				{
+					//if (_visited.insert(node.child(i)).second)
 					node.child(i)->accept(*this);
+				}
 			}
 
 			ResourceManager& _manager;
@@ -68,11 +76,12 @@ namespace ckcmd {
 			int _project_file_index;
 			std::vector<int> _character_files_indices;
 			std::vector<int> _behavior_files_indices;
-			std::vector<ProjectNode*> _behavior_nodes;
+			std::map<int, ProjectNode*> _behavior_nodes;
 			std::set<std::string> _animation_relative_files;
 			std::map<std::string, fs::path> _animation_absolute_files;
 			std::string _rig_file;
 			CacheEntry* _cache;
+			ProjectNode* _fsm_root;
 
 			struct AnimationInfo {
 				float duration;
@@ -91,6 +100,7 @@ namespace ckcmd {
 			//Animation Cache temp info;
 			std::map<std::string, AnimationInfo> _cache_animation_info;
 			std::map<std::string, ClipInfo> _cache_clip_info;
+			std::vector<ProjectNode*> _clips;
 
 		public:
 			struct StyleInfo {
@@ -98,6 +108,7 @@ namespace ckcmd {
 				int min;
 				int max;
 			};
+
 		private:
 			std::vector<std::vector<StyleInfo>> _cache_styles;
 			std::map<int, std::set<std::string>> _cache_style_clips;
@@ -117,8 +128,24 @@ namespace ckcmd {
 			void handle_clip(hkbClipGenerator* clip, int file_index);
 			void handle_animation_style(ProjectNode& node);
 			void handle_transition(ProjectNode& node);
+			void handle_behavior(ProjectNode& node);
 
-			void handle_root_behavior(ProjectNode& node);
+			void find_animation_driven_transitions(ProjectNode& node, hkbStateMachine* fsm);
+
+			std::multimap<size_t, ProjectNode*> _behaviors_references_int_map;
+			std::multimap<ProjectNode*, ProjectNode*> _behaviors_references_nodes_map;
+			std::map<ProjectNode*, BehaviorBuilder*> _behaviors_references_builders_map;
+
+			std::deque<ProjectNode*> _fsm_stack;
+			std::map<std::string, int> _variables_values;
+			std::deque<std::set<std::string>> _animation_sets_stack;
+			fs::path variables_path;
+			std::map<std::string, std::set<std::string>>  _animation_sets;
+
+			std::set<std::string> _animation_styles_control_variables = { "iRightHandType", "iLeftHandType" };
+			fs::path _nodes_stack;
+			bool _first_behavior = true;
+			std::deque<ProjectNode*> _behavior_stack;
 
 		public: 
 
@@ -148,18 +175,22 @@ namespace ckcmd {
 			template<>
 			void visit<ProjectNode::NodeType::behavior_node>(ProjectNode& node)
 			{
-				fs::path behavior_path = node.data(1).value<QString>().toUtf8().constData();
-				size_t behavior_index = _manager.index(behavior_path);
-				_behavior_files_indices.push_back(behavior_index);
-				_behavior_nodes.push_back(&node);
-				recurse(node);
+				if (!_behavior_stack.empty() || _first_behavior)
+				{
+					_first_behavior = false;
+					_behavior_stack.push_back(&node);
+					recurse(node);
+					_behavior_stack.pop_front();
+				}
+
 			}
 
 			template<>
 			void visit<ProjectNode::NodeType::hkx_node>(ProjectNode& node)
 			{
+				//_nodes_stack = _nodes_stack / node.data(0).value<QString>().toUtf8().constData();
 				handle_hkx_node(node);
-				recurse(node);
+				//_nodes_stack = _nodes_stack.parent_path();
 			}
 
 			template<>
@@ -188,65 +219,169 @@ namespace ckcmd {
 			}
 		};
 
+		struct ClipPath {
+			union
+			{
+				int stateId;
+				struct {
+					BehaviorBuilder* _builder;
+					int referenceIndex;
+					int value;
+				} referenceIndex;
+				struct {
+					BehaviorBuilder* _builder;
+					size_t valid_references;
+					int multipleReferencesIndices[64];
+				} referenceArray;
+			} data;
+			int type;
+		};
+
+		template<typename Delegate>
+		class RecursiveClipPathBuilder
+		{
+			ProjectNode& _clip;
+			Delegate& _delegate;
+			ResourceManager& _manager;
+			std::multimap<ProjectNode*, ProjectNode*> _behaviors_references_nodes_map;
+			std::map<ProjectNode*, BehaviorBuilder*> _behaviors_references_builders_map;
+			std::deque<BehaviorBuilder*> _builders;
+			std::vector<ClipPath> _path_stack_container;
+			std::stack<ClipPath, std::vector<ClipPath>> _current_path;
+
+
+		public:
+			RecursiveClipPathBuilder(
+				ProjectNode& clip,
+				Delegate& node_delegate,
+				ResourceManager& manager,
+				std::multimap<ProjectNode*, ProjectNode*>& behaviors_references_nodes_map,
+				std::map<ProjectNode*, BehaviorBuilder*>& behaviors_references_builders_map,
+				size_t behavior_index) :
+				_clip(clip),
+				_delegate(node_delegate),
+				_manager(manager),
+				_behaviors_references_nodes_map(behaviors_references_nodes_map),
+				_behaviors_references_builders_map(behaviors_references_builders_map),
+				_path_stack_container(1000),
+				_current_path(_path_stack_container)
+			{
+				BehaviorBuilder* builder = (BehaviorBuilder*)_manager.classHandler(behavior_index);
+				_builders.push_front(builder);
+				_clip.accept(*this, &_clip);
+			}
+
+			void recurse(ProjectNode& node, ProjectNode* child)
+			{	
+				for (size_t c = 0; c < node.parentCount(); c++)
+				{
+					node.parentItem(c)->accept(*this, &node);
+				}
+			}
+
+			void handle_node(ProjectNode& node, ProjectNode* child)
+			{
+				_current_path.push(_delegate.handle(node, _builders.front(), child));
+				recurse(node, child);
+				_current_path.pop();
+			}
+
+			void handle_behavior_node(ProjectNode& node, ProjectNode* child)
+			{
+				if (!_builders.empty() || _first_be)
+				_builders.push_front(_behaviors_references_builders_map[parent_it->second]);
+				parent_it->second->accept(*this, child);
+				_builders.pop_front();			
+			}
+
+			template<ProjectNode::NodeType>
+			void visit(ProjectNode& node, ProjectNode* child)
+			{
+				handle_node(node, child);
+			}
+
+			template<>
+			void visit<ProjectNode::NodeType::behavior_node>(ProjectNode& node, ProjectNode* child)
+			{
+				handle_behavior_node(node, child);
+			}
+		};
+
 		template<typename Delegate>
 		class RecursiveBehaviorVisitor 
 		{
+			ProjectNode& _root;
 			Delegate& _delegate;
 			ResourceManager& _manager;
 			std::deque<BehaviorBuilder*> _builders;
 			size_t _project_file_index;
-		
+
+			std::set<ProjectNode*> _current_branch;
+
 		public:
 
-			RecursiveBehaviorVisitor(Delegate& node_delegate, ResourceManager& manager, size_t project_file_index) :
+			RecursiveBehaviorVisitor(
+				ProjectNode& root, 
+				Delegate& node_delegate, 
+				ResourceManager& manager,
+				size_t behavior_index,
+				size_t project_file_index) :
+				_root(root),
 				_delegate(node_delegate),
 				_manager(manager),
 				_project_file_index(project_file_index)
 			{
+				BehaviorBuilder* builder = (BehaviorBuilder*)_manager.classHandler(behavior_index);
+				_builders.push_front(builder);
+				_root.accept(*this, {-1});
 			}
 
 			void handle_node(ProjectNode& node)
 			{
-				hkVariant* variant = nullptr;
-				if (node.isVariant())
+				if (_current_branch.insert(&node).second)
 				{
-					variant = (hkVariant*)node.data(1).value<unsigned long long>();
-					//if (node.data(0).value<QString>() == "MT_H2H_State")
-					//	__debugbreak();
-				}
-				if (nullptr != variant && variant->m_class == &hkbBehaviorReferenceGeneratorClass)
-				{
-					fs::path project_folder = _manager.path(_project_file_index).parent_path();
-					hkbBehaviorReferenceGenerator* reference = (hkbBehaviorReferenceGenerator*)variant->m_object;
-					fs::path behavior_path = project_folder / reference->m_behaviorName.cString();
-					auto behavior_index = _manager.index(behavior_path);
-					auto& behavior_contents = _manager.get(behavior_path);
-					bool found = false;
-					for (const auto& content : behavior_contents.second)
+					hkVariant* variant = nullptr;
+					if (node.isVariant())
 					{
-						if (content.m_class == &hkbBehaviorGraphClass) {
-							ProjectNode* behavior_root = _manager.findNode(behavior_index, &content);
-							BehaviorBuilder* builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(behavior_index));
-							_builders.push_front(builder);
-							behavior_root->accept(*this);
-							_builders.pop_front();
-							found = true;
-							break;
-						}
+						variant = (hkVariant*)node.data(1).value<unsigned long long>();
+						//if (node.data(0).value<QString>() == "MT_H2H_State")
+						//	__debugbreak();
 					}
-					if (!found)
-						throw 666;
-
-				}
-				else {
-					bool result = _delegate.handle(node, _builders.front());
-					if (result) {
-						for (size_t child_index = 0; child_index < node.childCount(); child_index++)
+					if (nullptr != variant && variant->m_class == &hkbBehaviorReferenceGeneratorClass)
+					{
+						fs::path project_folder = _manager.path(_project_file_index).parent_path();
+						hkbBehaviorReferenceGenerator* reference = (hkbBehaviorReferenceGenerator*)variant->m_object;
+						fs::path behavior_path = project_folder / reference->m_behaviorName.cString();
+						auto behavior_index = _manager.index(behavior_path);
+						auto& behavior_contents = _manager.get(behavior_path);
+						bool found = false;
+						for (const auto& content : behavior_contents.second)
 						{
-							node.child(child_index)->accept(*this);
+							if (content.m_class == &hkbBehaviorGraphClass) {
+								ProjectNode* behavior_root = _manager.findNode(behavior_index, &content);
+								BehaviorBuilder* builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(behavior_index));
+								_builders.push_front(builder);
+								//behavior_root->accept(*this);
+								_builders.pop_front();
+								found = true;
+								break;
+							}
 						}
+						if (!found)
+							throw 666;
+
 					}
-					_delegate.end_branch(node, _builders.front());
+					else {
+						bool result = _delegate.handle(node, _builders.front());
+						if (result) {
+							for (size_t child_index = 0; child_index < node.childCount(); child_index++)
+							{
+								node.child(child_index)->accept(*this);
+							}
+						}
+						_delegate.end_branch(node, _builders.front());
+					}
+					_current_branch.erase(&node);
 				}
 			}
 
@@ -255,23 +390,35 @@ namespace ckcmd {
 			{
 				handle_node(node);
 			}
-
-			template<>
-			void visit<ProjectNode::NodeType::behavior_node>(ProjectNode& node)
-			{
-				fs::path behavior_path = node.data(1).value<QString>().toUtf8().constData();
-				size_t behavior_index = _manager.index(behavior_path);
-				BehaviorBuilder* builder = (BehaviorBuilder*)_manager.classHandler(behavior_index);
-				_builders.push_front(builder);
-				handle_node(node);
-			}
 		};
 
 		struct NullBuilder {
 
-			bool handle(ProjectNode& node, BehaviorBuilder* builder) { return true; }
+			size_t handled = 1;
+
+			bool handle(ProjectNode& node, BehaviorBuilder* builder) { 
+				handled = ++handled;
+				return true;
+			}
 
 			void end_branch(ProjectNode& node, BehaviorBuilder* builder) {}
+
+		};
+
+		struct PathBuilder {
+
+			size_t handled = 1;
+			std::set<std::string> paths;
+
+			ClipPath handle(ProjectNode& node, BehaviorBuilder* builder, ProjectNode* child);
+
+			void end_branch(const std::stack<ClipPath, std::vector<ClipPath>>& path) {
+				//std::string spath = "/";
+				//for (const auto& entry : path) {
+				//	spath += entry + "/";
+				//}
+				//paths.insert(spath);
+			}
 
 		};
 
@@ -331,6 +478,8 @@ namespace ckcmd {
 				}
 				return -1;
 			}
+
+
 
 		public:
 

@@ -85,6 +85,7 @@ void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Fla
 							_file_index
 						},
 						_parent));
+				
 			}
 			HkxTableVariant h(*variant);
 			h.accept(TreeBuilder(object_node, _resourceManager, _file, _file_index, _visited_objects, _handlers));
@@ -92,6 +93,7 @@ void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Fla
 		else {
 			auto node = _resourceManager.findNode(_file_index, variant);
 			node->addParent(_parent);
+			_parent->appendIndex(node);
 			_parent->appendChild(node);
 		}
 	}

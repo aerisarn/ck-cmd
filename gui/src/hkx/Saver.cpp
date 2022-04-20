@@ -10,6 +10,8 @@
 #include <hkbStateMachineStateInfo_4.h>
 #include <hkbClipGenerator_2.h>
 #include <hkbManualSelectorGenerator_0.h>
+#include <hkbModifierGenerator_0.h>
+#include <BSIsActiveModifier_1.h>
 
 // Animation
 #include <Animation/Animation/hkaAnimationContainer.h>
@@ -34,22 +36,77 @@ void Saver::save_hkx(int file_index)
 
 Saver::Saver(ResourceManager& manager, ProjectNode* project_root) :
 	_saving_character(false),
-	_manager(manager)
+	_manager(manager),
+	_fsm_root(nullptr)
 {
 	if (project_root->isCharacter())
 	{
 		_saving_character = true;
 	}
+	_animation_sets_stack.push_front({});
+	__debugbreak();
 	project_root->accept(*this);
-	NullBuilder builder;
-	RecursiveBehaviorVisitor< NullBuilder> r_visitor(builder, _manager, _project_file_index);
+	//for (auto& entry : _behaviors_references_int_map) {
+	//	_behaviors_references_nodes_map.insert({ _behavior_nodes[entry.first], entry.second });
+	//}
 	__debugbreak();
-	if (!_behavior_nodes.empty())
-	{
-		_behavior_nodes.at(0)->accept(r_visitor);
-	}
-	__debugbreak();
+//	PathBuilder builder;
+//	if (_fsm_root != nullptr)
+//	{
+//#pragma omp parallel for
+//		for (int i=0; i<_clips.size(); i++)
+//		{
+//			RecursiveClipPathBuilder< PathBuilder> r_visitor(
+//				*_clips[i], builder,
+//				_manager,
+//				_behaviors_references_nodes_map,
+//				_behaviors_references_builders_map,
+//				_behavior_files_indices.at(0));
+//		}
+//	}
+	//__debugbreak();
 	//save_cache();
+}
+
+ClipPath PathBuilder::handle(ProjectNode& node, BehaviorBuilder* builder, ProjectNode* child) {
+	if (node.isVariant())
+	{
+		hkVariant* variant = (hkVariant*)node.data(1).value<unsigned long long>();
+		if (variant->m_class == &hkbStateMachineStateInfoClass)
+		{
+			hkbStateMachineStateInfo* state = (hkbStateMachineStateInfo*)variant->m_object;
+			return ClipPath();
+		} 
+		else if (variant->m_class == &hkbManualSelectorGeneratorClass) 
+		{ 
+			hkbManualSelectorGenerator* msg = (hkbManualSelectorGenerator*)variant->m_object;
+			if (msg->m_variableBindingSet != NULL)
+			{
+				hkbVariableBindingSet* vbs = msg->m_variableBindingSet;
+				for (int b = 0; b < vbs->m_bindings.getSize(); b++)
+				{
+					if (0 == strcmp(vbs->m_bindings[b].m_memberPath.cString(),"selectedGeneratorIndex"))
+					{
+						ClipPath p = { 0 };
+						auto& indices = node.indicesOf(child);
+						p.data.referenceArray.valid_references = indices.size();
+						for (int i = 0; i < indices.size(); i++)
+							p.data.referenceArray.multipleReferencesIndices[i] = indices[i];
+						//std::stringstream out;
+						//size_t msg_index = child_index;
+						//string variable_name = builder->getVariable(vbs->m_bindings[b].m_variableIndex).toUtf8().constData();
+						//out << variable_name  << ":" << msg_index;
+						//return out.str();*/
+						return p;
+					}
+				}
+			}
+		}
+		else if (variant->m_class == &hkbStateMachineClass) {
+
+		}
+	}
+	return ClipPath();
 }
 
 void NestedStateFinder::handle_node(ProjectNode& node)
@@ -93,6 +150,32 @@ void Saver::handle_clip(hkbClipGenerator* clip, int file_index)
 		}
 	}
 	_cache_clip_info[clip->m_name.cString()] = info;
+}
+
+void Saver::handle_behavior(ProjectNode& node)
+{
+	fs::path behavior_path = node.data(1).value<QString>().toUtf8().constData();
+	size_t behavior_index = _manager.index(behavior_path);
+	_behavior_files_indices.push_back(behavior_index);
+	_behavior_nodes[behavior_index] = &node;
+
+	ProjectNode* child_behavior = NULL;
+	BehaviorBuilder* child_behavior_builder = NULL;
+
+	auto& behavior_contents = _manager.get(behavior_path);
+	bool found = false;
+	for (const auto& content : behavior_contents.second)
+	{
+		if (content.m_class == &hkbBehaviorGraphClass) {
+			child_behavior = _manager.findNode(behavior_index, &content);
+			child_behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(behavior_index));
+			found = true;
+			break;
+		}
+	}
+
+
+	recurse(node);
 }
 
 void Saver::handle_transition(ProjectNode& node)
@@ -385,18 +468,275 @@ void ClipCollector::handle_node(ProjectNode& node) {
 	}	
 }
 
+void Saver::find_animation_driven_transitions(ProjectNode& node, hkbStateMachine* fsm)
+{
+}
+
 void Saver::handle_hkx_node(ProjectNode& node)
 {
 	hkVariant* variant = (hkVariant*)node.data(1).value<unsigned long long>();
-	//hkVariant* parent_variant = (hkVariant*)node.data(2).value<unsigned long long>();
 	int file_index = node.data(3).value<int>();
 
 	if (variant->m_class == &hkbClipGeneratorClass) 
 	{
-		handle_clip((hkbClipGenerator*)variant->m_object, file_index);
+		//if (std::find(_clips.begin(), _clips.end(), &node) == _clips.end())
+		//	_clips.push_back(&node);
+		//handle_clip((hkbClipGenerator*)variant->m_object, file_index);
+		hkbClipGenerator* clip = (hkbClipGenerator*)variant->m_object;
+		//fs::path p = _nodes_stack / clip->m_animationName.cString();
+		//_animation_sets_stack.front().insert(clip->m_animationName.cString());
+		recurse(node);
 	}
-	else if (variant->m_class == &hkbStateMachineTransitionInfoArrayClass) {
-		handle_transition(node);
+	else if (variant->m_class == &hkbStateMachineStateInfoClass) {
+		/*handle_transition(node);*/
+		_fsm_stack.push_front(&node);
+		recurse(node);
+		_fsm_stack.pop_front();
+	}
+	else if (variant->m_class == &hkbStateMachineClass) {
+		//if (_fsm_root == nullptr)
+		//	_fsm_root = &node;
+		//handle_transition(node);
+		std::string state_bind = "";
+		bool animation_driven = false;
+		hkbStateMachine* fsm = (hkbStateMachine*)variant->m_object;
+		if (NULL != fsm)
+		{
+			if (NULL != fsm->m_variableBindingSet)
+			{
+				auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+				auto& bindings = fsm->m_variableBindingSet->m_bindings;
+				for (int i = 0; i < bindings.getSize(); ++i)
+				{
+					auto& binding = bindings[i];
+					auto variable_name = behavior_builder->getVariable(binding.m_variableIndex);
+					if (binding.m_memberPath == "startStateId")
+					{
+						state_bind = variable_name.toUtf8().constData();
+					}
+					if (variable_name == "bAnimationDriven")
+					{
+						animation_driven = true;
+						find_animation_driven_transitions(node, fsm);
+					}
+
+				}
+			}
+		}
+		_fsm_stack.push_front(&node);
+		if (!state_bind.empty())
+		{
+			if (_variables_values.find(state_bind) == _variables_values.end())
+			{
+				for (int i = 0; i < node.childCount(); ++i)
+				{
+					hkVariant* variant = (hkVariant*)node.child(i)->data(1).value<unsigned long long>();
+					if (variant->m_class == &hkbStateMachineStateInfoClass)
+					{
+						_variables_values[state_bind] = ((hkbStateMachineStateInfo*)variant->m_object)->m_stateId;
+						//bool control = _animation_styles_control_variables.find(state_bind) != _animation_styles_control_variables.end();
+						//if (control)
+						//{
+						//	_animation_sets_stack.push_front({});
+						//	variables_path = variables_path / state_bind / std::to_string(_variables_values[state_bind]);
+						//}
+						//if (animation_driven)
+						//{
+						//	_animation_sets_stack.push_front({});
+						//	variables_path = variables_path / "driven";
+						//}
+						node.child(i)->accept(*this);
+						//for (const auto& item : _animation_sets_stack.front())
+						//{
+						//	if (animation_driven)
+						//		_animation_sets["AnimationDriven"].insert(item);
+						//	else
+						//		_animation_sets[variables_path.string()].insert(item);
+						//}
+						//if (animation_driven)
+						//{
+						//	variables_path = variables_path.parent_path();
+						//	_animation_sets_stack.pop_front();
+						//}
+						//if (control)
+						//{
+						//	variables_path = variables_path.parent_path().parent_path();
+						//	_animation_sets_stack.pop_front();
+						//}
+
+						_variables_values.erase(state_bind);
+					}
+					else {
+						node.child(i)->accept(*this);
+					}
+				}
+			}
+			else {
+				int current_starting_state = _variables_values[state_bind];
+				for (int i = 0; i < node.childCount(); ++i)
+				{
+					hkVariant* variant = (hkVariant*)node.child(i)->data(1).value<unsigned long long>();
+					if (variant->m_class == &hkbStateMachineStateInfoClass)
+					{				
+						if (current_starting_state == ((hkbStateMachineStateInfo*)variant->m_object)->m_stateId)
+						{
+							node.child(i)->accept(*this);
+						}
+					}
+					else {
+						node.child(i)->accept(*this);
+					}
+				}
+			}
+		}
+		else {
+			//if (animation_driven)
+			//{
+			//	_animation_sets_stack.push_front({});
+			//	variables_path = variables_path / "driven";
+			//}
+			recurse(node);
+
+			//if (animation_driven)
+			//{
+			//	for (const auto& item : _animation_sets_stack.front())
+			//	{
+			//		_animation_sets["AnimationDriven"].insert(item);
+			//	}
+			//	variables_path = variables_path.parent_path();
+			//	_animation_sets_stack.pop_front();
+			//}
+		}
+		_fsm_stack.pop_front();
+	}
+	else if (variant->m_class == &hkbManualSelectorGeneratorClass) 
+	{
+		hkbManualSelectorGenerator* msg = (hkbManualSelectorGenerator*)variant->m_object;
+		std::string selector_bind = "";
+		if (NULL != msg->m_variableBindingSet)
+		{
+			auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+			auto& bindings = msg->m_variableBindingSet->m_bindings;
+			for (int i = 0; i < bindings.getSize(); ++i)
+			{
+				auto& binding = bindings[i];
+				auto variable_name = behavior_builder->getVariable(binding.m_variableIndex);
+				if (binding.m_memberPath == "selectedGeneratorIndex")
+				{
+					selector_bind = variable_name.toUtf8().constData();
+				}
+			}
+		}
+		if (!selector_bind.empty())
+		{
+			if (_variables_values.find(selector_bind) == _variables_values.end())
+			{
+				size_t generator_index = 0;
+				for (int i = 0; i < node.childCount(); ++i)
+				{
+					hkVariant* variant = (hkVariant*)node.child(i)->data(1).value<unsigned long long>();
+					if (hkbGeneratorClass.isSuperClass(*variant->m_class))
+					{
+
+						_variables_values[selector_bind] = generator_index++;
+						//bool control = _animation_styles_control_variables.find(selector_bind) != _animation_styles_control_variables.end();
+						//if (control) {
+						//	variables_path = variables_path / selector_bind / std::to_string(_variables_values[selector_bind]);
+						//	_animation_sets_stack.push_front({});
+						//}
+						node.child(i)->accept(*this);
+						//for (const auto& item : _animation_sets_stack.front())
+						//{
+						//	_animation_sets[variables_path.string()].insert(item);
+						//}
+						//if (control)
+						//{
+						//	variables_path = variables_path.parent_path().parent_path();
+						//	_animation_sets_stack.pop_front();
+						//}
+						_variables_values.erase(selector_bind);
+					}
+					else {
+						node.child(i)->accept(*this);
+					}
+				}
+			}
+			else {
+				int active_generator = _variables_values[selector_bind];
+				size_t generator_index = 0;
+				for (int i = 0; i < node.childCount(); ++i)
+				{
+					hkVariant* variant = (hkVariant*)node.child(i)->data(1).value<unsigned long long>();
+					if (hkbGeneratorClass.isSuperClass(*variant->m_class))
+					{
+						if (generator_index == active_generator)
+						{
+							node.child(i)->accept(*this);
+						}
+						generator_index++;
+					}
+					else {
+						node.child(i)->accept(*this);
+					}
+				}
+			}
+		}
+		else {
+			recurse(node);
+		}
+	}
+	else if (variant->m_class == &hkbModifierGeneratorClass) 
+	{
+		hkbModifierGenerator* mg = (hkbModifierGenerator*)variant->m_object;
+		if (NULL != mg->m_modifier)
+		{
+			if (mg->getClassType() == &BSIsActiveModifierClass && NULL != mg->m_variableBindingSet)
+			{
+				auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+				auto& bindings = mg->m_variableBindingSet->m_bindings;
+				for (int i = 0; i < bindings.getSize(); ++i)
+				{
+					auto& binding = bindings[i];
+					auto variable_name = behavior_builder->getVariable(binding.m_variableIndex);
+					if (variable_name == "bAnimationDriven")
+					{
+						for (int j = 0; j < node.childCount(); j++)
+						{
+							hkVariant* variant = (hkVariant*)node.child(j)->data(1).value<unsigned long long>();
+							if (&hkbStateMachineClass == variant->m_class)
+							{
+								find_animation_driven_transitions(*node.child(j), (hkbStateMachine*)variant->m_object);
+							}
+						}
+					}
+				}
+			}
+		}
+		recurse(node);
+	}
+	else if (variant->m_class == &hkbBehaviorReferenceGeneratorClass) {
+
+		fs::path project_folder = _manager.path(_project_file_index).parent_path();
+		hkbBehaviorReferenceGenerator* reference = (hkbBehaviorReferenceGenerator*)variant->m_object;
+		fs::path behavior_path = project_folder / reference->m_behaviorName.cString();
+		auto behavior_index = _manager.index(behavior_path);
+		auto& behavior_contents = _manager.get(behavior_path);
+		bool found = false;
+		for (const auto& content : behavior_contents.second)
+		{
+			if (content.m_class == &hkbBehaviorGraphClass) {
+				ProjectNode* behavior_root = _manager.findNode(behavior_index, &content);
+				BehaviorBuilder* builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(behavior_index));
+				behavior_root->accept(*this);
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+			throw 666;
+	}
+	else {
+		recurse(node);
 	}
 }
 

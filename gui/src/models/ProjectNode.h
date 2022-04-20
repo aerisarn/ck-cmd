@@ -3,6 +3,8 @@
 #include <QVariant>
 #include <QVector>
 
+#include <unordered_map>
+
 namespace ckcmd {
     namespace HKX {
 
@@ -52,6 +54,7 @@ namespace ckcmd {
             bool canSaveOrExport() const;
 
             ProjectNode* appendChild(ProjectNode* child);
+            void appendIndex(ProjectNode* item);
             void appendData(const QVariant& value);
 
             virtual ProjectNode* child(int row);
@@ -70,68 +73,71 @@ namespace ckcmd {
             virtual int parentCount() const;
             virtual NodeType type() const;
 
-            template<typename Visitor>
-            void accept(Visitor& v) {
+            const std::vector<int>& indicesOf(ProjectNode* child) const;
+
+
+            template<typename Visitor, typename ...Ts>
+            void accept(Visitor& v, Ts... arg) {
                 switch (m_type) {
                 case NodeType::fixed:
-                    v.visit<NodeType::fixed>(*this);
+                    v.visit<NodeType::fixed>(*this, arg...);
                     break;
                 case NodeType::support:
-                    v.visit<NodeType::support>(*this);
+                    v.visit<NodeType::support>(*this, arg...);
                     break;
                 case NodeType::project_node:
-                    v.visit<NodeType::project_node>(*this);
+                    v.visit<NodeType::project_node>(*this, arg...);
                     break;
                 case NodeType::character_node:
-                    v.visit<NodeType::character_node>(*this);
+                    v.visit<NodeType::character_node>(*this, arg...);
                     break;
                 case NodeType::behavior_node:
-                    v.visit<NodeType::behavior_node>(*this);
+                    v.visit<NodeType::behavior_node>(*this, arg...);
                     break;
                 case NodeType::skeleton_node:
-                    v.visit<NodeType::skeleton_node>(*this);
+                    v.visit<NodeType::skeleton_node>(*this, arg...);
                     break;
                 case NodeType::animation_node:
-                    v.visit<NodeType::animation_node>(*this);
+                    v.visit<NodeType::animation_node>(*this, arg...);
                     break;
                 case NodeType::misc_node:
-                    v.visit<NodeType::misc_node>(*this);
+                    v.visit<NodeType::misc_node>(*this, arg...);
                     break;
                 case NodeType::hkx_project_node:
-                    v.visit<NodeType::hkx_project_node>(*this);
+                    v.visit<NodeType::hkx_project_node>(*this, arg...);
                     break;
                 case NodeType::hkx_character_node:
-                    v.visit<NodeType::hkx_character_node>(*this);
+                    v.visit<NodeType::hkx_character_node>(*this, arg...);
                     break;
                 case NodeType::hkx_node:
-                    v.visit<NodeType::hkx_node>(*this);
+                    v.visit<NodeType::hkx_node>(*this, arg...);
                     break;
                 case NodeType::event_node:
-                    v.visit<NodeType::event_node>(*this);
+                    v.visit<NodeType::event_node>(*this, arg...);
                     break;
                 case NodeType::weapon_set_node:
-                    v.visit<NodeType::weapon_set_node>(*this);
+                    v.visit<NodeType::weapon_set_node>(*this, arg...);
                     break;
                 case NodeType::variable_node:
-                    v.visit<NodeType::variable_node>(*this);
+                    v.visit<NodeType::variable_node>(*this, arg...);
                     break;
                 case NodeType::property_node:
-                    v.visit<NodeType::property_node>(*this);
+                    v.visit<NodeType::property_node>(*this, arg...);
                     break;
                 case NodeType::clip_event_node:
-                    v.visit<NodeType::clip_event_node>(*this);
+                    v.visit<NodeType::clip_event_node>(*this, arg...);
                     break;
                 case NodeType::events_node:
-                    v.visit<NodeType::events_node>(*this);
+                    v.visit<NodeType::events_node>(*this, arg...);
                     break;
                 case NodeType::variables_node:
-                    v.visit<NodeType::variables_node>(*this);
+                    v.visit<NodeType::variables_node>(*this, arg...);
                     break;
                 case NodeType::animation_styles_node:
-                    v.visit<NodeType::animation_styles_node>(*this);
+                    v.visit<NodeType::animation_styles_node>(*this, arg...);
                     break;
                 case NodeType::animation_style_node:
-                    v.visit<NodeType::animation_style_node>(*this);
+                    v.visit<NodeType::animation_style_node>(*this, arg...);
                     break;
                 default:
                     break;
@@ -140,6 +146,7 @@ namespace ckcmd {
 
         protected:
             QVector<ProjectNode*> m_childItems;
+            std::unordered_map<ProjectNode*, std::vector<int>> m_childIndices;
             QVector<QVariant> m_itemData;
             QVector<ProjectNode*> m_parentItems;
         };
