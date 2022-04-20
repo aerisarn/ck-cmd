@@ -76,12 +76,11 @@ namespace ckcmd {
 			int _project_file_index;
 			std::vector<int> _character_files_indices;
 			std::vector<int> _behavior_files_indices;
-			std::map<int, ProjectNode*> _behavior_nodes;
+			std::vector<ProjectNode*> _behavior_nodes;
 			std::set<std::string> _animation_relative_files;
 			std::map<std::string, fs::path> _animation_absolute_files;
 			std::string _rig_file;
 			CacheEntry* _cache;
-			ProjectNode* _fsm_root;
 
 			struct AnimationInfo {
 				float duration;
@@ -137,7 +136,9 @@ namespace ckcmd {
 			std::map<ProjectNode*, BehaviorBuilder*> _behaviors_references_builders_map;
 
 			std::deque<ProjectNode*> _fsm_stack;
+			std::deque<std::string> _fsm_name_stack;
 			std::map<std::string, int> _variables_values;
+			std::deque<std::set<std::string>> _events;
 			std::deque<std::set<std::string>> _animation_sets_stack;
 			fs::path variables_path;
 			std::map<std::string, std::set<std::string>>  _animation_sets;
@@ -188,9 +189,9 @@ namespace ckcmd {
 			template<>
 			void visit<ProjectNode::NodeType::hkx_node>(ProjectNode& node)
 			{
-				//_nodes_stack = _nodes_stack / node.data(0).value<QString>().toUtf8().constData();
+				_nodes_stack = _nodes_stack / node.data(0).value<QString>().toUtf8().constData();
 				handle_hkx_node(node);
-				//_nodes_stack = _nodes_stack.parent_path();
+				_nodes_stack = _nodes_stack.parent_path();
 			}
 
 			template<>
@@ -419,6 +420,8 @@ namespace ckcmd {
 				//}
 				//paths.insert(spath);
 			}
+
+			void end_branch(ProjectNode& node, BehaviorBuilder* builder) {}
 
 		};
 

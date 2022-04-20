@@ -543,6 +543,7 @@ set (PROJECT_COMMANDS
 					 "${CMAKE_SOURCE_DIR}/include/commands/Geometry.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/ListCreatures.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/RetargetCreature.h"
+					 "${CMAKE_SOURCE_DIR}/include/commands/DecodeCache.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/desaturateVC.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/fixsse.h"
                      "${CMAKE_SOURCE_DIR}/include/commands/esp/Esp.h"

@@ -308,7 +308,7 @@ void BehaviorBuilder::addCacheToClipNode(ProjectNode* animation_node, const hkbC
 	{
 		try {
 			auto movement = _manager.getMovement(_project_file_index, clip->m_name.cString());
-			animation_node->appendData(QString::fromStdString(movement.getBlock()));
+			//animation_node->appendData(QString::fromStdString(movement.getBlock()));
 		}
 		catch (out_of_range e)
 		{

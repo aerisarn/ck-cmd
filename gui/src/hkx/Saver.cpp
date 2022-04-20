@@ -36,8 +36,7 @@ void Saver::save_hkx(int file_index)
 
 Saver::Saver(ResourceManager& manager, ProjectNode* project_root) :
 	_saving_character(false),
-	_manager(manager),
-	_fsm_root(nullptr)
+	_manager(manager)
 {
 	if (project_root->isCharacter())
 	{
@@ -46,9 +45,6 @@ Saver::Saver(ResourceManager& manager, ProjectNode* project_root) :
 	_animation_sets_stack.push_front({});
 	__debugbreak();
 	project_root->accept(*this);
-	//for (auto& entry : _behaviors_references_int_map) {
-	//	_behaviors_references_nodes_map.insert({ _behavior_nodes[entry.first], entry.second });
-	//}
 	__debugbreak();
 //	PathBuilder builder;
 //	if (_fsm_root != nullptr)
@@ -475,6 +471,7 @@ void Saver::find_animation_driven_transitions(ProjectNode& node, hkbStateMachine
 void Saver::handle_hkx_node(ProjectNode& node)
 {
 	hkVariant* variant = (hkVariant*)node.data(1).value<unsigned long long>();
+	//hkVariant* parent_variant = (hkVariant*)node.data(2).value<unsigned long long>();
 	int file_index = node.data(3).value<int>();
 
 	if (variant->m_class == &hkbClipGeneratorClass) 
@@ -484,13 +481,96 @@ void Saver::handle_hkx_node(ProjectNode& node)
 		//handle_clip((hkbClipGenerator*)variant->m_object, file_index);
 		hkbClipGenerator* clip = (hkbClipGenerator*)variant->m_object;
 		//fs::path p = _nodes_stack / clip->m_animationName.cString();
-		//_animation_sets_stack.front().insert(clip->m_animationName.cString());
+		_animation_sets_stack.front().insert(clip->m_animationName.cString());
 		recurse(node);
 	}
 	else if (variant->m_class == &hkbStateMachineStateInfoClass) {
 		/*handle_transition(node);*/
+		//auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+		//hkbStateMachineStateInfo* this_state = (hkbStateMachineStateInfo*)variant->m_object;
+		////how I got here?
+		//std::set<std::string> events;
+		//if (_fsm_stack.size() >= 1)
+		//{
+		//	hkVariant* variant = (hkVariant*)_fsm_stack.at(_fsm_stack.size()-1)->data(1).value<unsigned long long>();
+		//	hkbStateMachine* parent_fsm = (hkbStateMachine*)variant->m_object;
+		//	for (int i = 0; i < parent_fsm->m_states.getSize(); ++i)
+		//	{
+		//		hkbStateMachineStateInfo* a_state = parent_fsm->m_states[i];
+		//		if (a_state != this_state && NULL != a_state->m_transitions)
+		//		{
+		//			if (a_state->m_transitions)
+		//			{
+		//				for (int t = 0; t < a_state->m_transitions->m_transitions.getSize(); ++t)
+		//				{
+		//					auto& transition = a_state->m_transitions->m_transitions[t];
+		//					if (transition.m_toStateId == this_state->m_stateId)
+		//					{
+		//						events.insert(behavior_builder->getEvent(transition.m_eventId).toUtf8().constData());
+		//					}
+		//				}
+		//			}
+		//		}
+		//	}
+		//	if (NULL != parent_fsm->m_wildcardTransitions)
+		//	{
+		//		if (parent_fsm->m_wildcardTransitions)
+		//		{
+		//			for (int t = 0; t < parent_fsm->m_wildcardTransitions->m_transitions.getSize(); ++t)
+		//			{
+		//				auto& transition = parent_fsm->m_wildcardTransitions->m_transitions[t];
+		//				if (transition.m_toStateId == this_state->m_stateId)
+		//				{
+		//					events.insert(behavior_builder->getEvent(transition.m_eventId).toUtf8().constData());
+		//				}
+		//			}
+		//		}
+		//	}
+		//}
+		//if (_fsm_stack.size() >= 3)
+		//{
+		//	hkVariant* variant = (hkVariant*)_fsm_stack.at(_fsm_stack.size() - 3)->data(1).value<unsigned long long>();
+		//	hkbStateMachine* parent_fsm = (hkbStateMachine*)variant->m_object;
+		//	variant = (hkVariant*)_fsm_stack.at(_fsm_stack.size() - 2)->data(1).value<unsigned long long>();
+		//	hkbStateMachineStateInfo* parent_state = (hkbStateMachineStateInfo*)variant->m_object;
+		//	for (int i = 0; i < parent_fsm->m_states.getSize(); ++i)
+		//	{
+		//		hkbStateMachineStateInfo* a_state = parent_fsm->m_states[i];
+		//		if (a_state->m_transitions)
+		//		{
+		//			for (int t = 0; t < a_state->m_transitions->m_transitions.getSize(); ++t)
+		//			{
+		//				auto& transition = a_state->m_transitions->m_transitions[t];
+		//				if (transition.m_toStateId == parent_state->m_stateId &&
+		//					transition.m_toNestedStateId == this_state->m_stateId)
+		//				{
+		//					events.insert(behavior_builder->getEvent(transition.m_eventId).toUtf8().constData());
+		//				}
+		//			}
+		//		}
+		//	}
+		//	if (NULL != parent_fsm->m_wildcardTransitions)
+		//	{
+		//		if (parent_fsm->m_wildcardTransitions)
+		//		{
+		//			for (int t = 0; t < parent_fsm->m_wildcardTransitions->m_transitions.getSize(); ++t)
+		//			{
+		//				auto& transition = parent_fsm->m_wildcardTransitions->m_transitions[t];
+		//				if (transition.m_toStateId == parent_state->m_stateId &&
+		//					transition.m_toNestedStateId == this_state->m_stateId)
+		//				{
+		//					events.insert(behavior_builder->getEvent(transition.m_eventId).toUtf8().constData());
+		//				}
+		//			}
+		//		}
+		//	}
+		//}
 		_fsm_stack.push_front(&node);
+		_fsm_name_stack.push_front(node.data(0).value<QString>().toUtf8().constData());
+		//_events.push_front(events);
 		recurse(node);
+		//_events.pop_front();
+		_fsm_name_stack.pop_front();
 		_fsm_stack.pop_front();
 	}
 	else if (variant->m_class == &hkbStateMachineClass) {
@@ -514,15 +594,16 @@ void Saver::handle_hkx_node(ProjectNode& node)
 					{
 						state_bind = variable_name.toUtf8().constData();
 					}
-					if (variable_name == "bAnimationDriven")
-					{
-						animation_driven = true;
-						find_animation_driven_transitions(node, fsm);
-					}
+					//if (variable_name == "bAnimationDriven")
+					//{
+					//	animation_driven = true;
+					//	find_animation_driven_transitions(node, fsm);
+					//}
 
 				}
 			}
 		}
+		_fsm_name_stack.push_front(node.data(0).value<QString>().toUtf8().constData());
 		_fsm_stack.push_front(&node);
 		if (!state_bind.empty())
 		{
@@ -533,36 +614,74 @@ void Saver::handle_hkx_node(ProjectNode& node)
 					hkVariant* variant = (hkVariant*)node.child(i)->data(1).value<unsigned long long>();
 					if (variant->m_class == &hkbStateMachineStateInfoClass)
 					{
+						//events
+						hkbStateMachineStateInfo* this_state = (hkbStateMachineStateInfo*)variant->m_object;
+						//how I got here?
+						std::set<std::string> events;
+						if (_fsm_stack.size() >= 2)
+						{
+							auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+							hkVariant* variant = (hkVariant*)_fsm_stack.at(_fsm_stack.size()-3)->data(1).value<unsigned long long>();
+							hkbStateMachine* parent_fsm = (hkbStateMachine*)variant->m_object;
+							hkVariant* state_variant = (hkVariant*)_fsm_stack.at(_fsm_stack.size() - 2)->data(1).value<unsigned long long>();
+							hkbStateMachineStateInfo* parent_state = (hkbStateMachineStateInfo*)state_variant->m_object;
+							for (int i = 0; i < parent_fsm->m_states.getSize(); ++i)
+							{
+								hkbStateMachineStateInfo* a_state = parent_fsm->m_states[i];
+								if (a_state != parent_state && NULL != a_state->m_transitions)
+								{
+									if (a_state->m_transitions)
+									{
+										for (int t = 0; t < a_state->m_transitions->m_transitions.getSize(); ++t)
+										{
+											auto& transition = a_state->m_transitions->m_transitions[t];
+											if (transition.m_toStateId == parent_state->m_stateId)
+											{
+												events.insert(behavior_builder->getEvent(transition.m_eventId).toUtf8().constData());
+											}
+										}
+									}
+								}
+							}
+							if (NULL != parent_fsm->m_wildcardTransitions)
+							{
+								if (parent_fsm->m_wildcardTransitions)
+								{
+									for (int t = 0; t < parent_fsm->m_wildcardTransitions->m_transitions.getSize(); ++t)
+									{
+										auto& transition = parent_fsm->m_wildcardTransitions->m_transitions[t];
+										if (transition.m_toStateId == parent_state->m_stateId)
+										{
+											events.insert(behavior_builder->getEvent(transition.m_eventId).toUtf8().constData());
+										}
+									}
+								}
+							}
+						} 
+						
+						//variables
 						_variables_values[state_bind] = ((hkbStateMachineStateInfo*)variant->m_object)->m_stateId;
-						//bool control = _animation_styles_control_variables.find(state_bind) != _animation_styles_control_variables.end();
-						//if (control)
-						//{
-						//	_animation_sets_stack.push_front({});
-						//	variables_path = variables_path / state_bind / std::to_string(_variables_values[state_bind]);
-						//}
-						//if (animation_driven)
-						//{
-						//	_animation_sets_stack.push_front({});
-						//	variables_path = variables_path / "driven";
-						//}
+						bool control = _animation_styles_control_variables.find(state_bind) != _animation_styles_control_variables.end();
+						if (control)
+						{
+							_animation_sets_stack.push_front({});
+							for (auto& event : events)
+								variables_path /= event;
+							variables_path = variables_path / state_bind / std::to_string(_variables_values[state_bind]);
+
+						}
 						node.child(i)->accept(*this);
-						//for (const auto& item : _animation_sets_stack.front())
-						//{
-						//	if (animation_driven)
-						//		_animation_sets["AnimationDriven"].insert(item);
-						//	else
-						//		_animation_sets[variables_path.string()].insert(item);
-						//}
-						//if (animation_driven)
-						//{
-						//	variables_path = variables_path.parent_path();
-						//	_animation_sets_stack.pop_front();
-						//}
-						//if (control)
-						//{
-						//	variables_path = variables_path.parent_path().parent_path();
-						//	_animation_sets_stack.pop_front();
-						//}
+						if (control)
+						{
+							for (const auto& item : _animation_sets_stack.front())
+							{
+								_animation_sets[variables_path.string()].insert(item);
+							}
+							for (auto& event : events)
+								variables_path = variables_path.parent_path();
+							variables_path = variables_path.parent_path().parent_path();
+							_animation_sets_stack.pop_front();
+						}
 
 						_variables_values.erase(state_bind);
 					}
@@ -590,23 +709,9 @@ void Saver::handle_hkx_node(ProjectNode& node)
 			}
 		}
 		else {
-			//if (animation_driven)
-			//{
-			//	_animation_sets_stack.push_front({});
-			//	variables_path = variables_path / "driven";
-			//}
 			recurse(node);
-
-			//if (animation_driven)
-			//{
-			//	for (const auto& item : _animation_sets_stack.front())
-			//	{
-			//		_animation_sets["AnimationDriven"].insert(item);
-			//	}
-			//	variables_path = variables_path.parent_path();
-			//	_animation_sets_stack.pop_front();
-			//}
 		}
+		_fsm_name_stack.pop_front();
 		_fsm_stack.pop_front();
 	}
 	else if (variant->m_class == &hkbManualSelectorGeneratorClass) 
@@ -639,21 +744,21 @@ void Saver::handle_hkx_node(ProjectNode& node)
 					{
 
 						_variables_values[selector_bind] = generator_index++;
-						//bool control = _animation_styles_control_variables.find(selector_bind) != _animation_styles_control_variables.end();
-						//if (control) {
-						//	variables_path = variables_path / selector_bind / std::to_string(_variables_values[selector_bind]);
-						//	_animation_sets_stack.push_front({});
-						//}
+						bool control = _animation_styles_control_variables.find(selector_bind) != _animation_styles_control_variables.end();
+						if (control) {
+							variables_path = variables_path / selector_bind / std::to_string(_variables_values[selector_bind]);
+							_animation_sets_stack.push_front({});
+						}
 						node.child(i)->accept(*this);
-						//for (const auto& item : _animation_sets_stack.front())
-						//{
-						//	_animation_sets[variables_path.string()].insert(item);
-						//}
-						//if (control)
-						//{
-						//	variables_path = variables_path.parent_path().parent_path();
-						//	_animation_sets_stack.pop_front();
-						//}
+						if (control)
+						{
+							for (const auto& item : _animation_sets_stack.front())
+							{
+								_animation_sets[variables_path.string()].insert(item);
+							}
+							variables_path = variables_path.parent_path().parent_path();
+							_animation_sets_stack.pop_front();
+						}
 						_variables_values.erase(selector_bind);
 					}
 					else {
@@ -687,7 +792,7 @@ void Saver::handle_hkx_node(ProjectNode& node)
 	}
 	else if (variant->m_class == &hkbModifierGeneratorClass) 
 	{
-		hkbModifierGenerator* mg = (hkbModifierGenerator*)variant->m_object;
+		/*hkbModifierGenerator* mg = (hkbModifierGenerator*)variant->m_object;
 		if (NULL != mg->m_modifier)
 		{
 			if (mg->getClassType() == &BSIsActiveModifierClass && NULL != mg->m_variableBindingSet)
@@ -711,7 +816,7 @@ void Saver::handle_hkx_node(ProjectNode& node)
 					}
 				}
 			}
-		}
+		}*/
 		recurse(node);
 	}
 	else if (variant->m_class == &hkbBehaviorReferenceGeneratorClass) {
