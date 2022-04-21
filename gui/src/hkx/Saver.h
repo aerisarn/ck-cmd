@@ -6,6 +6,7 @@
 #include <stack>
 
 class hkbStateMachine;
+class hkbStateMachineStateInfo;
 
 namespace ckcmd {
 	namespace HKX {
@@ -129,14 +130,18 @@ namespace ckcmd {
 			void handle_transition(ProjectNode& node);
 			void handle_behavior(ProjectNode& node);
 
-			void find_animation_driven_transitions(ProjectNode& node, hkbStateMachine* fsm);
+			std::set<std::string> find_animation_driven_transitions(ProjectNode& node, BehaviorBuilder*);
 
 			std::multimap<size_t, ProjectNode*> _behaviors_references_int_map;
 			std::multimap<ProjectNode*, ProjectNode*> _behaviors_references_nodes_map;
 			std::map<ProjectNode*, BehaviorBuilder*> _behaviors_references_builders_map;
 
+			ProjectNode* _animation_sets_root_fsm = NULL;
+			std::set<ProjectNode*> _animation_sets_root_fsm_tagged_states;
+			int _animation_sets_root_fsm_depth;
+
 			std::deque<ProjectNode*> _fsm_stack;
-			std::deque<std::string> _fsm_name_stack;
+			//std::deque<std::string> _fsm_name_stack;
 			std::map<std::string, int> _variables_values;
 			std::deque<std::set<std::string>> _events;
 			std::deque<std::set<std::string>> _animation_sets_stack;
@@ -189,9 +194,9 @@ namespace ckcmd {
 			template<>
 			void visit<ProjectNode::NodeType::hkx_node>(ProjectNode& node)
 			{
-				_nodes_stack = _nodes_stack / node.data(0).value<QString>().toUtf8().constData();
+				//_nodes_stack = _nodes_stack / node.data(0).value<QString>().toUtf8().constData();
 				handle_hkx_node(node);
-				_nodes_stack = _nodes_stack.parent_path();
+				//_nodes_stack = _nodes_stack.parent_path();
 			}
 
 			template<>
