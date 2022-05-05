@@ -130,6 +130,8 @@ namespace ckcmd {
 			void handle_transition(ProjectNode& node);
 			void handle_behavior(ProjectNode& node);
 
+			void handle_animation_binded_fsm(ProjectNode& fsm, int file_index);
+
 			std::set<std::string> find_animation_driven_transitions(ProjectNode& node, BehaviorBuilder*);
 
 			std::multimap<size_t, ProjectNode*> _behaviors_references_int_map;
@@ -141,6 +143,8 @@ namespace ckcmd {
 			int _animation_sets_root_fsm_depth;
 
 			std::deque<ProjectNode*> _fsm_stack;
+			std::deque < std::set<ProjectNode*>> _fsm_reacheable_states_stack;
+
 			//std::deque<std::string> _fsm_name_stack;
 			std::map<std::string, int> _variables_values;
 			std::deque<std::set<std::string>> _events;

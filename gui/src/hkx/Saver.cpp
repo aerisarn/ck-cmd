@@ -46,6 +46,7 @@ Saver::Saver(ResourceManager& manager, ProjectNode* project_root) :
 		_saving_character = true;
 	}
 	_animation_sets_stack.push_front({});
+	_fsm_reacheable_states_stack.push_front({});
 	__debugbreak();
 	project_root->accept(*this);
 	__debugbreak();
@@ -515,113 +516,220 @@ std::set<std::string> Saver::find_animation_driven_transitions(ProjectNode& node
 			}
 		}
 	}
+	return {};
+}
 
-	//std::set<std::string> events;
 
-	//if (parent_fsm != NULL && parent_state != NULL)
-	//{
-	//	for (int i = 0; i < parent_fsm->m_states.getSize(); ++i)
-	//	{
-	//		hkbStateMachineStateInfo* a_state = parent_fsm->m_states[i];
-	//		if (a_state != parent_state && NULL != a_state->m_transitions)
-	//		{
-	//			if (a_state->m_transitions)
-	//			{
-	//				for (int t = 0; t < a_state->m_transitions->m_transitions.getSize(); ++t)
-	//				{
-	//					auto& transition = a_state->m_transitions->m_transitions[t];
-	//					if (transition.m_toStateId == parent_state->m_stateId)
-	//					{
-	//						events.insert(behavior_builder->getEvent(transition.m_eventId).toUtf8().constData());
-	//					}
-	//				}
-	//			}
-	//		}
-	//	}
-	//	if (NULL != parent_fsm->m_wildcardTransitions)
-	//	{
-	//		if (parent_fsm->m_wildcardTransitions)
-	//		{
-	//			for (int t = 0; t < parent_fsm->m_wildcardTransitions->m_transitions.getSize(); ++t)
-	//			{
-	//				auto& transition = parent_fsm->m_wildcardTransitions->m_transitions[t];
-	//				if (transition.m_toStateId == parent_state->m_stateId)
-	//				{
-	//					events.insert(behavior_builder->getEvent(transition.m_eventId).toUtf8().constData());
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
-	//if (grandparent_fsm != NULL && grandparent_state != NULL)
-	//{
-	//	for (int i = 0; i < grandparent_fsm->m_states.getSize(); ++i)
-	//	{
-	//		hkbStateMachineStateInfo* a_state = grandparent_fsm->m_states[i];
-	//		if (a_state->m_transitions)
-	//		{
-	//			for (int t = 0; t < a_state->m_transitions->m_transitions.getSize(); ++t)
-	//			{
-	//				auto& transition = a_state->m_transitions->m_transitions[t];
-	//				if (transition.m_toStateId == grandparent_state->m_stateId &&
-	//					transition.m_toNestedStateId == parent_state->m_stateId)
-	//				{
-	//					events.insert(behavior_builder->getEvent(transition.m_eventId).toUtf8().constData());
-	//				}
-	//			}
-	//		}
-	//	}
-	//	if (NULL != grandparent_fsm->m_wildcardTransitions)
-	//	{
-	//		if (grandparent_fsm->m_wildcardTransitions)
-	//		{
-	//			for (int t = 0; t < grandparent_fsm->m_wildcardTransitions->m_transitions.getSize(); ++t)
-	//			{
-	//				auto& transition = grandparent_fsm->m_wildcardTransitions->m_transitions[t];
-	//				if (transition.m_toStateId == grandparent_state->m_stateId &&
-	//					transition.m_toNestedStateId == parent_state->m_stateId)
-	//				{
-	//					events.insert(behavior_builder->getEvent(transition.m_eventId).toUtf8().constData());
-	//				}
-	//			}
-	//		}
-	//	}
-	//}
-	//if (!events.empty())
-	//{
-		if (parent_fsm != NULL && _fsm_stack.size() <= _animation_sets_root_fsm_depth)
+void Saver::handle_animation_binded_fsm(ProjectNode& node, int file_index)
+{
+	ProjectNode* child_fsm = &node;
+	hkVariant* child_fsm_variant = (hkVariant*)child_fsm->data(1).value<unsigned long long>();
+	hkbStateMachine* hk_fsm = (hkbStateMachine*)child_fsm_variant->m_object;
+
+	map<int, ProjectNode*> states;
+	//build state indexes
+	for (int fsm_child_index = 0; fsm_child_index < child_fsm->childCount(); ++fsm_child_index)
+	{
+		hkVariant* child_fsm_variant = (hkVariant*)child_fsm->child(fsm_child_index)->data(1).value<unsigned long long>();
+		if (child_fsm_variant->m_class == &hkbStateMachineStateInfoClass)
 		{
-			if (_animation_sets_root_fsm != parent_fsm_node)
-			{
-				_animation_sets_root_fsm = parent_fsm_node;
-				_animation_sets_root_fsm_tagged_states.clear();
-			}
-			_animation_sets_root_fsm_tagged_states.insert(parent_state_node);
-			_animation_sets_root_fsm_depth = _fsm_stack.size();
+			hkbStateMachineStateInfo* state = (hkbStateMachineStateInfo*)child_fsm_variant->m_object;
+			states[state->m_stateId] = child_fsm->child(fsm_child_index);
 		}
-		else
+	}
+
+	std::map<ProjectNode*, std::set<string>> state_events;
+	std::map<ProjectNode*, std::set<ProjectNode*>> relations;
+
+	//Visit FSM by wildcard transitions
+	if (NULL != hk_fsm->m_wildcardTransitions)
+	{
+		auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+		auto& transitions = hk_fsm->m_wildcardTransitions->m_transitions;
+		for (int t = 0; t < transitions.getSize(); t++)
 		{
-			for (int i = 0; i < _fsm_stack.size(); ++i)
+			auto& transition = transitions[t];
+			//_animation_sets_stack.push_front({});
+			auto* state = states.at(transition.m_toStateId);
+			std::string set_event = behavior_builder->getEvent(transition.m_eventId).toUtf8().constData();
+			state_events[state].insert(set_event);
+			//state->accept(*this);
+			//Also visit its transitions
+			hkVariant* hk_state = (hkVariant*)state->data(1).value<unsigned long long>();
+			hkbStateMachineStateInfo* fsm_hk_state = (hkbStateMachineStateInfo*)hk_state->m_object;
+			if (NULL != fsm_hk_state->m_transitions)
 			{
-				if (_fsm_stack[i] == _animation_sets_root_fsm)
+				auto& state_transitions = fsm_hk_state->m_transitions->m_transitions;
+				for (int ct = 0; ct < state_transitions.getSize(); ct++)
 				{
-					_animation_sets_root_fsm_tagged_states.insert(_fsm_stack[i - 1]);
-					break;
+					auto& state_transition = state_transitions[ct];
+					auto* trans_state = states.at(state_transition.m_toStateId);
+					relations[state].insert(trans_state);
 				}
 			}
 		}
-		//if (grandparent_fsm != NULL && _fsm_stack.size() <= _animation_sets_root_fsm_depth)
-		//{
-		//	if (_animation_sets_root_fsm != grandparent_fsm_node)
-		//	{
-		//		_animation_sets_root_fsm = grandparent_fsm_node;
-		//		_animation_sets_root_fsm_tagged_states.clear();
-		//	}
-		//	_animation_sets_root_fsm_tagged_states.insert(grandparent_state);
-		//	_animation_sets_root_fsm_depth = _fsm_stack.size();
-		//}
-	//}
-	return {};
+	}
+	//visit also parent fsm, but only if more than one state?
+	if (_fsm_stack.size() >= 2)
+	{
+		ProjectNode* parent_fsm = _fsm_stack.at(1);
+		hkVariant* parent_fsm_variant = (hkVariant*)parent_fsm->data(1).value<unsigned long long>();
+		hkbStateMachine* hk_fsm = (hkbStateMachine*)parent_fsm_variant->m_object;
+
+		ProjectNode* parent_state = _fsm_stack.at(0);
+		hkVariant* parent_state_variant = (hkVariant*)parent_state->data(1).value<unsigned long long>();
+		hkbStateMachineStateInfo* hk_state = (hkbStateMachineStateInfo*)parent_state_variant->m_object;
+
+		map<int, ProjectNode*> parent_states;
+		//build parent fsm indexes
+		for (int fsm_child_index = 0; fsm_child_index < parent_fsm->childCount(); ++fsm_child_index)
+		{
+			hkVariant* child_fsm_variant = (hkVariant*)parent_fsm->child(fsm_child_index)->data(1).value<unsigned long long>();
+			if (child_fsm_variant->m_class == &hkbStateMachineStateInfoClass)
+			{
+				hkbStateMachineStateInfo* state = (hkbStateMachineStateInfo*)child_fsm_variant->m_object;
+				parent_states[state->m_stateId] = parent_fsm->child(fsm_child_index);
+			}
+		}
+
+		auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+
+		//Visit parent FSM wildcard transitions
+		if (NULL != hk_fsm->m_wildcardTransitions)
+		{
+			//_animation_sets_stack.push_front({});
+
+			auto& transitions = hk_fsm->m_wildcardTransitions->m_transitions;
+			int last_state = -1;
+			for (int t = 0; t < transitions.getSize(); t++)
+			{
+				auto& transition = transitions[t];
+				if (transition.m_toStateId == hk_state->m_stateId)
+				{
+					std::string set_event = behavior_builder->getEvent(transition.m_eventId).toUtf8().constData();
+					if (states.find(transition.m_toNestedStateId) == states.end())
+					{
+						//TODO
+						continue;
+					}
+					auto* dest_state = states.at(transition.m_toNestedStateId);
+					state_events[dest_state].insert(set_event);
+				}
+			}
+		}
+
+		//finally visit parent FSM states
+		for (int fsm_child_index = 0; fsm_child_index < parent_fsm->childCount(); ++fsm_child_index)
+		{
+			hkVariant* child_fsm_variant = (hkVariant*)parent_fsm->child(fsm_child_index)->data(1).value<unsigned long long>();
+			if (child_fsm_variant->m_class == &hkbStateMachineStateInfoClass)
+			{
+				hkbStateMachineStateInfo* state = (hkbStateMachineStateInfo*)child_fsm_variant->m_object;
+				if (NULL != state->m_transitions)
+				{
+					auto& transitions = state->m_transitions->m_transitions;
+					int last_state = -1;
+					for (int t = 0; t < transitions.getSize(); t++)
+					{
+						auto& transition = transitions[t];
+						if (transition.m_toStateId == hk_state->m_stateId)
+						{
+							std::string set_event = behavior_builder->getEvent(transition.m_eventId).toUtf8().constData();
+							//nested states are not accurate on riekling
+							//if (transition.m_toNestedStateId == 0 && states.find(0) == states.end())
+							//{
+							//	transition.m_toNestedStateId = 1;
+							//}
+							if (states.find(transition.m_toNestedStateId) == states.end())
+							{
+								//TODO
+								continue;
+							}
+							auto* dest_state = states.at(transition.m_toNestedStateId);
+							state_events[dest_state].insert(set_event);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	bool binded = false;
+	for (const auto& binding_var : _animation_styles_control_variables)
+	{
+		if (_variables_values.find(binding_var) != _variables_values.end())
+		{
+			binded = true;
+			break;
+		}
+	}
+
+	if (!binded)
+	{
+		for (const auto& entry : state_events)
+		{
+			_animation_sets_stack.push_front({});
+			entry.first->accept(*this);
+			for (const auto& related_state : relations[entry.first])
+			{
+				related_state->accept(*this);
+			}
+			std::string events_string;
+			for (const auto& event_string : entry.second)
+			{
+				events_string += event_string + ",";
+			}
+			for (const auto& item : _animation_sets_stack.front())
+			{
+				_animation_sets[events_string].insert(item);
+			}
+			_animation_sets_stack.pop_front();
+		}
+	}
+	else {
+		_animation_sets_stack.push_front({});
+		std::string events_string;
+		for (const auto& entry : state_events)
+		{
+
+			entry.first->accept(*this);
+			for (const auto& related_state : relations[entry.first])
+			{
+				related_state->accept(*this);
+			}
+			for (const auto& event_string : entry.second)
+			{
+				events_string += event_string + ",";
+			}
+		}
+		for (const auto& item : _animation_sets_stack.front())
+		{
+			_animation_sets[events_string].insert(item);
+		}
+		_animation_sets_stack.pop_front();
+	}
+}
+
+void reach_states(
+	const std::map<int, ProjectNode*>& fsm_states,
+	std::set<ProjectNode*>& reacheable_states, ProjectNode* state)
+{
+	if (reacheable_states.insert(state).second)
+	{
+		hkVariant* variant = (hkVariant*)state->data(1).value<unsigned long long>();
+		hkbStateMachineStateInfo* hk_state = (hkbStateMachineStateInfo*)variant->m_object;
+		if (NULL != hk_state->m_transitions)
+		{
+			auto& transitions = hk_state->m_transitions->m_transitions;
+			for (int t = 0; t < transitions.getSize(); t++)
+			{
+				if (fsm_states.find(transitions[t].m_toStateId) != fsm_states.end())
+				{
+					reach_states(fsm_states, reacheable_states, fsm_states.at(transitions[t].m_toStateId));
+				}
+			}
+		}
+	}
 }
 
 void Saver::handle_hkx_node(ProjectNode& node)
@@ -674,36 +782,108 @@ void Saver::handle_hkx_node(ProjectNode& node)
 					{
 						state_bind = variable_name.toUtf8().constData();
 					}
-					//if (variable_name == "bAnimationDriven")
-					//{
-					//	animation_driven = true;
-					//	find_animation_driven_transitions(node, fsm);
-					//}
-
+					if (variable_name == "bAnimationDriven")
+					{
+						animation_driven = true;
+					}
 				}
 			}
 		}
 
+		if (animation_driven)
+		{
+			handle_animation_binded_fsm(node, file_index);
+		}
+
+
 		//events
 		bool control_undefined = _variables_values.find(state_bind) == _variables_values.end();
 		bool control = _animation_styles_control_variables.find(state_bind) != _animation_styles_control_variables.end();
-		std::set<std::string> events;
-		if (!state_bind.empty() && control && control_undefined)
-		{
-			auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
-			//how I got here?
-			events = find_animation_driven_transitions(node, behavior_builder);
-		}
+		//if (!state_bind.empty() && control && control_undefined)
+		//{
+		//	auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+		//	//how I got here?
+		//	events = find_animation_driven_transitions(node, behavior_builder);
+		//}
 
 		//_fsm_name_stack.push_front(node.data(0).value<QString>().toUtf8().constData());
+
+		//Find reacheable states
+		std::map<int, ProjectNode*> fsm_states;
+		
+		std::set<ProjectNode*> reacheable_states;
+		for (int i = 0; i < node.childCount(); ++i)
+		{
+			hkVariant* variant = (hkVariant*)node.child(i)->data(1).value<unsigned long long>();
+			if (variant->m_class == &hkbStateMachineStateInfoClass)
+			{
+				fsm_states[((hkbStateMachineStateInfo*)variant->m_object)->m_stateId] = node.child(i);
+			}
+		}
+		//current wildcard
+		if (NULL != fsm->m_wildcardTransitions)
+		{
+			auto& transitions = fsm->m_wildcardTransitions->m_transitions;
+			for (int t = 0; t < transitions.getSize(); t++)
+			{
+				if (fsm_states.find(transitions[t].m_toStateId) != fsm_states.end())
+				{
+					auto* state = fsm_states.at(transitions[t].m_toStateId);
+					reach_states(fsm_states, reacheable_states, state);
+				}
+			}
+		}
+		if (fsm_states.find(fsm->m_startStateId) != fsm_states.end())
+		{
+			reach_states(fsm_states, reacheable_states, fsm_states.at(fsm->m_startStateId));
+		}
+		//parent wildcard
+		if (_fsm_stack.size() >= 2)
+		{
+			hkVariant* variant = (hkVariant*)_fsm_stack.at(1)->data(1).value<unsigned long long>();
+			hkbStateMachine* parent_fsm = ((hkbStateMachine*)variant->m_object);
+			if (NULL != parent_fsm->m_wildcardTransitions)
+			{
+				auto& transitions = parent_fsm->m_wildcardTransitions->m_transitions;
+				for (int t = 0; t < transitions.getSize(); t++)
+				{
+					if (fsm_states.find(transitions[t].m_toNestedStateId) != fsm_states.end())
+					{
+						auto* state = fsm_states.at(transitions[t].m_toNestedStateId);
+						reach_states(fsm_states, reacheable_states, state);
+					}
+				}
+			}
+			//parent reacheable
+			for (const auto* parent_state : _fsm_reacheable_states_stack.front())
+			{
+				hkVariant* variant = (hkVariant*)parent_state->data(1).value<unsigned long long>();
+				hkbStateMachineStateInfo* hk_state = (hkbStateMachineStateInfo*)variant->m_object;
+				if (NULL != hk_state->m_transitions)
+				{
+					auto& transitions = hk_state->m_transitions->m_transitions;
+					for (int t = 0; t < transitions.getSize(); t++)
+					{
+						if (fsm_states.find(transitions[t].m_toNestedStateId) != fsm_states.end())
+						{
+							reach_states(fsm_states, reacheable_states, fsm_states.at(transitions[t].m_toNestedStateId));
+						}
+					}
+				}
+			}
+		}
+
+		//update stack
 		_fsm_stack.push_front(&node);
+		_fsm_reacheable_states_stack.push_front(reacheable_states);
+
 		if (!state_bind.empty())
 		{
 			if (control_undefined)
 			{
-				for (int i = 0; i < node.childCount(); ++i)
+				for (auto state : reacheable_states)
 				{
-					hkVariant* variant = (hkVariant*)node.child(i)->data(1).value<unsigned long long>();
+					hkVariant* variant = (hkVariant*)state->data(1).value<unsigned long long>();
 					if (variant->m_class == &hkbStateMachineStateInfoClass)
 					{
 
@@ -713,20 +893,20 @@ void Saver::handle_hkx_node(ProjectNode& node)
 						if (control)
 						{
 							_animation_sets_stack.push_front({});
-							for (auto& event : events)
-								variables_path /= event;
+							//for (auto& event : events)
+							//	variables_path /= event;
 							variables_path = variables_path / state_bind / std::to_string(_variables_values[state_bind]);
 
 						}
-						node.child(i)->accept(*this);
+						state->accept(*this);
 						if (control)
 						{
 							for (const auto& item : _animation_sets_stack.front())
 							{
 								_animation_sets[variables_path.string()].insert(item);
 							}
-							for (auto& event : events)
-								variables_path = variables_path.parent_path();
+							//for (auto& event : events)
+							//	variables_path = variables_path.parent_path();
 							variables_path = variables_path.parent_path().parent_path();
 							_animation_sets_stack.pop_front();
 						}
@@ -734,80 +914,37 @@ void Saver::handle_hkx_node(ProjectNode& node)
 						_variables_values.erase(state_bind);
 					}
 					else {
-						node.child(i)->accept(*this);
+						state->accept(*this);
 					}
 				}
 			}
 			else {
 				int current_starting_state = _variables_values[state_bind];
-				for (int i = 0; i < node.childCount(); ++i)
+				for (auto state : reacheable_states)
 				{
-					hkVariant* variant = (hkVariant*)node.child(i)->data(1).value<unsigned long long>();
+					hkVariant* variant = (hkVariant*)state->data(1).value<unsigned long long>();
 					if (variant->m_class == &hkbStateMachineStateInfoClass)
 					{				
 						if (current_starting_state == ((hkbStateMachineStateInfo*)variant->m_object)->m_stateId)
 						{
-							node.child(i)->accept(*this);
+							state->accept(*this);
 						}
 					}
 					else {
-						node.child(i)->accept(*this);
+						state->accept(*this);
 					}
 				}
 			}
 		}
 		else {
-			recurse(node);
-		}
-		if (_animation_sets_root_fsm == &node)
-		{
-			auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
-			std::set<std::string> events;
-			//I'm the highest FSM for which I do have events
-			hkVariant* variant = (hkVariant*)node.data(1).value<unsigned long long>();
-			hkbStateMachine* root_fsm = (hkbStateMachine*)variant->m_object;
-
-			set<hkbStateMachineStateInfo*> set_states;
-			set<int> tagged_state_ids;
-			for (auto* state_node : _animation_sets_root_fsm_tagged_states)
+			for (auto state : reacheable_states)
 			{
-				hkVariant* variant = (hkVariant*)state_node->data(1).value<unsigned long long>();
-				hkbStateMachineStateInfo* state = (hkbStateMachineStateInfo*)variant->m_object;
-				set_states.insert(state);
-				tagged_state_ids.insert(state->m_stateId);
-			}
-
-			//find a transition between non-set states and set-states
-			for (int i = 0; i < root_fsm->m_states.getSize(); i++)
-			{
-				auto& state = root_fsm->m_states[i];
-				if (state->m_transitions != NULL && set_states.find(state) == set_states.end())
-				{
-					for (int t = 0; t < state->m_transitions->m_transitions.getSize(); t++)
-					{
-						auto& transition = state->m_transitions->m_transitions[t];
-						if (tagged_state_ids.find(transition.m_toStateId) != tagged_state_ids.end())
-						{
-							events.insert(behavior_builder->getEvent(transition.m_eventId).toUtf8().constData());
-						}
-					}
-				}
-			}
-			if (NULL != root_fsm->m_wildcardTransitions)
-			{
-				for (int t = 0; t < root_fsm->m_wildcardTransitions->m_transitions.getSize(); t++)
-				{
-					auto& transition = root_fsm->m_wildcardTransitions->m_transitions[t];
-					if (tagged_state_ids.find(transition.m_toStateId) != tagged_state_ids.end())
-					{
-						events.insert(behavior_builder->getEvent(transition.m_eventId).toUtf8().constData());
-					}
-				}
+				state->accept(*this);
+				//recurse(node);
 			}
 		}
-
-		//_fsm_name_stack.pop_front();
 		_fsm_stack.pop_front();
+		_fsm_reacheable_states_stack.pop_front();
 	}
 	else if (variant->m_class == &hkbManualSelectorGeneratorClass) 
 	{
@@ -832,13 +969,13 @@ void Saver::handle_hkx_node(ProjectNode& node)
 			bool control_undefined = _variables_values.find(selector_bind) == _variables_values.end();
 			bool control = _animation_styles_control_variables.find(selector_bind) != _animation_styles_control_variables.end();
 			std::set<std::string> events;
-			if (control && control_undefined)
-			{
-				//events
-				auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
-				//how I got here?
-				events = find_animation_driven_transitions(node, behavior_builder);
-			}
+			//if (control && control_undefined)
+			//{
+			//	//events
+			//	auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+			//	//how I got here?
+			//	events = find_animation_driven_transitions(node, behavior_builder);
+			//}
 
 			if (control_undefined)
 			{
@@ -851,8 +988,8 @@ void Saver::handle_hkx_node(ProjectNode& node)
 						_variables_values[selector_bind] = generator_index++;
 						
 						if (control) {
-							for (auto& event : events)
-								variables_path /= event;
+							//for (auto& event : events)
+							//	variables_path /= event;
 							variables_path = variables_path / selector_bind / std::to_string(_variables_values[selector_bind]);
 							_animation_sets_stack.push_front({});
 						}
@@ -863,8 +1000,8 @@ void Saver::handle_hkx_node(ProjectNode& node)
 							{
 								_animation_sets[variables_path.string()].insert(item);
 							}
-							for (auto& event : events)
-								variables_path = variables_path.parent_path();
+							//for (auto& event : events)
+							//	variables_path = variables_path.parent_path();
 							variables_path = variables_path.parent_path().parent_path();
 							_animation_sets_stack.pop_front();
 						}
@@ -901,31 +1038,41 @@ void Saver::handle_hkx_node(ProjectNode& node)
 	}
 	else if (variant->m_class == &hkbModifierGeneratorClass) 
 	{
-		/*hkbModifierGenerator* mg = (hkbModifierGenerator*)variant->m_object;
+		hkbModifierGenerator* mg = (hkbModifierGenerator*)variant->m_object;
+		bool animation_driven_msg = false;
 		if (NULL != mg->m_modifier)
 		{
-			if (mg->getClassType() == &BSIsActiveModifierClass && NULL != mg->m_variableBindingSet)
+			if (NULL != dynamic_cast<BSIsActiveModifier*>(mg->m_modifier.val()))
 			{
-				auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
-				auto& bindings = mg->m_variableBindingSet->m_bindings;
-				for (int i = 0; i < bindings.getSize(); ++i)
+				auto bindingset = mg->m_modifier->m_variableBindingSet;
+				if(NULL != bindingset)
 				{
-					auto& binding = bindings[i];
-					auto variable_name = behavior_builder->getVariable(binding.m_variableIndex);
-					if (variable_name == "bAnimationDriven")
+					auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+					auto& bindings = bindingset->m_bindings;
+					for (int i = 0; i < bindings.getSize(); ++i)
 					{
-						for (int j = 0; j < node.childCount(); j++)
+						auto& binding = bindings[i];
+						auto variable_name = behavior_builder->getVariable(binding.m_variableIndex);
+						if (variable_name == "bAnimationDriven")
 						{
-							hkVariant* variant = (hkVariant*)node.child(j)->data(1).value<unsigned long long>();
-							if (&hkbStateMachineClass == variant->m_class)
-							{
-								find_animation_driven_transitions(*node.child(j), (hkbStateMachine*)variant->m_object);
-							}
+							animation_driven_msg = true;
 						}
 					}
 				}
 			}
-		}*/
+		}
+		if (animation_driven_msg)
+		{
+			//find FSM child generator
+			for (int child_index = 0; child_index < node.childCount(); ++child_index)
+			{
+				hkVariant* child_variant = (hkVariant*)node.child(child_index)->data(1).value<unsigned long long>();
+				if (child_variant->m_class == &hkbStateMachineClass && &*mg->m_generator == child_variant->m_object)
+				{
+					handle_animation_binded_fsm(*node.child(child_index), file_index);
+				}
+			}
+		}
 		recurse(node);
 	}
 	else if (variant->m_class == &hkbBehaviorReferenceGeneratorClass) {
