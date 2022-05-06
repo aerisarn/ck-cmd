@@ -20,6 +20,8 @@
 #include <hkbProjectData_2.h>
 #include <hkbCharacterData_7.h>
 #include <hkbBehaviorGraph_1.h>
+#include <hkbStateMachineStateInfo_4.h>
+#include <hkbStateMachine_4.h>
 #include <hkbExpressionDataArray_0.h>
 #include <hkbExpressionDataArray_0.h>
 #include <Animation/Animation/hkaAnimationContainer.h>
@@ -306,7 +308,45 @@ void populateDecodingMap(const fs::path& folder, std::map<std::string, std::stri
 	}
 }
 
+struct IDLENode;
 
+class IDLEVisitor 
+{
+public:
+	virtual void visit(IDLENode& node) {};
+};
+
+struct IDLENode {
+	std::string data;
+	std::vector<std::shared_ptr<IDLENode>> children;
+
+	void accept(IDLEVisitor& visitor)
+	{
+		visitor.visit(*this);
+	}
+
+	shared_ptr<IDLENode> findChildren(std::string data)
+	{
+		for (const auto& child : children)
+		{
+			if (child->data == data)
+				return child;
+		}
+	}
+
+	shared_ptr<IDLENode> findOrAddChildren(std::string data)
+	{
+		for (const auto& child : children)
+		{
+			if (child->data == data)
+				return child;
+		}
+		std::shared_ptr<IDLENode> newnode = make_shared<IDLENode>();
+		newnode->data = data;
+		children.push_back(newnode);
+		return newnode;
+	}
+};
 
 
 
@@ -318,10 +358,462 @@ bool DecodeCacheCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 	if (parsedArgs["<dest_folder>"].isString())
 		dest_folder = parsedArgs["<dest_folder>"].asString();
 	std::map<std::string, std::string> decoding_map;
-	populateDecodingMap(animation_folder, decoding_map);
+	//populateDecodingMap(animation_folder, decoding_map);
 
-	fs::path cache_root_folder = fs::path(animation_folder) / "animationsetdata";
+	fs::path source_havok_project_cache = fs::path(animation_folder);
+
+	Collection skyrimCollection = Collection("D:\\Steam\\steamapps\\common\\Skyrim\\Data", 3);
+	ModFlags masterFlags = ModFlags(0xA);
+	ModFile* esm = skyrimCollection.AddMod("Skyrim.esm", masterFlags);
+
+	char* argvv[4];
+	argvv[0] = new char();
+	argvv[1] = new char();
+	argvv[2] = new char();
+	argvv[3] = new char();
+	logger.init(4, argvv);
+
+	skyrimCollection.Load();
+
+	std::set<std::shared_ptr<IDLENode>> nodes;
+
+	std::shared_ptr<IDLENode> root = make_shared<IDLENode>();
+	root->data = "Root";
+
+	for (auto idle_record_it = skyrimCollection.FormID_ModFile_Record.begin(); idle_record_it != skyrimCollection.FormID_ModFile_Record.end(); idle_record_it++)
+	{
+		Record* record = idle_record_it->second;
+		if (record->GetType() == REV32(IDLE)) {
+			Sk::IDLERecord* idle = dynamic_cast<Sk::IDLERecord*>(record);
+			std::string this_behavior = "";
+			Sk::IDLERecord* parent = idle;
+
+			if (!parent->DNAM.IsLoaded())
+				parent->DNAM.Load();
+
+			std::shared_ptr<IDLENode> behavior_root;
+			std::vector< std::shared_ptr<IDLENode>> nodes_to_add;
+
+			while (parent != NULL) {
+				if (!parent->DNAM.IsLoaded())
+					parent->DNAM.Load();
+				std::string parent_behavior;
+				if (parent->DNAM.value != NULL)
+					parent_behavior = parent->DNAM.value;
+				if (this_behavior.empty())
+					if (parent_behavior.empty())
+						__debugbreak();
+					else
+						this_behavior = parent_behavior;
+				else
+					if (this_behavior != parent_behavior)
+						__debugbreak();	
+				
+				std::shared_ptr<IDLENode> node = make_shared<IDLENode>();
+				nodes.insert(node);
+				nodes_to_add.push_back(node);
+				if (!parent->ENAM.IsLoaded())
+					parent->ENAM.Load();
+
+				node->data = parent->ENAM.value;
+
+				auto references = parent->ANAM;
+				auto find_it = skyrimCollection.FormID_ModFile_Record.find(references.value.parent);
+				if (find_it == skyrimCollection.FormID_ModFile_Record.end() ||					
+					find_it->second->GetType() != REV32(IDLE)) 
+				{
+					if (find_it->second->GetType() != REV32(AACT))
+					{
+
+
+
+						Sk::AACTRecord* aact = dynamic_cast<Sk::AACTRecord*>(find_it->second);
+						std::shared_ptr<IDLENode> node = make_shared<IDLENode>();
+						if (!aact->EDID.IsLoaded())
+							aact->EDID.Load();
+						node->data = aact->EDID.value;
+						nodes.insert(node);
+						nodes_to_add.push_back(node);
+					}
+
+					behavior_root = root->findOrAddChildren(this_behavior);
+
+					break;
+				}				
+				parent = dynamic_cast<Sk::IDLERecord*>(find_it->second);
+			}
+
+			behavior_root->children.push_back(nodes_to_add[nodes_to_add.size() - 1]);
+
+			for (int i = nodes_to_add.size() - 2; i >= 0; i--)
+			{
+				nodes_to_add[i + 1]->children.push_back(nodes_to_add[i]);
+			}
+		}
+	}
+
+	//ModFlags masterFlags = ModFlags(0xA);
+	//ModFlags skyblivionFlags = ModFlags(0xA);
+	//ModFile* esm = skyrimCollection.AddMod("Skyrim.esm", masterFlags);
+	//ModFile* update = skyrimCollection.AddMod("Update.esm", masterFlags);
+	//ModFile* dawnguard = skyrimCollection.AddMod("Dawnguard.esm", masterFlags);
+	//ModFile* Hearthfires = skyrimCollection.AddMod("Hearthfires.esm", masterFlags);
+	//ModFile* Dragonborn = skyrimCollection.AddMod("Dragonborn.esm", masterFlags);
+	//ModFlags espFlags = ModFlags(0x1818);
+	//espFlags.IsNoLoad = false;
+	//espFlags.IsFullLoad = true;
+	//espFlags.IsMinLoad = false;
+	//espFlags.IsCreateNew = true;
+	//ModFile* skyrimMod = skyrimCollection.AddMod("template.esp", espFlags);
+
+	//char * argvv[4];
+	//argvv[0] = new char();
+	//argvv[1] = new char();
+	//argvv[2] = new char();
+	//argvv[3] = new char();
+	//logger.init(4, argvv);
+
+	//skyrimCollection.Load();
+	//auto it = skyrimCollection.FormID_ModFile_Record.equal_range(REV32(IDLE));
+
+	//map<string, Sk::MOVTRecord*> movts;
+	//map<string, Sk::SNDRRecord*> sndrs;
+	//map<string, Sk::IDLERecord*> idles;
+	//map<string, Sk::SOUNRecord*> souns;
+	//for (auto idle_record_it = skyrimCollection.FormID_ModFile_Record.begin(); idle_record_it != skyrimCollection.FormID_ModFile_Record.end(); idle_record_it++)
+	//{
+	//	Record* record = idle_record_it->second;
+	//	if (record->GetType() == REV32(MOVT)) {
+	//		Sk::MOVTRecord* movt = dynamic_cast<Sk::MOVTRecord*>(record);
+	//		if (retarget_MOVT.find(string(movt->MNAM.value)) != retarget_MOVT.end())
+	//		{
+	//			Log::Info("Found MOVT to retarget: %s", movt->EDID.value);
+	//			movts[string(movt->EDID.value)] = movt;
+	//		}
+	//	}
+	//	if (record->GetType() == REV32(SNDR)) {
+	//		Sk::SNDRRecord* sndr = dynamic_cast<Sk::SNDRRecord*>(record);
+	//		string SDless = string(sndr->EDID.value).substr(0, string(sndr->EDID.value).size() - 2);
+	//		if (retarget_SOUN.find(SDless) != retarget_SOUN.end() || retarget_SOUN.find(string(sndr->EDID.value)) != retarget_SOUN.end())
+	//		{
+	//			Log::Info("Found SOUN to retarget: %s", sndr->EDID.value);
+	//			sndrs[string(sndr->EDID.value)] = sndr;
+	//		}
+	//	}
+	//	if (record->GetType() == REV32(SOUN)) {
+	//		Sk::SOUNRecord* soun = dynamic_cast<Sk::SOUNRecord*>(record);
+	//		string SDless = string(soun->EDID.value).substr(0, string(soun->EDID.value).size() - 2);
+	//		if (retarget_SOUN.find(SDless) != retarget_SOUN.end() || retarget_SOUN.find(string(soun->EDID.value)) != retarget_SOUN.end())
+	//		{
+	//			Log::Info("Found SNDR to retarget: %s", soun->EDID.value);
+	//			souns[string(soun->EDID.value)] = soun;
+	//		}
+	//	}
+	//	if (record->GetType() == REV32(IDLE)) {
+	//		Sk::IDLERecord* idle = dynamic_cast<Sk::IDLERecord*>(record);
+	//		vector<Sk::IDLERecord*> to_add;
+	//		char* this_behavior = NULL;
+	//		Sk::IDLERecord* parent = idle;
+	//		while (parent != NULL) {
+	//			if (!parent->DNAM.IsLoaded())
+	//				parent->DNAM.Load();
+	//			auto behavior = parent->DNAM.value;
+	//			if (behavior != NULL && !string(behavior).empty() &&
+	//				lower_find(behavior, old_name) == std::string::npos)
+	//			{
+	//				to_add.clear();
+	//				break;
+	//			}
+	//			else if (behavior != NULL && !string(behavior).empty() &&
+	//				lower_find(behavior, old_name) != std::string::npos)
+	//			{
+
+	//				this_behavior = behavior;
+	//			}
+	//			auto references = parent->ANAM;
+	//			to_add.push_back(parent);
+	//			auto find_it = skyrimCollection.FormID_ModFile_Record.find(references.value.parent);
+	//			if (find_it == skyrimCollection.FormID_ModFile_Record.end() ||					
+	//				find_it->second->GetType() != REV32(IDLE)) {
+	//				break;
+	//			}				
+	//			parent = dynamic_cast<Sk::IDLERecord*>(find_it->second);
+	//		}
+	//		for (const auto& this_idle : to_add) {
+	//			if (this_idle->DNAM.value == NULL || strcmp(this_idle->DNAM.value, this_behavior) != 0)
+	//			{
+	//				if (this_idle->DNAM.value != NULL)
+	//					delete this_idle->DNAM.value;
+	//				this_idle->DNAM.value = new char[strlen(this_behavior) + 1];
+	//				strcpy(this_idle->DNAM.value, this_behavior);
+	//			}
+	//			if (idles.insert({ string(this_idle->EDID.value),this_idle }).second)
+	//				Log::Info("Found IDLE to retarget: %s", this_idle->EDID.value);;
+	//		}
+	//	}
+	//}
+
+
+	fs::path animDataPath = fs::path(source_havok_project_cache) / "animationdatasinglefile.txt";
+	fs::path animDataSetPath = fs::path(source_havok_project_cache) / "animationsetdatasinglefile.txt";
+	Log::Info("Loading cache, loading %s and %s", animDataPath.string().c_str(), animDataSetPath.string().c_str());
+	AnimationCache cache(animDataPath, animDataSetPath);
+
+
+	InitializeHavok();
+	HKXWrapper wrapper;
 	vector<fs::path> cache_files;
+	find_files(source_havok_project_cache / "actors", ".hkx", cache_files);
+	std::map<std::string, fs::path> projectpaths;
+	for (const auto& file : cache_files)
+	{
+		hkRootLevelContainer* root = NULL;
+		hkbProjectData* hkroot = wrapper.load<hkbProjectData>(file, root);
+		if (hkroot != NULL)
+		{
+			hkbProjectStringData* sdata = hkroot->m_stringData;
+			fs::path behaviors_folder = file.parent_path() / "behaviors";
+			if (!fs::exists(behaviors_folder))
+				continue;
+			projectpaths[file.filename().replace_extension().string()] = file.parent_path();
+		}
+	}
+
+
+	auto& creatures = cache.creature_entries;
+
+	if (projectpaths.size() != creatures.size())
+		__debugbreak();
+
+	//auto& projectlist = cache.animationSetData.getProjectsList().getStrings();
+	//auto& projectdata = cache.animationSetData.getProjectAttackList();
+
+	for (int i = 0; i < creatures.size(); i++)
+	{
+
+
+		if (creatures[i].getProjectSetFiles().size() > 1)
+		{
+			std::cout << "Multi set project: " << creatures[i].name << std::endl;
+
+			auto files = creatures[i].block.getProjectFiles().getStrings();
+			string lower = creatures[i].name;
+			transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return tolower(c); });
+			if (projectpaths.find(lower) == projectpaths.end())
+				__debugbreak();
+			std::vector<hkbStateMachine*> fsms;
+			std::vector<std::vector<std::string>> behaviors_events;
+			std::vector<std::vector<std::string>> behaviors_variables;
+			std::map<hkbStateMachine*, size_t> fsm_events_index;
+			std::cout << "\tbehaviors: " << std::endl;
+			for (const auto& file : files)
+			{
+				if (file.find("Behavior") == 0)
+				{
+					fs::path behavior_path = projectpaths.at(lower) / file;
+					if (!fs::exists(behavior_path))
+						__debugbreak;
+					std::cout << "\t\t" << file << std::endl;
+					hkRootLevelContainer* root = NULL;
+					hkArray<hkVariant> objects;
+					hkbBehaviorGraph* hkroot = wrapper.load<hkbBehaviorGraph>(behavior_path, root, objects);
+					hkbBehaviorGraphStringData* sdata = hkroot->m_data->m_stringData;
+					size_t events_index = behaviors_events.size();
+					std::vector<std::string> events;
+					for (int e = 0; e < sdata->m_eventNames.getSize(); e++)
+					{
+						events.push_back(sdata->m_eventNames[e].cString());
+					}
+					behaviors_events.push_back(events);
+					std::vector<std::string> variables;
+					for (int e = 0; e < sdata->m_variableNames.getSize(); e++)
+					{
+						variables.push_back(sdata->m_variableNames[e].cString());
+					}
+					behaviors_variables.push_back(variables);
+					for (int n = 0; n < objects.getSize(); n++)
+					{
+						if (objects[n].m_class == &hkbStateMachineClass)
+						{
+							fsms.push_back((hkbStateMachine*)objects[n].m_object);
+							fsm_events_index[(hkbStateMachine*)objects[n].m_object] = events_index;
+						}
+					}
+				}
+			}
+
+			auto sets = creatures[i].getProjectSetFiles();
+			auto data = creatures[i].getProjectAttackBlocks();
+
+			std::multimap<std::string, std::string> events_text;
+			std::multimap<std::string, std::string> variables_text;
+			std::set<std::string> events_to_find;
+			std::set<std::string> variables_to_find;
+			for (int j = 0; j < sets.size(); j++)
+			{
+
+				auto events = data[j].getSwapEventsList().getStrings();
+				auto variables = data[j].getHandVariableData().getVariables();
+				auto attacks = data[j].getAttackData().attackData;
+
+				if (!attacks.empty() || !variables.empty())
+				{
+					for (const auto& event : events)
+					{
+						events_to_find.insert(event);
+					}
+					for (const auto& variable : variables)
+					{
+						variables_to_find.insert(variable.variable_name);
+					}
+				}
+			}
+
+			for ( auto* hk_fsm : fsms)
+			{
+				std::map<int, std::string> states;
+				for (int fsm_child_index = 0; fsm_child_index < hk_fsm->m_states.getSize(); ++fsm_child_index)
+				{
+					hkbStateMachineStateInfo* state = (hkbStateMachineStateInfo*)hk_fsm->m_states[fsm_child_index];
+					states[state->m_stateId] = state->m_name.cString();;
+				}
+
+				//Visit Bindings
+				if (NULL != hk_fsm->m_variableBindingSet)
+				{
+					auto& bindings = hk_fsm->m_variableBindingSet->m_bindings;
+					for (int b = 0; b < bindings.getSize(); ++b)
+					{
+						auto& binding = bindings[b];
+						auto variable_name = behaviors_variables.at(fsm_events_index.at(hk_fsm)).at(binding.m_variableIndex);
+						if (variables_to_find.find(variable_name) != variables_to_find.end())
+						{
+							std::string binding_text = "binds path " +
+								std::string(binding.m_memberPath.cString()) +
+								" of " + std::string(hk_fsm->m_name.cString());
+							variables_text.insert({ variable_name, binding_text });
+						}
+					}
+				}
+
+				//Visit FSM wildcard transitions
+				if (NULL != hk_fsm->m_wildcardTransitions)
+				{
+					auto& transitions = hk_fsm->m_wildcardTransitions->m_transitions;
+					for (int t = 0; t < transitions.getSize(); t++)
+					{
+						auto& transition = transitions[t];
+						std::string set_event = behaviors_events.at(fsm_events_index.at(hk_fsm)).at(transition.m_eventId);
+						if (events_to_find.find(set_event) != events_to_find.end())
+						{
+							std::string transition_text = "transitions " + 
+								std::string(hk_fsm->m_name.cString()) + " into " + 
+								states[transition.m_toStateId] +
+								+ " nested " + std::to_string(transition.m_toNestedStateId);
+							events_text.insert({ set_event, transition_text });
+						}
+					}
+				}
+
+				//Visit parent FSM states
+				for (int fsm_child_index = 0; fsm_child_index < hk_fsm->m_states.getSize(); ++fsm_child_index)
+				{
+					hkbStateMachineStateInfo* state = hk_fsm->m_states[fsm_child_index];
+					if (NULL != state->m_transitions)
+					{
+						auto& transitions = state->m_transitions->m_transitions;
+						for (int t = 0; t < transitions.getSize(); t++)
+						{
+							auto& transition = transitions[t];
+							std::string set_event = behaviors_events.at(fsm_events_index.at(hk_fsm)).at(transition.m_eventId);
+							if (events_to_find.find(set_event) != events_to_find.end())
+							{
+								std::string transition_text = "transitions " +
+									std::string(hk_fsm->m_name.cString()) +
+									" from " + state->m_name.cString() +
+									" into " + states[transition.m_toStateId] +
+									" nested " + std::to_string(transition.m_toNestedStateId);
+								events_text.insert({ set_event, transition_text });
+							}
+						}
+					}
+				}
+			}
+			
+			for (int j = 0; j < sets.size(); j++)
+			{
+
+				auto events = data[j].getSwapEventsList().getStrings();
+				auto variables = data[j].getHandVariableData().getVariables();
+				auto attacks = data[j].getAttackData().attackData;
+
+				if (!attacks.empty() || !variables.empty())
+				{
+					std::cout << "\tset: " << sets[j] << std::endl;
+					std::cout << "\tevents: " << std::endl;
+					for (const auto& event : events)
+					{
+						std::cout << "\t\t" << event << std::endl;
+						std::pair <std::multimap<std::string, std::string>::iterator, std::multimap<std::string, std::string>::iterator> ret;
+						ret = events_text.equal_range(event);
+						for (std::multimap<std::string, std::string>::iterator it = ret.first; it != ret.second; ++it)
+						{
+							std::cout << "\t\t\t" << it->second << std::endl;
+						}
+					}
+					if (!variables.empty())
+					{
+						std::cout << "\tvariables: " << std::endl;
+						for (const auto& variable : variables)
+						{
+							std::cout << "\t\t" << variable.variable_name << " (" << variable.value_min << " -> " << variable.value_max << ")" << std::endl;
+							std::pair <std::multimap<std::string, std::string>::iterator, std::multimap<std::string, std::string>::iterator> ret;
+							ret = variables_text.equal_range(variable.variable_name);
+							for (std::multimap<std::string, std::string>::iterator it = ret.first; it != ret.second; ++it)
+							{
+								std::cout << "\t\t\t" << it->second << std::endl;
+							}
+						}
+					}
+					if (!attacks.empty())
+					{
+						std::cout << "\tattacks: " << std::endl;
+						for (const auto& attack : attacks)
+						{
+							std::cout << "\t\t" << attack.eventName << std::endl;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	//for (const auto& dirEntry : fs::directory_iterator(cache_root_folder))
+	//{
+	//	if (fs::is_directory(dirEntry))
+	//	{
+	//		std::string multi_file_txt = dirEntry.path().filename().string();
+	//		multi_file_txt = multi_file_txt.substr(0, multi_file_txt.size() - 4); //data
+	//		fs::path txt_file = dirEntry.path() / (multi_file_txt + ".txt");
+	//		if (fs::exists(txt_file))
+	//		{
+	//			//Multiproject
+	//			std::ifstream infile(txt_file);
+	//			std::string line;
+	//			std::set
+	//			while (std::getline(infile, line))
+	//			{
+	//				std::istringstream iss(line);
+
+	//				// process pair (a,b)
+	//			}
+	//			std::cout << txt_file << std::endl;
+	//		}
+
+	//	}
+
+	//}
+	/*vector<fs::path> cache_files;
 	find_files(cache_root_folder, ".txt", cache_files);
 	fs::create_directories(dest_folder);
 	for (const auto& cache_file : cache_files)
@@ -345,7 +837,7 @@ bool DecodeCacheCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		std::ofstream o(output.string());
 		o << str;
 		o.close();
-	}
+	}*/
 
 
 
