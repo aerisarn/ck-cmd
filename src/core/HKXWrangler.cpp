@@ -1027,6 +1027,8 @@ set<string> HKXWrapper::create_animations(
 			//	1
 			//);
 
+			hkVector4 base_translation;
+			::hkQuaternion base_rotation;
 			for (int i = 0; i < root_track.getSize(); i++)
 			{
 				hkVector4 test_trans = root_track[i].getTranslation();
@@ -1071,15 +1073,16 @@ set<string> HKXWrapper::create_animations(
 					});
 				}
 
-				tempAnim->m_transforms[i*skeleton.size()].setTranslation
-				(
-					{
-					0.0,
-					0.0,
-					tempAnim->m_transforms[i*skeleton.size()].getTranslation().getSimdAt(2),
-					tempAnim->m_transforms[i*skeleton.size()].getTranslation().getSimdAt(3)
-					}
-				);
+				if (i == 0)
+				{
+					base_translation = tempAnim->m_transforms[i * skeleton.size()].getTranslation();
+					base_rotation = tempAnim->m_transforms[i * skeleton.size()].getRotation();
+				}
+				else
+				{
+					tempAnim->m_transforms[i * skeleton.size()].setTranslation(base_translation);
+					tempAnim->m_transforms[i * skeleton.size()].setRotation(base_rotation);
+				}
 			}
 
 			//TODO: linear analysis
@@ -1961,6 +1964,12 @@ hkGeometry extract_bounding_geometry(FbxNode* shape_root, set<pair<FbxAMatrix, F
 	}
 	if (properties.m_mass == 0.0)
 	{
+		const auto property_mass = get_property<float>(shape_root, "mass", 0.f);
+		if (property_mass != 0.f)
+		{
+			properties.m_mass = property_mass;
+			return out;
+		}
 		vector<hkGeometry> geometry_by_material(materials.size());
 		//calculate approximate mass, split the geometry by materials
 		for (int i = 0; i < out.m_triangles.getSize(); i++)
@@ -2792,8 +2801,6 @@ hkRefPtr<hkpRigidBody> HKXWrapper::build_body(FbxNode* body, set<pair<FbxAMatrix
 		bodies[body] = hk_body_unscaled;
 		hk_body_unscaled->addReference();
 		rigidBodies.push_back(hk_body_unscaled);
-		for (auto con : constraint_childs)
-			build_constraint(con);
 	}
 	else {
 		float cradius;
@@ -2845,6 +2852,25 @@ hkRefPtr<hkpRigidBody> check_body(bhkRigidBodyRef body, vector<pair<hkTransform,
 	hkRefPtr<hkpRigidBody> hk_body = new hkpRigidBody(body_cinfo);
 	hk_body->setShape(body_cinfo.m_shape);
 	return hk_body;
+}
+
+void override_inertia_tensor(FbxNode* shape_root, hkpMassProperties& properties)
+{
+	const auto property_inertia_x = get_property<float>(shape_root, "inertiaX", 0.f);
+	if (property_inertia_x != 0.f)
+	{
+		properties.m_inertiaTensor(0, 0) = property_inertia_x;
+	}
+	const auto property_inertia_y = get_property<float>(shape_root, "inertiaY", 0.f);
+	if (property_inertia_y != 0.f)
+	{
+		properties.m_inertiaTensor(1, 1) = property_inertia_y;
+	}
+	const auto property_inertia_z = get_property<float>(shape_root, "inertiaZ", 0.f);
+	if (property_inertia_z != 0.f)
+	{
+		properties.m_inertiaTensor(2, 2) = property_inertia_z;
+	}
 }
 
 hkRefPtr<hkpShape> HKXWrapper::build_shape(
@@ -3048,6 +3074,7 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
 		hkpSphereShape* shape = (hkpSphereShape*)output.m_shape;
 		hkInertiaTensorComputer::computeSphereVolumeMassProperties(shape->getRadius(), mass, properties);
+		override_inertia_tensor(shape_root, properties);
 		return handle_output_transform(output, material, properties, shape_root, body, hk_body);
 	}
 	if (ends_with(name, "_box"))
@@ -3060,6 +3087,7 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
 		hkpBoxShape* shape = (hkpBoxShape*)output.m_shape;
 		hkInertiaTensorComputer::computeBoxVolumeMassProperties(shape->getHalfExtents(), mass, properties);
+		override_inertia_tensor(shape_root, properties);
 		return handle_output_transform(output, material, properties, shape_root, body, hk_body);
 	}
 	if (ends_with(name, "_capsule"))
@@ -3070,9 +3098,20 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(
 		input.m_vertices = to_bound.m_vertices;
 		hkpCreateShapeUtility::createCapsuleShape(input, output);
 		hkpNamedMeshMaterial* material = new hkpNamedMeshMaterial(materials[0]);
-		hkpCapsuleShape* shape = (hkpCapsuleShape*)output.m_shape;
-		hkInertiaTensorComputer::computeCapsuleVolumeMassProperties(shape->getVertex(0), shape->getVertex(1), shape->getRadius(), mass, properties);
-		return handle_output_transform(output, material, properties, shape_root, body, hk_body);
+		if (output.m_shape->getType() == hkpShapeType::HK_SHAPE_CAPSULE)
+		{
+			hkpCapsuleShape* shape = (hkpCapsuleShape*)output.m_shape;
+			hkInertiaTensorComputer::computeCapsuleVolumeMassProperties(shape->getVertex(0), shape->getVertex(1), shape->getRadius(), mass, properties);
+			override_inertia_tensor(shape_root, properties);
+			return handle_output_transform(output, material, properties, shape_root, body, hk_body);
+		}
+		else if (output.m_shape->getType() == hkpShapeType::HK_SHAPE_SPHERE)
+		{
+			hkpSphereShape* shape = (hkpSphereShape*)output.m_shape;
+			hkInertiaTensorComputer::computeSphereVolumeMassProperties(shape->getRadius(), mass, properties);
+			override_inertia_tensor(shape_root, properties);
+			return handle_output_transform(output, material, properties, shape_root, body, hk_body);
+		}
 	}
 	if (ends_with(name, "_convex"))
 	{
@@ -3473,8 +3512,7 @@ bool iequals(const string& a, const string& b)
 
 bool clip_equals(const fs::path &arg, const fs::path &baseline)
 {
-	return iequals(arg.filename().string(), baseline.filename().string())
-		&& iequals(arg.parent_path().filename().string(), baseline.parent_path().filename().string());
+	return iequals(arg.filename().string(), baseline.filename().string());
 }
 
 struct filename_compare : public std::unary_function<std::string, bool>
@@ -3648,15 +3686,30 @@ void HKXWrapper::PutClipMovement(
 						continue;
 					}
 
-					if (!root_info.getClipEvents().getStrings().empty() || cache_block_it->getEvents().getStrings().empty())
-						cache_block_it->setEvents(root_info.getClipEvents());
+					auto events = root_info.getClipEvents();
+					if (clip->m_triggers)
+					{
+						for (const auto& trigger : clip->m_triggers->m_triggers)
+						{
+							const auto event_id = trigger.m_event.m_id;
+							const auto event_time = trigger.m_relativeToEndOfClip ? root_info.duration + trigger.m_localTime : trigger.m_localTime;
+
+							if (bhkroot->m_data && bhkroot->m_data->m_stringData)
+							{
+								const auto event_name = string(bhkroot->m_data->m_stringData->m_eventNames[event_id].cString());
+								events.append(event_name + ":" + to_string(event_time));
+							}
+						}
+					}
+
+					if (!events.getStrings().empty() || cache_block_it->getEvents().getStrings().empty())
+						cache_block_it->setEvents(events);
 					movements_block_it->setDuration(to_string(root_info.duration));
 					movements_block_it->setTraslations(root_info.getClipTranslations());
 					movements_block_it->setRotations(root_info.getClipRotations());
 					
 					entry.block.setClips(cache_clips);
 					entry.movements.setMovementData(cache_movements);
-					return;
 				}
 			}
 		}
