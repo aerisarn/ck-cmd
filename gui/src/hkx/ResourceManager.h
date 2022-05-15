@@ -89,6 +89,7 @@ namespace ckcmd {
 			ProjectNode* createClipEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 
 			ProjectNode* findNode(int file, const hkVariant* variant) const;
+			ProjectNode* findNode(int file, const void* object) const;
 			QModelIndex getIndex(ProjectNode* node) const;
 
 			bool isCreatureProject(int file_index);

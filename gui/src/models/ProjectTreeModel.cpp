@@ -1,6 +1,7 @@
 #include "ProjectTreeModel.h"
 
 #include <src/hkx/BehaviorBuilder.h>
+#include <QBrush>
 
 using namespace ckcmd::HKX;
 
@@ -24,6 +25,12 @@ QVariant ProjectTreeModel::data(const QModelIndex& index, int role) const
 {
 	if (!index.isValid())
 		return QVariant();
+
+	if (role == Qt::BackgroundRole && index.isValid())
+	{
+		ProjectNode* item = static_cast<ProjectNode*>(index.internalPointer());
+		return QBrush(item->color());
+	}
 
 	if (role != Qt::DisplayRole && role != Qt::EditRole)
 		return QVariant();
@@ -112,6 +119,12 @@ bool ProjectTreeModel::setData(const QModelIndex& index, const QVariant& value,
 	int role)
 {
 	auto node = getNode(index);
+	if (role == Qt::BackgroundRole && index.isValid())
+	{
+		node->setColor(value.value<QColor>());
+		return true;
+	}
+
 	if (node->type() == ProjectNode::NodeType::event_node)
 	{
 		BehaviorBuilder* builder = (BehaviorBuilder * )_resourceManager.fieldsHandler(node->data(2).value<int>());
@@ -122,12 +135,12 @@ bool ProjectTreeModel::setData(const QModelIndex& index, const QVariant& value,
 
 QModelIndex ProjectTreeModel::getIndex(ProjectNode* node) const
 {
-	ProjectNode* parentItem = node->parentItem();
+	//ProjectNode* parentItem = node->parentItem();
 
-	if (parentItem == _rootNode)
+	if (node == _rootNode)
 		return QModelIndex();
 
-	return createIndex(parentItem->row(), 0, parentItem);
+	return createIndex(node->row(), 0, node);
 }
 
 //bool ProjectTreeModel::insertRows(int row, int count, const QModelIndex& parent = QModelIndex())

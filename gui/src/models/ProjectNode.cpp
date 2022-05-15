@@ -3,7 +3,7 @@
 using namespace ckcmd::HKX;
 
 ProjectNode::ProjectNode(NodeType type, const QVector<QVariant>& data, ProjectNode* parent)
-	: m_type(type), m_itemData(data)
+	: m_type(type), m_itemData(data), m_color(Qt::white)
 {
 	m_parentItems.push_back(parent);
 }
@@ -175,4 +175,14 @@ void ProjectNode::removeParent(ProjectNode* parent)
 {
 	if (m_parentItems.contains(parent))
 		m_parentItems.remove(m_parentItems.indexOf(parent));
+}
+
+void ProjectNode::setColor(QColor color)
+{
+	m_color = color;
+}
+
+QColor ProjectNode::color() const
+{
+	return m_color;
 }

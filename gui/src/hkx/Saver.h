@@ -1,6 +1,7 @@
 #pragma once
 #include <core/AnimationCache.h>
 #include <src/hkx/BehaviorBuilder.h>
+#include <src/models/ProjectTreeModel.h>
 
 #include <deque>
 #include <stack>
@@ -59,6 +60,7 @@ namespace ckcmd {
 
 		class Saver {
 
+			ProjectTreeModel* _viewmodel;
 			std::set<ProjectNode*> _visited;
 
 			virtual void recurse(ProjectNode& node)
@@ -152,10 +154,30 @@ namespace ckcmd {
 			fs::path variables_path;
 			std::map<std::string, std::set<std::string>>  _animation_sets;
 
-			std::set<std::string> _animation_styles_control_variables = { "iRightHandType", "iLeftHandType" };
+			std::set<std::string> _animation_styles_control_variables_msg = { "iRightHandType"/*, "iLeftHandType"*/ };
+			std::set<std::string> _animation_styles_control_variables_fsm = { "iEquippedItemState" };
+			std::set<std::string> _avoid_variables_set = { "RootBoneSwitch_MSG", "DualWieldShieldBoneRootMSG" };
 			fs::path _nodes_stack;
 			bool _first_behavior = true;
 			std::deque<ProjectNode*> _behavior_stack;
+
+			std::map<std::pair<int, int>, std::map<std::string, std::string>> _weapon_animation_sets;
+			std::map<std::pair<int, int>, std::set<std::string>> _weapon_events_sets;
+
+			std::deque<std::pair<std::string,std::set<std::string>>> _attack_animations;
+
+			std::map<std::string, std::string> _crc_to_find;
+
+
+			std::map<std::pair<std::string,std::string>, std::set<std::string>> _new_animation_sets;
+			std::deque<std::string> _right_current_animation_set;
+			std::deque<std::string> _left_current_animation_set;
+			std::set<std::string> _right_animation_set_binding_variable = { "iRightHandType"};
+			std::set<std::string> _left_animation_set_binding_variable = { "iLeftHandType", "iEquippedItemState"};
+
+			boolean _animation_driven = false;
+
+			int isSetBinded(hkbBindable* bindable, BehaviorBuilder* builder, const std::string& path);
 
 		public: 
 
@@ -185,14 +207,10 @@ namespace ckcmd {
 			template<>
 			void visit<ProjectNode::NodeType::behavior_node>(ProjectNode& node)
 			{
-				if (!_behavior_stack.empty() || _first_behavior)
-				{
-					_first_behavior = false;
-					_behavior_stack.push_back(&node);
-					recurse(node);
-					_behavior_stack.pop_front();
-				}
-
+				_behavior_stack.push_back(&node);
+				recurse(node);
+				//handle_behavior(node);
+				_behavior_stack.pop_front();
 			}
 
 			template<>
@@ -222,7 +240,7 @@ namespace ckcmd {
 				handle_animation_style(node);
 			}
 
-			Saver(ResourceManager& manager, ProjectNode* project_root);
+			Saver(ResourceManager& manager, ProjectNode* project_root, ProjectTreeModel* viewmodel);
 
 			~Saver()
 			{

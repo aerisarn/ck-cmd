@@ -310,15 +310,21 @@ void populateDecodingMap(const fs::path& folder, std::map<std::string, std::stri
 
 struct IDLENode;
 
-class IDLEVisitor 
+class IDLEVisitor
 {
 public:
-	virtual void visit(IDLENode& node) {};
+	virtual void visit(IDLENode&) = 0;
 };
 
-struct IDLENode {
-	std::string data;
+struct IDLENode 
+{
+	std::string name;
+	std::string event;
 	std::vector<std::shared_ptr<IDLENode>> children;
+
+	uint32_t id;
+	std::shared_ptr<IDLENode> parent;
+	
 
 	void accept(IDLEVisitor& visitor)
 	{
@@ -329,7 +335,7 @@ struct IDLENode {
 	{
 		for (const auto& child : children)
 		{
-			if (child->data == data)
+			if (child->name == data)
 				return child;
 		}
 	}
@@ -338,14 +344,61 @@ struct IDLENode {
 	{
 		for (const auto& child : children)
 		{
-			if (child->data == data)
+			if (child->name == data)
 				return child;
 		}
 		std::shared_ptr<IDLENode> newnode = make_shared<IDLENode>();
-		newnode->data = data;
+		newnode->name = data;
 		children.push_back(newnode);
 		return newnode;
 	}
+};
+
+class ConcreteIDLEVisitor : public IDLEVisitor
+{
+	enum {
+		vDefault = 0,
+		vEquip = 1,
+		vForceEquip = 2,
+		vIdle = 3,
+		vLoose = 4
+	};
+
+	int state = vDefault;
+
+
+
+public:
+
+	std::set<std::string> equip_events;
+
+	int equipBranching = 0;
+	int forceEquipBranching = 0;
+
+	virtual void visit(IDLENode& node) override
+	{
+		if (state == vEquip && equipBranching < node.children.size())
+			equipBranching = node.children.size();
+		if (state == vForceEquip && forceEquipBranching < node.children.size())
+			forceEquipBranching = node.children.size();
+
+		int old_state = state;
+		if (node.name == "ActionDraw")
+			state = vEquip;
+		else if (node.name == "ActionForceEquip")
+			state = vForceEquip;
+		else if (node.name == "ActionIdle")
+			state = vIdle;
+		else if (node.name == "LOOSE")
+			state = vLoose;
+
+		for (const auto& child : node.children)
+		{
+			child->accept(*this);
+		}
+
+		state = old_state;
+	};
 };
 
 
@@ -362,111 +415,13 @@ bool DecodeCacheCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 
 	fs::path source_havok_project_cache = fs::path(animation_folder);
 
-	Collection skyrimCollection = Collection("D:\\Steam\\steamapps\\common\\Skyrim\\Data", 3);
-	ModFlags masterFlags = ModFlags(0xA);
-	ModFile* esm = skyrimCollection.AddMod("Skyrim.esm", masterFlags);
-
-	char* argvv[4];
-	argvv[0] = new char();
-	argvv[1] = new char();
-	argvv[2] = new char();
-	argvv[3] = new char();
-	logger.init(4, argvv);
-
-	skyrimCollection.Load();
-
-	std::set<std::shared_ptr<IDLENode>> nodes;
-
-	std::shared_ptr<IDLENode> root = make_shared<IDLENode>();
-	root->data = "Root";
-
-	for (auto idle_record_it = skyrimCollection.FormID_ModFile_Record.begin(); idle_record_it != skyrimCollection.FormID_ModFile_Record.end(); idle_record_it++)
-	{
-		Record* record = idle_record_it->second;
-		if (record->GetType() == REV32(IDLE)) {
-			Sk::IDLERecord* idle = dynamic_cast<Sk::IDLERecord*>(record);
-			std::string this_behavior = "";
-			Sk::IDLERecord* parent = idle;
-
-			if (!parent->DNAM.IsLoaded())
-				parent->DNAM.Load();
-
-			std::shared_ptr<IDLENode> behavior_root;
-			std::vector< std::shared_ptr<IDLENode>> nodes_to_add;
-
-			while (parent != NULL) {
-				if (!parent->DNAM.IsLoaded())
-					parent->DNAM.Load();
-				std::string parent_behavior;
-				if (parent->DNAM.value != NULL)
-					parent_behavior = parent->DNAM.value;
-				if (this_behavior.empty())
-					if (parent_behavior.empty())
-						__debugbreak();
-					else
-						this_behavior = parent_behavior;
-				else
-					if (this_behavior != parent_behavior)
-						__debugbreak();	
-				
-				std::shared_ptr<IDLENode> node = make_shared<IDLENode>();
-				nodes.insert(node);
-				nodes_to_add.push_back(node);
-				if (!parent->ENAM.IsLoaded())
-					parent->ENAM.Load();
-
-				node->data = parent->ENAM.value;
-
-				auto references = parent->ANAM;
-				auto find_it = skyrimCollection.FormID_ModFile_Record.find(references.value.parent);
-				if (find_it == skyrimCollection.FormID_ModFile_Record.end() ||					
-					find_it->second->GetType() != REV32(IDLE)) 
-				{
-					if (find_it->second->GetType() != REV32(AACT))
-					{
-
-
-
-						Sk::AACTRecord* aact = dynamic_cast<Sk::AACTRecord*>(find_it->second);
-						std::shared_ptr<IDLENode> node = make_shared<IDLENode>();
-						if (!aact->EDID.IsLoaded())
-							aact->EDID.Load();
-						node->data = aact->EDID.value;
-						nodes.insert(node);
-						nodes_to_add.push_back(node);
-					}
-
-					behavior_root = root->findOrAddChildren(this_behavior);
-
-					break;
-				}				
-				parent = dynamic_cast<Sk::IDLERecord*>(find_it->second);
-			}
-
-			behavior_root->children.push_back(nodes_to_add[nodes_to_add.size() - 1]);
-
-			for (int i = nodes_to_add.size() - 2; i >= 0; i--)
-			{
-				nodes_to_add[i + 1]->children.push_back(nodes_to_add[i]);
-			}
-		}
-	}
-
+	//Collection skyrimCollection = Collection("D:\\SteamLibrary\\steamapps\\common\\Skyrim\\Data", 3);
 	//ModFlags masterFlags = ModFlags(0xA);
-	//ModFlags skyblivionFlags = ModFlags(0xA);
 	//ModFile* esm = skyrimCollection.AddMod("Skyrim.esm", masterFlags);
-	//ModFile* update = skyrimCollection.AddMod("Update.esm", masterFlags);
-	//ModFile* dawnguard = skyrimCollection.AddMod("Dawnguard.esm", masterFlags);
-	//ModFile* Hearthfires = skyrimCollection.AddMod("Hearthfires.esm", masterFlags);
-	//ModFile* Dragonborn = skyrimCollection.AddMod("Dragonborn.esm", masterFlags);
-	//ModFlags espFlags = ModFlags(0x1818);
-	//espFlags.IsNoLoad = false;
-	//espFlags.IsFullLoad = true;
-	//espFlags.IsMinLoad = false;
-	//espFlags.IsCreateNew = true;
-	//ModFile* skyrimMod = skyrimCollection.AddMod("template.esp", espFlags);
+	//esm = skyrimCollection.AddMod("Update.esm", masterFlags);
+	//esm = skyrimCollection.AddMod("Dragonborn.esm", masterFlags);
 
-	//char * argvv[4];
+	//char* argvv[4];
 	//argvv[0] = new char();
 	//argvv[1] = new char();
 	//argvv[2] = new char();
@@ -474,85 +429,255 @@ bool DecodeCacheCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 	//logger.init(4, argvv);
 
 	//skyrimCollection.Load();
-	//auto it = skyrimCollection.FormID_ModFile_Record.equal_range(REV32(IDLE));
 
-	//map<string, Sk::MOVTRecord*> movts;
-	//map<string, Sk::SNDRRecord*> sndrs;
-	//map<string, Sk::IDLERecord*> idles;
-	//map<string, Sk::SOUNRecord*> souns;
+	//std::map<std::string, std::map<uint32_t, std::shared_ptr<IDLENode>>> nodes;
+
+	//std::function<std::shared_ptr<IDLENode>(std::string, uint32_t, std::string, std::string)> findOrCreateNode =
+	//	[&nodes](std::string behavior, uint32_t id, std::string name, std::string event)
+	//{ 
+	//	if (nodes[behavior].find(id) == nodes[behavior].end())
+	//	{
+	//		std::shared_ptr<IDLENode> node = make_shared<IDLENode>();
+	//		node->name = name;
+	//		node->event = event;
+	//		nodes[behavior][id] = node;
+	//		return node;
+	//	}
+	//	return nodes[behavior][id];
+	//};
+
+	//std::shared_ptr<IDLENode> root = make_shared<IDLENode>();
+	//root->name = "Root";
+
+	////IDLE are full of errors, we do a first pass to check and categorize
 	//for (auto idle_record_it = skyrimCollection.FormID_ModFile_Record.begin(); idle_record_it != skyrimCollection.FormID_ModFile_Record.end(); idle_record_it++)
 	//{
 	//	Record* record = idle_record_it->second;
-	//	if (record->GetType() == REV32(MOVT)) {
-	//		Sk::MOVTRecord* movt = dynamic_cast<Sk::MOVTRecord*>(record);
-	//		if (retarget_MOVT.find(string(movt->MNAM.value)) != retarget_MOVT.end())
-	//		{
-	//			Log::Info("Found MOVT to retarget: %s", movt->EDID.value);
-	//			movts[string(movt->EDID.value)] = movt;
-	//		}
-	//	}
-	//	if (record->GetType() == REV32(SNDR)) {
-	//		Sk::SNDRRecord* sndr = dynamic_cast<Sk::SNDRRecord*>(record);
-	//		string SDless = string(sndr->EDID.value).substr(0, string(sndr->EDID.value).size() - 2);
-	//		if (retarget_SOUN.find(SDless) != retarget_SOUN.end() || retarget_SOUN.find(string(sndr->EDID.value)) != retarget_SOUN.end())
-	//		{
-	//			Log::Info("Found SOUN to retarget: %s", sndr->EDID.value);
-	//			sndrs[string(sndr->EDID.value)] = sndr;
-	//		}
-	//	}
-	//	if (record->GetType() == REV32(SOUN)) {
-	//		Sk::SOUNRecord* soun = dynamic_cast<Sk::SOUNRecord*>(record);
-	//		string SDless = string(soun->EDID.value).substr(0, string(soun->EDID.value).size() - 2);
-	//		if (retarget_SOUN.find(SDless) != retarget_SOUN.end() || retarget_SOUN.find(string(soun->EDID.value)) != retarget_SOUN.end())
-	//		{
-	//			Log::Info("Found SNDR to retarget: %s", soun->EDID.value);
-	//			souns[string(soun->EDID.value)] = soun;
-	//		}
-	//	}
 	//	if (record->GetType() == REV32(IDLE)) {
 	//		Sk::IDLERecord* idle = dynamic_cast<Sk::IDLERecord*>(record);
-	//		vector<Sk::IDLERecord*> to_add;
-	//		char* this_behavior = NULL;
-	//		Sk::IDLERecord* parent = idle;
-	//		while (parent != NULL) {
-	//			if (!parent->DNAM.IsLoaded())
-	//				parent->DNAM.Load();
-	//			auto behavior = parent->DNAM.value;
-	//			if (behavior != NULL && !string(behavior).empty() &&
-	//				lower_find(behavior, old_name) == std::string::npos)
-	//			{
-	//				to_add.clear();
-	//				break;
-	//			}
-	//			else if (behavior != NULL && !string(behavior).empty() &&
-	//				lower_find(behavior, old_name) != std::string::npos)
-	//			{
+	//		std::string this_behavior = "";
+	//		std::string edid = "";
 
-	//				this_behavior = behavior;
-	//			}
-	//			auto references = parent->ANAM;
-	//			to_add.push_back(parent);
-	//			auto find_it = skyrimCollection.FormID_ModFile_Record.find(references.value.parent);
-	//			if (find_it == skyrimCollection.FormID_ModFile_Record.end() ||					
-	//				find_it->second->GetType() != REV32(IDLE)) {
-	//				break;
-	//			}				
-	//			parent = dynamic_cast<Sk::IDLERecord*>(find_it->second);
+	//		if (!idle->DNAM.IsLoaded())
+	//			idle->DNAM.Load();
+
+	//		if (NULL != idle->DNAM.value)
+	//			this_behavior = idle->DNAM.value;
+
+	//		if (!idle->EDID.IsLoaded())
+	//			idle->EDID.Load();
+
+	//		if (idle->EDID.value == NULL)
+	//		{
+	//			edid = "Unnamed";
 	//		}
-	//		for (const auto& this_idle : to_add) {
-	//			if (this_idle->DNAM.value == NULL || strcmp(this_idle->DNAM.value, this_behavior) != 0)
+	//		else {
+	//			edid = idle->EDID.value;
+	//		}
+
+	//		//counter check behavior with parent and sibling
+	//		if (!idle->ANAM.IsLoaded())
+	//			idle->ANAM.Load();
+	//
+
+	//		std::string parent_behavior = "";
+	//		std::string sibling_behavior = "";
+	//		auto parent = idle->ANAM.value.parent;
+	//		Sk::IDLERecord* parent_idle = NULL;
+	//		auto find_parent_it = skyrimCollection.FormID_ModFile_Record.find(parent);
+	//		if (find_parent_it != skyrimCollection.FormID_ModFile_Record.end())
+	//		{
+	//			auto parent_record = dynamic_cast<Sk::IDLERecord*>(find_parent_it->second);
+	//			if (NULL != parent_record && REV32(IDLE) == parent_record->GetType())
 	//			{
-	//				if (this_idle->DNAM.value != NULL)
-	//					delete this_idle->DNAM.value;
-	//				this_idle->DNAM.value = new char[strlen(this_behavior) + 1];
-	//				strcpy(this_idle->DNAM.value, this_behavior);
+	//				parent_idle = dynamic_cast<Sk::IDLERecord*>(parent_record);
+	//				if (!parent_idle->DNAM.IsLoaded())
+	//					parent_idle->DNAM.Load();
+
+	//				if (NULL != parent_idle->DNAM.value)
+	//					parent_behavior = parent_idle->DNAM.value;
 	//			}
-	//			if (idles.insert({ string(this_idle->EDID.value),this_idle }).second)
-	//				Log::Info("Found IDLE to retarget: %s", this_idle->EDID.value);;
 	//		}
+	//		auto sibling = idle->ANAM.value.sibling;
+	//		auto find_sibling_it = skyrimCollection.FormID_ModFile_Record.find(sibling);
+	//		if (find_sibling_it != skyrimCollection.FormID_ModFile_Record.end())
+	//		{
+	//			auto sibling_record = dynamic_cast<Sk::IDLERecord*>(find_sibling_it->second);
+	//			if (NULL != sibling_record && REV32(IDLE) == sibling_record->GetType())
+	//			{
+	//				Sk::IDLERecord* sibling_idle = dynamic_cast<Sk::IDLERecord*>(sibling_record);
+	//				if (!sibling_idle->DNAM.IsLoaded())
+	//					sibling_idle->DNAM.Load();
+
+	//				if (NULL != sibling_idle->DNAM.value)
+	//					sibling_behavior = sibling_idle->DNAM.value;
+	//			}
+	//		}
+
+	//		if (!parent_behavior.empty())
+	//		{
+	//			if (this_behavior.empty())
+	//				this_behavior = parent_behavior;
+	//			else if (!this_behavior.empty() && 
+	//				this_behavior != parent_behavior)
+	//			{	
+	//				if (!sibling_behavior.empty())
+	//				{
+	//					//two different behaviors between parent and childer, check the sibling
+	//					if (sibling_behavior == parent_behavior)
+	//						this_behavior = parent_behavior;
+	//				}
+	//				else {
+	//					//check parent's parent to be sure
+	//					std::string parent_parent_behavior;
+	//					if (parent_idle != NULL)
+	//					{
+	//						auto find_parent_it = skyrimCollection.FormID_ModFile_Record.find(parent_idle->ANAM.value.parent);
+	//						if (find_parent_it != skyrimCollection.FormID_ModFile_Record.end())
+	//						{
+	//							auto parent_record = dynamic_cast<Sk::IDLERecord*>(find_parent_it->second);
+	//							if (NULL != parent_record && REV32(IDLE) == parent_record->GetType())
+	//							{
+	//								parent_idle = dynamic_cast<Sk::IDLERecord*>(parent_record);
+	//								if (!parent_idle->DNAM.IsLoaded())
+	//									parent_idle->DNAM.Load();
+
+	//								if (NULL != parent_idle->DNAM.value)
+	//									parent_parent_behavior = parent_idle->DNAM.value;
+	//							}
+	//						}
+	//					}
+	//					if (parent_behavior == parent_parent_behavior)
+	//						this_behavior = parent_behavior;
+	//					else if (parent_parent_behavior.empty())
+	//						this_behavior = parent_behavior;
+	//				}
+	//			}
+	//		}
+	//		if (this_behavior.empty() && !sibling_behavior.empty())
+	//		{
+	//			this_behavior = sibling_behavior;
+	//		}
+
+	//		while (this_behavior.empty() && parent_idle != NULL)
+	//		{
+	//			auto find_parent_it = skyrimCollection.FormID_ModFile_Record.find(parent_idle->ANAM.value.parent);
+	//			if (find_parent_it != skyrimCollection.FormID_ModFile_Record.end())
+	//			{
+	//				auto parent_record = dynamic_cast<Sk::IDLERecord*>(find_parent_it->second);
+	//				if (NULL != parent_record && REV32(IDLE) == parent_record->GetType())
+	//				{
+	//					parent_idle = dynamic_cast<Sk::IDLERecord*>(parent_record);
+	//					if (!parent_idle->DNAM.IsLoaded())
+	//						parent_idle->DNAM.Load();
+
+	//					if (NULL != parent_idle->DNAM.value)
+	//						this_behavior = parent_idle->DNAM.value;
+	//				}
+	//			}
+	//			else {
+	//				break;
+	//			}
+	//			parent_idle = dynamic_cast<Sk::IDLERecord*>(find_parent_it->second);
+	//		}
+
+	//		if (idle->EDID.value != NULL && 
+	//			(
+	//				 strcmp(idle->EDID.value, "SabreCatTurnToRun") == 0 ||
+	//				 strcmp(idle->EDID.value, "SabreCatIdleToRunLeft90") == 0 ||
+	//				 strcmp(idle->EDID.value, "SabreCatIdleToRunLeft180") == 0 ||
+	//				 strcmp(idle->EDID.value, "SabreCatIdleToRunRight90") == 0 ||
+	//				 strcmp(idle->EDID.value, "SabreCatIdleToRunRight180") == 0
+	//			)
+	//		)
+	//		{
+	//			this_behavior = "Actors\\SabreCat\\Behaviors\\SabreCatBehavior.hkx";
+	//		}
+
+	//		std::string event = "";
+	//		if (!idle->ENAM.IsLoaded())
+	//			idle->ENAM.Load();
+	//		if (idle->ENAM.value != NULL)
+	//			event = idle->ENAM.value;
+
+	//		if (this_behavior.empty())
+	//			__debugbreak();
+
+	//		findOrCreateNode(this_behavior, idle_record_it->first, edid, event);
 	//	}
 	//}
 
+	////set hierarchy
+	//for (auto& entry : nodes)
+	//{
+	//	std::shared_ptr<IDLENode> node = std::make_shared<IDLENode>();
+	//	node->parent = root;
+	//	node->name = entry.first;
+	//	root->children.push_back(node);
+	//	for (auto& idle_entry : entry.second)
+	//	{
+	//		auto find_it = skyrimCollection.FormID_ModFile_Record.find(idle_entry.first);
+	//		if (find_it == skyrimCollection.FormID_ModFile_Record.end())
+	//		{
+	//			__debugbreak();
+	//		}
+	//		if (find_it->second->GetType() == REV32(IDLE))
+	//		{
+	//			auto idle = dynamic_cast<Sk::IDLERecord*>(find_it->second);
+	//			if (!idle->ANAM.IsLoaded())
+	//				idle->ANAM.Load();
+
+	//			auto parent_it = skyrimCollection.FormID_ModFile_Record.find(idle->ANAM.value.parent);
+	//			if (parent_it == skyrimCollection.FormID_ModFile_Record.end()) {
+	//				auto aact_root = std::make_shared<IDLENode>();
+	//				aact_root->parent = node;
+	//				aact_root->name = "LOOSE";
+	//				aact_root->children.push_back(idle_entry.second);
+	//				idle_entry.second->parent = aact_root;
+	//				node->children.push_back(aact_root);
+	//			}
+	//			else if (parent_it->second->GetType() == REV32(IDLE))
+	//			{
+	//				auto parent = entry.second.at(parent_it->first);
+	//				idle_entry.second->parent = parent;
+	//				parent->children.push_back(idle_entry.second);
+	//			}
+	//			else if (parent_it->second->GetType() == REV32(AACT))
+	//			{
+	//				auto aact = dynamic_cast<Sk::AACTRecord*>(parent_it->second);
+	//				if (!aact->EDID.IsLoaded())
+	//					aact->EDID.Load();
+	//				//aact_root = findOrCreateNode(entry.first, find_it->first, aact->EDID.value, "");
+	//				auto aact_root = std::make_shared<IDLENode>();
+	//				aact_root->parent = node;
+	//				aact_root->name = aact->EDID.value;
+	//				aact_root->children.push_back(idle_entry.second);
+	//				idle_entry.second->parent = aact_root;
+	//				node->children.push_back(aact_root);
+	//			}
+	//			
+	//			
+	//			//TODO
+	//			if (NULL != idle->ANAM.value.sibling)
+	//				auto sibling = skyrimCollection.FormID_ModFile_Record.find(idle->ANAM.value.sibling);
+	//		}
+	//		else {
+	//			__debugbreak();
+	//		}
+	//	}
+	//}
+	//std::set<std::string> boh;
+	//for (auto& child : root->children)
+	//{
+	//	ConcreteIDLEVisitor v;
+	//	child->accept(v);
+	//	auto equip_branching = v.equipBranching;
+	//	auto forceequip_branching = v.forceEquipBranching;
+	//	if (equip_branching > 1 || forceequip_branching > 1)
+	//	{
+	//		boh.insert(child->name);
+	//	}
+	//}
 
 	fs::path animDataPath = fs::path(source_havok_project_cache) / "animationdatasinglefile.txt";
 	fs::path animDataSetPath = fs::path(source_havok_project_cache) / "animationsetdatasinglefile.txt";
@@ -587,6 +712,8 @@ bool DecodeCacheCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 
 	//auto& projectlist = cache.animationSetData.getProjectsList().getStrings();
 	//auto& projectdata = cache.animationSetData.getProjectAttackList();
+
+	std::map<std::string, int> global_variables;
 
 	for (int i = 0; i < creatures.size(); i++)
 	{
@@ -629,6 +756,10 @@ bool DecodeCacheCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 					for (int e = 0; e < sdata->m_variableNames.getSize(); e++)
 					{
 						variables.push_back(sdata->m_variableNames[e].cString());
+						if (global_variables.find(sdata->m_variableNames[e].cString()) != global_variables.end())
+							global_variables[sdata->m_variableNames[e].cString()]++;
+						else
+							global_variables[sdata->m_variableNames[e].cString()] = 1;
 					}
 					behaviors_variables.push_back(variables);
 					for (int n = 0; n < objects.getSize(); n++)
@@ -787,6 +918,8 @@ bool DecodeCacheCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			}
 		}
 	}
+
+	int debug = 1;
 
 	//for (const auto& dirEntry : fs::directory_iterator(cache_root_folder))
 	//{

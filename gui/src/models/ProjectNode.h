@@ -2,6 +2,7 @@
 
 #include <QVariant>
 #include <QVector>
+#include <QColor>
 
 #include <unordered_map>
 
@@ -74,6 +75,9 @@ namespace ckcmd {
             virtual NodeType type() const;
 
             const std::vector<int>& indicesOf(ProjectNode* child) const;
+
+            virtual void setColor(QColor color);
+            virtual QColor color() const;
 
 
             template<typename Visitor, typename ...Ts>
@@ -149,6 +153,7 @@ namespace ckcmd {
             std::unordered_map<ProjectNode*, std::vector<int>> m_childIndices;
             QVector<QVariant> m_itemData;
             QVector<ProjectNode*> m_parentItems;
+            QColor m_color;
         };
     }
 }

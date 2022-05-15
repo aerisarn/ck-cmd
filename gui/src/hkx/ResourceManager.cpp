@@ -284,6 +284,16 @@ ProjectNode* ResourceManager::findNode(int file, const hkVariant* variant) const
 	return nullptr;
 }
 
+ProjectNode* ResourceManager::findNode(int file, const void* object) const
+{
+	const auto& nodes = _nodes.at(file);
+	auto node_it = std::find_if(nodes.begin(), nodes.end(),
+		[&object](const ProjectNode* element) { return element->isVariant() && object == ((hkVariant*)element->data(1).value<unsigned long long>())->m_object; });
+	if (node_it != nodes.end())
+		return *node_it;
+	return nullptr;
+}
+
 const std::string& ResourceManager::get_sanitized_name(int file_index) {
 	if (_sanitized_names.find(file_index) == _sanitized_names.end())
 	{

@@ -36,7 +36,7 @@ void ActionHandler::save()
 		auto selected = _modelview.selectionModel()->selection()[0];
 		auto model = (ProjectTreeModel*)_modelview.selectionModel()->selection()[0].model();
 		ProjectNode* node = model->getNode(selected.topLeft());
-		Saver(_resourceManager, node);
+		Saver(_resourceManager, node, model);
 	}
 }
 
