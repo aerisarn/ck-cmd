@@ -179,7 +179,7 @@ bool BeginConversion(const string& importSkeleton, const string& importFBX, cons
 			auto root_info = wrangler.SaveAnimation(out_path.string());
 			if (entry) {
 				wrangler.hkx_wrapper().PutClipMovement(
-					fbxModelpath.replace_extension(".hkx"),
+					out_path,
 					*entry,
 					behaviorFolder,
 					root_info.begin()->second

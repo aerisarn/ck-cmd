@@ -4807,7 +4807,12 @@ NiCollisionObjectRef FBXWrangler::build_physics(FbxNode* rigid_body, set<pair<Fb
 	{
 		bhkCollisionObjectRef collision;
 		if (export_rig)
-			collision = new bhkBlendCollisionObject();
+		{
+			auto blend_collision = new bhkBlendCollisionObject();
+			blend_collision->SetHeirGain(1.f);
+			blend_collision->SetVelGain(1.f);
+			collision = blend_collision;
+		}
 		else
 			collision = new bhkCollisionObject();
 
@@ -5100,6 +5105,20 @@ void FBXWrangler::buildCollisions()
 		}
 		NiAVObjectRef ni_parent = DynamicCast<NiAVObject>(conversion_Map[rb->GetParent()]);
 		ni_parent->SetCollisionObject(build_physics(rb, meshes));
+	}
+	for (const auto& rb : physic_entities)
+	{
+		if (rb && string(rb->GetName()).find("_sp") == string::npos)
+		{
+			for (int i = 0; i < rb->GetChildCount(); i++)
+			{
+				FbxNode* temp_child = rb->GetChild(i);
+				if (string(temp_child->GetName()).find("_con_") != string::npos)
+				{
+					HKXWrapper::build_constraint(temp_child);
+				}
+			}
+		}
 	}
 }
 
