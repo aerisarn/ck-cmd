@@ -906,10 +906,14 @@ void Saver::handle_hkx_node(ProjectNode& node)
 		if (!_animation_driven)
 		{
 			if (_new_animation_sets[{"", ""}].find(clip->m_animationName.cString()) == _new_animation_sets[{"", ""}].end())
-				_new_animation_sets[{_right_current_animation_set.front(), _left_current_animation_set.front()}].insert(clip->m_animationName.cString());
+				_new_animation_sets[{_left_current_animation_set.front(), _right_current_animation_set.front()}].insert(clip->m_animationName.cString());
 		}
 		else {
 			_new_animation_sets[{"", ""}].insert(clip->m_animationName.cString());
+		}
+		if (!_current_attack_set.empty())
+		{
+			_new_attack_sets[{_left_current_animation_set.front(), _right_current_animation_set.front(), _current_attack_set.front()}].insert(clip->m_animationName.cString());
 		}
 
 
@@ -1042,6 +1046,7 @@ void Saver::handle_hkx_node(ProjectNode& node)
 		{
 			binded = isSetBinded(fsm, builder, "startStateId");
 		}
+		_fsm_stack.push_front(&node);
 		if (binded)
 		{
 			std::map<int, std::pair<ProjectNode*, hkbStateMachineStateInfo*>> fsm_states;
@@ -1077,146 +1082,141 @@ void Saver::handle_hkx_node(ProjectNode& node)
 		else {
 			recurse(node);
 		}
+		_fsm_stack.pop_front();
 	}
-	//else if (variant->m_class == &hkbBlenderGeneratorChildClass)
-	//{
-	//	std::deque<std::string> right_current_animation_set = _right_current_animation_set;
-	//	std::deque<std::string> left_current_animation_set = _left_current_animation_set;
+	else if (variant->m_class == &hkbBlenderGeneratorChildClass)
+	{
+		_blending = true;
+		recurse(node);
+		_blending = false;
+	}
+	else if (variant->m_class == &hkbStateMachineStateInfoClass) {
+		
+		//Current fsm
+		auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+		hkbStateMachineStateInfo* this_state = (hkbStateMachineStateInfo*)variant->m_object;
+		std::set<std::string> attack_name;
 
-	//	_right_current_animation_set.clear(); _right_current_animation_set.push_back("");
-	//	_left_current_animation_set.clear(); _left_current_animation_set.push_back("");
+		hkVariant* variant = (hkVariant*)_fsm_stack.front()->data(1).value<unsigned long long>();
+		hkbStateMachine* fsm = ((hkbStateMachine*)variant->m_object);
+		//if (NULL != fsm->m_wildcardTransitions)
+		//{
+		//	auto& transitions = fsm->m_wildcardTransitions->m_transitions;
+		//	for (int t = 0; t < transitions.getSize(); t++)
+		//	{
+		//		auto& trans = transitions[t];
+		//		if (trans.m_toStateId == this_state->m_stateId)
+		//		{
+		//			std::string event_name = behavior_builder->getEvent(trans.m_eventId).toUtf8().constData();
+		//			if (event_name.find("attackStart") == 0 || event_name.find("bashStart") == 0 ||
+		//				event_name.find("attackPowerStart") == 0 || event_name.find("bashPowerStart") == 0)
+		//			{
+		//				attack_name = event_name;
+		//			}
+		//		}
+		//	}
+		//}
 
-	//	recurse(node);
+		//for (int i = 0; i < fsm->m_states.getSize(); i++)
+		//{
+		//	auto* another_state = fsm->m_states[i];
+		//	if (NULL != another_state->m_transitions)
+		//	{
+		//		auto& transitions = another_state->m_transitions->m_transitions;
+		//		for (int t = 0; t < transitions.getSize(); t++)
+		//		{
+		//			auto& trans = transitions[t];
+		//			if (trans.m_toStateId == this_state->m_stateId)
+		//			{
+		//				std::string event_name = behavior_builder->getEvent(trans.m_eventId).toUtf8().constData();
+		//				if (event_name.find("attackStart") == 0 || event_name.find("bashStart") == 0)
+		//				{
+		//					attack_name = event_name;
+		//				}
+		//			}
+		//		}
+		//	}
+		//}
 
-	//	_right_current_animation_set = right_current_animation_set;
-	//	_left_current_animation_set = left_current_animation_set;
-	//}
-	//else if (variant->m_class == &hkbStateMachineStateInfoClass) {
-	//	/*handle_transition(node);*/
-	//	/*auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
-	//	hkbStateMachineStateInfo* this_state = (hkbStateMachineStateInfo*)variant->m_object;
-	//	std::string attack_name = "";
+		if (_fsm_stack.size() > 2)
+		{
+			//parent fsm
+			hkVariant* variant = (hkVariant*)_fsm_stack.at(2)->data(1).value<unsigned long long>();
+			hkbStateMachine* fsm = ((hkbStateMachine*)variant->m_object);
+			hkVariant* state_variant = (hkVariant*)_fsm_stack.at(1)->data(1).value<unsigned long long>();
+			hkbStateMachineStateInfo* parent_state = ((hkbStateMachineStateInfo*)state_variant->m_object);
 
-	//	hkVariant* variant = (hkVariant*)_fsm_stack.front()->data(1).value<unsigned long long>();
-	//	hkbStateMachine* fsm = ((hkbStateMachine*)variant->m_object);
-	//	if (NULL != fsm->m_wildcardTransitions)
-	//	{
-	//		auto& transitions = fsm->m_wildcardTransitions->m_transitions;
-	//		for (int t = 0; t < transitions.getSize(); t++)
-	//		{
-	//			auto& trans = transitions[t];
-	//			if (trans.m_toStateId == this_state->m_stateId)
-	//			{
-	//				std::string event_name = behavior_builder->getEvent(trans.m_eventId).toUtf8().constData();
-	//				if (event_name.find("attackStart") == 0 || event_name.find("bashStart") == 0)
-	//				{
-	//					attack_name = event_name;
-	//				}
-	//			}
-	//		}
-	//	}
+			if (NULL != fsm->m_wildcardTransitions)
+			{
+				auto& transitions = fsm->m_wildcardTransitions->m_transitions;
+				for (int t = 0; t < transitions.getSize(); t++)
+				{
+					auto& trans = transitions[t];
+					if (trans.m_toNestedStateId == this_state->m_stateId
+						&& trans.m_toStateId == parent_state->m_stateId)
+					{
+						std::string event_name = behavior_builder->getEvent(trans.m_eventId).toUtf8().constData();
+						if (event_name.find("attackStart") == 0 || event_name.find("bashStart") == 0 ||
+							event_name.find("attackPowerStart") == 0 || event_name.find("bashPowerStart") == 0)
+						{
+							attack_name.insert(event_name);
+						}
+					}
+				}
+			}
 
-	//	for (int i = 0; i < fsm->m_states.getSize(); i++)
-	//	{
-	//		auto* another_state = fsm->m_states[i];
-	//		if (NULL != another_state->m_transitions)
-	//		{
-	//			auto& transitions = another_state->m_transitions->m_transitions;
-	//			for (int t = 0; t < transitions.getSize(); t++)
-	//			{
-	//				auto& trans = transitions[t];
-	//				if (trans.m_toStateId == this_state->m_stateId)
-	//				{
-	//					std::string event_name = behavior_builder->getEvent(trans.m_eventId).toUtf8().constData();
-	//					if (event_name.find("attackStart") == 0 || event_name.find("bashStart") == 0)
-	//					{
-	//						attack_name = event_name;
-	//					}
-	//				}
-	//			}
-	//		}
-	//	}
-
-
-	//	if (!attack_name.empty())
-	//	{
-	//		bool found = false;
-	//		for (auto& entry : _attack_animations)
-	//		{
-	//			if (entry.first == attack_name)
-	//				found = true;
-	//		}
-	//		if (!found)
-	//			_attack_animations.push_front({ attack_name,{} });
-	//		else
-	//			__debugbreak();
-	//	}*/
-	//	_fsm_stack.push_front(&node);
-	//	//_fsm_name_stack.push_front(node.data(0).value<QString>().toUtf8().constData());
-	//	//_events.push_front(events);
-	//	recurse(node);
-	//	//_events.pop_front();
-	//	//_fsm_name_stack.pop_front();
-	//	_fsm_stack.pop_front();
+			//falmer transition from 1HM_Block_State to Power Bash is wrong, check nestedstateid 
+			for (int i = 0; i < fsm->m_states.getSize(); i++)
+			{
+				auto* another_state = fsm->m_states[i];
+				if (NULL != another_state->m_transitions)
+				{
+					auto& transitions = another_state->m_transitions->m_transitions;
+					for (int t = 0; t < transitions.getSize(); t++)
+					{
+						auto& trans = transitions[t];
+						if (trans.m_toNestedStateId == this_state->m_stateId
+							&& trans.m_toStateId == parent_state->m_stateId)
+						{
+							std::string event_name = behavior_builder->getEvent(trans.m_eventId).toUtf8().constData();
+							if (event_name.find("attackStart") == 0 || event_name.find("bashStart") == 0 ||
+								event_name.find("attackPowerStart") == 0 || event_name.find("bashPowerStart") == 0)
+							{
+								attack_name.insert(event_name);
+							}
+						}
+					}
+				}
+			}
+		}
 
 
-	//	//if (!attack_name.empty() && !_attack_animations.empty() && !_attack_animations.front().second.empty())
-	//	//{
-	//	//	int right = -1;
-	//	//	int left = -1;
-	//	//	if (_variables_values.find("iLeftHandType") != _variables_values.end())
-	//	//	{
-	//	//		left = _variables_values["iLeftHandType"];
-	//	//	}
-	//	//	if (_variables_values.find("iRightHandType") != _variables_values.end())
-	//	//	{
-	//	//		right = _variables_values["iRightHandType"];
-	//	//	}
-	//	//	if (left != -1)
-	//	//	{
-	//	//		if (right != -1)
-	//	//		{
-	//	//			_weapon_events_sets[{left, right}].insert(attack_name);
-	//	//		}
-	//	//		else {
-	//	//			if (left < 5)
-	//	//			{
-	//	//				//for (int i = 0; i < 5; i++)
-	//	//				//{
-	//	//				_weapon_events_sets[{left, 0}].insert(attack_name);
-	//	//				//}
-	//	//			}
-	//	//			else {
-	//	//				_weapon_events_sets[{left, left}].insert(attack_name);
-	//	//			}
-	//	//		}
-	//	//	}
-	//	//	else if (right != -1)
-	//	//	{
-	//	//		if (left != -1)
-	//	//		{
-	//	//			_weapon_events_sets[{left, right}].insert(attack_name);
-	//	//		}
-	//	//		else {
-	//	//			if (right < 5)
-	//	//			{
-	//	//				//for (int i = 0; i < 5; i++)
-	//	//				//{
-	//	//				_weapon_events_sets[{0, right}].insert(attack_name);
-	//	//				//}
-	//	//			}
-	//	//			else {
-	//	//				_weapon_events_sets[{0, right}].insert(attack_name);
-	//	//			}
-	//	//		}
-	//	//	}
-	//	//	else {
-	//	//		_weapon_events_sets[{0, 0}].insert(attack_name);
-	//	//	}
-	//	//	_attack_animations.pop_front();
-	//	//}
+		if (!attack_name.empty())
+		{
+			for (const auto& event : attack_name)
+			{
+				_current_attack_set.push_back(event);
+				_fsm_stack.push_front(&node);
+				//_fsm_name_stack.push_front(node.data(0).value<QString>().toUtf8().constData());
+				//_events.push_front(events);
+				recurse(node);
+				//_events.pop_front();
+				//_fsm_name_stack.pop_front();
+				_fsm_stack.pop_front();
+				_current_attack_set.pop_front();
+			}
 
-	//}
+		}
+		else {
+			_fsm_stack.push_front(&node);
+			//_fsm_name_stack.push_front(node.data(0).value<QString>().toUtf8().constData());
+			//_events.push_front(events);
+			recurse(node);
+			//_events.pop_front();
+			//_fsm_name_stack.pop_front();
+			_fsm_stack.pop_front();
+		}
+	}
 	//else if (variant->m_class == &hkbStateMachineClass) {
 	//	//if (_fsm_root == nullptr)
 	//	//	_fsm_root = &node;
@@ -1473,6 +1473,7 @@ void Saver::handle_hkx_node(ProjectNode& node)
 		{
 			if (NULL != dynamic_cast<BSIsActiveModifier*>(mg->m_modifier.val()))
 			{
+				auto BSI = dynamic_cast<BSIsActiveModifier*>(mg->m_modifier.val());
 				auto bindingset = mg->m_modifier->m_variableBindingSet;
 				if(NULL != bindingset)
 				{
@@ -1484,7 +1485,15 @@ void Saver::handle_hkx_node(ProjectNode& node)
 						auto variable_name = behavior_builder->getVariable(binding.m_variableIndex);
 						if (variable_name == "bAnimationDriven")
 						{
-							_animation_driven = true;
+							switch (i)
+							{
+							case 0: _animation_driven = BSI->m_bIsActive0; break;
+							case 1: _animation_driven = BSI->m_bIsActive1; break;
+							case 2: _animation_driven = BSI->m_bIsActive2; break;
+							case 3: _animation_driven = BSI->m_bIsActive3; break;
+							case 4: _animation_driven = BSI->m_bIsActive4; break;
+							default: _animation_driven = true; break;
+							}
 						}
 					}
 				}

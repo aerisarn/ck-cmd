@@ -174,8 +174,12 @@ namespace ckcmd {
 			std::deque<std::string> _left_current_animation_set;
 			std::set<std::string> _right_animation_set_binding_variable = { "iRightHandType"};
 			std::set<std::string> _left_animation_set_binding_variable = { "iLeftHandType", "iEquippedItemState"};
+			std::deque<std::string> _current_attack_set;
+			std::deque<std::set<std::string>> _current_attack_set_animations;
+			std::map<std::tuple<std::string, std::string,std::string>, std::set<std::string>> _new_attack_sets;
 
-			boolean _animation_driven = false;
+			bool _animation_driven = false;
+			bool _blending = false;
 
 			int isSetBinded(hkbBindable* bindable, BehaviorBuilder* builder, const std::string& path);
 
