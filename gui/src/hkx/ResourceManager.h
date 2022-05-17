@@ -49,6 +49,7 @@ namespace ckcmd {
 
 			hkx_file_t& get(size_t index);
 			hkx_file_t& get(const fs::path& file);
+			void save(size_t index);
 
 			std::set<Sk::AACTRecord*> actions();
 			std::set<Sk::IDLERecord*> idles(size_t index);

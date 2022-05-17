@@ -135,6 +135,17 @@ hkx_file_t& ResourceManager::get(const fs::path& file)
 	return _contents[index(file)];
 }
 
+void ResourceManager::save(size_t index)
+{
+	const fs::path file = _files.at(index);
+	auto& contents = _contents[index];
+	HKXWrapper wrap;
+	try {
+		wrap.write_le_se((hkRootLevelContainer*)contents.first.m_object, file);
+	} catch (...)
+	{ }
+}
+
 bool ResourceManager::isHavokProject(const fs::path& file)
 {
 	HKXWrapper wrap;

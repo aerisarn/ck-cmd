@@ -175,6 +175,33 @@ void HKXWrapper::write(hkRootLevelContainer* rootCont, const fs::path& out)
 	}
 }
 
+void HKXWrapper::write_le_se(hkRootLevelContainer* rootCont, const fs::path& out)
+{
+	hkPackFormat pkFormat = HKPF_WIN32;
+	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
+	hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
+	hkOstream stream(out.string().c_str());
+	hkVariant root = { rootCont, &rootCont->staticClass() };
+	hkResult res = hkSerializeUtilSave(pkFormat, root, stream, flags, packFileOptions);
+	if (res != HK_SUCCESS)
+	{
+		Log::Error("Havok reports save failed.");
+	}
+
+	pkFormat = HKPF_AMD64;
+	//flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT | hkSerializeUtil::SAVE_TEXT_NUMBERS);
+	packFileOptions = GetWriteOptionsFromFormat(pkFormat);
+	fs::path se_out = out; se_out = out.parent_path() / "se" / out.filename();
+	fs::create_directory(se_out.parent_path());
+	hkOstream se_stream(se_out.string().c_str());
+	res = hkSerializeUtilSave(pkFormat, root, se_stream, flags, packFileOptions);
+	if (res != HK_SUCCESS)
+	{
+		Log::Error("Havok reports SE save failed.");
+	}
+}
+
+
 void HKXWrapper::write(hkRootLevelContainer& rootCont, string subfolder, string name) {
 	hkPackFormat pkFormat = HKPF_DEFAULT;
 	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;

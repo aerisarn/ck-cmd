@@ -260,6 +260,9 @@ void Saver::handle_behavior(ProjectNode& node)
 {
 	fs::path behavior_path = node.data(1).value<QString>().toUtf8().constData();
 	size_t file_index = _manager.index(behavior_path);
+	_manager.save(file_index);
+
+
 	
 	//_behavior_files_indices.push_back(behavior_index);
 	//_behavior_nodes[behavior_index] = &node;

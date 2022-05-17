@@ -274,6 +274,7 @@ namespace ckcmd {
 			);
 
 			void write(hkRootLevelContainer* rootCont, const fs::path& out);
+			void write_le_se(hkRootLevelContainer* rootCont, const fs::path& out);
 		};
 
 		typedef map<set<string>, HKXWrapper> wrap_map;

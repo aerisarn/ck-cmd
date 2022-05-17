@@ -212,8 +212,8 @@ namespace ckcmd {
 			void visit<ProjectNode::NodeType::behavior_node>(ProjectNode& node)
 			{
 				_behavior_stack.push_back(&node);
-				recurse(node);
-				//handle_behavior(node);
+				//recurse(node);
+				handle_behavior(node);
 				_behavior_stack.pop_front();
 			}
 
