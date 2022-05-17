@@ -1,5 +1,6 @@
 #pragma once
 
+
 #include <core/HKXWrangler.h>
 #include <src/Log.h>
 #include <src/models/ProjectNode.h>
@@ -11,6 +12,13 @@
 #include <map>
 
 typedef std::pair< hkVariant, std::vector<hkVariant>> hkx_file_t;
+
+struct Collection;
+
+namespace Sk {
+	class AACTRecord;
+	class IDLERecord;
+}
 
 namespace ckcmd {
 	namespace HKX {
@@ -27,6 +35,7 @@ namespace ckcmd {
 			std::map<size_t, string> _sanitized_names;
 			WorkspaceConfig& _workspace;
 			AnimationCache _cache;
+			Collection* _esp;
 
 			const std::string& get_sanitized_name(int file_index);
 
@@ -34,13 +43,15 @@ namespace ckcmd {
 
 			ResourceManager(WorkspaceConfig& _workspace);
 
-			~ResourceManager() {
-			}
+			~ResourceManager();
 
 			WorkspaceConfig& workspace() { return _workspace; }
 
 			hkx_file_t& get(size_t index);
 			hkx_file_t& get(const fs::path& file);
+
+			std::set<Sk::AACTRecord*> actions();
+			std::set<Sk::IDLERecord*> idles(size_t index);
 
 			//fs::path ResourceManager::open(const std::string& project);
 
@@ -87,6 +98,8 @@ namespace ckcmd {
 			ProjectNode* createVariableNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createPropertyNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createClipEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createActionNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createIdleNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 
 			ProjectNode* findNode(int file, const hkVariant* variant) const;
 			ProjectNode* findNode(int file, const void* object) const;
@@ -99,9 +112,6 @@ namespace ckcmd {
 			const AnimData::ClipMovementData& getMovement(size_t file_index, string clip);
 			vector<AnimationCache::event_info_t> getEventsInfo(size_t file_index, string anim_event);
 			void save_cache(int file_index);
-
-
-
 		};
 	}
 }

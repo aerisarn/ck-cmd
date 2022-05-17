@@ -1,3 +1,7 @@
+#include <src/Skyrim/TES5File.h>
+#include <src/Collection.h>
+#include <src/ModFile.h>
+
 #include "ResourceManager.h"
 
 #include <hkbProjectData_2.h>
@@ -8,6 +12,24 @@ ResourceManager::ResourceManager(WorkspaceConfig& workspace) :
 	_workspace(workspace),
 	_cache(_workspace.getFolder())
 {
+	_esp = new Collection((char* const)_workspace.getFolder().c_str(), 3);
+
+	ModFlags masterFlags = ModFlags(0xA);
+	ModFile* skyrimMod = _esp->AddMod("creatures.esp", masterFlags);
+
+	char* argvv[4];
+	argvv[0] = new char();
+	argvv[1] = new char();
+	argvv[2] = new char();
+	argvv[3] = new char();
+	logger.init(4, argvv);
+
+	_esp->Load();
+}
+
+ResourceManager::~ResourceManager() 
+{
+	delete _esp;
 }
 
 size_t ResourceManager::index(const fs::path& file) const {
@@ -274,6 +296,19 @@ ProjectNode* ResourceManager::createPropertyNode(size_t file_index, const QVecto
 	return node;
 }
 
+ProjectNode* ResourceManager::createActionNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::action_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+ProjectNode* ResourceManager::createIdleNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
+	auto node = new ProjectNode(ProjectNode::NodeType::idle_node, data, parentItem);
+	_nodes[file_index].push_back(node);
+	return node;
+}
+
+
 ProjectNode* ResourceManager::findNode(int file, const hkVariant* variant) const
 {
 	const auto& nodes = _nodes.at(file);
@@ -345,4 +380,43 @@ void ResourceManager::save_cache(int file_index)
 	_cache.save_creature(
 		project, project_entry, animationDataPath, animationSetDataPath, _workspace.getFolder() / "test"
 	);
+}
+
+
+std::set<Sk::AACTRecord*> ResourceManager::actions()
+{
+	std::set<Sk::AACTRecord*> out;
+	for (auto idle_record_it = _esp->FormID_ModFile_Record.begin(); idle_record_it != _esp->FormID_ModFile_Record.end(); idle_record_it++)
+	{
+		Record* record = idle_record_it->second;
+		if (record->GetType() == REV32(AACT)) {
+			out.insert(dynamic_cast<Sk::AACTRecord*>(record));
+		}
+	}
+	return out;
+}
+
+static inline bool iequals(const string& a, const string& b)
+{
+	return std::equal(a.begin(), a.end(),
+		b.begin(), b.end(),
+		[](char a, char b) {
+			return tolower(a) == tolower(b);
+		});
+}
+
+std::set<Sk::IDLERecord*> ResourceManager::idles(size_t index)
+{
+	std::set<Sk::IDLERecord*> out;
+	std::string this_behavior = fs::relative(_files.at(index), _workspace.getFolder()).string();
+	for (auto idle_record_it = _esp->FormID_ModFile_Record.begin(); idle_record_it != _esp->FormID_ModFile_Record.end(); idle_record_it++)
+	{
+		Record* record = idle_record_it->second;
+		if (record->GetType() == REV32(IDLE)) {
+			auto idle = dynamic_cast<Sk::IDLERecord*>(record);
+			if (iequals(this_behavior,idle->DNAM.value))
+				out.insert(idle);
+		}
+	}
+	return out;
 }

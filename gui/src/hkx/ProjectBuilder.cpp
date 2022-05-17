@@ -2,6 +2,8 @@
 #include <src/hkx/TreeBuilder.h>
 #include <src/hkx/SkeletonBuilder.h>
 
+#include <src/esp/IDLEBuilder.h>
+
 #include <hkbProjectStringData_1.h>
 #include <hkbCharacterStringData_5.h>
 #include <hkbBehaviorGraph_1.h>
@@ -187,6 +189,12 @@ ProjectBuilder::ProjectBuilder(
 					}
 				}
 			}	
+		
+
+			auto actions_node = _resourceManager.createSupport(behavior_index, { "Actions" }, character_node);
+			character_node->appendChild(actions_node);
+
+			auto idle_builder = new IDLEBuilder(behavior_index, actions_node, _resourceManager);
 		}
 	}
 }

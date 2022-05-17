@@ -18,6 +18,11 @@ void ProjectNode::appendData(const QVariant& value)
 	m_itemData.append(value);
 }
 
+bool ProjectNode::hasChild(ProjectNode* child)
+{
+	return m_childItems.contains(child);
+}
+
 ProjectNode* ProjectNode::appendChild(ProjectNode* item)
 {
 	m_childIndices[item].push_back(m_childItems.size());
@@ -167,7 +172,8 @@ void ProjectNode::setParent(ProjectNode* new_parent)
 	if (!m_parentItems.contains(new_parent))
 	{
 		m_parentItems.push_front(new_parent);
-		m_itemData[2] = new_parent->data(1);
+		if (isVariant())
+			m_itemData[2] = new_parent->data(1);
 	}
 }
 

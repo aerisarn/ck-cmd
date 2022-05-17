@@ -71,6 +71,14 @@ if(NOT DEFINED MODELS)
     source_group("Models\\Sources" FILES ${MODEL_SOURCES})
 endif()   
 
+if(NOT DEFINED ESPS)
+    file(GLOB_RECURSE ESP_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/esp/*.h)
+    file(GLOB_RECURSE ESP_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/esp/*.cpp)
+
+    source_group("Esp\\Headers" FILES ${ESP_HEADERS})
+    source_group("Esp\\Sources" FILES ${ESP_SOURCES})
+endif()
+
 if(NOT DEFINED WIDGETS)
     file(GLOB_RECURSE WIDGET_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/widgets/*.h)
     file(GLOB_RECURSE WIDGET_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/widgets/*.cpp)
@@ -105,6 +113,8 @@ add_library( gui-lib STATIC
     ${MODEL_SOURCES}
     ${HKX_HEADERS}
     ${HKX_SOURCES}
+    ${ESP_HEADERS}
+    ${ESP_SOURCES}
     ${ANIMDATA_HEADERS}
     ${ANIMDATA_SOURCES}
 )

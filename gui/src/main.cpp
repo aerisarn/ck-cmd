@@ -1,3 +1,7 @@
+#include <src/Skyrim/TES5File.h>
+#include <src/Collection.h>
+#include <src/ModFile.h>
+
 #include "windows/mainwindow.h"
 
 #include <QApplication>
@@ -77,7 +81,288 @@ static void extractAssets() {
 			}
 		}
 	}
+}
 
+static void extractIDLE() {
+	std::string workspace_path = Settings.get<std::string>("/general/workspace_folder");
+	std::string data_path = Settings.get<std::string>("/general/skyrim_le_folder");
+
+	if (fs::exists(fs::path(data_path) / "creatures.esp"))
+	{
+		fs::remove(fs::path(data_path) / "creatures.esp");
+	}
+
+	Collection skyrimCollection = Collection((char* const)data_path.c_str(), 3);
+	ModFlags masterFlags = ModFlags(0xA);
+	ModFile* esm = skyrimCollection.AddMod("Skyrim.esm", masterFlags);
+	//esm = skyrimCollection.AddMod("Update.esm", masterFlags);
+	//esm = skyrimCollection.AddMod("Dragonborn.esm", masterFlags);
+	ModFlags espFlags = ModFlags(0x1818);
+	espFlags.IsNoLoad = false;
+	espFlags.IsFullLoad = true;
+	espFlags.IsMinLoad = false;
+	espFlags.IsCreateNew = true;
+	ModFile* skyrimMod = skyrimCollection.AddMod("creatures.esp", espFlags);
+
+	char* argvv[4];
+	argvv[0] = new char();
+	argvv[1] = new char();
+	argvv[2] = new char();
+	argvv[3] = new char();
+	logger.init(4, argvv);
+
+	skyrimCollection.Load();
+
+	std::set<Sk::IDLERecord*> idles;
+	std::set<Sk::AACTRecord*> aacts;
+
+	for (auto idle_record_it = skyrimCollection.FormID_ModFile_Record.begin(); idle_record_it != skyrimCollection.FormID_ModFile_Record.end(); idle_record_it++)
+	{
+		Record* record = idle_record_it->second;
+		if (record->GetType() == REV32(IDLE)) {
+			idles.insert(dynamic_cast<Sk::IDLERecord*>(record));
+		}
+		if (record->GetType() == REV32(AACT)) {
+			aacts.insert(dynamic_cast<Sk::AACTRecord*>(record));
+		}
+	}
+
+	std::map<FORMID, FORMID> retargeted;
+	for (auto aact_record_it = aacts.begin(); aact_record_it != aacts.end(); aact_record_it++)
+	{
+		Sk::AACTRecord* aact = *aact_record_it;
+		Record* to_copy = static_cast<Record*>(aact);
+
+		Record* result = skyrimCollection.CopyRecord(to_copy, skyrimMod, NULL, NULL, aact->EDID.value, 0);
+		result->IsChanged(true);
+		Sk::AACTRecord* copied = dynamic_cast<Sk::AACTRecord*>(result);
+		result->IsChanged(true);
+		copied->EDID.value = aact->EDID.value;
+		copied->CNAM.value = aact->CNAM.value;
+
+		result->IsChanged(true);
+		result->IsLoaded(true);
+		FormIDMasterUpdater checker(skyrimMod->FormIDHandler);
+		checker.Accept(result->formID);
+
+		retargeted[to_copy->formID] = copied->formID;
+	}
+
+	std::set< Sk::IDLERecord*> added;
+
+	////IDLE are full of errors, we do a first pass to check and categorize
+	for (auto idle_record_it = idles.begin(); idle_record_it != idles.end(); idle_record_it++)
+	{
+		//Record* record = idle_record_it->second;
+		//if (record->GetType() == REV32(IDLE)) {
+			Sk::IDLERecord* idle = *idle_record_it;
+			std::string this_behavior = "";
+			std::string edid = "";
+
+			if (!idle->DNAM.IsLoaded())
+				idle->DNAM.Load();
+
+			if (NULL != idle->DNAM.value)
+				this_behavior = idle->DNAM.value;
+
+			if (!idle->EDID.IsLoaded())
+				idle->EDID.Load();
+
+			if (idle->EDID.value == NULL)
+			{
+				edid = "Unnamed";
+			}
+			else {
+				edid = idle->EDID.value;
+			}
+
+			//counter check behavior with parent and sibling
+			if (!idle->ANAM.IsLoaded())
+				idle->ANAM.Load();
+
+
+			std::string parent_behavior = "";
+			std::string sibling_behavior = "";
+			auto parent = idle->ANAM.value.parent;
+			Sk::IDLERecord* parent_idle = NULL;
+			auto find_parent_it = skyrimCollection.FormID_ModFile_Record.find(parent);
+			if (find_parent_it != skyrimCollection.FormID_ModFile_Record.end())
+			{
+				auto parent_record = dynamic_cast<Sk::IDLERecord*>(find_parent_it->second);
+				if (NULL != parent_record && REV32(IDLE) == parent_record->GetType())
+				{
+					parent_idle = dynamic_cast<Sk::IDLERecord*>(parent_record);
+					if (!parent_idle->DNAM.IsLoaded())
+						parent_idle->DNAM.Load();
+
+					if (NULL != parent_idle->DNAM.value)
+						parent_behavior = parent_idle->DNAM.value;
+				}
+			}
+			auto sibling = idle->ANAM.value.sibling;
+			auto find_sibling_it = skyrimCollection.FormID_ModFile_Record.find(sibling);
+			if (find_sibling_it != skyrimCollection.FormID_ModFile_Record.end())
+			{
+				auto sibling_record = dynamic_cast<Sk::IDLERecord*>(find_sibling_it->second);
+				if (NULL != sibling_record && REV32(IDLE) == sibling_record->GetType())
+				{
+					Sk::IDLERecord* sibling_idle = dynamic_cast<Sk::IDLERecord*>(sibling_record);
+					if (!sibling_idle->DNAM.IsLoaded())
+						sibling_idle->DNAM.Load();
+
+					if (NULL != sibling_idle->DNAM.value)
+						sibling_behavior = sibling_idle->DNAM.value;
+				}
+			}
+
+			if (!parent_behavior.empty())
+			{
+				if (this_behavior.empty())
+					this_behavior = parent_behavior;
+				else if (!this_behavior.empty() && 
+					this_behavior != parent_behavior)
+				{	
+					if (!sibling_behavior.empty())
+					{
+						//two different behaviors between parent and childer, check the sibling
+						if (sibling_behavior == parent_behavior)
+							this_behavior = parent_behavior;
+					}
+					else {
+						//check parent's parent to be sure
+						std::string parent_parent_behavior;
+						if (parent_idle != NULL)
+						{
+							auto find_parent_it = skyrimCollection.FormID_ModFile_Record.find(parent_idle->ANAM.value.parent);
+							if (find_parent_it != skyrimCollection.FormID_ModFile_Record.end())
+							{
+								auto parent_record = dynamic_cast<Sk::IDLERecord*>(find_parent_it->second);
+								if (NULL != parent_record && REV32(IDLE) == parent_record->GetType())
+								{
+									parent_idle = dynamic_cast<Sk::IDLERecord*>(parent_record);
+									if (!parent_idle->DNAM.IsLoaded())
+										parent_idle->DNAM.Load();
+
+									if (NULL != parent_idle->DNAM.value)
+										parent_parent_behavior = parent_idle->DNAM.value;
+								}
+							}
+						}
+						if (parent_behavior == parent_parent_behavior)
+							this_behavior = parent_behavior;
+						else if (parent_parent_behavior.empty())
+							this_behavior = parent_behavior;
+					}
+				}
+			}
+			if (this_behavior.empty() && !sibling_behavior.empty())
+			{
+				this_behavior = sibling_behavior;
+			}
+
+			while (this_behavior.empty() && parent_idle != NULL)
+			{
+				auto find_parent_it = skyrimCollection.FormID_ModFile_Record.find(parent_idle->ANAM.value.parent);
+				if (find_parent_it != skyrimCollection.FormID_ModFile_Record.end())
+				{
+					auto parent_record = dynamic_cast<Sk::IDLERecord*>(find_parent_it->second);
+					if (NULL != parent_record && REV32(IDLE) == parent_record->GetType())
+					{
+						parent_idle = dynamic_cast<Sk::IDLERecord*>(parent_record);
+						if (!parent_idle->DNAM.IsLoaded())
+							parent_idle->DNAM.Load();
+
+						if (NULL != parent_idle->DNAM.value)
+							this_behavior = parent_idle->DNAM.value;
+					}
+				}
+				else {
+					break;
+				}
+				parent_idle = dynamic_cast<Sk::IDLERecord*>(find_parent_it->second);
+			}
+
+			if (idle->EDID.value != NULL && 
+				(
+					 strcmp(idle->EDID.value, "SabreCatTurnToRun") == 0 ||
+					 strcmp(idle->EDID.value, "SabreCatIdleToRunLeft90") == 0 ||
+					 strcmp(idle->EDID.value, "SabreCatIdleToRunLeft180") == 0 ||
+					 strcmp(idle->EDID.value, "SabreCatIdleToRunRight90") == 0 ||
+					 strcmp(idle->EDID.value, "SabreCatIdleToRunRight180") == 0
+				)
+			)
+			{
+				this_behavior = "Actors\\SabreCat\\Behaviors\\SabreCatBehavior.hkx";
+			}
+
+			std::string event = "";
+			if (!idle->ENAM.IsLoaded())
+				idle->ENAM.Load();
+			if (idle->ENAM.value != NULL)
+				event = idle->ENAM.value;
+
+			if (this_behavior.empty())
+				__debugbreak();
+
+			Record* to_copy = static_cast<Record*>(idle);
+
+			// declaring character array 
+			char* char_array = new char[edid.size() + 1];
+
+			// copying the contents of the 
+			// string to char array 
+			strcpy(char_array, edid.c_str());
+
+			Record* result = skyrimCollection.CopyRecord(to_copy, skyrimMod, NULL, NULL, char_array, 0);
+			result->IsChanged(true);
+			Sk::IDLERecord* copied = dynamic_cast<Sk::IDLERecord*>(result);
+			added.insert(copied);
+			result->IsChanged(true);
+			copied->EDID.value = idle->EDID.value;
+			copied->ANAM = idle->ANAM;
+			copied->CTDA = idle->CTDA;
+			copied->DATA = idle->DATA;
+			copied->ENAM = idle->ENAM;
+
+			char* behavior_char = new char[this_behavior.size() + 1];
+			strcpy(behavior_char, this_behavior.c_str());
+
+			copied->DNAM.value = behavior_char;
+
+			result->IsChanged(true);
+			result->IsLoaded(true);
+			FormIDMasterUpdater checker(skyrimMod->FormIDHandler);
+			checker.Accept(result->formID);
+			
+			retargeted[to_copy->formID] = copied->formID;
+	}
+
+	for (auto idle_record_it = added.begin(); idle_record_it != added.end(); idle_record_it++) {
+		auto idle = *idle_record_it;
+		Sk::IDLEANAM a = idle->ANAM.value;
+		if (retargeted.find(idle->ANAM.value.parent) != retargeted.end())
+			a.parent = retargeted[idle->ANAM.value.parent];
+		else if (idle->ANAM.value.parent != 0)
+			__debugbreak();
+		if (retargeted.find(idle->ANAM.value.sibling) != retargeted.end())
+			a.sibling = retargeted[idle->ANAM.value.sibling];
+		else if (idle->ANAM.value.sibling != 0)
+			__debugbreak();
+		idle->ANAM.value = a;
+	}
+
+	ModSaveFlags skSaveFlags = ModSaveFlags(2);
+	skSaveFlags.IsCleanMasters = true;
+	string esp_name = "creatures.esp";
+	skyrimCollection.SaveMod(skyrimMod, skSaveFlags, (char* const)esp_name.c_str());
+
+	if (fs::exists(fs::path(data_path) / esp_name))
+	{
+		fs::copy_file(fs::path(data_path) / esp_name, fs::path(workspace_path) / esp_name);
+	}
+	else {
+		QMessageBox::tr("Unable to assemble the IDLE plugin. Creature cache won't be generated properly");
+	}
 }
 
 
@@ -143,7 +428,14 @@ int main(int argc, char *argv[])
 		else {
 			//NTD
 		}
-	}
+	} 
+
+	/*if (!fs::exists(fs::path(workspace_path) / "creatures.esp"))
+	{*/
+		fs::path data_path = Games::Instance().data(Games::Game::TES5);
+		Settings.set("/general/skyrim_le_folder", data_path.string().c_str());
+		extractIDLE();
+	//}
 
 	MainWindow w(InitializeHavok());
 	w.show();

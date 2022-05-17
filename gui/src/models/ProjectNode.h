@@ -35,7 +35,9 @@ namespace ckcmd {
                 events_node,
                 variables_node,
                 animation_styles_node,
-                animation_style_node
+                animation_style_node,
+                action_node,
+                idle_node
             } m_type;
 
             explicit ProjectNode(
@@ -54,6 +56,7 @@ namespace ckcmd {
 
             bool canSaveOrExport() const;
 
+            bool hasChild(ProjectNode* child);
             ProjectNode* appendChild(ProjectNode* child);
             void appendIndex(ProjectNode* item);
             void appendData(const QVariant& value);
