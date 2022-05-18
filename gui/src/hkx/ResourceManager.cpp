@@ -2,6 +2,8 @@
 #include <src/Collection.h>
 #include <src/ModFile.h>
 
+#include <src/config.h>
+
 #include "ResourceManager.h"
 
 #include <hkbProjectData_2.h>
@@ -12,7 +14,7 @@ ResourceManager::ResourceManager(WorkspaceConfig& workspace) :
 	_workspace(workspace),
 	_cache(_workspace.getFolder())
 {
-	_esp = new Collection((char* const)_workspace.getFolder().c_str(), 3);
+	_esp = new Collection((char* const)_workspace.getFolder().string().c_str(), 3);
 
 	ModFlags masterFlags = ModFlags(0xA);
 	ModFile* skyrimMod = _esp->AddMod("creatures.esp", masterFlags);

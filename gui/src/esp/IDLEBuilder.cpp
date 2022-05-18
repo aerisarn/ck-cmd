@@ -15,7 +15,7 @@ IDLEBuilder::IDLEBuilder(size_t file_index, ProjectNode* root, ResourceManager& 
 	auto idles = _manager.idles(_file_index);
 
 	std::map<FORMID, ProjectNode*> nodes;
-
+	std::vector< ProjectNode*> aacts_temp;
 	for (const auto& aact : aacts)
 	{
 		nodes[aact->formID] = _manager.createActionNode
@@ -24,8 +24,17 @@ IDLEBuilder::IDLEBuilder(size_t file_index, ProjectNode* root, ResourceManager& 
 			{ aact->EDID.value, (unsigned long long)aact },
 			root
 		);
-		root->appendChild(nodes[aact->formID]);
+		aacts_temp.push_back(nodes[aact->formID]);
+		//root->appendChild(nodes[aact->formID]);
 	}
+	std::sort(aacts_temp.begin(), aacts_temp.end(), [](const ProjectNode* a, const ProjectNode* b) 
+		{
+			return a->data(0).value<QString>() < b->data(0).value<QString>();
+		}
+	);
+	for (auto* node : aacts_temp)
+		root->appendChild(node);
+
 	nodes[NULL] = _manager.createActionNode
 	(
 		_file_index,
