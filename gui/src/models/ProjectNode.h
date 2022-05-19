@@ -146,6 +146,12 @@ namespace ckcmd {
                 case NodeType::animation_style_node:
                     v.visit<NodeType::animation_style_node>(*this, arg...);
                     break;
+                case NodeType::action_node:
+                    v.visit<NodeType::action_node>(*this, arg...);
+                    break;
+                case NodeType::idle_node:
+                    v.visit<NodeType::idle_node>(*this, arg...);
+                    break;
                 default:
                     break;
                 }

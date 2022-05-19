@@ -46,7 +46,7 @@ IDLEBuilder::IDLEBuilder(size_t file_index, ProjectNode* root, ResourceManager& 
 	for (const auto& idle : idles)
 	{
 		QString display_name = QString("%1 <%2>").arg(idle->EDID.value).arg(idle->ENAM.value);
-		nodes[idle->formID] =  _manager.createActionNode
+		nodes[idle->formID] =  _manager.createIdleNode
 		(
 			_file_index,
 			{ 

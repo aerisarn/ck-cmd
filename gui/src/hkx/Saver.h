@@ -131,6 +131,8 @@ namespace ckcmd {
 			void handle_animation_style(ProjectNode& node);
 			void handle_transition(ProjectNode& node);
 			void handle_behavior(ProjectNode& node);
+			void handle_action(ProjectNode& node);
+			void handle_idle(ProjectNode& node);
 
 			void handle_animation_binded_fsm(ProjectNode& fsm, int file_index);
 
@@ -180,6 +182,9 @@ namespace ckcmd {
 
 			bool _animation_driven = false;
 			bool _blending = false;
+
+			bool _equip_action = false;
+			std::map<std::pair<std::string, std::string>, std::set<std::string>> _equip_event_sets;
 
 			int isSetBinded(hkbBindable* bindable, BehaviorBuilder* builder, const std::string& path);
 
@@ -242,6 +247,18 @@ namespace ckcmd {
 			void visit<ProjectNode::NodeType::animation_style_node>(ProjectNode& node)
 			{
 				handle_animation_style(node);
+			}
+
+			template<>
+			void visit<ProjectNode::NodeType::action_node>(ProjectNode& node)
+			{
+				handle_action(node);
+			}
+
+			template<>
+			void visit<ProjectNode::NodeType::idle_node>(ProjectNode& node)
+			{
+				handle_idle(node);
 			}
 
 			Saver(ResourceManager& manager, ProjectNode* project_root, ProjectTreeModel* viewmodel);

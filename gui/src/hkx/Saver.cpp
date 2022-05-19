@@ -1,3 +1,7 @@
+#include <src/Skyrim/TES5File.h>
+#include <src/Collection.h>
+#include <src/ModFile.h>
+
 #include <fstream>
 
 #include <src/hkx/Saver.h>
@@ -890,6 +894,232 @@ int Saver::isSetBinded(hkbBindable* bindable, BehaviorBuilder* builder, const st
 		}
 	}
 	return 0;
+}
+
+void Saver::handle_action(ProjectNode& node)
+{
+	std::string edid = node.data(0).value<QString>().toUtf8().constData();
+	bool equip_action = false;
+	if (edid == "ActionDraw" || edid == "ActionForceEquip")
+		equip_action = true;
+
+	if (equip_action)
+		_equip_action = true;
+	recurse(node);
+	if (equip_action)
+		_equip_action = false;
+}
+
+void Saver::handle_idle(ProjectNode& node)
+{
+	if (_equip_action)
+	{
+		Sk::IDLERecord* idle = (Sk::IDLERecord*)node.data(1).value<unsigned long long>();
+		for (int left = 0; left <= 12; left++)
+		{
+			for (int right = 0; right <= 12; right++)
+			{
+				if (!idle->CTDA.value.empty())
+				{
+					bool do_recurse = true;
+					for (auto& condition : idle->CTDA.value)
+					{
+						auto function = condition->CTDA.value.ifunc;
+						//Index: 597; Name: 'GetEquippedItemType
+						if (function == 597) {
+							auto source = condition->CTDA.value.param1;
+
+							float value = (float)condition->CTDA.value.compValue;
+							/*
+								enum operTypeType
+								{
+									eEqual = 0<<5,
+									eNotEqual = 1<<5,
+									eGreater = 2<<5,
+									eGreaterOrEqual = 3<<5,
+									eLess = 4<<5,
+									eLessOrEqual = 5<<5,
+									eOperTypeMask = 0xE0 // First 3 bits
+								};
+							*/
+							switch (condition->CTDA.value.operType) {
+							case Sk::SKCTDA::operTypeType::eEqual:
+								switch (source) {
+								case Sk::SKCTDA::paramCastingSourceType::Left:
+									if (left == value)
+									{
+										//NTD
+									}
+									else {
+										do_recurse = false;
+									}
+									break;
+								case Sk::SKCTDA::paramCastingSourceType::Right:
+									if (right == value)
+									{
+										//NTD
+									}
+									else {
+										do_recurse = false;
+									}
+									break;
+								}
+								break;
+							case Sk::SKCTDA::operTypeType::eNotEqual:
+								switch (source) {
+								case Sk::SKCTDA::paramCastingSourceType::Left:
+									if (left != value)
+									{
+										//NTD
+									}
+									else {
+										do_recurse = false;
+									}
+									break;
+								case Sk::SKCTDA::paramCastingSourceType::Right:
+									if (right != value)
+									{
+										//NTD
+									}
+									else {
+										do_recurse = false;
+									}
+									break;
+								}
+								break;
+							case Sk::SKCTDA::operTypeType::eGreater:
+								switch (source) {
+								case Sk::SKCTDA::paramCastingSourceType::Left:
+									if (left > value)
+									{
+										//NTD
+									}
+									else {
+										do_recurse = false;
+									}
+									break;
+								case Sk::SKCTDA::paramCastingSourceType::Right:
+									if (right > value)
+									{
+										//NTD
+									}
+									else {
+										do_recurse = false;
+									}
+									break;
+								}
+								break;
+							case Sk::SKCTDA::operTypeType::eGreaterOrEqual:
+								switch (source) {
+								case Sk::SKCTDA::paramCastingSourceType::Left:
+									if (left >= value)
+									{
+										//NTD
+									}
+									else {
+										do_recurse = false;
+									}
+									break;
+								case Sk::SKCTDA::paramCastingSourceType::Right:
+									if (right >= value)
+									{
+										//NTD
+									}
+									else {
+										do_recurse = false;
+									}
+									break;
+								}
+								break;
+							case Sk::SKCTDA::operTypeType::eLess:
+								switch (source) {
+								case Sk::SKCTDA::paramCastingSourceType::Left:
+									if (left < value)
+									{
+										//NTD
+									}
+									else {
+										do_recurse = false;
+									}
+									break;
+								case Sk::SKCTDA::paramCastingSourceType::Right:
+									if (right < value)
+									{
+										//NTD
+									}
+									else {
+										do_recurse = false;
+									}
+									break;
+								}
+								break;
+							case Sk::SKCTDA::operTypeType::eLessOrEqual:
+								switch (source) {
+								case Sk::SKCTDA::paramCastingSourceType::Left:
+									if (left <= value)
+									{
+										//NTD
+									}
+									else {
+										do_recurse = false;
+									}
+									break;
+								case Sk::SKCTDA::paramCastingSourceType::Right:
+									if (right <= value)
+									{
+										//NTD
+									}
+									else {
+										do_recurse = false;
+									}
+									break;
+								}
+								break;
+							}
+						}
+					}
+				
+					if (do_recurse) {
+						if (idle->ENAM.value != NULL)
+							_equip_event_sets[{set_name(left), set_name(right)}].insert(idle->ENAM.value);
+						else
+						{
+							for (int i = 0; i < node.childCount(); i++)
+							{
+								size_t event_size = _equip_event_sets.size();
+								node.child(i)->accept(*this);
+								if (event_size != _equip_event_sets.size())
+									break;
+							}
+						}
+					}
+				}
+				else {
+					//no condition
+					if (idle->ENAM.value != NULL)
+						_equip_event_sets[{set_name(left), set_name(right)}].insert(idle->ENAM.value);
+					else
+						for (int i = 0; i < node.childCount(); i++)
+						{
+							size_t event_size = _equip_event_sets.size();
+							node.child(i)->accept(*this);
+							if (event_size != _equip_event_sets.size())
+								break;
+						}
+				}
+			}
+		}
+	}
+	else {
+		//no interest?
+		for (int i = 0; i < node.childCount(); i++)
+		{
+			size_t event_size = _equip_event_sets.size();
+			node.child(i)->accept(*this);
+			if (event_size != _equip_event_sets.size())
+				break;
+		}
+	}
 }
 
 void Saver::handle_hkx_node(ProjectNode& node)

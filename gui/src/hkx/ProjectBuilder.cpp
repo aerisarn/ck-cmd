@@ -143,7 +143,7 @@ ProjectBuilder::ProjectBuilder(
 				throw std::runtime_error("hkbBehaviorGraph variant not found in " + behavior_path.string());
 			auto behavior_index = _resourceManager.index(behavior_path);
 			ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str() }, character_node);
-			character_node->appendChild(behavior_node);
+			
 			auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_file_index, character_file_index, behavior_index, animations_node, true);
 			behavior_handler->setSkeleton(skeleton_builder);
 			_resourceManager.setClassHandler(
@@ -195,6 +195,8 @@ ProjectBuilder::ProjectBuilder(
 			character_node->appendChild(actions_node);
 
 			auto idle_builder = new IDLEBuilder(behavior_index, actions_node, _resourceManager);
+
+			character_node->appendChild(behavior_node);
 		}
 	}
 }

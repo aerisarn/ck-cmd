@@ -95,9 +95,13 @@ static void extractIDLE() {
 	Collection skyrimCollection = Collection((char* const)data_path.c_str(), 3);
 	ModFlags masterFlags = ModFlags(0xA);
 	masterFlags.IsInLoadOrder = true;
+	ModFile* update = NULL;
 	ModFile* skyrim = skyrimCollection.AddMod("Skyrim.esm", masterFlags);
-	ModFile* update = skyrimCollection.AddMod("Update.esm", masterFlags);
-	ModFile* dragonborn = skyrimCollection.AddMod("Dragonborn.esm", masterFlags);
+	if (fs::exists(fs::path(data_path) / "Update.esm"))
+		update = skyrimCollection.AddMod("Update.esm", masterFlags);
+	ModFile* dragonborn = NULL;
+	if (fs::exists(fs::path(data_path) / "Update.esm"))
+		dragonborn = skyrimCollection.AddMod("Dragonborn.esm", masterFlags);
 	ModFlags espFlags = ModFlags(0x1818);
 	espFlags.IsNoLoad = false;
 	espFlags.IsFullLoad = true;
@@ -344,8 +348,10 @@ static void extractIDLE() {
 	skyrimCollection.SaveMod(creatures, skSaveFlags, (char* const)esp_name.c_str());
 
 	creatures->Close();
-	dragonborn->Close();
-	update->Close();
+	if (NULL != dragonborn)
+		dragonborn->Close();
+	if (NULL != update)
+		update->Close();
 	skyrim->Close();
 
 	if (fs::exists(fs::path(data_path) / esp_name))
