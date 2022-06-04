@@ -1,6 +1,6 @@
-#include <src/Skyrim/TES5File.h>
-#include <src/Collection.h>
-#include <src/ModFile.h>
+//#include <src/Skyrim/TES5File.h>
+//#include <src/Collection.h>
+//#include <src/ModFile.h>
 
 #include <fstream>
 
@@ -64,18 +64,31 @@ Saver::Saver(ResourceManager& manager, ProjectNode* project_root, ProjectTreeMod
 	{
 		bool all_zero = true;
 		bool has_var = false;
+
+		bool foundLeft = false;
+		bool foundRight = false;
 		auto& temp = entry->getProjectAttackBlocks().at(i);
 		if (!temp.getHandVariableData().getVariables().empty())
 			has_var = true;
 		for (int j = 0; j < temp.getHandVariableData().getVariables().size(); j++)
 		{
-			if (temp.getHandVariableData().getVariables().at(j).value_min != 0 ||
-				temp.getHandVariableData().getVariables().at(j).value_max != 0)
+			if (temp.getHandVariableData().getVariables().at(j).variable_name == "iLeftHandType" &&
+				temp.getHandVariableData().getVariables().at(j).value_min == 0 &&
+				temp.getHandVariableData().getVariables().at(j).value_max == 0)
 			{
-				all_zero = false;
+				foundLeft = true;
+			}
+
+			if (temp.getHandVariableData().getVariables().at(j).variable_name == "iRightHandType" &&
+				temp.getHandVariableData().getVariables().at(j).value_min == 8 &&
+				temp.getHandVariableData().getVariables().at(j).value_max == 8)
+			{
+				foundRight = true;
 			}
 		}
-		if (all_zero && has_var)
+		//if (all_zero && has_var)
+		if (temp.getHandVariableData().getVariables().empty() && temp.getSwapEventsList().getStrings().empty() && temp.getAttackData().attackData.empty())
+		//if (foundLeft && foundRight)
 		{
 			auto& strings = temp.getCrc32Data().getStrings();
 			int k = 0;
@@ -84,9 +97,12 @@ Saver::Saver(ResourceManager& manager, ProjectNode* project_root, ProjectTreeMod
 				if (k % 3 == 1)
 					_crc_to_find[string] = "";
 				k++;
-			}
-			
+			}			
 		}
+
+		auto& these_events = temp.getSwapEventsList();
+		for (auto& this_event : these_events.getStrings())
+			_cache_set_events.insert(this_event);
 	}
 
 	_right_current_animation_set.push_front({});
@@ -905,221 +921,233 @@ void Saver::handle_action(ProjectNode& node)
 
 	if (equip_action)
 		_equip_action = true;
-	recurse(node);
+	//recurse(node);
 	if (equip_action)
 		_equip_action = false;
 }
 
 void Saver::handle_idle(ProjectNode& node)
 {
-	if (_equip_action)
-	{
-		Sk::IDLERecord* idle = (Sk::IDLERecord*)node.data(1).value<unsigned long long>();
-		for (int left = 0; left <= 12; left++)
-		{
-			for (int right = 0; right <= 12; right++)
-			{
-				if (!idle->CTDA.value.empty())
-				{
-					bool do_recurse = true;
-					for (auto& condition : idle->CTDA.value)
-					{
-						auto function = condition->CTDA.value.ifunc;
-						//Index: 597; Name: 'GetEquippedItemType
-						if (function == 597) {
-							auto source = condition->CTDA.value.param1;
 
-							float value = (float)condition->CTDA.value.compValue;
-							/*
-								enum operTypeType
-								{
-									eEqual = 0<<5,
-									eNotEqual = 1<<5,
-									eGreater = 2<<5,
-									eGreaterOrEqual = 3<<5,
-									eLess = 4<<5,
-									eLessOrEqual = 5<<5,
-									eOperTypeMask = 0xE0 // First 3 bits
-								};
-							*/
-							switch (condition->CTDA.value.operType) {
-							case Sk::SKCTDA::operTypeType::eEqual:
-								switch (source) {
-								case Sk::SKCTDA::paramCastingSourceType::Left:
-									if (left == value)
-									{
-										//NTD
-									}
-									else {
-										do_recurse = false;
-									}
-									break;
-								case Sk::SKCTDA::paramCastingSourceType::Right:
-									if (right == value)
-									{
-										//NTD
-									}
-									else {
-										do_recurse = false;
-									}
-									break;
-								}
-								break;
-							case Sk::SKCTDA::operTypeType::eNotEqual:
-								switch (source) {
-								case Sk::SKCTDA::paramCastingSourceType::Left:
-									if (left != value)
-									{
-										//NTD
-									}
-									else {
-										do_recurse = false;
-									}
-									break;
-								case Sk::SKCTDA::paramCastingSourceType::Right:
-									if (right != value)
-									{
-										//NTD
-									}
-									else {
-										do_recurse = false;
-									}
-									break;
-								}
-								break;
-							case Sk::SKCTDA::operTypeType::eGreater:
-								switch (source) {
-								case Sk::SKCTDA::paramCastingSourceType::Left:
-									if (left > value)
-									{
-										//NTD
-									}
-									else {
-										do_recurse = false;
-									}
-									break;
-								case Sk::SKCTDA::paramCastingSourceType::Right:
-									if (right > value)
-									{
-										//NTD
-									}
-									else {
-										do_recurse = false;
-									}
-									break;
-								}
-								break;
-							case Sk::SKCTDA::operTypeType::eGreaterOrEqual:
-								switch (source) {
-								case Sk::SKCTDA::paramCastingSourceType::Left:
-									if (left >= value)
-									{
-										//NTD
-									}
-									else {
-										do_recurse = false;
-									}
-									break;
-								case Sk::SKCTDA::paramCastingSourceType::Right:
-									if (right >= value)
-									{
-										//NTD
-									}
-									else {
-										do_recurse = false;
-									}
-									break;
-								}
-								break;
-							case Sk::SKCTDA::operTypeType::eLess:
-								switch (source) {
-								case Sk::SKCTDA::paramCastingSourceType::Left:
-									if (left < value)
-									{
-										//NTD
-									}
-									else {
-										do_recurse = false;
-									}
-									break;
-								case Sk::SKCTDA::paramCastingSourceType::Right:
-									if (right < value)
-									{
-										//NTD
-									}
-									else {
-										do_recurse = false;
-									}
-									break;
-								}
-								break;
-							case Sk::SKCTDA::operTypeType::eLessOrEqual:
-								switch (source) {
-								case Sk::SKCTDA::paramCastingSourceType::Left:
-									if (left <= value)
-									{
-										//NTD
-									}
-									else {
-										do_recurse = false;
-									}
-									break;
-								case Sk::SKCTDA::paramCastingSourceType::Right:
-									if (right <= value)
-									{
-										//NTD
-									}
-									else {
-										do_recurse = false;
-									}
-									break;
-								}
-								break;
-							}
-						}
-					}
-				
-					if (do_recurse) {
-						if (idle->ENAM.value != NULL)
-							_equip_event_sets[{set_name(left), set_name(right)}].insert(idle->ENAM.value);
-						else
-						{
-							for (int i = 0; i < node.childCount(); i++)
-							{
-								size_t event_size = _equip_event_sets.size();
-								node.child(i)->accept(*this);
-								if (event_size != _equip_event_sets.size())
-									break;
-							}
-						}
-					}
-				}
-				else {
-					//no condition
-					if (idle->ENAM.value != NULL)
-						_equip_event_sets[{set_name(left), set_name(right)}].insert(idle->ENAM.value);
-					else
-						for (int i = 0; i < node.childCount(); i++)
-						{
-							size_t event_size = _equip_event_sets.size();
-							node.child(i)->accept(*this);
-							if (event_size != _equip_event_sets.size())
-								break;
-						}
-				}
-			}
-		}
-	}
-	else {
-		//no interest?
-		for (int i = 0; i < node.childCount(); i++)
-		{
-			size_t event_size = _equip_event_sets.size();
-			node.child(i)->accept(*this);
-			if (event_size != _equip_event_sets.size())
-				break;
-		}
-	}
+
+	//if (_equip_action)
+	//{
+	//	Sk::IDLERecord* idle = (Sk::IDLERecord*)node.data(1).value<unsigned long long>();
+	//	std::string edid = idle->EDID.value;
+	//	for (int left = 0; left <= 12; left++)
+	//	{
+	//		for (int right = 0; right <= 12; right++)
+	//		{
+	//			if (!idle->CTDA.value.empty())
+	//			{
+	//				bool do_recurse = true;
+	//				for (auto& condition : idle->CTDA.value)
+	//				{
+	//					auto function = condition->CTDA.value.ifunc;
+	//					//Index: 597; Name: 'GetEquippedItemType
+	//					if (function == 597) {
+	//						auto source = condition->CTDA.value.param1;
+
+	//						float value = (float)condition->CTDA.value.compValue;
+	//						/*
+	//							enum operTypeType
+	//							{
+	//								eEqual = 0<<5,
+	//								eNotEqual = 1<<5,
+	//								eGreater = 2<<5,
+	//								eGreaterOrEqual = 3<<5,
+	//								eLess = 4<<5,
+	//								eLessOrEqual = 5<<5,
+	//								eOperTypeMask = 0xE0 // First 3 bits
+	//							};
+	//						*/
+	//						switch (condition->CTDA.value.operType) {
+	//						case Sk::SKCTDA::operTypeType::eEqual:
+	//							switch (source) {
+	//							case Sk::SKCTDA::CastingSource::Left:
+	//								if (left == value)
+	//								{
+	//									//NTD
+	//								}
+	//								else {
+	//									do_recurse = false;
+	//								}
+	//								break;
+	//							case Sk::SKCTDA::CastingSource::Right:
+	//								if (right == value)
+	//								{
+	//									//NTD
+	//								}
+	//								else {
+	//									do_recurse = false;
+	//								}
+	//								break;
+	//							}
+	//							break;
+	//						case Sk::SKCTDA::operTypeType::eNotEqual:
+	//							switch (source) {
+	//							case Sk::SKCTDA::CastingSource::Left:
+	//								if (left != value)
+	//								{
+	//									//NTD
+	//								}
+	//								else {
+	//									do_recurse = false;
+	//								}
+	//								break;
+	//							case Sk::SKCTDA::CastingSource::Right:
+	//								if (right != value)
+	//								{
+	//									//NTD
+	//								}
+	//								else {
+	//									do_recurse = false;
+	//								}
+	//								break;
+	//							}
+	//							break;
+	//						case Sk::SKCTDA::operTypeType::eGreater:
+	//							switch (source) {
+	//							case Sk::SKCTDA::CastingSource::Left:
+	//								if (left > value)
+	//								{
+	//									//NTD
+	//								}
+	//								else {
+	//									do_recurse = false;
+	//								}
+	//								break;
+	//							case Sk::SKCTDA::CastingSource::Right:
+	//								if (right > value)
+	//								{
+	//									//NTD
+	//								}
+	//								else {
+	//									do_recurse = false;
+	//								}
+	//								break;
+	//							}
+	//							break;
+	//						case Sk::SKCTDA::operTypeType::eGreaterOrEqual:
+	//							switch (source) {
+	//							case Sk::SKCTDA::CastingSource::Left:
+	//								if (left >= value)
+	//								{
+	//									//NTD
+	//								}
+	//								else {
+	//									do_recurse = false;
+	//								}
+	//								break;
+	//							case Sk::SKCTDA::CastingSource::Right:
+	//								if (right >= value)
+	//								{
+	//									//NTD
+	//								}
+	//								else {
+	//									do_recurse = false;
+	//								}
+	//								break;
+	//							}
+	//							break;
+	//						case Sk::SKCTDA::operTypeType::eLess:
+	//							switch (source) {
+	//							case Sk::SKCTDA::CastingSource::Left:
+	//								if (left < value)
+	//								{
+	//									//NTD
+	//								}
+	//								else {
+	//									do_recurse = false;
+	//								}
+	//								break;
+	//							case Sk::SKCTDA::CastingSource::Right:
+	//								if (right < value)
+	//								{
+	//									//NTD
+	//								}
+	//								else {
+	//									do_recurse = false;
+	//								}
+	//								break;
+	//							}
+	//							break;
+	//						case Sk::SKCTDA::operTypeType::eLessOrEqual:
+	//							switch (source) {
+	//							case Sk::SKCTDA::CastingSource::Left:
+	//								if (left <= value)
+	//								{
+	//									//NTD
+	//								}
+	//								else {
+	//									do_recurse = false;
+	//								}
+	//								break;
+	//							case Sk::SKCTDA::CastingSource::Right:
+	//								if (right <= value)
+	//								{
+	//									//NTD
+	//								}
+	//								else {
+	//									do_recurse = false;
+	//								}
+	//								break;
+	//							}
+	//							break;
+	//						}
+	//					}
+	//				}
+	//			
+	//				if (do_recurse) {
+	//					if (idle->ENAM.value != NULL)
+	//						_equip_event_sets[{set_name(left), set_name(right)}].insert(idle->ENAM.value);
+	//					else
+	//					{
+	//						for (int i = 0; i < node.childCount(); i++)
+	//						{
+	//							size_t event_size = _equip_event_sets.size();
+	//							node.child(i)->accept(*this);
+	//							if (event_size != _equip_event_sets.size())
+	//								break;
+	//						}
+	//					}
+	//				}
+	//			}
+	//			else {
+	//				//no condition
+	//				if (idle->ENAM.value != NULL)
+	//					_equip_event_sets[{set_name(left), set_name(right)}].insert(idle->ENAM.value);
+	//				else
+	//					for (int i = 0; i < node.childCount(); i++)
+	//					{
+	//						size_t event_size = _equip_event_sets.size();
+	//						node.child(i)->accept(*this);
+	//						if (event_size != _equip_event_sets.size())
+	//							break;
+	//					}
+	//			}
+	//		}
+	//	}
+	//}
+	//else {
+	//	//no interest?
+	//	for (int i = 0; i < node.childCount(); i++)
+	//	{
+	//		size_t event_size = _equip_event_sets.size();
+	//		node.child(i)->accept(*this);
+	//		if (event_size != _equip_event_sets.size())
+	//			break;
+	//	}
+	//}
+}
+
+static inline bool iequals(const string& a, const string& b)
+{
+	return std::equal(a.begin(), a.end(),
+		b.begin(), b.end(),
+		[](char a, char b) {
+			return tolower(a) == tolower(b);
+		});
 }
 
 void Saver::handle_hkx_node(ProjectNode& node)
@@ -1150,97 +1178,29 @@ void Saver::handle_hkx_node(ProjectNode& node)
 		}
 
 
-		//std::string clip_name = fs::path(clip->m_animationName.cString()).filename().replace_extension("").string();
+		std::string clip_name = fs::path(clip->m_animationName.cString()).filename().replace_extension("").string();
 
-		//std::string to_crc = clip_name;
-		//transform(to_crc.begin(), to_crc.end(), to_crc.begin(), ::tolower);
+		std::string to_crc = clip_name;
+		transform(to_crc.begin(), to_crc.end(), to_crc.begin(), ::tolower);
 
-		//long long crc = stoll(HkCRC::compute(to_crc), NULL, 16);
-		//string crc_str = to_string(crc);
+		long long crc = stoll(HkCRC::compute(to_crc), NULL, 16);
+		string crc_str = to_string(crc);
 
-		////fs::path p = _nodes_stack / clip->m_animationName.cString();
-		//int right = -1;
-		//int left = -1;
-		//if (_variables_values.find("iLeftHandType") != _variables_values.end())
-		//{
-		//	left = _variables_values["iLeftHandType"];
-		//}
-		//else if (_variables_values.find("iLeftHandEquipped") != _variables_values.end())
-		//{
-		//	left = _variables_values["iLeftHandEquipped"];
-		//}
-		//if (_variables_values.find("iRightHandType") != _variables_values.end())
-		//{
-		//	right = _variables_values["iRightHandType"];
-		//}
-		//else if (_variables_values.find("iRightHandEquipped") != _variables_values.end())
-		//{
-		//	right = _variables_values["iRightHandEquipped"];
-		//}
-		//if (left != -1)
-		//{
-		//	/*if (right != -1)
-		//	{*/
-		//		_weapon_animation_sets[{left, right}].insert({ clip->m_animationName.cString(), _nodes_stack.string() });
-		//		//log << "[" << left << "," << right << "] " << clip->m_animationName.cString() << " from " << _nodes_stack.string() << endl;
-		//	//}
-		//	//else {
-		//	//	log << "[" << left << ",*] " << clip->m_animationName.cString() << " from " << _nodes_stack.string() << endl;
-		//	//	if (left < 5)
-		//	//	{
-		//	//		//for (int i = 0; i < 5; i++)
-		//	//		//{
-		//	//			_weapon_animation_sets[{left, 0}].insert({ clip->m_animationName.cString(), _nodes_stack.string() });
-		//	//		//}
-		//	//	}
-		//	//	else {
-		//	//		_weapon_animation_sets[{left, left}].insert({ clip->m_animationName.cString(), _nodes_stack.string() });
-		//	//	}
-		//	//}
-		//}
-		//else if (right != -1)
-		//{
-		//	/*if (left != -1)
-		//	{*/
-		//		_weapon_animation_sets[{left, right}].insert({ clip->m_animationName.cString(), _nodes_stack.string() });
-		//		//log << "[" << left << "," << right << "] " << clip->m_animationName.cString() << " from " << _nodes_stack.string() << endl;
-		//	//}
-		//	//else {
-		//	//	log << "[*," << right << "] " << clip->m_animationName.cString() << " from " << _nodes_stack.string() << endl;
-		//	//	//if (right == 5 || )
-		//	//	//{
-		//	//	//	//for (int i = 0; i < 5; i++)
-		//	//	//	//{
-		//	//	//		_weapon_animation_sets[{-1, right}].insert({ clip->m_animationName.cString(), _nodes_stack.string() });
-		//	//	//	//}
-		//	//	//}
-		//	//	//else {
-		//	//		_weapon_animation_sets[{left, right}].insert({ clip->m_animationName.cString(), _nodes_stack.string() });
-		//	//	//}
-		//	//}
-		//}
-		//else {
-		//	_animation_sets_stack.front().insert(clip->m_animationName.cString());
-		//}
-		////else
-		////{
-		////	_animation_sets_stack.front().insert(clip->m_animationName.cString());
-		////}
-		////if (_attack_animations.size() > 0)
-		////{
-		////	if (_attack_animations.size() > 1)
-		////	{
-		////		__debugbreak();
-		////	}
-		////	_attack_animations.front().second.insert(clip->m_animationName.cString());
-		////}
-
-		//if (_crc_to_find.find(crc_str) != _crc_to_find.end())
-		//{
-		//	/*if (_weapon_animation_sets[{0, 0}].find(clip->m_animationName.cString()) == _weapon_animation_sets[{0, 0}].end())
-		//		log << clip->m_animationName.cString() << " from " << _nodes_stack.string() << endl;*/
-		//	_viewmodel->setData(_viewmodel->getIndex(&node), QColor(Qt::red), Qt::BackgroundRole);
-		//}
+		if (_crc_to_find.find(crc_str) != _crc_to_find.end())
+		{
+			if (already_red.insert(clip->m_animationName.cString()).second)
+			{
+				/*if (_weapon_animation_sets[{0, 0}].find(clip->m_animationName.cString()) == _weapon_animation_sets[{0, 0}].end())
+					log << clip->m_animationName.cString() << " from " << _nodes_stack.string() << endl;*/
+				_viewmodel->setData(_viewmodel->getIndex(&node), QColor(Qt::red), Qt::BackgroundRole);
+				ProjectNode* parent = node.parentItem();
+				while (NULL != parent)
+				{
+					_viewmodel->setData(_viewmodel->getIndex(parent), QColor(Qt::red), Qt::BackgroundRole);
+					parent = parent->parentItem();
+				}
+			}
+		}
 
 		//recurse(node);
 	}
@@ -1249,7 +1209,7 @@ void Saver::handle_hkx_node(ProjectNode& node)
 		auto builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
 		hkbManualSelectorGenerator* msg = (hkbManualSelectorGenerator*)variant->m_object;
 		int binded = isSetBinded(msg, builder, "selectedGeneratorIndex");
-		if (binded)
+		if (binded && _main_equip_state)
 		{
 			for (int generator = 0; generator < msg->m_generators.getSize(); ++generator)
 			{
@@ -1274,47 +1234,90 @@ void Saver::handle_hkx_node(ProjectNode& node)
 	else if (variant->m_class == &hkbStateMachineClass) {
 		auto builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
 		hkbStateMachine* fsm = (hkbStateMachine*)variant->m_object;
-		int binded = isSetBinded(fsm, builder, "currentStateId");
-		if (!binded)
-		{
-			binded = isSetBinded(fsm, builder, "startStateId");
-		}
+		//int binded = isSetBinded(fsm, builder, "currentStateId");
+		//if (!binded)
+		//{
+		bool binded = isSetBinded(fsm, builder, "startStateId");
+		//}
 		_fsm_stack.push_front(&node);
-		if (binded)
+
+		bool main_equip = false;
+
+		if (NULL != fsm->m_wildcardTransitions)
 		{
-			std::map<int, std::pair<ProjectNode*, hkbStateMachineStateInfo*>> fsm_states;
-			for (int n = 0; n < node.childCount(); n++)
+			auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+			auto& transitions = fsm->m_wildcardTransitions->m_transitions;
+			for (int t = 0; t < transitions.getSize(); ++t)
 			{
-				auto* state_node = node.child(n);
-				hkVariant* child_variant = (hkVariant*)state_node->data(1).value<unsigned long long>();
-				
-				if (child_variant->m_class == &hkbStateMachineStateInfoClass)
+				std::string event_name = behavior_builder->getEvent(transitions[t].m_eventId).toUtf8().constData();
+				if (iequals(event_name, "weapequip"))
 				{
-					hkbStateMachineStateInfo* state = (hkbStateMachineStateInfo*)child_variant->m_object;
-					fsm_states[state->m_stateId] = { state_node, state };
-				}
-				else {
-					node.child(n)->accept(*this);
+					main_equip = true;
+					_main_equip_state = true;
 				}
 			}
-			for (auto& entry : fsm_states)
+		}
+
+		std::map<int, std::pair<ProjectNode*, hkbStateMachineStateInfo*>> fsm_states;
+		for (int n = 0; n < node.childCount(); n++)
+		{
+			auto* state_node = node.child(n);
+			hkVariant* child_variant = (hkVariant*)state_node->data(1).value<unsigned long long>();
+
+			if (child_variant->m_class == &hkbStateMachineStateInfoClass)
+			{
+				hkbStateMachineStateInfo* state = (hkbStateMachineStateInfo*)child_variant->m_object;
+				fsm_states[state->m_stateId] = { state_node, state };
+				if (NULL != state->m_transitions)
+				{
+					auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+					auto& transitions = state->m_transitions->m_transitions;
+					for (int t = 0; t < transitions.getSize(); ++t)
+					{
+						std::string event_name = behavior_builder->getEvent(transitions[t].m_eventId).toUtf8().constData();
+						if (iequals(event_name, "weapequip"))
+						{
+							main_equip = true;
+							_main_equip_state = true;
+						}
+					}
+				}
+			}
+			else {
+				node.child(n)->accept(*this);
+			}
+		}
+
+		for (auto& entry : fsm_states)
+		{
+			if (binded > 0 && _main_equip_state)
 			{
 				if (binded == 1)
-					_right_current_animation_set.push_front(set_name(entry.second.second->m_stateId));
+					_right_current_animation_set.push_front(set_name(entry.first));
 				else
-					_left_current_animation_set.push_front(set_name(entry.second.second->m_stateId));
+					_left_current_animation_set.push_front(set_name(entry.first));
+			}
 
-				entry.second.first->accept(*this);
+			if (entry.first == fsm->m_startStateId && main_equip)
+				_main_equip_state = false;
 
+			entry.second.first->accept(*this);
+
+			if (entry.first == fsm->m_startStateId && main_equip)
+				_main_equip_state = true;
+
+			if (binded > 0 && _main_equip_state)
+			{
 				if (binded == 1)
 					_right_current_animation_set.pop_front();
 				else
 					_left_current_animation_set.pop_front();
 			}
 		}
-		else {
-			recurse(node);
-		}
+
+		if (main_equip)
+			_main_equip_state = false;
+
 		_fsm_stack.pop_front();
 	}
 	else if (variant->m_class == &hkbBlenderGeneratorChildClass)
@@ -1450,337 +1453,31 @@ void Saver::handle_hkx_node(ProjectNode& node)
 			_fsm_stack.pop_front();
 		}
 	}
-	//else if (variant->m_class == &hkbStateMachineClass) {
-	//	//if (_fsm_root == nullptr)
-	//	//	_fsm_root = &node;
-	//	//handle_transition(node);
-	//	std::string state_bind = "";
-	//	bool animation_driven = false;
-	//	hkbStateMachine* fsm = (hkbStateMachine*)variant->m_object;
-	//	if (NULL != fsm)
-	//	{
-	//		if (NULL != fsm->m_variableBindingSet)
-	//		{
-	//			auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
-	//			auto& bindings = fsm->m_variableBindingSet->m_bindings;
-	//			for (int i = 0; i < bindings.getSize(); ++i)
-	//			{
-	//				auto& binding = bindings[i];
-	//				auto variable_name = behavior_builder->getVariable(binding.m_variableIndex);
-	//				if (binding.m_memberPath == "startStateId")
-	//				{
-	//					state_bind = variable_name.toUtf8().constData();
-	//				}
-	//				if (variable_name == "bAnimationDriven")
-	//				{
-	//					animation_driven = true;
-	//				}
-	//			}
-	//		}
-	//	}
-
-	//	if (animation_driven)
-	//	{
-	//		//handle_animation_binded_fsm(node, file_index);
-	//	}
-
-
-	//	//events
-	//	bool control_undefined = _variables_values.find(state_bind) == _variables_values.end();
-	//	bool control = _animation_styles_control_variables.find(state_bind) != _animation_styles_control_variables.end();
-	//	//if (!state_bind.empty() && control && control_undefined)
-	//	//{
-	//	//	auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
-	//	//	//how I got here?
-	//	//	events = find_animation_driven_transitions(node, behavior_builder);
-	//	//}
-
-	//	//_fsm_name_stack.push_front(node.data(0).value<QString>().toUtf8().constData());
-
-	//	//Find reacheable states
-	//	//std::map<int, ProjectNode*> fsm_states;
-	//	//
-	//	//std::set<ProjectNode*> reacheable_states;
-	//	//for (int i = 0; i < node.childCount(); ++i)
-	//	//{
-	//	//	hkVariant* variant = (hkVariant*)node.child(i)->data(1).value<unsigned long long>();
-	//	//	if (variant->m_class == &hkbStateMachineStateInfoClass)
-	//	//	{
-	//	//		fsm_states[((hkbStateMachineStateInfo*)variant->m_object)->m_stateId] = node.child(i);
-	//	//	}
-	//	//}
-	//	////current wildcard
-	//	//if (NULL != fsm->m_wildcardTransitions)
-	//	//{
-	//	//	auto& transitions = fsm->m_wildcardTransitions->m_transitions;
-	//	//	for (int t = 0; t < transitions.getSize(); t++)
-	//	//	{
-	//	//		if (fsm_states.find(transitions[t].m_toStateId) != fsm_states.end())
-	//	//		{
-	//	//			auto* state = fsm_states.at(transitions[t].m_toStateId);
-	//	//			reach_states(fsm_states, reacheable_states, state);
-	//	//		}
-	//	//	}
-	//	//}
-	//	//if (fsm_states.find(fsm->m_startStateId) != fsm_states.end())
-	//	//{
-	//	//	reach_states(fsm_states, reacheable_states, fsm_states.at(fsm->m_startStateId));
-	//	//}
-	//	////parent wildcard
-	//	//if (_fsm_stack.size() >= 2)
-	//	//{
-	//	//	hkVariant* variant = (hkVariant*)_fsm_stack.at(1)->data(1).value<unsigned long long>();
-	//	//	hkbStateMachine* parent_fsm = ((hkbStateMachine*)variant->m_object);
-	//	//	if (NULL != parent_fsm->m_wildcardTransitions)
-	//	//	{
-	//	//		auto& transitions = parent_fsm->m_wildcardTransitions->m_transitions;
-	//	//		for (int t = 0; t < transitions.getSize(); t++)
-	//	//		{
-	//	//			if (fsm_states.find(transitions[t].m_toNestedStateId) != fsm_states.end())
-	//	//			{
-	//	//				auto* state = fsm_states.at(transitions[t].m_toNestedStateId);
-	//	//				reach_states(fsm_states, reacheable_states, state);
-	//	//			}
-	//	//		}
-	//	//	}
-	//	//	//parent reacheable
-	//	//	for (const auto* parent_state : _fsm_reacheable_states_stack.front())
-	//	//	{
-	//	//		hkVariant* variant = (hkVariant*)parent_state->data(1).value<unsigned long long>();
-	//	//		hkbStateMachineStateInfo* hk_state = (hkbStateMachineStateInfo*)variant->m_object;
-	//	//		if (NULL != hk_state->m_transitions)
-	//	//		{
-	//	//			auto& transitions = hk_state->m_transitions->m_transitions;
-	//	//			for (int t = 0; t < transitions.getSize(); t++)
-	//	//			{
-	//	//				if (fsm_states.find(transitions[t].m_toNestedStateId) != fsm_states.end())
-	//	//				{
-	//	//					reach_states(fsm_states, reacheable_states, fsm_states.at(transitions[t].m_toNestedStateId));
-	//	//				}
-	//	//			}
-	//	//		}
-	//	//	}
-	//	//}
-
-	//	//update stack
-	//	_fsm_stack.push_front(&node);
-	//	//_fsm_reacheable_states_stack.push_front(reacheable_states);
-
-	//	//if (!state_bind.empty())
-	//	//{
-	//	//	if (control_undefined)
-	//	//	{
-	//	//		for (int n=0; n<node.childCount(); n++)
-	//	//		{
-	//	//			auto* state = node.child(n);
-	//	//			hkVariant* variant = (hkVariant*)state->data(1).value<unsigned long long>();
-	//	//			if (variant->m_class == &hkbStateMachineStateInfoClass)
-	//	//			{
-
-	//	//				//variables
-	//	//				_variables_values[state_bind] = ((hkbStateMachineStateInfo*)variant->m_object)->m_stateId;
-	//	//			
-	//	//				//if (control)
-	//	//				//{
-	//	//				//	_animation_sets_stack.push_front({});
-	//	//				//	//for (auto& event : events)
-	//	//				//	//	variables_path /= event;
-	//	//				//	variables_path = variables_path / state_bind / std::to_string(_variables_values[state_bind]);
-
-	//	//				//}
-	//	//				state->accept(*this);
-	//	//				//if (control)
-	//	//				//{
-	//	//				//	for (const auto& item : _animation_sets_stack.front())
-	//	//				//	{
-	//	//				//		_animation_sets[variables_path.string()].insert(item);
-	//	//				//	}
-	//	//				//	//for (auto& event : events)
-	//	//				//	//	variables_path = variables_path.parent_path();
-	//	//				//	variables_path = variables_path.parent_path().parent_path();
-	//	//				//	_animation_sets_stack.pop_front();
-	//	//				//}
-
-	//	//				_variables_values.erase(state_bind);
-	//	//			}
-	//	//			else {
-	//	//				state->accept(*this);
-	//	//			}
-	//	//		}
-	//	//	}
-	//	//	else {
-	//	//		int current_starting_state = _variables_values[state_bind];
-	//	//		for (int n = 0; n < node.childCount(); n++)
-	//	//		{
-	//	//			auto* state = node.child(n);
-	//	//			//hkVariant* variant = (hkVariant*)state->data(1).value<unsigned long long>();
-	//	//			//if (variant->m_class == &hkbStateMachineStateInfoClass)
-	//	//			//{				
-	//	//			//	if (current_starting_state == ((hkbStateMachineStateInfo*)variant->m_object)->m_stateId)
-	//	//			//	{
-	//	//			//		state->accept(*this);
-	//	//			//	}
-	//	//			//}
-	//	//			//else {
-	//	//				state->accept(*this);
-	//	//			//}
-	//	//		}
-	//	//	}
-	//	//}
-	//	//else {
-	//		recurse(node);
-	//	//}
-	//	//_fsm_stack.pop_front();
-	//	//_fsm_reacheable_states_stack.pop_front();
-	//}
-	//else if (variant->m_class == &hkbManualSelectorGeneratorClass) 
-	//{
-	//	hkbManualSelectorGenerator* msg = (hkbManualSelectorGenerator*)variant->m_object;
-	//	std::string selector_bind = "";
-	//	if (NULL != msg->m_variableBindingSet)
-	//	{
-	//		auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
-	//		auto& bindings = msg->m_variableBindingSet->m_bindings;
-	//		for (int i = 0; i < bindings.getSize(); ++i)
-	//		{
-	//			auto& binding = bindings[i];
-	//			auto variable_name = behavior_builder->getVariable(binding.m_variableIndex);
-	//			if (binding.m_memberPath == "selectedGeneratorIndex")
-	//			{
-	//				selector_bind = variable_name.toUtf8().constData();
-	//			}
-	//		}
-	//	}
-	//	bool banned = _avoid_variables_set.find(msg->m_name.cString()) != _avoid_variables_set.end();
-	//	if (!selector_bind.empty() && !banned)
-	//	{
-	//		bool control_undefined = _variables_values.find(selector_bind) == _variables_values.end();
-	//		bool control = _animation_styles_control_variables.find(selector_bind) != _animation_styles_control_variables.end();
-
-	//		if (control_undefined )
-	//		{
-	//			size_t generator_index = 0;
-	//			for (int i = 0; i < node.childCount(); ++i)
-	//			{
-	//				hkVariant* variant = (hkVariant*)node.child(i)->data(1).value<unsigned long long>();
-	//				if (hkbGeneratorClass.isSuperClass(*variant->m_class))
-	//				{
-	//					_variables_values[selector_bind] = generator_index++;					
-	//					node.child(i)->accept(*this);
-	//					_variables_values.erase(selector_bind);
-	//				}
-	//				else {
-	//					node.child(i)->accept(*this);
-	//				}
-	//			}
-	//		}
-	//		else {
-	//			int active_generator = _variables_values[selector_bind];
-	//			size_t generator_index = 0;
-	//			for (int i = 0; i < node.childCount(); ++i)
-	//			{
-	//				hkVariant* variant = (hkVariant*)node.child(i)->data(1).value<unsigned long long>();
-	//				if (hkbGeneratorClass.isSuperClass(*variant->m_class))
-	//				{
-	//					if (generator_index == active_generator)
-	//					{
-	//						node.child(i)->accept(*this);
-	//					}
-	//					generator_index++;
-	//				}
-	//				else {
-	//					node.child(i)->accept(*this);
-	//				}
-	//			}
-	//		}
-	//	}
-	//	else {
-	//		recurse(node);
-	//	}
-	//}
-	else if (variant->m_class == &hkbModifierGeneratorClass) 
+	else if (variant->m_class == &hkbStateMachineTransitionInfoArrayClass) 
 	{
-		hkbModifierGenerator* mg = (hkbModifierGenerator*)variant->m_object;
-		bool old_animation_driven = _animation_driven;
-		if (NULL != mg->m_modifier)
+		hkbStateMachineTransitionInfoArray* transitions = (hkbStateMachineTransitionInfoArray*)variant->m_object;
+		auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+		for (int t = 0; t < transitions->m_transitions.getSize(); ++t)
 		{
-			if (NULL != dynamic_cast<BSIsActiveModifier*>(mg->m_modifier.val()))
+			std::string event_name = behavior_builder->getEvent(transitions->m_transitions[t].m_eventId).toUtf8().constData();
+			if (_cache_set_events.find(event_name) != _cache_set_events.end())
 			{
-				auto BSI = dynamic_cast<BSIsActiveModifier*>(mg->m_modifier.val());
-				auto bindingset = mg->m_modifier->m_variableBindingSet;
-				if(NULL != bindingset)
-				{
-					auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
-					auto& bindings = bindingset->m_bindings;
-					for (int i = 0; i < bindings.getSize(); ++i)
-					{
-						auto& binding = bindings[i];
-						auto variable_name = behavior_builder->getVariable(binding.m_variableIndex);
-						if (variable_name == "bAnimationDriven")
-						{
-							switch (i)
-							{
-							case 0: _animation_driven = BSI->m_bIsActive0; break;
-							case 1: _animation_driven = BSI->m_bIsActive1; break;
-							case 2: _animation_driven = BSI->m_bIsActive2; break;
-							case 3: _animation_driven = BSI->m_bIsActive3; break;
-							case 4: _animation_driven = BSI->m_bIsActive4; break;
-							default: _animation_driven = true; break;
-							}
-						}
-					}
-				}
+				_viewmodel->setData(_viewmodel->getIndex(&node), QColor(Qt::green), Qt::BackgroundRole);
 			}
 		}
-
-			recurse(node);
-			_animation_driven = old_animation_driven;
 	}
-	//else if (variant->m_class == &hkbBehaviorReferenceGeneratorClass) {
-
-	//	/*fs::path project_folder = _manager.path(_project_file_index).parent_path();
-	//	hkbBehaviorReferenceGenerator* reference = (hkbBehaviorReferenceGenerator*)variant->m_object;
-	//	fs::path behavior_path = project_folder / reference->m_behaviorName.cString();
-	//	auto behavior_index = _manager.index(behavior_path);
-	//	auto& behavior_contents = _manager.get(behavior_path);
-	//	bool found = false;
-	//	for (const auto& content : behavior_contents.second)
-	//	{
-	//		if (content.m_class == &hkbBehaviorGraphClass) {
-	//			ProjectNode* behavior_root = _manager.findNode(behavior_index, &content);
-	//			BehaviorBuilder* builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(behavior_index));
-	//			behavior_root->accept(*this);
-	//			found = true;
-	//			break;
-	//		}
-	//	}
-	//	if (!found)
-	//		throw 666;*/
-	//}
-
-	//else if (variant->m_class == &hkbStateMachineClass) 
 	//{
-	//	hkbStateMachine* fsm = (hkbStateMachine*)variant->m_object;
-	//	if (NULL != fsm)
+	//	hkbStateMachineTransitionInfoArray* transitions = (hkbStateMachineTransitionInfoArray*)variant->m_object;
+	//	auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+	//	for (int t = 0; t < transitions->m_transitions.getSize(); ++t)
 	//	{
-	//		if (NULL != fsm->m_variableBindingSet)
+	//		std::string event_name = behavior_builder->getEvent(transitions->m_transitions[t].m_eventId).toUtf8().constData();
+	//		if (_cache_set_events.find(event_name) != _cache_set_events.end())
 	//		{
-	//			auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
-	//			auto& bindings = fsm->m_variableBindingSet->m_bindings;
-	//			for (int i = 0; i < bindings.getSize(); ++i)
-	//			{
-	//				auto& binding = bindings[i];
-	//				auto variable_name = behavior_builder->getVariable(binding.m_variableIndex);
-	//				if (variable_name == "bAnimationDriven")
-	//				{
-	//					_animation_driven = true;
-	//				}
-	//			}
+	//			_viewmodel->setData(_viewmodel->getIndex(&node), QColor(Qt::green), Qt::BackgroundRole);
 	//		}
-	//	}
-	//	recurse(node);
-	//	_animation_driven = false;
-	//}
+	//	}	
+	//}*/
 	else {
 		recurse(node);
 	}

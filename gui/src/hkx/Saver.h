@@ -186,7 +186,14 @@ namespace ckcmd {
 			bool _equip_action = false;
 			std::map<std::pair<std::string, std::string>, std::set<std::string>> _equip_event_sets;
 
+			std::set<std::string> _cache_set_events;
+
 			int isSetBinded(hkbBindable* bindable, BehaviorBuilder* builder, const std::string& path);
+
+			std::set<std::string> already_red;
+
+
+			bool _main_equip_state = false;
 
 		public: 
 
@@ -217,7 +224,7 @@ namespace ckcmd {
 			void visit<ProjectNode::NodeType::behavior_node>(ProjectNode& node)
 			{
 				_behavior_stack.push_back(&node);
-				//recurse(node);
+				recurse(node);
 				handle_behavior(node);
 				_behavior_stack.pop_front();
 			}
@@ -249,17 +256,17 @@ namespace ckcmd {
 				handle_animation_style(node);
 			}
 
-			template<>
-			void visit<ProjectNode::NodeType::action_node>(ProjectNode& node)
-			{
-				handle_action(node);
-			}
+			//template<>
+			//void visit<ProjectNode::NodeType::action_node>(ProjectNode& node)
+			//{
+			//	handle_action(node);
+			//}
 
-			template<>
-			void visit<ProjectNode::NodeType::idle_node>(ProjectNode& node)
-			{
-				handle_idle(node);
-			}
+			//template<>
+			//void visit<ProjectNode::NodeType::idle_node>(ProjectNode& node)
+			//{
+			//	handle_idle(node);
+			//}
 
 			Saver(ResourceManager& manager, ProjectNode* project_root, ProjectTreeModel* viewmodel);
 
