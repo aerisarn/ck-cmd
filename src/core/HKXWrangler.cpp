@@ -780,7 +780,7 @@ HKXWrapper::HKXWrapper(const string& out_name, const string& out_path, const str
 	create_behavior(behavior_type);
 }
 
-vector<string> HKXWrapper::read_track_list(const fs::path& path, string& skeleton_name, string& root_name, vector<string>& floats) {
+vector<string> HKXWrapper::read_track_list(const fs::path& path, string& skeleton_name, string& root_name, vector<string>& floats, const std::string& prefix) {
 	vector<string> ordered_tracks;
 	hkArray<hkVariant> objects;
 	read(path, objects);
@@ -792,7 +792,7 @@ vector<string> HKXWrapper::read_track_list(const fs::path& path, string& skeleto
 			if (string(skeleton->m_name.cString()).find("Ragdoll") == string::npos)
 			{
 				for (int i = 0; i < skeleton->m_bones.getSize(); i++)
-					ordered_tracks.push_back(skeleton->m_bones[i].m_name.cString());
+					ordered_tracks.push_back(prefix + skeleton->m_bones[i].m_name.cString());
 
 				for (int i = 0; i < skeleton->m_floatSlots.getSize(); i++)
 					floats.push_back(skeleton->m_floatSlots[i].cString());
@@ -886,7 +886,8 @@ set<string> HKXWrapper::create_animations(
 	vector<FbxProperty>& floats,
 	const vector<uint32_t>& transform_track_to_float_indices,
 	bool extract_motion,
-	RootMovement& root_info
+	RootMovement& root_info,
+	bool paired
 	)
 {
 
@@ -932,6 +933,14 @@ set<string> HKXWrapper::create_animations(
 		tempAnim->m_duration = endTimeSeconds - startTimeSeconds;
 		tempAnim->m_numberOfTransformTracks = skeleton.size();
 		tempAnim->m_annotationTracks.setSize(skeleton.size());
+		if (paired)
+		{
+			for (int i = 0; i < tempAnim->m_numberOfTransformTracks; i++) {
+				std::string name = skeleton[i]->GetName();
+				name = unsanitizeString(name);
+				tempAnim->m_annotationTracks[i].m_trackName = name.c_str();
+			}
+		}
 		tempAnim->m_numberOfFloatTracks = floats.size();
 		tempAnim->m_floats.setSize(tempAnim->m_numberOfFloatTracks);
 
@@ -1165,6 +1174,9 @@ set<string> HKXWrapper::create_animations(
 			tparams.m_rotationQuantizationType = hkaSplineCompressedAnimation::TrackCompressionParams::THREECOMP40;
 
 			auto outAnim = new hkaSplineCompressedAnimation(*tempAnim.val(), tparams, aparams);
+			//DataChunk* dataChunks; int m_numDataChunks
+			//outAnim->getDataChunks(0, 0., dataChunks, m_numDataChunks);
+
 			binding->m_animation = tempAnim;
 			binding->m_originalSkeletonName = skeleton_name.c_str();
 
@@ -1606,12 +1618,12 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 	}
 }
 
-vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vector<FbxProperty>& float_tracks)
+void HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vector<FbxProperty>& float_tracks, const std::string& prefix, vector<FbxNode*>& skeleton_nodes, bool insertRoot)
 {
 	
 	// get number of bones and apply reference pose
 	const int numBones = skeleton->m_bones.getSize();
-
+	const int displacement = skeleton_nodes.size();
 	map<int, FbxNode*> conversion_map;
 
 	// first track is actually a dummy, find the real root
@@ -1624,6 +1636,8 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 
 		string b_name = bone.m_name;
 		sanitizeString(b_name);
+		if (!prefix.empty())
+			b_name = prefix + b_name;
 
 		hkQsTransform localTransform = skeleton->m_referencePose[b];
 		const hkVector4& pos = localTransform.getTranslation();
@@ -1632,14 +1646,14 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 		FbxSkeleton* lSkeletonLimbNodeAttribute1 = FbxSkeleton::Create(scene_root->GetScene(), b_name.c_str());
 
 		//TODO: fix with ragdoll mapping
-		if (b == 0)
+		if (b == 0 && insertRoot)
 			lSkeletonLimbNodeAttribute1->SetSkeletonType(FbxSkeleton::eRoot);
 		else
 			lSkeletonLimbNodeAttribute1->SetSkeletonType(FbxSkeleton::eLimbNode);
 
 		lSkeletonLimbNodeAttribute1->Size.Set(1.0);
 		FbxNode* BaseJoint = FbxNode::Create(scene_root->GetScene(), b_name.c_str());
-		set_property(BaseJoint, "bone_order", b, FbxShortDT);
+		set_property(BaseJoint, "bone_order", b + displacement, FbxShortDT);
 		BaseJoint->SetNodeAttribute(lSkeletonLimbNodeAttribute1);
 
 		// Set Translation
@@ -1654,13 +1668,14 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 		conversion_map[b] = BaseJoint;
 	}
 
-	vector<FbxNode*> ordered_skeleton(conversion_map.size());
+	//vector<FbxNode*> ordered_skeleton(conversion_map.size());
+	skeleton_nodes.resize(displacement + conversion_map.size());
 
 	// process parenting and transform now
 	for (int c = 0; c < numBones; c++)
 	{
 		const hkInt32& parent = skeleton->m_parentIndices[c];
-		ordered_skeleton[c] = conversion_map[c];
+		skeleton_nodes[displacement + c] = conversion_map[c];
 		if (parent != -1)
 		{
 			FbxNode* ParentJointNode = conversion_map[parent];
@@ -1689,7 +1704,7 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 			string parent = track_name.substr(index + 1, track_name.size());
 			sanitizeString(parent);
 			track_name = track_name.substr(0, index);
-			FbxNode* parent_node = ordered_skeleton[0]->GetScene()->FindNodeByName(parent.c_str());
+			FbxNode* parent_node = skeleton_nodes[0]->GetScene()->FindNodeByName(parent.c_str());
 			//this was facked up by beth Shield <-> SHIELD
 			if (parent == "Shield" || parent == "Weapon")
 			{
@@ -1698,14 +1713,14 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 			if (parent_node != NULL)
 			{
 				float_tracks[i] = FbxProperty::Create(parent_node, FbxFloatDT, track_name.c_str());
-				set_property(ordered_skeleton[0], ("float" + parent).c_str(), i, FbxShortDT);
+				set_property(skeleton_nodes[0], ("float" + parent).c_str(), i, FbxShortDT);
 			}
 			else {
-				float_tracks[i] = FbxProperty::Create(ordered_skeleton[0], FbxFloatDT, track_name.c_str());
+				float_tracks[i] = FbxProperty::Create(skeleton_nodes[0], FbxFloatDT, track_name.c_str());
 			}
 		}
 		else {
-			float_tracks[i] = FbxProperty::Create(ordered_skeleton[0], FbxFloatDT, track_name.c_str());
+			float_tracks[i] = FbxProperty::Create(skeleton_nodes[0], FbxFloatDT, track_name.c_str());
 		}
 
 		//to be sure to preserve 
@@ -1713,11 +1728,50 @@ vector<FbxNode*> HKXWrapper::add(hkaSkeleton* skeleton, FbxNode* scene_root, vec
 		float_tracks[i].ModifyFlag(FbxPropertyFlags::eUserDefined, true);
 		float_tracks[i].ModifyFlag(FbxPropertyFlags::eAnimatable, true);
 	}
-
-	return ordered_skeleton;
 }
 
-vector<FbxNode*> HKXWrapper::load_skeleton(const fs::path& path, FbxNode* scene_root, vector<FbxProperty>& float_tracks)
+vector<FbxNode*> HKXWrapper::load_paired_skeleton(const fs::path& path, const fs::path& paired, FbxNode* scene_root, vector<FbxProperty>& float_tracks)
+{
+	vector<FbxNode*> nodes;
+
+	//Root
+	FbxSkeleton* lSkeletonLimbNodeAttribute1 = FbxSkeleton::Create(scene_root->GetScene(), "PairedRoot");
+	lSkeletonLimbNodeAttribute1->SetSkeletonType(FbxSkeleton::eRoot);
+	lSkeletonLimbNodeAttribute1->Size.Set(1.0);
+	FbxNode* BaseJoint = FbxNode::Create(scene_root->GetScene(), "PairedRoot");
+	scene_root->AddChild(BaseJoint);
+	set_property(BaseJoint, "bone_order", 0, FbxShortDT);
+	BaseJoint->SetNodeAttribute(lSkeletonLimbNodeAttribute1);
+	nodes.push_back(BaseJoint);
+
+	//Paired root
+	FbxSkeleton* lSkeletonLimbNodeAttribute2 = FbxSkeleton::Create(scene_root->GetScene(), "2_");
+	lSkeletonLimbNodeAttribute2->SetSkeletonType(FbxSkeleton::eLimb);
+	lSkeletonLimbNodeAttribute2->Size.Set(1.0);
+	FbxNode* SecondRoot = FbxNode::Create(scene_root->GetScene(), "2_");
+	BaseJoint->AddChild(SecondRoot);
+	set_property(SecondRoot, "bone_order", 1, FbxShortDT);
+	SecondRoot->SetNodeAttribute(lSkeletonLimbNodeAttribute2);
+	nodes.push_back(SecondRoot);
+	
+	add_skeleton(paired, SecondRoot, float_tracks, "2_", nodes, false);
+
+	//First root
+	FbxSkeleton* lSkeletonLimbNodeAttribute3 = FbxSkeleton::Create(scene_root->GetScene(), "NPC");
+	lSkeletonLimbNodeAttribute3->SetSkeletonType(FbxSkeleton::eLimb);
+	lSkeletonLimbNodeAttribute3->Size.Set(1.0);
+	FbxNode* FirstRoot = FbxNode::Create(scene_root->GetScene(), "NPC");
+	set_property(FirstRoot, "bone_order", nodes.size(), FbxShortDT);
+	FirstRoot->SetNodeAttribute(lSkeletonLimbNodeAttribute3);
+	BaseJoint->AddChild(FirstRoot);
+	nodes.push_back(FirstRoot);
+
+	add_skeleton(path, FirstRoot, float_tracks, "", nodes, false);
+
+	return nodes;
+}
+
+void HKXWrapper::add_skeleton(const fs::path& path, FbxNode* scene_root, vector<FbxProperty>& float_tracks, const std::string& track_prefix, vector<FbxNode*>& nodes, bool insertRoot)
 {
 	vector<string> ordered_tracks;
 	hkArray<hkVariant> objects;
@@ -1747,7 +1801,7 @@ vector<FbxNode*> HKXWrapper::load_skeleton(const fs::path& path, FbxNode* scene_
 		}
 	}
 	if (skeletons.empty())
-		return {};
+		return;
 	if (skeletons.size() > 1)
 	{
 		if (ragdoll_instance == NULL)
@@ -1774,7 +1828,14 @@ vector<FbxNode*> HKXWrapper::load_skeleton(const fs::path& path, FbxNode* scene_
 		}
 	}
 
-	return add(animation_skeleton, scene_root, float_tracks);
+	add(animation_skeleton, scene_root, float_tracks, track_prefix, nodes, insertRoot);
+}
+
+vector<FbxNode*> HKXWrapper::load_skeleton(const fs::path& path, FbxNode* scene_root, vector<FbxProperty>& float_tracks, const std::string& track_prefix, bool insertRoot)
+{
+	vector<FbxNode*> nodes;
+	add_skeleton(path, scene_root, float_tracks, track_prefix, nodes, insertRoot);
+	return nodes;
 }
 
 void HKXWrapper::load_animation(const fs::path& path, vector<FbxNode*>& ordered_skeleton, vector<FbxProperty>& float_tracks, RootMovement& root_movements)
@@ -2304,14 +2365,23 @@ std::map< FbxNode*, hkaBone*> boneMap;
 std::vector< hkpRigidBody*> rigidBodies;
 std::set< hkpConstraintInstance*> constraints;
 
-void HKXWrapper::create_skeleton(FbxNode* bone)
+void HKXWrapper::create_skeleton(FbxNode* bone, bool paired)
 {
 	if (skeleton == NULL)
 		skeleton = new hkaSkeleton();
-	string root_name = "NPC Root [Root]";
-	sanitizeString(root_name);
-	skeleton->m_name = "NPC Root [Root]";
-	bone->SetName(root_name.c_str());
+	if (!paired)
+	{
+		string root_name = "NPC Root [Root]";
+		sanitizeString(root_name);
+		skeleton->m_name = "NPC Root [Root]";
+		bone->SetName(root_name.c_str());
+	}
+	else {
+		string root_name = "PairedRoot";
+		sanitizeString(root_name);
+		skeleton->m_name = "PairedRoot";
+		bone->SetName(root_name.c_str());
+	}
 	if (skeleton->m_parentIndices.getSize()<1)
 		skeleton->m_parentIndices.setSize(1);
 	if (skeleton->m_bones.getSize() < 1)
@@ -2319,7 +2389,10 @@ void HKXWrapper::create_skeleton(FbxNode* bone)
 	if (skeleton->m_referencePose.getSize() < 1)
 		skeleton->m_referencePose.setSize(1);
 	skeleton->m_parentIndices[0] = -1;
-	skeleton->m_bones[0].m_name = "NPC Root [Root]";
+	if (!paired)
+		skeleton->m_bones[0].m_name = "NPC Root [Root]";
+	else
+		skeleton->m_bones[0].m_name = "PairedRoot";
 	skeleton->m_bones[0].m_lockTranslation = false;
 	auto transform = getTransform(bone);
 	skeleton->m_referencePose[0].setTranslation(transform.getTranslation());

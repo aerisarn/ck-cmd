@@ -75,6 +75,7 @@ namespace FBX {
 		bool export_rig = false;
 
 		string external_skeleton_path = "";
+		string external_paired_skeleton_path = "";
 
 		NiTriShapeRef importShape(FbxNodeAttribute* node, const FBXImportOptions& options);
 		
@@ -101,7 +102,8 @@ namespace FBX {
 		HKXWrapper& hkx_wrapper() { return hkxWrapper; }
 
 		void setExternalSkeletonPath(const string& external_skeleton_path);
-		vector<FbxNode*> importExternalSkeleton(const string& external_skeleton_path, vector<FbxProperty>& float_tracks);
+		void setExternalPairedSkeletonPath(const string& external_skeleton_path);
+		vector<FbxNode*> importExternalSkeleton(const string& external_skeleton_path, const string& external_paired_skeleton_path, vector<FbxProperty>& float_tracks);
 		void importAnimationOnSkeleton(const string& external_skeleton_path, vector<FbxNode*>& skeleton, vector<FbxProperty>& float_tracks, RootMovement& root_movements);
 		map<fs::path, RootMovement>& SaveAnimation(const string& fileName);
 

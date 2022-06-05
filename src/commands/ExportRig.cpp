@@ -132,7 +132,7 @@ bool BeginConversion(const string& importSkeleton,
 	vector<FbxProperty> floats;
 	if (fs::exists(importSkeleton) && fs::is_regular_file(importSkeleton))
 	{
-		vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, floats);
+		vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, "", floats);
 
 		vector<fs::path> animation_files;
 		if (fs::exists(animationsPath) && fs::is_directory(animationsPath))
@@ -163,7 +163,7 @@ bool BeginConversion(const string& importSkeleton,
 				auto root_movement = map.find(anim);
 				fs::path out_path = anim;  out_path.replace_extension(".fbx");
 				vector<FbxProperty> floats;
-				vector<FbxNode*> ordered_skeleton = anim_wrangler.importExternalSkeleton(importSkeleton, floats);
+				vector<FbxNode*> ordered_skeleton = anim_wrangler.importExternalSkeleton(importSkeleton, "", floats);
 
 				if (root_movement != map.end())
 				{

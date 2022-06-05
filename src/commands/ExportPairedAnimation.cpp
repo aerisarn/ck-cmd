@@ -1,4 +1,4 @@
-#include <commands/ExportAnimation.h>
+#include <commands/ExportPairedAnimation.h>
 #include <core/MathHelper.h>
 
 #include "stdafx.h"
@@ -19,68 +19,74 @@ using namespace ckcmd::FBX;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 
-static bool BeginConversion(const string& importSkeleton, const string& importHKX, const string& exportPath);
+static bool BeginConversion(const string& importSkeleton, const string& importSkeleton2, const string& importHKX, const string& exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
 
-ExportAnimation::ExportAnimation()
+ExportPairedAnimation::ExportPairedAnimation()
 {
 }
 
-ExportAnimation::~ExportAnimation()
+ExportPairedAnimation::~ExportPairedAnimation()
 {
 }
 
-string ExportAnimation::GetName() const
+string ExportPairedAnimation::GetName() const
 {
-	return "exportanimation";
+	return "ExportPairedAnimation";
 }
 
-string ExportAnimation::GetHelp() const
+string ExportPairedAnimation::GetHelp() const
 {
 	string name = GetName();
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd importanimation
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> <path_to_hkx_animation> [-e <path_to_export>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> <path_to_skeleton_hkx_2> <path_to_hkx_animation> [-e <path_to_export>]\r\n";
 
 	const char help[] =
 		R"(Converts an HKX animation to FBX. Requires a preexisting HKX skeleton
 		
 		Arguments:
 			<path_to_skeleton_hkx> the animation skeleton in hkx format
-			<path_to_hkx_animation> the FBX animation to convert
+			<path_to_skeleton_hkx_2> the paired animation skeleton in hkx format
+			<path_to_hkx_animation> the paired HKX animation to convert
 			<path_to_export> path to the output directory
 
 		)";
 	return usage + help;
 }
 
-string ExportAnimation::GetHelpShort() const
+string ExportPairedAnimation::GetHelpShort() const
 {
 	return "TODO: Short help message for ImportFBX";
 }
 
-bool ExportAnimation::InternalRunCommand(map<string, docopt::value> parsedArgs)
+bool ExportPairedAnimation::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
-	string importHKX, importSkeleton, exportPath;
+	string importHKX, importSkeleton, importSkeleton2, exportPath;
 
 	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
+	importSkeleton2 = parsedArgs["<path_to_skeleton_hkx_2>"].asString();
 	importHKX = parsedArgs["<path_to_hkx_animation>"].asString();
 	exportPath = parsedArgs["<path_to_export>"].asString();
 
 	InitializeHavok();
-	BeginConversion(importSkeleton, importHKX, exportPath);
+	BeginConversion(importSkeleton, importSkeleton2, importHKX, exportPath);
 	CloseHavok();
 	return true;
 }
 
-bool BeginConversion(const string& importSkeleton, const string& importHKX, const string& exportPath) {
+bool BeginConversion(const string& importSkeleton, const string& importSkeleton2, const string& importHKX, const string& exportPath) {
 	bool batch = false;
 	if (!fs::exists(importSkeleton) || !fs::is_regular_file(importSkeleton)) {
 		Log::Error("Invalid file: %s", importSkeleton.c_str());
+		return false;
+	}
+	if (!fs::exists(importSkeleton2) || !fs::is_regular_file(importSkeleton2)) {
+		Log::Error("Invalid file: %s", importSkeleton2.c_str());
 		return false;
 	}
 	if (fs::exists(importHKX))
@@ -109,7 +115,7 @@ bool BeginConversion(const string& importSkeleton, const string& importHKX, cons
 		wrangler.NewScene();
 		FbxNode* skeleton_root = NULL;
 		vector<FbxProperty> floats;
-		vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, "" , floats);
+		vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, importSkeleton2, floats);
 		//TODO
 		wrangler.importAnimationOnSkeleton(importHKX, ordered_skeleton, floats, RootMovement());
 
@@ -126,7 +132,7 @@ bool BeginConversion(const string& importSkeleton, const string& importHKX, cons
 			wrangler.NewScene();
 			FbxNode* skeleton_root = NULL;
 			vector<FbxProperty> floats;
-			vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, "", floats);
+			vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, importSkeleton2, floats);
 			//TODO
 			wrangler.importAnimationOnSkeleton(fbx.string(), ordered_skeleton, floats, RootMovement());
 			fs::path parent_path = fbx.parent_path();

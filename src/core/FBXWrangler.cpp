@@ -4384,6 +4384,10 @@ void FBXWrangler::setExternalSkeletonPath(const string& external_skeleton_path) 
 	this->external_skeleton_path = external_skeleton_path;
 }
 
+void FBXWrangler::setExternalPairedSkeletonPath(const string& external_paired_skeleton_path) {
+	this->external_paired_skeleton_path = external_paired_skeleton_path;
+}
+
 vector<size_t> getParentChain(const vector<int>& parentMap, const size_t node) {
 	vector<size_t> vresult;
 	int current_node = node;
@@ -5300,7 +5304,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 					FbxSkeleton* bone = (FbxSkeleton*)root->GetNodeAttributeByIndex(i);
 					if (bone->GetSkeletonType() == FbxSkeleton::eRoot)
 					{
-						hkxWrapper.create_skeleton(root);
+						hkxWrapper.create_skeleton(root, !external_paired_skeleton_path.empty());
 					}
 					else {
 						hkxWrapper.add_bone(root);
@@ -5570,7 +5574,22 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 				string external_name;
 				string external_root;
 				vector<string> external_floats;
-				vector<string> external_bones = hkxWrapper.read_track_list(external_skeleton_path, external_name, external_root, external_floats);
+				vector<string> external_bones;
+				bool paired = !external_paired_skeleton_path.empty();
+				if (!paired)
+					external_bones = hkxWrapper.read_track_list(external_skeleton_path, external_name, external_root, external_floats);
+				else {
+					external_bones.push_back("PairedRoot");
+					external_bones.push_back("2_");
+					vector<string> external_paired_bones = hkxWrapper.read_track_list(external_paired_skeleton_path, external_name, external_root, external_floats, "2_");
+					for (const auto& bone : external_paired_bones)
+						external_bones.push_back(bone);
+					external_bones.push_back("NPC");
+					external_paired_bones = hkxWrapper.read_track_list(external_skeleton_path, external_name, external_root, external_floats, "");
+					for (const auto& bone : external_paired_bones)
+						external_bones.push_back(bone);
+					external_name = "PairedRoot";
+				}
 				//maya is picky about names, and stuff may be very well sanitized! especially skeeltons, which use an illegal syntax in Skyrim
 
 				vector<FbxNode*> tracks;
@@ -5601,7 +5620,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 						Log::Info("Track not present: %s", external_bones[i].c_str());
 						if (i == 0)
 						{
-							if (external_bones[i].find("NPC Root [Root]") != string::npos)
+							if (external_bones[i].find("PairedRoot") != string::npos || external_bones[i].find("NPC Root [Root]") != string::npos )
 							{
 								Log::Info("Root track was probably renamed");
 								FbxNode* child_track = scene->FindNodeByName(external_bones[1].c_str());
@@ -5615,7 +5634,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 						continue;
 					}
 					//OPTIMIZATION: if track curve exists but doesn't have key, do not add
-					if (animated_nodes.find(track) == animated_nodes.end())
+					if (!paired && animated_nodes.find(track) == animated_nodes.end())
 						continue;
 					transformTrackToBoneIndices.push_back(i);
 					tracks.push_back(track);
@@ -5658,7 +5677,10 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 					transformTrackToBoneIndices,
 					annotated,
 					floats,
-					transformTrackToFloatIndices
+					transformTrackToFloatIndices,
+					true,
+					RootMovement(),
+					paired
 				);
 			}
 		}
@@ -5778,10 +5800,13 @@ bool FBXWrangler::SaveNif(const string& fileName) {
 	return out.Save(fileName);
 }
 
-vector<FbxNode*> FBXWrangler::importExternalSkeleton(const string& external_skeleton_path, vector<FbxProperty>& float_tracks)
+vector<FbxNode*> FBXWrangler::importExternalSkeleton(const string& external_skeleton_path, const string& external_paired_skeleton_path, vector<FbxProperty>& float_tracks)
 {	
 	this->external_skeleton_path = external_skeleton_path;
-	return hkxWrapper.load_skeleton(external_skeleton_path, scene->GetRootNode(), float_tracks);
+	vector<FbxNode*> nodes;
+	if (!external_paired_skeleton_path.empty())
+		return hkxWrapper.load_paired_skeleton(external_skeleton_path, external_paired_skeleton_path, scene->GetRootNode(), float_tracks);
+	return hkxWrapper.load_skeleton(external_skeleton_path, scene->GetRootNode(), float_tracks, "");
 }
 
 void FBXWrangler::importAnimationOnSkeleton(

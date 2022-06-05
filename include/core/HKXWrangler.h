@@ -170,7 +170,7 @@ namespace ckcmd {
 			void create_behavior(const set<string>& kf_sequences_names, const set<string>& havok_sequences_names);
 			void create_behavior(const DefaultBehaviors& kf_sequences_names);
 
-			vector<FbxNode*> add(hkaSkeleton* skeleton, FbxNode* root, vector<FbxProperty>& float_tracks);
+			void add(hkaSkeleton* skeleton, FbxNode* root, vector<FbxProperty>& float_tracks, const std::string& prefix, vector<FbxNode*>& skeleton_nodes, bool insertRoot = true);
 			void add(const string& name, hkaAnimation* animation, hkaAnimationBinding* binding, vector<FbxNode*>& ordered_skeleton, vector<FbxProperty>& float_tracks, RootMovement& root_movements);
 
 		public:
@@ -214,12 +214,12 @@ namespace ckcmd {
 
 			inline string GetGenericPath() { return out_path + "\\" + out_name + ".hkx"; }
 
-			vector<string> read_track_list(const fs::path& path, string& skeleton_name = string(""), string& root_name = string(""), vector<string>& floats = vector<string>());
+			vector<string> read_track_list(const fs::path& path, string& skeleton_name = string(""), string& root_name = string(""), vector<string>& floats = vector<string>(), const std::string& prefix = string(""));
 
 			//gives back the ordered bone array as written in the skeleton file
 			vector<FbxNode*> create_skeleton(const string& name, const set<FbxNode*>& bones, FbxNode* root = NULL);
 
-			void create_skeleton(FbxNode* bone);
+			void create_skeleton(FbxNode* bone, bool paired);
 			void add_bone(FbxNode* bone);
 			int setExternalSkeletonPose(FbxNode* body);
 
@@ -233,10 +233,13 @@ namespace ckcmd {
 				vector<FbxProperty>& floats = vector<FbxProperty>(),
 				const vector<uint32_t>& transform_track_to_float_indices = {},
 				bool extract_motion = true,
-				RootMovement& root_info = RootMovement()
+				RootMovement& root_info = RootMovement(),
+				bool paired = false
 			);
 
-			vector<FbxNode*> load_skeleton(const fs::path& path, FbxNode* scene_root, vector<FbxProperty>& float_tracks);
+			vector<FbxNode*> load_paired_skeleton(const fs::path& path, const fs::path& paired, FbxNode* scene_root, vector<FbxProperty>& float_tracks);
+			vector<FbxNode*> load_skeleton(const fs::path& path, FbxNode* scene_root, vector<FbxProperty>& float_tracks, const std::string& track_prefix, bool insertRoot = true);
+			void add_skeleton(const fs::path& path, FbxNode* scene_root, vector<FbxProperty>& float_tracks, const std::string& track_prefix, vector<FbxNode*>& tracks, bool insertRoot = true);
 			void load_animation(const fs::path& path, vector<FbxNode*>&, vector<FbxProperty>& float_tracks, RootMovement& root_movements);
 
 			map<fs::path, RootMovement>& write_animations(const string& out_path, const set<string>& havok_sequences_names);
