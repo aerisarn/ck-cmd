@@ -54,15 +54,17 @@ void ProjectsWidget::nodeDoubleClicked(const QModelIndex& index)
 }
 
 void ProjectsWidget::modelHasSetNewHkxItemPointer(
-	ckcmd::HKX::HkxItemPointer old_value, 
-	ckcmd::HKX::HkxItemPointer new_value, 
-	int file, 
-	hkVariant* variant)
+	const QModelIndex& parent,
+	const QModelIndex& index,
+	ckcmd::HKX::HkxItemPointer old_value,
+	ckcmd::HKX::HkxItemPointer new_value,
+	int file,
+	hkVariant* variant
+)
 {
 	if (old_value.get() == new_value.get())
 		return;
 
-	QModelIndex parent_index;
 	size_t row = 0;
 	ProjectNode* old_parent = nullptr;
 
@@ -71,11 +73,10 @@ void ProjectsWidget::modelHasSetNewHkxItemPointer(
 		auto old_index = _manager.findIndex(file, old_value.get());
 		auto old_variant = _manager.at(file, old_index);
 		ProjectNode* old_node = _manager.findNode(file, old_variant);
-		row = _model->getIndex(old_node).row();
+		row = index.row();
 
 		old_parent = old_node->parentItem();
-		parent_index = _model->getIndex(old_parent);
-		_model->notifyBeginRemoveRows(parent_index, row, row);
+		_model->notifyBeginRemoveRows(parent, row, row);
 		old_parent->removeChild(row);
 		old_node->removeParent(old_parent);
 		_model->notifyEndRemoveRows();
@@ -83,10 +84,9 @@ void ProjectsWidget::modelHasSetNewHkxItemPointer(
 
 	if (new_value.get() != nullptr)
 	{
-		if (!parent_index.isValid())
+		if (!parent.isValid())
 		{
 			old_parent = _manager.findNode(file, variant);
-			parent_index = _model->getIndex(old_parent);
 			row = old_parent->childCount();
 		}
 
@@ -94,13 +94,13 @@ void ProjectsWidget::modelHasSetNewHkxItemPointer(
 		auto new_variant = _manager.at(file, new_index);
 		ProjectNode* new_node = _manager.findNode(file, new_variant);
 
-		_model->notifyBeginInsertRows(parent_index, row, row);
+		_model->notifyBeginInsertRows(parent, row, row);
 		old_parent->insertChild(row, new_node);
 		new_node->setParent(old_parent);
 		_model->notifyEndInsertRows();
 
 	}
-	auto clicked = _model->index(row, 0, parent_index);
+	auto clicked = _model->index(row, 0, parent);
 	ui->treeView->setCurrentIndex(clicked);
 	nodeClicked(clicked);
 }
@@ -111,8 +111,7 @@ void ProjectsWidget::nodeClicked(const QModelIndex& index)
 	if (node_clicked->isVariant()) {
 		emit variantSelected(
 			node_clicked->data(3).value<int>(), 
-			(hkVariant*)node_clicked->data(1).toULongLong(),
-			(hkVariant*)node_clicked->data(2).toULongLong()
+			index
 		);
 	}
 }

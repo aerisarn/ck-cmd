@@ -43,11 +43,18 @@ public slots:
     void nodeDoubleClicked(const QModelIndex& index);
     void nodeClicked(const QModelIndex& index);
     void treeMenu(QPoint);
-    void modelHasSetNewHkxItemPointer(ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
+    void modelHasSetNewHkxItemPointer(
+        const QModelIndex& parent, 
+        const QModelIndex& index, 
+        ckcmd::HKX::HkxItemPointer old_value, 
+        ckcmd::HKX::HkxItemPointer new_value, 
+        int file, 
+        hkVariant* variant
+    );
 
 signals:
     //file index in resource manager, object in file
-    void variantSelected(size_t, hkVariant*, hkVariant*);
+    void variantSelected(size_t, QModelIndex index);
 
 private:
     Ui::ProjectsWidget* ui;

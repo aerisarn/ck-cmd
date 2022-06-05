@@ -268,7 +268,12 @@ struct AnimationCache {
 	CreatureCacheEntry* cloneCreature(const std::string& source_project, const std::string& destination_project);
 
 	void save(const fs::path& animationDataPath, const  fs::path& animationSetDataPath);
-	void save_creature(const string& project, CacheEntry* project_entry, const fs::path& animationDataPath, const  fs::path& animationSetDataPath, const fs::path& root_folder = ".");
+	void save_creature(const string& project, 
+		CacheEntry* project_entry, 
+		const fs::path& animationDataPath, 
+		const  fs::path& animationSetDataPath, 
+		const fs::path& root_folder = ".",
+		bool saveMergedSets = true);
 
 	void rebuildIndex();
 	void build(const string& animationDataContent, const string& animationSetDataContent);

@@ -1,4 +1,5 @@
 #include "ProjectNode.h"
+#include <Common/Base/Types/hkBaseTypes.h>
 
 using namespace ckcmd::HKX;
 
@@ -147,6 +148,10 @@ bool ProjectNode::isVariant() const {
 	return m_type == ProjectNode::NodeType::hkx_character_node
 		|| m_type == ProjectNode::NodeType::hkx_project_node
 		|| m_type == ProjectNode::NodeType::hkx_node;
+}
+
+hkVariant* ProjectNode::variant() const {
+	return reinterpret_cast<hkVariant*>(data(1).value<unsigned long long>());
 }
 
 bool ProjectNode::canSaveOrExport() const

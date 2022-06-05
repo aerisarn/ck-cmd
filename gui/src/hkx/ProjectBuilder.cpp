@@ -159,6 +159,7 @@ ProjectBuilder::ProjectBuilder(
 			std::set<std::string> _referenced_behaviors = behavior_handler->referenced_behaviors();
 			std::vector<std::string> iterating_behaviors;
 			iterating_behaviors.insert(iterating_behaviors.end(), _referenced_behaviors.begin(), _referenced_behaviors.end());
+			std::set<ProjectNode*> sub_behaviors;
 			for (size_t bb = 0; bb < iterating_behaviors.size(); bb++)
 			{
 				auto behavior_path = project_folder / iterating_behaviors[bb];
@@ -168,7 +169,8 @@ ProjectBuilder::ProjectBuilder(
 					throw std::runtime_error("hkbBehaviorGraph variant not found in " + behavior_path.string());
 				auto behavior_index = _resourceManager.index(behavior_path);
 				ProjectNode* behavior_node = _resourceManager.createBehavior(behavior_index, { behavior_data->m_name.cString(), behavior_path.string().c_str(), iterating_behaviors[bb].c_str() }, character_node);
-				character_node->appendChild(behavior_node);
+				//character_node->appendChild(behavior_node);
+				sub_behaviors.insert(behavior_node);
 				
 				auto behavior_handler = new BehaviorBuilder(_commandManager, _resourceManager, project_file_index, character_file_index, behavior_index, animations_node, false);
 				behavior_handler->setSkeleton(skeleton_builder);
@@ -197,6 +199,8 @@ ProjectBuilder::ProjectBuilder(
 			auto idle_builder = new IDLEBuilder(behavior_index, actions_node, _resourceManager);
 
 			character_node->appendChild(behavior_node);
+			for (const auto& sub : sub_behaviors)
+				character_node->appendChild(sub);
 		}
 	}
 }

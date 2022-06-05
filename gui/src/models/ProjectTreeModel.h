@@ -14,6 +14,16 @@ namespace ckcmd {
             Q_OBJECT
                 friend class TreeBuilder;
 
+            struct GraphModelIndex
+            {
+                QModelIndex parent;
+                ProjectNode* parentItem;
+                QModelIndex child;
+                ProjectNode* childItem;
+            };
+
+            std::set<GraphModelIndex*> holder;
+
             CommandManager& _commandManager;
             ResourceManager& _resourceManager;
 
@@ -21,11 +31,15 @@ namespace ckcmd {
 
             ProjectTreeModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent = 0);
             ~ProjectTreeModel() {
-            
+                for (auto ptr : holder)
+                    delete ptr;
             }
 
 
             ProjectNode* getNode(const QModelIndex& index) const;
+            ProjectNode* ProjectTreeModel::getParent(const QModelIndex& index) const;
+            QModelIndex ProjectTreeModel::getParentIndex(const QModelIndex& index) const;
+
             void notifyBeginInsertRows(const QModelIndex& index, int first, int last) {
                 emit beginInsertRows(index, first, last);
             }
@@ -70,7 +84,7 @@ namespace ckcmd {
             bool setData(const QModelIndex& index, const QVariant& value,
                 int role = Qt::EditRole) override;
 
-            QModelIndex getIndex(ProjectNode* node) const;
+            //QModelIndex getIndex(ProjectNode* node) const;
 
             ProjectNode* _rootNode = NULL;
 

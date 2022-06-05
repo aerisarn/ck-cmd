@@ -188,9 +188,20 @@ void AnimationCache::save(const fs::path& animationDataPath, const  fs::path& an
 	outstream.open(animationSetDataPath.string());
 	outstream << animationSetData.toString();
 	outstream.close();
+	for (auto& creature : creature_entries)
+	{
+		save_creature(creature.name, &creature, animationDataPath, animationSetDataPath, animationDataPath.parent_path(), false);
+	}
 }
 
-void AnimationCache::save_creature(const string& project, CacheEntry* project_entry, const fs::path& animationDataPath, const  fs::path& animationSetDataPath, const fs::path& root_folder) {
+void AnimationCache::save_creature(
+	const string& project, 
+	CacheEntry* project_entry, 
+	const fs::path& animationDataPath, 
+	const  fs::path& animationSetDataPath, 
+	const fs::path& root_folder,
+	bool saveMergedSets
+) {
 	fs::create_directories(root_folder / animation_data_folder);
 
 	if (project_entry) {
@@ -239,7 +250,8 @@ void AnimationCache::save_creature(const string& project, CacheEntry* project_en
 			outstream.close();
 		}
 
-		save(root_folder / animationDataPath, root_folder / animationSetDataPath);
+		if (saveMergedSets)
+			save(root_folder / animationDataPath, root_folder / animationSetDataPath);
 	}
 }
 

@@ -6,6 +6,8 @@
 
 #include <unordered_map>
 
+struct hkVariant;
+
 namespace ckcmd {
     namespace HKX {
 
@@ -52,6 +54,8 @@ namespace ckcmd {
             bool isProjectRoot() const;
             bool isSkeleton() const;
             bool isVariant() const;
+            hkVariant* variant() const;
+
             bool isCharacter() const;
 
             bool canSaveOrExport() const;

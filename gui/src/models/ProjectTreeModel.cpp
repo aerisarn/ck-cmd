@@ -14,7 +14,17 @@ ProjectTreeModel::ProjectTreeModel(CommandManager& commandManager, ResourceManag
 
 ProjectNode* ProjectTreeModel::getNode(const QModelIndex& index) const 
 { 
-	return static_cast<ProjectNode*>(index.internalPointer()); 
+	return static_cast<GraphModelIndex*>(index.internalPointer())->childItem;
+}
+
+ProjectNode* ProjectTreeModel::getParent(const QModelIndex& index) const
+{
+	return static_cast<GraphModelIndex*>(index.internalPointer())->parentItem;
+}
+
+QModelIndex ProjectTreeModel::getParentIndex(const QModelIndex& index) const
+{
+	return static_cast<GraphModelIndex*>(index.internalPointer())->parent;
 }
 
 /*
@@ -28,17 +38,19 @@ QVariant ProjectTreeModel::data(const QModelIndex& index, int role) const
 
 	if (role == Qt::BackgroundRole && index.isValid())
 	{
-		ProjectNode* item = static_cast<ProjectNode*>(index.internalPointer());
+		ProjectNode* item = getNode(index);
 		return QBrush(item->color());
 	}
 
 	if (role != Qt::DisplayRole && role != Qt::EditRole)
 		return QVariant();
 
-	ProjectNode* item = static_cast<ProjectNode*>(index.internalPointer());
+	ProjectNode* item = getNode(index);
 
 	return item->data(index.column());
 }
+
+
 
 //row = field
 //column = number of values in the field (1 scalar, >1 vector/matrix)
@@ -47,16 +59,33 @@ QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& pare
 	if (!hasIndex(row, column, parent))
 		return QModelIndex();
 
-	ProjectNode* parentItem;
+	GraphModelIndex* parentEdge;
 
 	if (!parent.isValid())
-		parentItem = _rootNode;
-	else
-		parentItem = static_cast<ProjectNode*>(parent.internalPointer());
+	{
+		parentEdge = new GraphModelIndex();
+		parentEdge->parent = QModelIndex();
+		parentEdge->parentItem = _rootNode;
+		parentEdge->child = createIndex(row, 0, parentEdge);
+		parentEdge->childItem = _rootNode->child(row);
+		const_cast<ProjectTreeModel*>(this)->holder.insert(parentEdge);
+		return parentEdge->child;
+	}
+	
+	parentEdge = static_cast<GraphModelIndex*>(parent.internalPointer());
 
-	ProjectNode* childItem = parentItem->child(row);
-	if (childItem)
-		return createIndex(row, column, childItem);
+	ProjectNode* newParentNode = parentEdge->childItem;
+	GraphModelIndex* new_edge = new GraphModelIndex();
+	new_edge->childItem = newParentNode->child(row);
+	new_edge->parent = parent;
+	new_edge->parentItem = newParentNode;
+	new_edge->child = createIndex(row, 0, new_edge);
+	const_cast<ProjectTreeModel*>(this)->holder.insert(new_edge);
+
+	if (new_edge->childItem)
+	{
+		return new_edge->child;
+	}
 	return QModelIndex();
 }
 
@@ -65,33 +94,27 @@ QModelIndex ProjectTreeModel::parent(const QModelIndex& index) const
 	if (!index.isValid())
 		return QModelIndex();
 
-	ProjectNode* childItem = static_cast<ProjectNode*>(index.internalPointer());
-	ProjectNode* parentItem = childItem->parentItem();
+	GraphModelIndex* edge = static_cast<GraphModelIndex*>(index.internalPointer());
 
-	if (parentItem == _rootNode)
-		return QModelIndex();
-
-	return createIndex(parentItem->row(), 0, parentItem);
+	return edge->parent;
 }
 
-int ProjectTreeModel::rowCount(const QModelIndex& parent) const
+int ProjectTreeModel::rowCount(const QModelIndex& index) const
 {
 	ProjectNode* parentItem;
-	if (parent.column() > 0)
-		return 0;
 
-	if (!parent.isValid())
+	if (!index.isValid())
 		parentItem = _rootNode;
 	else
-		parentItem = static_cast<ProjectNode*>(parent.internalPointer());
+		parentItem = getNode(index);
 
 	return parentItem->childCount();
 }
 
-int ProjectTreeModel::columnCount(const QModelIndex& parent) const
+int ProjectTreeModel::columnCount(const QModelIndex& index) const
 {
-	if (parent.isValid())
-		return static_cast<ProjectNode*>(parent.internalPointer())->columnCount();
+	if (index.isValid())
+		return getNode(index)->columnCount();
 	return _rootNode->columnCount();
 }
 
@@ -119,29 +142,32 @@ bool ProjectTreeModel::setData(const QModelIndex& index, const QVariant& value,
 	int role)
 {
 	auto node = getNode(index);
-	if (role == Qt::BackgroundRole && index.isValid())
+	if (NULL != node)
 	{
-		node->setColor(value.value<QColor>());
-		return true;
-	}
+		if (role == Qt::BackgroundRole && index.isValid())
+		{
+			node->setColor(value.value<QColor>());
+			return true;
+		}
 
-	if (node->type() == ProjectNode::NodeType::event_node)
-	{
-		BehaviorBuilder* builder = (BehaviorBuilder * )_resourceManager.fieldsHandler(node->data(2).value<int>());
-		return builder->renameEvent(node->data(3).value<int>(), value.value<QString>());
+		if (node->type() == ProjectNode::NodeType::event_node)
+		{
+			BehaviorBuilder* builder = (BehaviorBuilder*)_resourceManager.fieldsHandler(node->data(2).value<int>());
+			return builder->renameEvent(node->data(3).value<int>(), value.value<QString>());
+		}
 	}
 	return false;
 }
 
-QModelIndex ProjectTreeModel::getIndex(ProjectNode* node) const
-{
-	//ProjectNode* parentItem = node->parentItem();
-
-	if (node == _rootNode)
-		return QModelIndex();
-
-	return createIndex(node->row(), 0, node);
-}
+//QModelIndex ProjectTreeModel::getIndex(ProjectNode* node) const
+//{
+//	//ProjectNode* parentItem = node->parentItem();
+//
+//	if (node == _rootNode)
+//		return QModelIndex();
+//
+//	return createIndex(node->row(), 0, node);
+//}
 
 //bool ProjectTreeModel::insertRows(int row, int count, const QModelIndex& parent = QModelIndex())
 //{

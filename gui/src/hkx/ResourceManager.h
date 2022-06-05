@@ -104,7 +104,6 @@ namespace ckcmd {
 
 			ProjectNode* findNode(int file, const hkVariant* variant) const;
 			ProjectNode* findNode(int file, const void* object) const;
-			QModelIndex getIndex(ProjectNode* node) const;
 
 			bool isCreatureProject(int file_index);
 			CacheEntry* findCacheEntry(const std::string& sanitized_name);
