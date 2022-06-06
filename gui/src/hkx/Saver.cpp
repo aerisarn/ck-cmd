@@ -1180,27 +1180,27 @@ void Saver::handle_hkx_node(ProjectNode& node)
 
 		std::string clip_name = fs::path(clip->m_animationName.cString()).filename().replace_extension("").string();
 
-		std::string to_crc = clip_name;
-		transform(to_crc.begin(), to_crc.end(), to_crc.begin(), ::tolower);
+		//std::string to_crc = clip_name;
+		//transform(to_crc.begin(), to_crc.end(), to_crc.begin(), ::tolower);
 
-		long long crc = stoll(HkCRC::compute(to_crc), NULL, 16);
-		string crc_str = to_string(crc);
+		//long long crc = stoll(HkCRC::compute(to_crc), NULL, 16);
+		//string crc_str = to_string(crc);
 
-		if (_crc_to_find.find(crc_str) != _crc_to_find.end())
-		{
-			if (already_red.insert(clip->m_animationName.cString()).second)
-			{
-				/*if (_weapon_animation_sets[{0, 0}].find(clip->m_animationName.cString()) == _weapon_animation_sets[{0, 0}].end())
-					log << clip->m_animationName.cString() << " from " << _nodes_stack.string() << endl;*/
-				_viewmodel->setData(_viewmodel->getIndex(&node), QColor(Qt::red), Qt::BackgroundRole);
-				ProjectNode* parent = node.parentItem();
-				while (NULL != parent)
-				{
-					_viewmodel->setData(_viewmodel->getIndex(parent), QColor(Qt::red), Qt::BackgroundRole);
-					parent = parent->parentItem();
-				}
-			}
-		}
+		//if (_crc_to_find.find(crc_str) != _crc_to_find.end())
+		//{
+		//	if (already_red.insert(clip->m_animationName.cString()).second)
+		//	{
+		//		/*if (_weapon_animation_sets[{0, 0}].find(clip->m_animationName.cString()) == _weapon_animation_sets[{0, 0}].end())
+		//			log << clip->m_animationName.cString() << " from " << _nodes_stack.string() << endl;*/
+		//		/*_viewmodel->setData(_viewmodel->getIndex(&node), QColor(Qt::red), Qt::BackgroundRole);
+		//		ProjectNode* parent = node.parentItem();
+		//		while (NULL != parent)
+		//		{
+		//			_viewmodel->setData(_viewmodel->getIndex(parent), QColor(Qt::red), Qt::BackgroundRole);
+		//			parent = parent->parentItem();
+		//		}*/
+		//	}
+		//}
 
 		//recurse(node);
 	}
@@ -1453,19 +1453,19 @@ void Saver::handle_hkx_node(ProjectNode& node)
 			_fsm_stack.pop_front();
 		}
 	}
-	else if (variant->m_class == &hkbStateMachineTransitionInfoArrayClass) 
-	{
-		hkbStateMachineTransitionInfoArray* transitions = (hkbStateMachineTransitionInfoArray*)variant->m_object;
-		auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
-		for (int t = 0; t < transitions->m_transitions.getSize(); ++t)
-		{
-			std::string event_name = behavior_builder->getEvent(transitions->m_transitions[t].m_eventId).toUtf8().constData();
-			if (_cache_set_events.find(event_name) != _cache_set_events.end())
-			{
-				_viewmodel->setData(_viewmodel->getIndex(&node), QColor(Qt::green), Qt::BackgroundRole);
-			}
-		}
-	}
+	//else if (variant->m_class == &hkbStateMachineTransitionInfoArrayClass) 
+	//{
+	//	//hkbStateMachineTransitionInfoArray* transitions = (hkbStateMachineTransitionInfoArray*)variant->m_object;
+	//	//auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
+	//	//for (int t = 0; t < transitions->m_transitions.getSize(); ++t)
+	//	//{
+	//	//	std::string event_name = behavior_builder->getEvent(transitions->m_transitions[t].m_eventId).toUtf8().constData();
+	//	//	if (_cache_set_events.find(event_name) != _cache_set_events.end())
+	//	//	{
+	//	//		_viewmodel->setData(_viewmodel->getIndex(&node), QColor(Qt::green), Qt::BackgroundRole);
+	//	//	}
+	//	//}
+	//}
 	//{
 	//	hkbStateMachineTransitionInfoArray* transitions = (hkbStateMachineTransitionInfoArray*)variant->m_object;
 	//	auto behavior_builder = dynamic_cast<BehaviorBuilder*>(_manager.classHandler(file_index));
