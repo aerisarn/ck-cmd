@@ -87,7 +87,7 @@ void TreeBuilder::visit(void* v, const hkClass& pointer_type, hkClassMember::Fla
 						_parent));
 				
 			}
-			HkxTableVariant h(*variant);
+			HkxVariant h(*variant);
 			h.accept(TreeBuilder(object_node, _resourceManager, _file, _file_index, _visited_objects, _handlers));
 		}
 		else {
@@ -119,7 +119,7 @@ void TreeBuilder::visit(void* object, const hkClassMember& definition) {
 					hkVariant v;
 					v.m_class = definition.getClass();
 					v.m_object = element;
-					HkxTableVariant h(v);
+					HkxVariant h(v);
 					h.accept(*this);
 				}
 				else {
@@ -142,7 +142,7 @@ void TreeBuilder::visit(void* object, const hkClass& object_type, const char* me
 	hkVariant v;
 	v.m_class = &object_type;
 	v.m_object = object;
-	HkxTableVariant h(v);
+	HkxVariant h(v);
 	h.accept(*this);
 }
 

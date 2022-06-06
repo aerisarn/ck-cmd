@@ -11,7 +11,7 @@
 using namespace ckcmd::HKX;
 
 void ProjectBuilder::buildBranch(hkVariant& root, ProjectNode* root_node, const fs::path& path) {
-	HkxTableVariant h(root);
+	HkxVariant h(root);
 	std::set<void*> visited;
 	TreeBuilder b(root_node, _resourceManager, path, visited);
 	h.accept(b);

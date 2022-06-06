@@ -14,15 +14,44 @@ namespace ckcmd {
             Q_OBJECT
                 friend class TreeBuilder;
 
-            struct GraphModelIndex
+            enum class NodeType
             {
-                QModelIndex parent;
-                ProjectNode* parentItem;
-                QModelIndex child;
-                ProjectNode* childItem;
+                Invalid = 0,
+                ProjectNode = 1,
+                HavokNative = 2
             };
 
-            std::set<GraphModelIndex*> holder;
+            class ModelEdge
+            {
+                NodeType _parentType = nt_Invalid;
+                void* _parentItem = nullptr;
+                int _file = -1;
+                int _row = -1;
+                int _column = -1;
+                NodeType _childType = nt_Invalid;
+                void* _childItem = nullptr;
+
+            public:
+                bool operator < (const ModelEdge& rhs) const {
+                    return 
+                        _parentItem < rhs._parentItem &&
+                        _row < rhs._row &&
+                        _column < rhs._column &&
+                        _childItem < rhs._childItem;
+                }
+
+                ModelEdge() {}
+
+                ModelEdge(ProjectNode*, int file, int row, int column, ProjectNode*);
+                ModelEdge(ProjectNode*, int file, int row, int column, hkVariant*);
+                ModelEdge(hkVariant*, int file, int row, int column, hkVariant*);
+
+                QVariant data(int row, int column);
+            };
+
+            std::map<ModelEdge, qintptr> reverse_find;
+            std::map<qintptr, ModelEdge> direct_find;
+
 
             CommandManager& _commandManager;
             ResourceManager& _resourceManager;
@@ -30,9 +59,8 @@ namespace ckcmd {
         public:
 
             ProjectTreeModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent = 0);
-            ~ProjectTreeModel() {
-                for (auto ptr : holder)
-                    delete ptr;
+            ~ProjectTreeModel() 
+            {
             }
 
 

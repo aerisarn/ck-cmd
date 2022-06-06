@@ -18,7 +18,6 @@ namespace ckcmd {
 
             CommandManager& _command_manager;
             hkVariant* _variant;
-            hkVariant* _parent;
             int _file;
             hkVariant* getObject(const QModelIndex& index) const;
 
@@ -59,8 +58,7 @@ namespace ckcmd {
             HkxItemTableModel(
                 CommandManager& command_manager,
                 hkVariant* variant, 
-                int file, hkVariant* 
-                variant_parent, 
+                int file,
                 QObject* parent = 0);
             ~HkxItemTableModel() {}
 

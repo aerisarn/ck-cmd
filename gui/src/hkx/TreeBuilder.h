@@ -2,7 +2,7 @@
 
 #include <src/hkx/ResourceManager.h>
 #include <src/hkx/HkxItemVisitor.h>
-#include <src/hkx/HkxTableVariant.h>
+#include <src/hkx/HkxVariant.h>
 #include <src/models/ProjectNode.h>
 #include <src/hkx/ITreeBuilderClassHandler.h>
 #include <queue>

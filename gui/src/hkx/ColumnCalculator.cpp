@@ -1,6 +1,6 @@
 #include "ColumnCalculator.h"
 
-#include "HkxTableVariant.h"
+#include "HkxVariant.h"
 
 using namespace ckcmd::HKX;
 
@@ -25,7 +25,7 @@ void ColumnCalculator::visit(void* object, const hkClassMember& definition)
 		hkVariant v;
 		v.m_class = definition.getClass();
 		v.m_object = object;
-		HkxTableVariant h(v);
+		HkxVariant h(v);
 		ColumnCalculator r;
 		h.accept(r);
 		for (int i = 0; i < r.rows(); i++)
@@ -47,7 +47,7 @@ void ColumnCalculator::visit(void* object, const hkClass& object_type, const cha
 	hkVariant v;
 	v.m_class = &object_type;
 	v.m_object = object;
-	HkxTableVariant h(v);
+	HkxVariant h(v);
 	ColumnCalculator r;
 	h.accept(r);
 	for (int i = 0; i < r.rows(); i++)

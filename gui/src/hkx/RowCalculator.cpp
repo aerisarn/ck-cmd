@@ -18,7 +18,7 @@ void RowCalculator::visit(void* object, const hkClassMember& definition)
 		hkVariant v;
 		v.m_class = definition.getClass();
 		v.m_object = object;
-		HkxTableVariant h(v);
+		HkxVariant h(v);
 		RowCalculator r;
 		h.accept(r);
 		_rows += r.rows();
@@ -40,7 +40,7 @@ void  RowCalculator::visit(void* object, const hkClass& object_type, const char*
 		hkVariant v;
 		v.m_class = &object_type;
 		v.m_object = object;
-		HkxTableVariant h(v);
+		HkxVariant h(v);
 		RowCalculator r;
 		h.accept(r);
 		_rows += r.rows();

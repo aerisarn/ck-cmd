@@ -6,21 +6,19 @@
 #include <src\hkx\RowCalculator.h>
 #include <src\hkx\ColumnCalculator.h>
 #include <src\hkx\HkxItemPointer.h>
-#include <src\hkx\HkxTableVariant.h>
+#include <src\hkx\HkxVariant.h>
 
 using namespace ckcmd::HKX;
 
 HkxItemTableModel::HkxItemTableModel(
 	CommandManager& command_manager,
 	hkVariant* variant, 
-	int file, 
-	hkVariant* variant_parent, 
+	int file,
 	QObject* parent
 ) :
 	_command_manager(command_manager),
 	_variant(variant), 
-	_file(file), 
-	_parent(variant_parent),
+	_file(file),
 	QAbstractTableModel(parent)
 {
 }
@@ -31,7 +29,7 @@ hkVariant* HkxItemTableModel::getObject(const QModelIndex& index) const {
 
 bool HkxItemTableModel::indexValid(const QModelIndex& index) const
 {
-	HkxTableVariant h(*_variant);
+	HkxVariant h(*_variant);
 	RowCalculator r;
 	ColumnCalculator c;
 	h.accept(r);
@@ -48,7 +46,7 @@ QVariant HkxItemTableModel::data(const QModelIndex& index, int role) const
 	{
 		if (indexValid(index))
 		{
-			HkxTableVariant h(*_variant);
+			HkxVariant h(*_variant);
 			Getter g(index.row(), index.column(), _file, _handlers);
 			h.accept(g);
 			return g.value();
@@ -63,7 +61,7 @@ int HkxItemTableModel::rowCount(const QModelIndex& parent) const
 	if (_variant == nullptr)
 		return 0;
 	RowCalculator r;
-	HkxTableVariant h(*_variant);
+	HkxVariant h(*_variant);
 	h.accept(r);
 	return r.rows();
 }
@@ -73,7 +71,7 @@ int HkxItemTableModel::columnCount(const QModelIndex& parent) const
 	if (_variant == nullptr)
 		return 0;
 	ColumnCalculator c;
-	HkxTableVariant h(*_variant);
+	HkxVariant h(*_variant);
 	h.accept(c);
 	return c.columns();
 }
@@ -92,7 +90,7 @@ QVariant HkxItemTableModel::headerData(int section, Qt::Orientation orientation,
 		}
 		else if (orientation == Qt::Orientation::Vertical) {
 			NameGetter n(section, "");
-			HkxTableVariant h(*_variant);
+			HkxVariant h(*_variant);
 			h.accept(n);
 			return n.name();
 		}
@@ -110,7 +108,7 @@ QVariant HkxItemTableModel::internalSetData(int file, hkVariant* variant, const 
 		if (indexValid(index))
 		{
 			QVariant old_value;
-			HkxTableVariant h(*_variant);
+			HkxVariant h(*_variant);
 
 			Getter g(index.row(), index.column(), _file, _handlers);
 			h.accept(g);

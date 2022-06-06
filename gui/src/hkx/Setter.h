@@ -1,7 +1,7 @@
 #pragma once
 
 #include "HkxItemVisitor.h"
-#include "HkxTableVariant.h"
+#include "HkxVariant.h"
 #include "RowCalculator.h"
 #include "ColumnCalculator.h"
 #include "HkxItemReal.h"
@@ -203,7 +203,7 @@ namespace ckcmd {
 
 		template<>
 		void Setter::visit(hkVariant& value) {
-			HkxTableVariant h(value);
+			HkxVariant h(value);
 			RowCalculator r;
 			h.accept(r);
 			size_t array_rows = r.rows();

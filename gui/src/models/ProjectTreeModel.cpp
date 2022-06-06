@@ -1,9 +1,63 @@
 #include "ProjectTreeModel.h"
+#include <src/hkx/HkxTableVariant.h>
+
 
 #include <src/hkx/BehaviorBuilder.h>
 #include <QBrush>
 
 using namespace ckcmd::HKX;
+
+
+ProjectTreeModel::ModelEdge::ModelEdge(ProjectNode* parent, int file, int row, int column, ProjectNode* child)
+{
+	_parentType = NodeType::ProjectNode;
+	_parentItem = reinterpret_cast<void*>(parent);
+	_file = file;
+	_row = row;
+	_column = column;
+	_childType = NodeType::ProjectNode;;
+	_childItem = reinterpret_cast<void*>(child);
+}
+
+ProjectTreeModel::ModelEdge::ModelEdge(ProjectNode* parent, int file, int row, int column, hkVariant* child)
+{
+	_parentType = NodeType::ProjectNode;
+	_parentItem = reinterpret_cast<void*>(parent);
+	_file = file;
+	_row = row;
+	_column = column;
+	_childType = NodeType::HavokNative;;
+	_childItem = reinterpret_cast<void*>(child);
+}
+
+ProjectTreeModel::ModelEdge::ModelEdge(hkVariant* parent, int file, int row, int column, hkVariant* child)
+{
+	_parentType = NodeType::HavokNative;
+	_parentItem = reinterpret_cast<void*>(parent);
+	_file = file;
+	_row = row;
+	_column = column;
+	_childType = NodeType::HavokNative;;
+	_childItem = reinterpret_cast<void*>(child);
+}
+
+
+QVariant ProjectTreeModel::ModelEdge::data(int row, int column)
+{
+	switch (_childType)
+	{
+	case NodeType::ProjectNode:
+		return reinterpret_cast<ProjectNode*>(_childItem)->data(column);
+	case NodeType::HavokNative:
+	{
+		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
+		HkxVariant
+	}
+	default:
+		return QVariant();
+	}
+	return QVariant();
+}
 
 ProjectTreeModel::ProjectTreeModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent) :
 	_commandManager(commandManager),
@@ -12,20 +66,7 @@ ProjectTreeModel::ProjectTreeModel(CommandManager& commandManager, ResourceManag
 {
 }
 
-ProjectNode* ProjectTreeModel::getNode(const QModelIndex& index) const 
-{ 
-	return static_cast<GraphModelIndex*>(index.internalPointer())->childItem;
-}
 
-ProjectNode* ProjectTreeModel::getParent(const QModelIndex& index) const
-{
-	return static_cast<GraphModelIndex*>(index.internalPointer())->parentItem;
-}
-
-QModelIndex ProjectTreeModel::getParentIndex(const QModelIndex& index) const
-{
-	return static_cast<GraphModelIndex*>(index.internalPointer())->parent;
-}
 
 /*
 ** AbstractItemModel(required methods)
@@ -59,10 +100,24 @@ QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& pare
 	if (!hasIndex(row, column, parent))
 		return QModelIndex();
 
-	GraphModelIndex* parentEdge;
 
 	if (!parent.isValid())
 	{
+
+
+		//root handling
+		ModelEdge edge =
+		{
+			nt_ProjectNode,
+			_rootNode,
+			row,
+			column,
+			nt_ProjectNode,
+
+
+		}
+		edge.parentType = nt_ProjectNode;
+
 		parentEdge = new GraphModelIndex();
 		parentEdge->parent = QModelIndex();
 		parentEdge->parentItem = _rootNode;

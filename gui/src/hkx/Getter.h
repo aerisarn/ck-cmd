@@ -1,7 +1,7 @@
 #pragma once
 
 #include "HkxItemVisitor.h"
-#include "HkxTableVariant.h"
+#include "HkxVariant.h"
 #include "RowCalculator.h"
 #include "ColumnCalculator.h"
 #include "HkxItemReal.h"
@@ -14,7 +14,7 @@
 namespace ckcmd {
 	namespace HKX {
 
-		class Getter : public HkxConcreteVisitor<Getter>, public SpecialFieldsListener {
+		class Getter : public HkxConcreteVisitor<Getter> {
 			QVariant _value;
 			int _row;
 			int _column;
@@ -29,13 +29,6 @@ namespace ckcmd {
 			Getter(const size_t row, const size_t column, int file_index) :
 				HkxConcreteVisitor(*this), 
 				_row(row), _column(column), _file_index(file_index) {}
-
-			Getter(const size_t row, const size_t column, int file_index, const std::map<member_id_t, ISpecialFieldsHandler*>& handlers) :
-				HkxConcreteVisitor(*this),
-				_row(row), _column(column), _file_index(file_index) 
-			{
-				_handlers = handlers;
-			}
 
 			QVariant value() { return _value; }
 
@@ -68,13 +61,7 @@ namespace ckcmd {
 		void Getter::check(T& value) {
 			if (_row == 0)
 			{
-				if (_handlers.find({ _class, _classmember }) != _handlers.end())
-				{
-					_value = _handlers[{_class, _classmember}]->value(value, _class, _classmember, _lastVariant);
-				}
-				else {
-					_value = value;
-				}
+				_value = value;
 			}
 			_row -= 1;
 		}
@@ -198,7 +185,7 @@ namespace ckcmd {
 
 		template<>
 		void Getter::visit(hkVariant& value) {
-			HkxTableVariant h(value);
+			HkxVariant h(value);
 			RowCalculator r;
 			h.accept(r);
 			size_t array_rows = r.rows();

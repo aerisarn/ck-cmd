@@ -2,7 +2,7 @@
 
 #include <src/ILogger.h>
 #include <src/hkx/HkxItemVisitor.h>
-#include <src/hkx/HkxTableVariant.h>
+#include <src/hkx/HkxVariant.h>
 #include <src/models/ProjectNode.h>
 
 namespace ckcmd {

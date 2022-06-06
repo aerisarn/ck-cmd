@@ -1,6 +1,6 @@
 #include "NameGetter.h"
 
-#include "HkxTableVariant.h"
+#include "HkxVariant.h"
 #include "RowCalculator.h"
 #include "ColumnCalculator.h"
 
@@ -62,7 +62,7 @@ void NameGetter::visit(void* object, const hkClassMember& definition)
 		hkVariant v;
 		v.m_class = definition.getClass();
 		v.m_object = object;
-		HkxTableVariant h(v);
+		HkxVariant h(v);
 		
 		RowCalculator r;
 		h.accept(r);
@@ -100,7 +100,7 @@ void NameGetter::visit(void* object, const hkClass& object_type, const char* mem
 		hkVariant v;
 		v.m_class = &object_type;
 		v.m_object = object;
-		HkxTableVariant h(v);
+		HkxVariant h(v);
 		RowCalculator r;
 		h.accept(r);
 		NameGetter n(_target_row, member_name);
