@@ -14,17 +14,17 @@ ValuesWidget::ValuesWidget(ProjectTreeModel* model, CommandManager& command_mana
 	ui(new Ui::ValuesWidget),
 	ads::CDockWidget("Values",parent)
 {
-	ui->setupUi(this);
-	ui->valuesView->setRowHeight(0,1024);
-	ui->valuesView->setItemDelegate(new RefDelegate(_manager, this));
-	setWidget(ui->verticalLayoutWidget);
-	auto table_model = new HkxItemTableModel(command_manager, nullptr, -1, nullptr, this);
-	connect(
-		table_model, &HkxItemTableModel::HkxItemPointerChanged,
-		this, &ValuesWidget::modelHasSetNewHkxItemPointer
-	);
-	ui->valuesView->setModel(table_model);
-	ui->valuesView->setVisible(false);
+	//ui->setupUi(this);
+	//ui->valuesView->setRowHeight(0,1024);
+	//ui->valuesView->setItemDelegate(new RefDelegate(_manager, this));
+	//setWidget(ui->verticalLayoutWidget);
+	//auto table_model = new HkxItemTableModel(command_manager, nullptr, -1, nullptr, this);
+	//connect(
+	//	table_model, &HkxItemTableModel::HkxItemPointerChanged,
+	//	this, &ValuesWidget::modelHasSetNewHkxItemPointer
+	//);
+	//ui->valuesView->setModel(table_model);
+	//ui->valuesView->setVisible(false);
 }
 
 ValuesWidget::~ValuesWidget()
@@ -36,7 +36,7 @@ ValuesWidget::~ValuesWidget()
 
 void ValuesWidget::setIndex(int file_index, QModelIndex index)
 {
-	_index = index;
+	/*_index = index;
 	ProjectNode* node = _model->getNode(index);
 
 	if (node->isVariant())
@@ -56,11 +56,11 @@ void ValuesWidget::setIndex(int file_index, QModelIndex index)
 		ui->valuesView->resizeRowsToContents();
 		ui->valuesView->viewport()->setGeometry(vporig);
 		ui->valuesView->setVisible(true);
-	}
+	}*/
 }
 
 void ValuesWidget::modelHasSetNewHkxItemPointer(HkxItemPointer old_value, HkxItemPointer new_value, int file, hkVariant* variant)
 {
-	emit HkxItemPointerChanged(_index, _model->getParentIndex(_index), old_value, new_value, file, variant);
+	//emit HkxItemPointerChanged(_index, _model->getParentIndex(_index), old_value, new_value, file, variant);
 }
 

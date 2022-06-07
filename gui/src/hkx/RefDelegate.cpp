@@ -63,10 +63,10 @@ void RefDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, c
     if (index.data().canConvert<HkxItemPointer>()) {
 
         HkxItemPointer data = index.data().value<HkxItemPointer>();
-        auto file_index_ = data.file_index();
-        auto* object_address_ = data.get();
-        auto object_index = _manager.findIndex(data.file_index(), data.get());
-        QString label = ObjectText(object_index, file_index_);
+        //auto file_index_ = data.file_index();
+        //auto* object_address_ = data.get();
+        //auto object_index = _manager.findIndex(data.file_index(), data.get());
+        QString label = QString("[%1]").arg((unsigned long long)data.get());//ObjectText(object_index, file_index_);
 
         if (option.state & QStyle::State_Selected)
         {
@@ -176,12 +176,12 @@ QSize RefDelegate::sizeHint(const QStyleOptionViewItem& option,
 {
     if (index.data().canConvert<HkxItemPointer>()) {
         HkxItemPointer data = index.data().value<HkxItemPointer>();
-        auto object_index = _manager.findIndex(data.file_index(), data.get());
-        QString label = ObjectText(object_index, data.file_index());
-        auto objects = _manager.findCompatibleNodes(data.file_index(), data.field_class());
+        //auto object_index = _manager.findIndex(data.file_index(), data.get());
+        //QString label = ObjectText(object_index, data.file_index());
+        //auto objects = _manager.findCompatibleNodes(data.file_index(), data.field_class());
         QStringList options;
-        for (const auto& object : objects)
-            options << ObjectText(object.first, data.file_index());
+        //for (const auto& object : objects)
+        //    options << ObjectText(object.first, data.file_index());
 
         return ComboBoxSizeHint(option, options);
     }
@@ -270,18 +270,18 @@ void RefDelegate::setEditorData(QWidget* editor,
     if (index.data().canConvert<HkxItemPointer>()) {
         QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
         HkxItemPointer ptr = index.data().value<HkxItemPointer>();
-        auto objects = _manager.findCompatibleNodes(ptr.file_index(), ptr.field_class());
+        //auto objects = _manager.findCompatibleNodes(ptr.file_index(), ptr.field_class());
         QStringList options;
         options << "<clear>";
         int index = 0;
-        int i = 0;
-        for (const auto& object : objects)
-        {
-            options << ObjectText(object.first, ptr.file_index());
-            if (object.second->m_object == ptr.get())
-                index = i;
-            i++;
-        }
+        //int i = 0;
+        //for (const auto& object : objects)
+        //{
+        //    options << ObjectText(object.first, ptr.file_index());
+        //    if (object.second->m_object == ptr.get())
+        //        index = i;
+        //    i++;
+        //}
         ptr_editor->addItems(options);
         ptr_editor->setCurrentIndex(index+1);
         return;
@@ -345,17 +345,17 @@ void RefDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
     if (index.data().canConvert<HkxItemPointer>()) {
         QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
         HkxItemPointer ptr = index.data().value<HkxItemPointer>();
-        auto objects = _manager.findCompatibleNodes(ptr.file_index(), ptr.field_class());
+        //auto objects = _manager.findCompatibleNodes(ptr.file_index(), ptr.field_class());
         QVariant new_value;
         if (ptr_editor->currentIndex() == 0)
         {
-            new_value.setValue(HkxItemPointer(ptr.file_index(), 0, ptr.field_class()));
+            //new_value.setValue(HkxItemPointer(ptr.file_index(), 0, ptr.field_class()));
         }
-        else if (!objects.empty())
-        {
-            auto selected_object = objects[ptr_editor->currentIndex()-1];
-            new_value.setValue(HkxItemPointer(ptr.file_index(), selected_object.second->m_object, ptr.field_class()));
-        }
+        //else if (!objects.empty())
+        //{
+        //    auto selected_object = objects[ptr_editor->currentIndex()-1];
+        //    //new_value.setValue(HkxItemPointer(ptr.file_index(), selected_object.second->m_object, ptr.field_class()));
+        //}
         model->setData(index, new_value, Qt::EditRole);
     }
     else if (index.data().canConvert<HkxItemEnum>()) {

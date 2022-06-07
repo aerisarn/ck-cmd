@@ -54,8 +54,8 @@ namespace ckcmd {
             bool isProjectRoot() const;
             bool isSkeleton() const;
             bool isVariant() const;
-            hkVariant* variant() const;
-            int file() const;
+            virtual hkVariant* variant() const;
+            virtual int file() const;
 
             bool isCharacter() const;
 
@@ -68,24 +68,19 @@ namespace ckcmd {
 
             virtual ProjectNode* child(int row);
             ProjectNode* setChild(int row, ProjectNode* new_child);
-            void addParent(ProjectNode* new_parent);
-            void setParent(ProjectNode* new_parent);
             ProjectNode* removeChild(int row);
-            void removeParent(ProjectNode* parent);
             void insertChild(int row, ProjectNode* new_child);
             virtual int childCount() const;
             virtual int columnCount() const;
             virtual QVariant data(int column) const;
-            virtual int row() const;
-            virtual ProjectNode* parentItem();
-            ProjectNode* parentItem(int row);
-            virtual int parentCount() const;
             virtual NodeType type() const;
 
             const std::vector<int>& indicesOf(ProjectNode* child) const;
 
             virtual void setColor(QColor color);
             virtual QColor color() const;
+
+            virtual std::string name();
 
 
             template<typename Visitor, typename ...Ts>

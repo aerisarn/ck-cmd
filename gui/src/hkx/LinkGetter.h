@@ -9,15 +9,15 @@ namespace ckcmd {
 	namespace HKX {
 
 		struct Link {
-			int _row;
-			int _column;
-			void* _ref;
+			int _row = 0;
+			int _column = 0;
+			void* _ref = nullptr;
 		};
 
 		class LinkGetter : public HkxConcreteVisitor<LinkGetter> {
 
 			std::vector<Link> _links;
-			int _row;
+			int _row = 0;
 
 		public:
 

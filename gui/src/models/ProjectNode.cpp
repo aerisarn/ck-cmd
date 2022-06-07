@@ -73,48 +73,11 @@ int ProjectNode::childCount() const
 	return m_childItems.count();
 }
 
-int ProjectNode::row() const
-{
-	if (!m_parentItems.isEmpty())
-		return m_parentItems.first()->m_childItems.indexOf(const_cast<ProjectNode*>(this));
-
-	return 0;
-}
-
 int ProjectNode::columnCount() const
 {
 	return m_itemData.count();
 }
 
-ProjectNode* ProjectNode::parentItem()
-{
-	if (m_parentItems.isEmpty())
-		return nullptr;
-	return m_parentItems.first();
-}
-
-int ProjectNode::parentCount() const
-{
-	return m_parentItems.count();
-}
-
-ProjectNode* ProjectNode::parentItem(int row)
-{
-	if (row < 0)
-		return nullptr;
-	if (m_parentItems.isEmpty())
-		return nullptr;
-	if (row >= m_parentItems.count())
-		return nullptr;
-	/*for (int i = 0; i < m_parentItems.size(); i++) {
-		if (m_parentItems[i]->child(row) == this)
-			return m_parentItems[i];
-	}*/
-
-	return m_parentItems[row];
-
-	return m_parentItems.first();
-}
 
 QVariant ProjectNode::data(int column) const
 {
@@ -158,6 +121,11 @@ int ProjectNode::file() const {
 	return data(3).value<int>();
 }
 
+std::string ProjectNode::name()
+{
+	return data(0).toString().toUtf8().constData();
+}
+
 bool ProjectNode::canSaveOrExport() const
 {
 	return m_type == ProjectNode::NodeType::misc_node
@@ -167,29 +135,6 @@ bool ProjectNode::canSaveOrExport() const
 bool ProjectNode::isCharacter() const
 {
 	return m_type == ProjectNode::NodeType::character_node;
-}
-
-
-void ProjectNode::addParent(ProjectNode* new_parent)
-{
-	if (!m_parentItems.contains(new_parent))
-		m_parentItems.push_back(new_parent);
-}
-
-void ProjectNode::setParent(ProjectNode* new_parent)
-{
-	if (!m_parentItems.contains(new_parent))
-	{
-		m_parentItems.push_front(new_parent);
-		if (isVariant())
-			m_itemData[2] = new_parent->data(1);
-	}
-}
-
-void ProjectNode::removeParent(ProjectNode* parent)
-{
-	if (m_parentItems.contains(parent))
-		m_parentItems.remove(m_parentItems.indexOf(parent));
 }
 
 void ProjectNode::setColor(QColor color)

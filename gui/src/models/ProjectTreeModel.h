@@ -4,6 +4,7 @@
 #include <src/models/ProjectNode.h>
 #include <src/hkx/CommandManager.h>
 #include <src/hkx/ResourceManager.h>
+#include <src/models/ProjectTreeActions.h>
 
 //Proof of concept, but unuseful. look for table/tree models instead
 
@@ -27,19 +28,20 @@ namespace ckcmd {
 
                 NodeType _parentType = NodeType::Invalid;
                 void* _parentItem = nullptr;
+                QModelIndex _parent;
                 int _file = -1;
                 int _row = -1;
                 int _column = -1;
                 NodeType _childType = NodeType::Invalid;
                 void* _childItem = nullptr;
+                QModelIndex _child;
+
+                auto as_tuple() const { return std::tie(_parentItem, _file, _row, _column, _childItem); }
 
             public:
                 bool operator < (const ModelEdge& rhs) const {
                     return 
-                        _parentItem < rhs._parentItem &&
-                        _row < rhs._row &&
-                        _column < rhs._column &&
-                        _childItem < rhs._childItem;
+                        as_tuple() < rhs.as_tuple();
                 }
 
                 ModelEdge() {}
@@ -50,11 +52,12 @@ namespace ckcmd {
 
                 QVariant data(int row, int column) const;
 
-                ModelEdge childEdge(int index);
+                ModelEdge childEdge(int index, ResourceManager& manager) const;
+                int childCount() const;
             };
 
             struct ModelEdgeComparator {
-                bool operator()(const ModelEdge*& a, const ModelEdge*& b) const {
+                bool operator()(const ModelEdge* a, const ModelEdge* b) const {
                     return *a < *b;
                 }
             };
@@ -71,6 +74,7 @@ namespace ckcmd {
 
             CommandManager& _commandManager;
             ResourceManager& _resourceManager;
+            ProjectTreeActions _actionsManager;
 
         public:
 
@@ -79,38 +83,36 @@ namespace ckcmd {
             {
             }
 
+            void select(const QModelIndex& index);
+            void activate(const QModelIndex& index);
 
-            ProjectNode* getNode(const QModelIndex& index) const;
-            ProjectNode* ProjectTreeModel::getParent(const QModelIndex& index) const;
-            QModelIndex ProjectTreeModel::getParentIndex(const QModelIndex& index) const;
+            //void notifyBeginInsertRows(const QModelIndex& index, int first, int last) {
+            //    emit beginInsertRows(index, first, last);
+            //}
 
-            void notifyBeginInsertRows(const QModelIndex& index, int first, int last) {
-                emit beginInsertRows(index, first, last);
-            }
+            //void notifyEndInsertRows() {
+            //    emit endInsertRows();
+            //}
 
-            void notifyEndInsertRows() {
-                emit endInsertRows();
-            }
+            //void notifyBeginRemoveRows(const QModelIndex& index, int first, int last) {
+            //    emit beginRemoveRows(index, first, last);
+            //}
 
-            void notifyBeginRemoveRows(const QModelIndex& index, int first, int last) {
-                emit beginRemoveRows(index, first, last);
-            }
+            //void notifyEndRemoveRows() {
+            //    emit endRemoveRows();
+            //}
 
-            void notifyEndRemoveRows() {
-                emit endRemoveRows();
-            }
+            //void notifyBeginMoveRows(const QModelIndex& sourceParent, int sourceFirst, int sourceLast, const QModelIndex& destinationParent, int destinationRow) {
+            //    emit beginMoveRows(sourceParent, sourceFirst, sourceLast, destinationParent, destinationRow);
+            //}
 
-            void notifyBeginMoveRows(const QModelIndex& sourceParent, int sourceFirst, int sourceLast, const QModelIndex& destinationParent, int destinationRow) {
-                emit beginMoveRows(sourceParent, sourceFirst, sourceLast, destinationParent, destinationRow);
-            }
+            //void notifyEndMoveRows() {
+            //    emit endMoveRows();
+            //}
 
-            void notifyEndMoveRows() {
-                emit endMoveRows();
-            }
-
-            void notifyElementChanged(const QModelIndex& index) {
-                emit dataChanged(index, index, { Qt::DisplayRole, Qt::EditRole });
-            }
+            //void notifyElementChanged(const QModelIndex& index) {
+            //    emit dataChanged(index, index, { Qt::DisplayRole, Qt::EditRole });
+            //}
 
 
             /*

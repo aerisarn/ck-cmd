@@ -390,44 +390,44 @@ ProjectNode* BehaviorBuilder::visit(
 
 QVariant BehaviorBuilder::handle(void* value, const hkClass* hkclass, const hkClassMember* hkmember, const hkVariant* container)
 {
-	auto events = getEventFields();
-	if (std::find_if(events.begin(), events.end(), 
-		[&hkclass, &hkmember](const member_id_t& element){ return element.first == hkclass && element.second == hkmember; }) != events.end())
-	{
-		return HkxItemEvent(this, *(int*)value);
-	}
-	auto variables = getVariableFields();
-	if (std::find_if(variables.begin(), variables.end(),
-		[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != variables.end())
-	{
-		return HkxItemVar(this, *(int*)value);
-	}
-	auto stateids = getStateIdFields();
-	if (std::find_if(stateids.begin(), stateids.end(),
-		[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != stateids.end())
-	{
-		size_t fsm_index;
-		auto node = _manager.findNode(_file_index, container);
-		auto parent_variant = (hkVariant*)(node->parentItem()->data(1).value<unsigned long long>());
-		if (parent_variant->m_class == &hkbStateMachineStateInfoClass) {
-			auto grandnode = node->parentItem();
-			auto grandparent_variant = (hkVariant*)(grandnode->parentItem()->data(1).value<unsigned long long>());
-			fsm_index = _manager.findIndex(_file_index, grandparent_variant->m_object);
-		}
-		else if (parent_variant->m_class == &hkbStateMachineClass) {
-			fsm_index = _manager.findIndex(_file_index, parent_variant->m_object);
-		}
-		else {
-			throw std::runtime_error("Unknown parent for state Id");
-		}
-		return HkxItemFSMState(this, fsm_index , *(int*)value);
-	}
-	auto bones = _skeleton_builder->getHandledFields();
-	if (std::find_if(bones.begin(), bones.end(),
-		[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != bones.end())
-	{
-		return _skeleton_builder->handle(_file_index, value, hkclass, hkmember, container);
-	}
+	//auto events = getEventFields();
+	//if (std::find_if(events.begin(), events.end(), 
+	//	[&hkclass, &hkmember](const member_id_t& element){ return element.first == hkclass && element.second == hkmember; }) != events.end())
+	//{
+	//	return HkxItemEvent(this, *(int*)value);
+	//}
+	//auto variables = getVariableFields();
+	//if (std::find_if(variables.begin(), variables.end(),
+	//	[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != variables.end())
+	//{
+	//	return HkxItemVar(this, *(int*)value);
+	//}
+	//auto stateids = getStateIdFields();
+	//if (std::find_if(stateids.begin(), stateids.end(),
+	//	[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != stateids.end())
+	//{
+	//	size_t fsm_index;
+	//	auto node = _manager.findNode(_file_index, container);
+	//	auto parent_variant = (hkVariant*)(node->parentItem()->data(1).value<unsigned long long>());
+	//	if (parent_variant->m_class == &hkbStateMachineStateInfoClass) {
+	//		auto grandnode = node->parentItem();
+	//		auto grandparent_variant = (hkVariant*)(grandnode->parentItem()->data(1).value<unsigned long long>());
+	//		fsm_index = _manager.findIndex(_file_index, grandparent_variant->m_object);
+	//	}
+	//	else if (parent_variant->m_class == &hkbStateMachineClass) {
+	//		fsm_index = _manager.findIndex(_file_index, parent_variant->m_object);
+	//	}
+	//	else {
+	//		throw std::runtime_error("Unknown parent for state Id");
+	//	}
+	//	return HkxItemFSMState(this, fsm_index , *(int*)value);
+	//}
+	//auto bones = _skeleton_builder->getHandledFields();
+	//if (std::find_if(bones.begin(), bones.end(),
+	//	[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != bones.end())
+	//{
+	//	return _skeleton_builder->handle(_file_index, value, hkclass, hkmember, container);
+	//}
 	return "BehaviorBuilder - Not set";
 }
 

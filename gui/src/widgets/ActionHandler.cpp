@@ -17,27 +17,27 @@ void ActionHandler::buildSaveAction()
 
 void ActionHandler::selectionChanged(const QItemSelection& selected, const QItemSelection& deselected)
 {
-	if (selected.size() == 1) {
-		auto model = (ProjectTreeModel*)selected[0].model();
-		ProjectNode* node = model->getNode(selected[0].topLeft());
-		if (node->canSaveOrExport())
-		{
-			_saveAction->setEnabled(true);
-		}
-		else {
-			_saveAction->setEnabled(false);
-		}
-	}
+	//if (selected.size() == 1) {
+	//	auto model = (ProjectTreeModel*)selected[0].model();
+	//	ProjectNode* node = model->getNode(selected[0].topLeft());
+	//	if (node->canSaveOrExport())
+	//	{
+	//		_saveAction->setEnabled(true);
+	//	}
+	//	else {
+	//		_saveAction->setEnabled(false);
+	//	}
+	//}
 }
 
 void ActionHandler::save()
 {
-	if (_modelview.selectionModel()->selection().size() == 1) {
-		auto selected = _modelview.selectionModel()->selection()[0];
-		auto model = (ProjectTreeModel*)_modelview.selectionModel()->selection()[0].model();
-		ProjectNode* node = model->getNode(selected.topLeft());
-		Saver(_resourceManager, node, model);
-	}
+	//if (_modelview.selectionModel()->selection().size() == 1) {
+	//	auto selected = _modelview.selectionModel()->selection()[0];
+	//	auto model = (ProjectTreeModel*)_modelview.selectionModel()->selection()[0].model();
+	//	ProjectNode* node = model->getNode(selected.topLeft());
+	//	Saver(_resourceManager, node, model);
+	//}
 }
 
 void ActionHandler::export_to(ProjectNode* project_node)

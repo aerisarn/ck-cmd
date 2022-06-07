@@ -61,7 +61,7 @@ IDLEBuilder::IDLEBuilder(size_t file_index, ProjectNode* root, ResourceManager& 
 	{
 		auto child = nodes[idle->formID];
 		auto parent = nodes[idle->ANAM.value.parent];
-		child->setParent(parent);
+		//child->setParent(parent);
 		if (!parent->hasChild(child))
 			parent->appendChild(child);
 	}

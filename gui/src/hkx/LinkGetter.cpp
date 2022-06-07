@@ -16,7 +16,20 @@ void LinkGetter::visit(char* value) {}
 
 void LinkGetter::visit(void* object, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
-	_links.push_back({ _row, 0, object});
+	if (!hkReferencedObjectClass.isSuperClass(pointer_type))
+	{
+		hkVariant v;
+		v.m_class = &pointer_type;
+		v.m_object = object;
+		HkxVariant h(v);
+		h.accept(*this);
+	}
+	else {
+		auto ptr = (void*)*(uintptr_t*)object;
+		if (ptr != nullptr)
+			_links.push_back({ _row, 0, ptr });
+		_row += 1;
+	}
 }
 
 void LinkGetter::visit(void* object, const hkClassMember& definition) {
@@ -26,34 +39,45 @@ void LinkGetter::visit(void* object, const hkClassMember& definition) {
 	const auto& arraysubtype = definition.getSubType();
 	int elements = definition.getSizeInBytes() / definition.getArrayMemberSize();
 	char* base = (char*)object;
-	if (hkClassMember::TYPE_ARRAY == definition.getType())
+	if (base != NULL)
 	{
-		base = (char*)*(uintptr_t*)object; //m_data
-		elements = *(int*)((char*)object + sizeof(uintptr_t)); // m_size
-	}
-	if (base != NULL && elements > 0)
-	{
-		for (int i = 0; i < elements; i++) {
-			void* element = base + i * definition.getArrayMemberSize();
-			if (definition.hasClass()) {
-				if (hkClassMember::TYPE_POINTER != arraysubtype)
-				{
-					hkVariant v;
-					v.m_class = definition.getClass();
-					v.m_object = element;
-					HkxVariant h(v);
-					h.accept(*this);
+		if (hkClassMember::TYPE_ARRAY == definition.getType())
+		{
+			base = (char*)*(uintptr_t*)object; //m_data
+			elements = *(int*)((char*)object + sizeof(uintptr_t)); // m_size
+			if (elements > 100)
+				__debugbreak();
+		}
+		bool recursion = false;
+		if (base != NULL && elements > 0)
+		{
+			for (int i = 0; i < elements; i++) {
+				void* element = base + i * definition.getArrayMemberSize();
+				if (definition.hasClass()) {
+					if (hkClassMember::TYPE_POINTER != arraysubtype)
+					{
+						hkVariant v;
+						v.m_class = definition.getClass();
+						v.m_object = element;
+						HkxVariant h(v);
+						h.accept(*this);
+						recursion = true;
+					}
+					else {
+						auto ptr = (void*)*(uintptr_t*)object;
+						if (ptr != nullptr)
+							_links.push_back({ _row, i, ptr });
+					}
 				}
-				else {
-					_links.push_back({ _row, i, (void*)*(uintptr_t*)(element) });
+				else if (hkClassMember::TYPE_POINTER == arraytype) {
+					recurse(element, arraytype);
+					recursion = true;
 				}
-			}
-			else if (hkClassMember::TYPE_POINTER == arraytype) {
-				recurse(element, arraytype);
 			}
 		}
+		if (!recursion)
+			_row += 1;
 	}
-	_row += 1;
 }
 
 void LinkGetter::visit(void*, const hkClassEnum& enum_type, hkClassMember::Type type) 

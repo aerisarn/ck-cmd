@@ -136,60 +136,60 @@ QVariant SkeletonBuilder::handle(void* value, const hkClass* hkclass, const hkCl
 
 QVariant SkeletonBuilder::handle(size_t file_index, void* value, const hkClass* hkclass, const hkClassMember* hkmember, const hkVariant* hkcontainer)
 {
-	auto skeletons = getSkeletonBoneFields();
-	auto ragdolls = getRagdollBoneFields();
-	//special handling that need parent variant
-	if (&hkbBoneIndexArrayClass == hkclass &&
-		hkbBoneIndexArrayClass.getMemberByName("boneIndices") == hkmember
-	) {
-		auto node = _manager.findNode(file_index, hkcontainer);
-		auto parent_node = node->parentItem();
-		auto parent_container = (hkVariant*)parent_node->data(1).value<unsigned long long>();
-		auto p_class = parent_container->m_class;
-		auto int_value = *(short*)value;
-		if (p_class == &hkbKeyframeBonesModifierClass)
-		{
-			return HkxItemBone(this, int_value);
-		}
-		return HkxItemRagdollBone(this, int_value);
-	}
+	//auto skeletons = getSkeletonBoneFields();
+	//auto ragdolls = getRagdollBoneFields();
+	////special handling that need parent variant
+	//if (&hkbBoneIndexArrayClass == hkclass &&
+	//	hkbBoneIndexArrayClass.getMemberByName("boneIndices") == hkmember
+	//) {
+	//	auto node = _manager.findNode(file_index, hkcontainer);
+	//	auto parent_node = node->parentItem();
+	//	auto parent_container = (hkVariant*)parent_node->data(1).value<unsigned long long>();
+	//	auto p_class = parent_container->m_class;
+	//	auto int_value = *(short*)value;
+	//	if (p_class == &hkbKeyframeBonesModifierClass)
+	//	{
+	//		return HkxItemBone(this, int_value);
+	//	}
+	//	return HkxItemRagdollBone(this, int_value);
+	//}
 
-	//special handling that needs parent
-	if (&hkaSkeletonMapperData::SimpleMapping::staticClass() == hkclass &&
-		hkaSkeletonMapperData::SimpleMapping::staticClass().getMemberByName("boneA") == hkmember
-	) {
-		//nearest object
-		auto& object = ((hkaSkeletonMapper*)hkcontainer->m_object)->m_mapping;
-		auto int_value = *(short*)value;
-		if (object.m_skeletonA == _skeleton) 
-		{
-			return HkxItemBone(this, int_value);
-		}
-		return HkxItemRagdollBone(this, int_value);
-	}
-	if (&hkaSkeletonMapperData::SimpleMapping::staticClass() == hkclass &&
-		hkaSkeletonMapperData::SimpleMapping::staticClass().getMemberByName("boneB") == hkmember
-	) {
-		auto& object = ((hkaSkeletonMapper*)hkcontainer->m_object)->m_mapping;
-		auto int_value = *(short*)value;
-		if (object.m_skeletonB == _skeleton) 
-		{
-			return HkxItemBone(this, int_value);
-		}
-		return HkxItemRagdollBone(this, int_value);
-	}
-	if (std::find_if(skeletons.begin(), skeletons.end(),
-		[&hkclass, &hkmember](const member_id_t& element){ return element.first == hkclass && element.second == hkmember; }) != skeletons.end())
-	{
-		auto int_value = *(short*)value;
-		return HkxItemBone(this, int_value);
-	}
-	if (std::find_if(ragdolls.begin(), ragdolls.end(),
-		[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != ragdolls.end())
-	{
-		auto int_value = *(short*)value;
-		return HkxItemRagdollBone(this, int_value);
-	}
+	////special handling that needs parent
+	//if (&hkaSkeletonMapperData::SimpleMapping::staticClass() == hkclass &&
+	//	hkaSkeletonMapperData::SimpleMapping::staticClass().getMemberByName("boneA") == hkmember
+	//) {
+	//	//nearest object
+	//	auto& object = ((hkaSkeletonMapper*)hkcontainer->m_object)->m_mapping;
+	//	auto int_value = *(short*)value;
+	//	if (object.m_skeletonA == _skeleton) 
+	//	{
+	//		return HkxItemBone(this, int_value);
+	//	}
+	//	return HkxItemRagdollBone(this, int_value);
+	//}
+	//if (&hkaSkeletonMapperData::SimpleMapping::staticClass() == hkclass &&
+	//	hkaSkeletonMapperData::SimpleMapping::staticClass().getMemberByName("boneB") == hkmember
+	//) {
+	//	auto& object = ((hkaSkeletonMapper*)hkcontainer->m_object)->m_mapping;
+	//	auto int_value = *(short*)value;
+	//	if (object.m_skeletonB == _skeleton) 
+	//	{
+	//		return HkxItemBone(this, int_value);
+	//	}
+	//	return HkxItemRagdollBone(this, int_value);
+	//}
+	//if (std::find_if(skeletons.begin(), skeletons.end(),
+	//	[&hkclass, &hkmember](const member_id_t& element){ return element.first == hkclass && element.second == hkmember; }) != skeletons.end())
+	//{
+	//	auto int_value = *(short*)value;
+	//	return HkxItemBone(this, int_value);
+	//}
+	//if (std::find_if(ragdolls.begin(), ragdolls.end(),
+	//	[&hkclass, &hkmember](const member_id_t& element) { return element.first == hkclass && element.second == hkmember; }) != ragdolls.end())
+	//{
+	//	auto int_value = *(short*)value;
+	//	return HkxItemRagdollBone(this, int_value);
+	//}
 	return "BehaviorBuilder - Not set";
 }
 

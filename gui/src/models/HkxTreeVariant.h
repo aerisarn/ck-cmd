@@ -8,21 +8,20 @@ namespace ckcmd {
 
         class HkxTreeVariant : public ProjectNode
         {
-            hkVariant& _variant;
+            hkVariant* _variant;
+            int _file_index;
 
         public:
 
-            HkxTreeVariant::HkxTreeVariant(NodeType type, hkVariant& variant, const QVector<QVariant>& data, ProjectNode* parent = nullptr)
-                : ProjectNode(type, data, parent),
+            virtual std::string name() override;
+            virtual hkVariant* variant() const override;
+            virtual int file() const override;
+
+            HkxTreeVariant::HkxTreeVariant(int file_index, hkVariant* variant, ProjectNode* parent = nullptr)
+                : ProjectNode(ProjectNode::NodeType::hkx_node, {}, parent),
+                _file_index(file_index),
                 _variant(variant)
             {}
-
-            virtual ProjectNode* child(int row) override;
-            virtual int childCount() const override;
-            virtual int columnCount() const override;
-            virtual QVariant data(int column) const override;
-            virtual int row() const override;
-            virtual ProjectNode* parentItem() override;
         };
     }
 }

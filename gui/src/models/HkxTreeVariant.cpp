@@ -2,30 +2,17 @@
 
 using namespace ckcmd::HKX;
 
-//ProjectNode* HkxTreeVariant::child(int row)
-//{
-//	
-//}
-//
-//int HkxTreeVariant::childCount() const
+//std::string HkxTreeVariant::name()
 //{
 //
 //}
 //
-//int HkxTreeVariant::columnCount() const
+//hkVariant* HkxTreeVariant::variant() const
 //{
 //
 //}
 //
-//QVariant HkxTreeVariant::data(int column) const
-//{
-//
-//}
-//int HkxTreeVariant::row() const
-//{
-//
-//}
-//ProjectNode* HkxTreeVariant::parentItem()
+//int HkxTreeVariant::file() const
 //{
 //
 //}

@@ -1,8 +1,5 @@
 #include "ProjectTreeModel.h"
 #include <src/hkx/HkxLinkedTableVariant.h>
-
-
-#include <src/hkx/BehaviorBuilder.h>
 #include <QBrush>
 
 using namespace ckcmd::HKX;
@@ -67,7 +64,7 @@ QVariant ProjectTreeModel::ModelEdge::data(int row, int column) const
 	return QVariant();
 }
 
-ProjectTreeModel::ModelEdge ProjectTreeModel::ModelEdge::childEdge(int index)
+ProjectTreeModel::ModelEdge ProjectTreeModel::ModelEdge::childEdge(int index, ResourceManager& manager) const
 {
 	switch (_childType)
 	{
@@ -78,33 +75,61 @@ ProjectTreeModel::ModelEdge ProjectTreeModel::ModelEdge::childEdge(int index)
 		{
 			auto variant = node->variant();
 			auto file = node->file();
-			auto& link = HkxLinkedTableVariant(*variant).links().at(index);
-			return ModelEdge(node, file, child._row, child._column, (hkBariant*)child._ref);		
+			HkxLinkedTableVariant v(*variant);
+			auto& links = v.links();
+			auto& link = links.at(index);
+			int index = manager.findIndex(file, link._ref);
+			return ModelEdge(node, file, link._row, link._column, manager.at(file, index));
 		}
 		return ModelEdge(node, -1, index, 0, node->child(index));
 	}
 	case NodeType::HavokNative:
 	{
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		if (column == 0)
-		{
-			return HkxVariant(*variant).name();
-		}
-		else
-		{
-			HkxLinkedTableVariant v(*variant);
-			return v.data(row, column - 1);
-		}
+		HkxLinkedTableVariant v(*variant);
+		auto& links = v.links();
+		auto& link = links.at(index);
+		int index = manager.findIndex(_file, link._ref);
+		if (index == -1)
+			__debugbreak();
+		return ModelEdge(variant, _file, link._row, link._column, manager.at(_file, index));
 	}
 	default:
-		return QVariant();
+		return ModelEdge();
 	}
-	return QVariant();
+	return ModelEdge();
+}
+
+int ProjectTreeModel::ModelEdge::childCount() const
+{
+	switch (_childType)
+	{
+	case NodeType::ProjectNode:
+	{
+		ProjectNode* node = reinterpret_cast<ProjectNode*>(_childItem);
+		if (node->isVariant())
+		{
+			auto variant = node->variant();
+			auto file = node->file();
+			return HkxLinkedTableVariant(*variant).links().size();
+		}
+		return node->childCount();
+	}
+	case NodeType::HavokNative:
+	{
+		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
+		return HkxLinkedTableVariant(*variant).links().size();
+	}
+	default:
+		break;
+	}
+	return 0;
 }
 
 ProjectTreeModel::ProjectTreeModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent) :
 	_commandManager(commandManager),
 	_resourceManager(resourceManager),
+	_actionsManager(_commandManager, _resourceManager),
 	QAbstractItemModel(parent)
 {
 }
@@ -127,12 +152,12 @@ ProjectTreeModel::ModelEdge& ProjectTreeModel::modelEdge(const QModelIndex& inde
 
 bool ProjectTreeModel::hasModelEdgeIndex(const ProjectTreeModel::ModelEdge& edge) const
 {
-	return _reverse_find.find(const_cast<ModelEdge*>(&edge)) == _reverse_find.end();
+	return _reverse_find.find(const_cast<ModelEdge*>(&edge)) != _reverse_find.end();
 }
 
 qintptr ProjectTreeModel::createModelEdgeIndex(const ProjectTreeModel::ModelEdge& edge)
 {
-	qintptr result = _direct_find.size();
+	qintptr result = _direct_find.size() + 1;
 	_direct_find.insert({ result, edge });
 	_reverse_find.insert({ &_direct_find[result], result });
 	return result;
@@ -147,11 +172,11 @@ QVariant ProjectTreeModel::data(const QModelIndex& index, int role) const
 	if (!index.isValid())
 		return QVariant();
 
-	if (role == Qt::BackgroundRole && index.isValid())
-	{
-		ProjectNode* item = getNode(index);
-		return QBrush(item->color());
-	}
+	//if (role == Qt::BackgroundRole && index.isValid())
+	//{
+	//	ProjectNode* item = getNode(index);
+	//	return QBrush(item->color());
+	//}
 
 	if (role != Qt::DisplayRole && role != Qt::EditRole)
 		return QVariant();
@@ -180,37 +205,31 @@ QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& pare
 			_rootNode->child(row)
 		);
 
+		edge._parent = QModelIndex();
+
 		if (!hasModelEdgeIndex(edge))
 		{
 			qintptr id = const_cast<ProjectTreeModel*>(this)->createModelEdgeIndex(edge);
-			return createIndex(row, column, id);
+			edge._child = createIndex(row, column, id);
+			return edge._child;
 		}
 		
-		return createIndex(row, column, _reverse_find.at(&edge));
+		edge._child = createIndex(row, column, _reverse_find.at(&edge));
+
+		return edge._child;
 	}
 	
 	auto parentEdge = modelEdge(parent);
-	ModelEdge edge(
-		parentEdge._childItem,
-		-1,
-		row,
-		column,
-		_rootNode->child(row)
-	);
-
-	ProjectNode* newParentNode = parentEdge->childItem;
-	GraphModelIndex* new_edge = new GraphModelIndex();
-	new_edge->childItem = newParentNode->child(row);
-	new_edge->parent = parent;
-	new_edge->parentItem = newParentNode;
-	new_edge->child = createIndex(row, 0, new_edge);
-	const_cast<ProjectTreeModel*>(this)->holder.insert(new_edge);
-
-	if (new_edge->childItem)
+	auto childEdge = parentEdge.childEdge(row, _resourceManager);
+	if (!hasModelEdgeIndex(childEdge))
 	{
-		return new_edge->child;
+		childEdge._parent = parent;
+		qintptr id = const_cast<ProjectTreeModel*>(this)->createModelEdgeIndex(childEdge);
+		childEdge._child = createIndex(row, column, id);
+		return childEdge._child;
 	}
-	return QModelIndex();
+	childEdge._child = createIndex(row, column, _reverse_find.at(&childEdge));
+	return childEdge._child;
 }
 
 QModelIndex ProjectTreeModel::parent(const QModelIndex& index) const
@@ -218,28 +237,22 @@ QModelIndex ProjectTreeModel::parent(const QModelIndex& index) const
 	if (!index.isValid())
 		return QModelIndex();
 
-	GraphModelIndex* edge = static_cast<GraphModelIndex*>(index.internalPointer());
-
-	return edge->parent;
+	auto edge = modelEdge(index);
+	return edge._parent;
 }
 
 int ProjectTreeModel::rowCount(const QModelIndex& index) const
 {
-	ProjectNode* parentItem;
-
+	int count = 0;
 	if (!index.isValid())
-		parentItem = _rootNode;
-	else
-		parentItem = getNode(index);
+		return _rootNode->childCount();
 
-	return parentItem->childCount();
+	return modelEdge(index).childCount();
 }
 
 int ProjectTreeModel::columnCount(const QModelIndex& index) const
 {
-	if (index.isValid())
-		return getNode(index)->columnCount();
-	return _rootNode->columnCount();
+	return 1;
 }
 
 QVariant ProjectTreeModel::headerData(int section, Qt::Orientation orientation,
@@ -255,9 +268,9 @@ Qt::ItemFlags ProjectTreeModel::flags(const QModelIndex& index) const
 {
 	if (!index.isValid())
 		return Qt::NoItemFlags;
-	auto node = getNode(index);
-	if (node->type() == ProjectNode::NodeType::event_node)
-		return Qt::ItemIsEditable | QAbstractItemModel::flags(index);
+	//auto node = getNode(index);
+	//if (node->type() == ProjectNode::NodeType::event_node)
+	//	return Qt::ItemIsEditable | QAbstractItemModel::flags(index);
 
 	return QAbstractItemModel::flags(index);
 }
@@ -265,21 +278,21 @@ Qt::ItemFlags ProjectTreeModel::flags(const QModelIndex& index) const
 bool ProjectTreeModel::setData(const QModelIndex& index, const QVariant& value,
 	int role)
 {
-	auto node = getNode(index);
-	if (NULL != node)
-	{
-		if (role == Qt::BackgroundRole && index.isValid())
-		{
-			node->setColor(value.value<QColor>());
-			return true;
-		}
+	//auto node = getNode(index);
+	//if (NULL != node)
+	//{
+	//	if (role == Qt::BackgroundRole && index.isValid())
+	//	{
+	//		node->setColor(value.value<QColor>());
+	//		return true;
+	//	}
 
-		if (node->type() == ProjectNode::NodeType::event_node)
-		{
-			BehaviorBuilder* builder = (BehaviorBuilder*)_resourceManager.fieldsHandler(node->data(2).value<int>());
-			return builder->renameEvent(node->data(3).value<int>(), value.value<QString>());
-		}
-	}
+	//	if (node->type() == ProjectNode::NodeType::event_node)
+	//	{
+	//		BehaviorBuilder* builder = (BehaviorBuilder*)_resourceManager.fieldsHandler(node->data(2).value<int>());
+	//		return builder->renameEvent(node->data(3).value<int>(), value.value<QString>());
+	//	}
+	//}
 	return false;
 }
 
@@ -308,3 +321,41 @@ bool ProjectTreeModel::setData(const QModelIndex& index, const QVariant& value,
 //
 //	return true;
 //}
+
+void ProjectTreeModel::select(const QModelIndex& index)
+{
+
+}
+
+void ProjectTreeModel::activate(const QModelIndex& index)
+{
+	auto edge = modelEdge(index);
+	if (edge._childType == NodeType::ProjectNode)
+	{
+		ProjectNode* node_activated = reinterpret_cast<ProjectNode*>(edge._childItem);
+		if (node_activated->isProjectRoot() && node_activated->childCount() == 0)
+		{
+			emit beginInsertRows(index, 0, 2);
+			_actionsManager.OpenProject(node_activated);
+			emit endInsertRows();
+		}
+	}
+
+	//ProjectNode* node_clicked = _model->
+//if (node_clicked->isProjectRoot() && node_clicked->childCount() == 0) {
+//	_model->notifyBeginInsertRows(index, 0, 2);
+//	ProjectBuilder b(
+//		node_clicked,
+//		_commandManager,
+//		_manager,
+//		node_clicked->data(0).toString().toUtf8().constData()
+//	);
+//	_model->notifyEndInsertRows();
+//}
+//else if (node_clicked->isSkeleton()) {
+//	
+//	_simulation->addSkeleton(
+//		node_clicked->data(1).toString().toUtf8().constData()
+//	);
+//}
+}
