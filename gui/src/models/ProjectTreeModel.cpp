@@ -38,7 +38,6 @@ ProjectTreeModel::ModelEdge::ModelEdge(hkVariant* parent, int file, int row, int
 	_childItem = reinterpret_cast<void*>(child);
 }
 
-
 QVariant ProjectTreeModel::ModelEdge::data(int row, int column) const
 {
 	switch (_childType)
@@ -106,6 +105,13 @@ ProjectTreeModel::ModelEdge ProjectTreeModel::ModelEdge::childEdge(int index, Re
 	return ModelEdge();
 }
 
+
+//template<>
+//int hkChildCount(hkbBehaviorGraphClass* hk_class, hkVariant* variant)
+//{
+//	return HkxLinkedTableVariant(*variant).links().size();
+//}
+
 int ProjectTreeModel::ModelEdge::childCount() const
 {
 	switch (_childType)
@@ -125,7 +131,7 @@ int ProjectTreeModel::ModelEdge::childCount() const
 	case NodeType::HavokNative:
 	{
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return HkxLinkedTableVariant(*variant).links().size();
+		return hkChildCount(variant->m_class, variant);
 	}
 	default:
 		break;

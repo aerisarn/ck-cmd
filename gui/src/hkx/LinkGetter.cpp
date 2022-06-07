@@ -2,6 +2,10 @@
 
 #include <hkbGenerator_0.h>
 #include <hkbModifier_0.h>
+#include <hkbStateMachineStateInfo_4.h>
+#include <hkbBlenderGeneratorChild_2.h>
+
+#include <typeinfo>
 
 using namespace ckcmd::HKX;
 
@@ -13,6 +17,28 @@ LinkGetter::LinkGetter() :
 const std::vector<Link>& LinkGetter::links() const
 {
 	return _links;
+}
+
+bool isValidLinkClass(void* ptr)
+{
+	auto obj = reinterpret_cast<hkReferencedObject*>(ptr);
+	hkbGenerator* gen = nullptr;
+	hkbModifier* mod = nullptr;
+	try {
+		gen = dynamic_cast<hkbGenerator*>(obj);
+	}
+	catch (std::__non_rtti_object) {
+	}
+	try {
+		mod = dynamic_cast<hkbModifier*>(obj);
+	}
+	catch (std::__non_rtti_object) {
+	}
+
+	if (nullptr != gen || nullptr != mod)
+		return true;
+
+	return false;
 }
 
 void LinkGetter::visit(char* value) {}
@@ -29,8 +55,13 @@ void LinkGetter::visit(void* object, const hkClass& pointer_type, hkClassMember:
 	}
 	else {
 		auto ptr = (void*)*(uintptr_t*)object;
-		if (ptr != nullptr /*&& (hkbGeneratorClass.isSuperClass(pointer_type) || hkbModifierClass.isSuperClass(pointer_type))*/)
-			_links.push_back({ _row, 0, ptr });
+		if (ptr != nullptr)
+		{
+			if (ptr != nullptr && isValidLinkClass(ptr))
+			{
+				_links.push_back({ _row, 0, ptr });
+			}
+		}
 		_row += 1;
 	}
 }
@@ -67,9 +98,11 @@ void LinkGetter::visit(void* object, const hkClassMember& definition) {
 						recursion = true;
 					}
 					else {
-						auto ptr = (void*)*(uintptr_t*)object;
-						if (ptr != nullptr && (hkbGeneratorClass.isSuperClass(*definition.getClass()) || hkbModifierClass.isSuperClass(*definition.getClass())))
-							_links.push_back({ _row, i, ptr });
+						auto ptr = (void*)*(uintptr_t*)element;
+						if (ptr != nullptr && (&arrayclass == &hkbStateMachineStateInfoClass || &arrayclass == &hkbBlenderGeneratorChildClass || isValidLinkClass(ptr)))
+						{
+							_links.push_back({ _row, i, ptr });	
+						}
 					}
 				}
 				else if (hkClassMember::TYPE_POINTER == arraytype) {
@@ -94,7 +127,6 @@ void LinkGetter::visit(void* object, const hkClass& object_type, const char* mem
 	v.m_class = &object_type;
 	v.m_object = object;
 	visit(v.m_object, *v.m_class, hkClassMember::Flags());
-	_row += 1;
 }
 
 void LinkGetter::visit(void* v, const hkClassEnum& enum_type, size_t storage) 
