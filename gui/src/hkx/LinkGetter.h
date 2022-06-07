@@ -1,26 +1,36 @@
 #pragma once
 
-#include <src/hkx/ResourceManager.h>
 #include <src/hkx/HkxItemVisitor.h>
 #include <src/hkx/HkxVariant.h>
+
+#include <vector>
 
 namespace ckcmd {
 	namespace HKX {
 
+		struct Link {
+			int _row;
+			int _column;
+			void* _ref;
+		};
+
 		class LinkGetter : public HkxConcreteVisitor<LinkGetter> {
 
-			std::vector<hkVariant> _links;
-			ResourceManager& _resourceManager;
-			size_t _file;
+			std::vector<Link> _links;
+			int _row;
 
 		public:
-			LinkGetter(
-				size_t file,
-				ResourceManager& resourceManager
-			);
+
+
+			LinkGetter();
+
+			const std::vector<Link>& links() const;
 
 			template<typename T>
-			void visit(T& value) {}
+			void visit(T& value) 
+			{
+				_row += 1;
+			}
 
 			void visit(char* value);
 

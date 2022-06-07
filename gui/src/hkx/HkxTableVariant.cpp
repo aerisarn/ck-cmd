@@ -1,11 +1,11 @@
 #include "HkxTableVariant.h"
 
-using namespace ckcmd::HKX;
-
 #include <src\hkx\Getter.h>
 #include <src\hkx\Setter.h>
 #include <src\hkx\RowCalculator.h>
 #include <src\hkx\ColumnCalculator.h>
+
+using namespace ckcmd::HKX;
 
 size_t HkxTableVariant::rows() 
 {
@@ -21,12 +21,9 @@ size_t HkxTableVariant::columns()
 	return c.columns();
 }
 
-size_t HkxTableVariant::references()
+QVariant HkxTableVariant::data(int row, int column)
 {
-
-}
-
-size_t HkxTableVariant::data(int row, int column)
-{
-
+	Getter g(row, column);
+	accept(g);
+	return g.value();
 }

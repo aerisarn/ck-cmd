@@ -1,5 +1,5 @@
 #include "ProjectTreeModel.h"
-#include <src/hkx/HkxTableVariant.h>
+#include <src/hkx/HkxLinkedTableVariant.h>
 
 
 #include <src/hkx/BehaviorBuilder.h>
@@ -42,7 +42,7 @@ ProjectTreeModel::ModelEdge::ModelEdge(hkVariant* parent, int file, int row, int
 }
 
 
-QVariant ProjectTreeModel::ModelEdge::data(int row, int column)
+QVariant ProjectTreeModel::ModelEdge::data(int row, int column) const
 {
 	switch (_childType)
 	{
@@ -51,7 +51,50 @@ QVariant ProjectTreeModel::ModelEdge::data(int row, int column)
 	case NodeType::HavokNative:
 	{
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		HkxVariant
+		if (column == 0)
+		{
+			return HkxVariant(*variant).name();
+		}
+		else 
+		{
+			HkxLinkedTableVariant v(*variant);
+			return v.data(row, column - 1);
+		}
+	}
+	default:
+		return QVariant();
+	}
+	return QVariant();
+}
+
+ProjectTreeModel::ModelEdge ProjectTreeModel::ModelEdge::childEdge(int index)
+{
+	switch (_childType)
+	{
+	case NodeType::ProjectNode:
+	{
+		ProjectNode* node = reinterpret_cast<ProjectNode*>(_childItem);
+		if (node->isVariant())
+		{
+			auto variant = node->variant();
+			auto file = node->file();
+			auto& link = HkxLinkedTableVariant(*variant).links().at(index);
+			return ModelEdge(node, file, child._row, child._column, (hkBariant*)child._ref);		
+		}
+		return ModelEdge(node, -1, index, 0, node->child(index));
+	}
+	case NodeType::HavokNative:
+	{
+		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
+		if (column == 0)
+		{
+			return HkxVariant(*variant).name();
+		}
+		else
+		{
+			HkxLinkedTableVariant v(*variant);
+			return v.data(row, column - 1);
+		}
 	}
 	default:
 		return QVariant();
@@ -67,6 +110,33 @@ ProjectTreeModel::ProjectTreeModel(CommandManager& commandManager, ResourceManag
 }
 
 
+qintptr ProjectTreeModel::modelEdgeIndex(const ProjectTreeModel::ModelEdge& edge) const
+{
+	return _reverse_find.at(const_cast<ModelEdge*>(&edge));
+}
+
+const ProjectTreeModel::ModelEdge& ProjectTreeModel::modelEdge(const QModelIndex& index) const
+{
+	return _direct_find.at(index.internalId());
+}
+
+ProjectTreeModel::ModelEdge& ProjectTreeModel::modelEdge(const QModelIndex& index)
+{
+	return _direct_find[index.internalId()];
+}
+
+bool ProjectTreeModel::hasModelEdgeIndex(const ProjectTreeModel::ModelEdge& edge) const
+{
+	return _reverse_find.find(const_cast<ModelEdge*>(&edge)) == _reverse_find.end();
+}
+
+qintptr ProjectTreeModel::createModelEdgeIndex(const ProjectTreeModel::ModelEdge& edge)
+{
+	qintptr result = _direct_find.size();
+	_direct_find.insert({ result, edge });
+	_reverse_find.insert({ &_direct_find[result], result });
+	return result;
+}
 
 /*
 ** AbstractItemModel(required methods)
@@ -86,9 +156,7 @@ QVariant ProjectTreeModel::data(const QModelIndex& index, int role) const
 	if (role != Qt::DisplayRole && role != Qt::EditRole)
 		return QVariant();
 
-	ProjectNode* item = getNode(index);
-
-	return item->data(index.column());
+	return modelEdge(index).data(index.row(), index.column());
 }
 
 
@@ -103,31 +171,32 @@ QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& pare
 
 	if (!parent.isValid())
 	{
-
-
 		//root handling
-		ModelEdge edge =
-		{
-			nt_ProjectNode,
+		ModelEdge edge(
 			_rootNode,
+			-1,
 			row,
 			column,
-			nt_ProjectNode,
+			_rootNode->child(row)
+		);
 
-
+		if (!hasModelEdgeIndex(edge))
+		{
+			qintptr id = const_cast<ProjectTreeModel*>(this)->createModelEdgeIndex(edge);
+			return createIndex(row, column, id);
 		}
-		edge.parentType = nt_ProjectNode;
-
-		parentEdge = new GraphModelIndex();
-		parentEdge->parent = QModelIndex();
-		parentEdge->parentItem = _rootNode;
-		parentEdge->child = createIndex(row, 0, parentEdge);
-		parentEdge->childItem = _rootNode->child(row);
-		const_cast<ProjectTreeModel*>(this)->holder.insert(parentEdge);
-		return parentEdge->child;
+		
+		return createIndex(row, column, _reverse_find.at(&edge));
 	}
 	
-	parentEdge = static_cast<GraphModelIndex*>(parent.internalPointer());
+	auto parentEdge = modelEdge(parent);
+	ModelEdge edge(
+		parentEdge._childItem,
+		-1,
+		row,
+		column,
+		_rootNode->child(row)
+	);
 
 	ProjectNode* newParentNode = parentEdge->childItem;
 	GraphModelIndex* new_edge = new GraphModelIndex();

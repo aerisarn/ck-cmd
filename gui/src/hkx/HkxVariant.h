@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HkxItemVisitor.h"
+#include <QString>
 
 namespace ckcmd {
 	namespace HKX {
@@ -14,6 +15,8 @@ namespace ckcmd {
 
 			void accept(HkxItemVisitor& visitor) const;
 			void accept(HkxItemVisitor& visitor);
+
+			QString name();
 
 		protected:
 			hkVariant& _variant;

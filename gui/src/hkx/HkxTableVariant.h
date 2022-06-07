@@ -1,12 +1,13 @@
 #pragma once
 
 #include "HkxVariant.h"
+#include <QVariant>
 
 namespace ckcmd {
 	namespace HKX {
 
 		//Decorate HkVariant
-		class HkxTableVariant : private HkxVariant {
+		class HkxTableVariant : protected HkxVariant {
 
 		public:
 
@@ -15,7 +16,9 @@ namespace ckcmd {
 			size_t rows();
 			size_t columns();
 
-			size_t data(int row, int column);
+			QString name();
+
+			QVariant data(int row, int column);
 		};
 
 	}

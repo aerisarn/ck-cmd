@@ -154,6 +154,10 @@ hkVariant* ProjectNode::variant() const {
 	return reinterpret_cast<hkVariant*>(data(1).value<unsigned long long>());
 }
 
+int ProjectNode::file() const {
+	return data(3).value<int>();
+}
+
 bool ProjectNode::canSaveOrExport() const
 {
 	return m_type == ProjectNode::NodeType::misc_node

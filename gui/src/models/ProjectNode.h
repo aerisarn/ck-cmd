@@ -55,6 +55,7 @@ namespace ckcmd {
             bool isSkeleton() const;
             bool isVariant() const;
             hkVariant* variant() const;
+            int file() const;
 
             bool isCharacter() const;
 

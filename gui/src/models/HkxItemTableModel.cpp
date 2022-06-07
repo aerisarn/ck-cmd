@@ -47,7 +47,7 @@ QVariant HkxItemTableModel::data(const QModelIndex& index, int role) const
 		if (indexValid(index))
 		{
 			HkxVariant h(*_variant);
-			Getter g(index.row(), index.column(), _file, _handlers);
+			Getter g(index.row(), index.column());
 			h.accept(g);
 			return g.value();
 		}
@@ -110,7 +110,7 @@ QVariant HkxItemTableModel::internalSetData(int file, hkVariant* variant, const 
 			QVariant old_value;
 			HkxVariant h(*_variant);
 
-			Getter g(index.row(), index.column(), _file, _handlers);
+			Getter g(index.row(), index.column());
 			h.accept(g);
 			old_value = g.value();
 
@@ -118,7 +118,7 @@ QVariant HkxItemTableModel::internalSetData(int file, hkVariant* variant, const 
 			Setter s(index.row(), index.column(), _file, value, _handlers);
 			if (value.canConvert<HkxItemPointer>())
 			{
-				HkxItemPointer new_value(-1, nullptr, nullptr);
+				HkxItemPointer new_value(nullptr, nullptr);
 				HkxItemPointer old_value_ptr = g.value().value<HkxItemPointer>();
 				new_value = value.value<HkxItemPointer>();
 				emit HkxItemPointerChanged(old_value_ptr, new_value, _file, _variant);

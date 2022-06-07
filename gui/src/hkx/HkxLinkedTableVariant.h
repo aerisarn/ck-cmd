@@ -1,21 +1,20 @@
 #pragma once
 
-#include "HkxVariant.h"
+#include "HkxTableVariant.h"
+#include "LinkGetter.h"
+#include <vector>
 
 namespace ckcmd {
 	namespace HKX {
 
 		//Decorate HkVariant
-		class HkxTableVariant : private HkxVariant {
+		class HkxLinkedTableVariant : public HkxTableVariant {
 
 		public:
 
-			HkxTableVariant(hkVariant& variant) : HkxVariant(variant) {}
+			HkxLinkedTableVariant(hkVariant& variant) : HkxTableVariant(variant) {}
 
-			size_t rows();
-			size_t columns();
-
-			size_t data(int row, int column);
+			std::vector<Link> links();
 		};
 
 	}

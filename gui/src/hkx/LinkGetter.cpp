@@ -2,20 +2,21 @@
 
 using namespace ckcmd::HKX;
 
-LinkGetter::LinkGetter(size_t file, ResourceManager& resourceManager)
-	: _resourceManager(resourceManager), _file(file),
+LinkGetter::LinkGetter() :
 	HkxConcreteVisitor(*this)
 {
+}
+
+const std::vector<Link>& LinkGetter::links() const
+{
+	return _links;
 }
 
 void LinkGetter::visit(char* value) {}
 
 void LinkGetter::visit(void* object, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
-	hkVariant v;
-	v.m_class = &pointer_type;
-	v.m_object = object;
-	_links.push_back(v);
+	_links.push_back({ _row, 0, object});
 }
 
 void LinkGetter::visit(void* object, const hkClassMember& definition) {
@@ -44,9 +45,7 @@ void LinkGetter::visit(void* object, const hkClassMember& definition) {
 					h.accept(*this);
 				}
 				else {
-					size_t ref_index = _resourceManager.findIndex(_file, (const void*)*(uintptr_t*)(element));
-					hkVariant* v = _resourceManager.at(_file, ref_index);
-					visit(element, *v->m_class, hkClassMember::Flags());
+					_links.push_back({ _row, i, (void*)*(uintptr_t*)(element) });
 				}
 			}
 			else if (hkClassMember::TYPE_POINTER == arraytype) {
@@ -54,9 +53,13 @@ void LinkGetter::visit(void* object, const hkClassMember& definition) {
 			}
 		}
 	}
+	_row += 1;
 }
 
-void LinkGetter::visit(void*, const hkClassEnum& enum_type, hkClassMember::Type type) {}
+void LinkGetter::visit(void*, const hkClassEnum& enum_type, hkClassMember::Type type) 
+{
+	_row += 1;
+}
 
 void LinkGetter::visit(void* object, const hkClass& object_type, const char* member_name)
 {
@@ -64,6 +67,10 @@ void LinkGetter::visit(void* object, const hkClass& object_type, const char* mem
 	v.m_class = &object_type;
 	v.m_object = object;
 	visit(v.m_object, *v.m_class, hkClassMember::Flags());
+	_row += 1;
 }
 
-void LinkGetter::visit(void* v, const hkClassEnum& enum_type, size_t storage) {}
+void LinkGetter::visit(void* v, const hkClassEnum& enum_type, size_t storage) 
+{
+	_row += 1;
+}

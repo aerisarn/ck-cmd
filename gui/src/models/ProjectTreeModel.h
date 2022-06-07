@@ -23,12 +23,14 @@ namespace ckcmd {
 
             class ModelEdge
             {
-                NodeType _parentType = nt_Invalid;
+                friend class ProjectTreeModel;
+
+                NodeType _parentType = NodeType::Invalid;
                 void* _parentItem = nullptr;
                 int _file = -1;
                 int _row = -1;
                 int _column = -1;
-                NodeType _childType = nt_Invalid;
+                NodeType _childType = NodeType::Invalid;
                 void* _childItem = nullptr;
 
             public:
@@ -46,12 +48,26 @@ namespace ckcmd {
                 ModelEdge(ProjectNode*, int file, int row, int column, hkVariant*);
                 ModelEdge(hkVariant*, int file, int row, int column, hkVariant*);
 
-                QVariant data(int row, int column);
+                QVariant data(int row, int column) const;
+
+                ModelEdge childEdge(int index);
             };
 
-            std::map<ModelEdge, qintptr> reverse_find;
-            std::map<qintptr, ModelEdge> direct_find;
+            struct ModelEdgeComparator {
+                bool operator()(const ModelEdge*& a, const ModelEdge*& b) const {
+                    return *a < *b;
+                }
+            };
 
+            std::map<ModelEdge*, qintptr, ModelEdgeComparator> _reverse_find;
+            std::map<qintptr, ModelEdge> _direct_find;
+
+            qintptr modelEdgeIndex(const ModelEdge& edge) const;
+            const ModelEdge& modelEdge(const QModelIndex& index) const;
+            ModelEdge& modelEdge(const QModelIndex& index);
+
+            bool hasModelEdgeIndex(const ModelEdge& edge) const;
+            qintptr createModelEdgeIndex(const ModelEdge& edge);
 
             CommandManager& _commandManager;
             ResourceManager& _resourceManager;

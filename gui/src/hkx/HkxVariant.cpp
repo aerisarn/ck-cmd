@@ -2,6 +2,19 @@
 
 using namespace ckcmd::HKX;
 
+QString HkxVariant::name()
+{
+	QString display_name = _variant.m_class->getName();
+	//check if the object has a name we can display
+	auto member = _variant.m_class->getMemberByName("name");
+	if (HK_NULL != member)
+	{
+		auto member_ptr = ((char*)_variant.m_object) + member->getOffset();
+		auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
+		display_name = QString("%1 \"%2\"").arg(display_name).arg(c_str_ptr);
+	}
+	return display_name;
+}
 
 void HkxVariant::accept(HkxItemVisitor& visitor) const
 {

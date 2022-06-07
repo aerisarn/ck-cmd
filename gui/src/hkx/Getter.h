@@ -18,7 +18,6 @@ namespace ckcmd {
 			QVariant _value;
 			int _row;
 			int _column;
-			int _file_index;
 
 			template<typename T>
 			void check(T& value);
@@ -26,9 +25,9 @@ namespace ckcmd {
 
 		public:
 
-			Getter(const size_t row, const size_t column, int file_index) :
+			Getter(const size_t row, const size_t column) :
 				HkxConcreteVisitor(*this), 
-				_row(row), _column(column), _file_index(file_index) {}
+				_row(row), _column(column) {}
 
 			QVariant value() { return _value; }
 
