@@ -7,18 +7,19 @@
 
 class hkbProjectStringData;
 class hkbCharacterStringData;
+class hkbBehaviorGraphData;
+class hkbBehaviorGraphStringData;
+class hkaSkeleton;
 
 namespace ckcmd {
 	namespace HKX {
 
 		class ProjectBuilder {
 
-			//TODO: consolidate builders into hierarchy
 			ProjectNode* _parent;
 			CommandManager& _commandManager;
 			ResourceManager& _resourceManager;
 			const std::string& _name; // unique id. Maybe
-			void buildBranch(hkVariant& root, ProjectNode* root_node, const fs::path& path);
 
 			template<typename T>
 			T* loadHkxFile(const fs::path& path, const hkClass& hk_class, hkVariant*& root)
@@ -31,6 +32,7 @@ namespace ckcmd {
 					if (content.second[v].m_class == &hk_class)
 					{
 						data_index = v;
+						break;
 					}
 				}
 				if (data_index == -1)
@@ -41,6 +43,8 @@ namespace ckcmd {
 
 			std::pair<hkbProjectStringData*, size_t>  buildProjectFileModel();
 			std::tuple<hkbCharacterStringData*, size_t, ProjectNode*> buildCharacter(const fs::path& project_folder, ProjectNode* characters_node);
+			std::tuple<hkaSkeleton*, hkaSkeleton*, size_t, ProjectNode*> buildSkeleton(const fs::path& rig_path, ProjectNode* character_node);
+			std::vector<std::tuple<hkbBehaviorGraphData*, hkbBehaviorGraphStringData*, size_t, ProjectNode*>> buildBehaviors(const fs::path& behaviors_path, ProjectNode* behaviors_node);
 
 		public:
 			ProjectBuilder(

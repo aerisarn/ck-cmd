@@ -1,5 +1,8 @@
 #include <src/hkx/LinkGetter.h>
 
+#include <hkbGenerator_0.h>
+#include <hkbModifier_0.h>
+
 using namespace ckcmd::HKX;
 
 LinkGetter::LinkGetter() :
@@ -26,7 +29,7 @@ void LinkGetter::visit(void* object, const hkClass& pointer_type, hkClassMember:
 	}
 	else {
 		auto ptr = (void*)*(uintptr_t*)object;
-		if (ptr != nullptr)
+		if (ptr != nullptr /*&& (hkbGeneratorClass.isSuperClass(pointer_type) || hkbModifierClass.isSuperClass(pointer_type))*/)
 			_links.push_back({ _row, 0, ptr });
 		_row += 1;
 	}
@@ -45,7 +48,7 @@ void LinkGetter::visit(void* object, const hkClassMember& definition) {
 		{
 			base = (char*)*(uintptr_t*)object; //m_data
 			elements = *(int*)((char*)object + sizeof(uintptr_t)); // m_size
-			if (elements > 100)
+			if (elements > 10000)
 				__debugbreak();
 		}
 		bool recursion = false;
@@ -65,7 +68,7 @@ void LinkGetter::visit(void* object, const hkClassMember& definition) {
 					}
 					else {
 						auto ptr = (void*)*(uintptr_t*)object;
-						if (ptr != nullptr)
+						if (ptr != nullptr && (hkbGeneratorClass.isSuperClass(*definition.getClass()) || hkbModifierClass.isSuperClass(*definition.getClass())))
 							_links.push_back({ _row, i, ptr });
 					}
 				}

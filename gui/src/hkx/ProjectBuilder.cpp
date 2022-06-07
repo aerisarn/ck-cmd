@@ -10,15 +10,6 @@
 
 using namespace ckcmd::HKX;
 
-void ProjectBuilder::buildBranch(hkVariant& root, ProjectNode* root_node, const fs::path& path) {
-	//HkxVariant h(root);
-	//std::set<void*> visited;
-	//TreeBuilder b(root_node, _resourceManager, path, visited);
-	//h.accept(b);
-	//auto node = _resourceManager.createHkxNode()
-}
-
-
 std::pair<hkbProjectStringData*, size_t> ProjectBuilder::buildProjectFileModel()
 {
 	auto project_path = fs::path(_name);
@@ -45,10 +36,8 @@ std::tuple<hkbCharacterStringData*, size_t, ProjectNode*> ProjectBuilder::buildC
 	hkVariant* character_root;
 	hkbCharacterStringData* character_data = loadHkxFile<hkbCharacterStringData>(character_path, hkbCharacterStringDataClass, character_root);
 	if (character_data == NULL)
-	throw std::runtime_error("hkbCharacterStringData variant not found in " + character_path.string());
+		throw std::runtime_error("hkbCharacterStringData variant not found in " + character_path.string());
 	auto character_file_index = _resourceManager.index(character_path);
-	//ProjectNode* character_node = _resourceManager.createHkxCharacter(character_file_index, { character_data->m_name.cString(), character_path.string().c_str() }, characters_node);
-	//characters_node->appendChild(character_node);
 	ProjectNode* character_node = characters_node->appendChild(
 		_resourceManager.createHkxNode(
 			character_file_index,
@@ -64,6 +53,77 @@ std::tuple<hkbCharacterStringData*, size_t, ProjectNode*> ProjectBuilder::buildC
 	return { character_data, character_file_index, character_node };
 }
 
+std::tuple<hkaSkeleton*, hkaSkeleton*, size_t, ProjectNode*> ProjectBuilder::buildSkeleton(const fs::path& rig_path, ProjectNode* character_node)
+{
+	auto& rig_contents = _resourceManager.get(rig_path);
+	auto rig_index = _resourceManager.index(rig_path);
+	hkVariant* rig_root;
+	hkaSkeleton* skeleton_data = loadHkxFile<hkaSkeleton>(rig_path, hkaSkeletonClass, rig_root);
+	hkaSkeleton* ragdoll_data = nullptr;
+	for (auto& entry : rig_contents.second)
+	{
+		if (entry.m_class == &hkaSkeletonClass && entry.m_object != skeleton_data)
+		{
+			ragdoll_data = reinterpret_cast<hkaSkeleton*>(entry.m_object);
+			break;
+		}
+	}
+	ProjectNode* rig_node = character_node->appendChild(
+		_resourceManager.createHkxNode(
+			rig_index,
+			{
+				skeleton_data->m_name.cString(),
+				(unsigned long long)rig_root,
+				0,
+				rig_index
+			},
+			character_node
+		)
+	);
+	return { skeleton_data, ragdoll_data, rig_index, rig_node };
+}
+
+typedef std::tuple<hkbBehaviorGraphData*, hkbBehaviorGraphStringData*, size_t, ProjectNode*> BehaviorDescriptor;
+
+std::vector<BehaviorDescriptor> ProjectBuilder::buildBehaviors(const fs::path& behaviors_path, ProjectNode* behaviors_node)
+{
+	std::vector<BehaviorDescriptor> out;
+	fs::directory_iterator end_itr;
+	for (fs::directory_iterator itr(behaviors_path);
+		itr != end_itr;
+		++itr)
+	{
+		if (!is_directory(itr->status()))
+		{
+			auto& behavior_path = itr->path();
+			auto& behavior_contents = _resourceManager.get(behavior_path);
+			auto behavior_index = _resourceManager.index(behavior_path);
+			hkVariant* behavior_root;
+			hkbBehaviorGraph* behavior_graph = loadHkxFile<hkbBehaviorGraph>(behavior_path, hkbBehaviorGraphClass, behavior_root);
+			if (nullptr != behavior_graph)
+			{
+				hkbBehaviorGraphData* behavior_data = behavior_graph->m_data;
+				hkbBehaviorGraphStringData* behavior_string_data = behavior_data->m_stringData;
+				ProjectNode* behavior_node = behaviors_node->appendChild(
+					_resourceManager.createHkxNode(
+						behavior_index,
+						{
+							behavior_graph->m_name.cString(),
+							(unsigned long long)behavior_root,
+							0,
+							behavior_index
+						},
+						behaviors_node
+					)
+				);
+				out.push_back(
+					{ behavior_data, behavior_string_data, behavior_index, behavior_node }
+				);
+			}
+		}
+	}
+	return out;
+}
 
 ProjectBuilder::ProjectBuilder(
 	ProjectNode* parent,
@@ -83,13 +143,35 @@ ProjectBuilder::ProjectBuilder(
 	{
 		hkbProjectStringData* data = project_data.first;
 		size_t project_file_index = project_data.second;
-		ProjectNode* characters_node = _resourceManager.createSupport(project_file_index, { "Characters" }, _parent);
-		_parent->appendChild(characters_node);
+		ProjectNode* characters_node = 
+			_parent->appendChild(
+				_resourceManager.createSupport(project_file_index, { "Characters" }, _parent)
+			);
 
 		for (int c = 0; c < data->m_characterFilenames.getSize(); c++)
 		{
 			auto character_path = project_folder / data->m_characterFilenames[c].cString();
-			auto character_data = buildCharacter(character_path, characters_node);
+			auto character_result = buildCharacter(character_path, characters_node);
+
+			auto character_data = std::get<0>(character_result);
+			auto character_file_index = std::get<1>(character_result);
+			auto character_node = std::get<2>(character_result);
+
+			if (!std::string(character_data->m_rigName).empty())
+			{
+				auto rig_path = project_folder / character_data->m_rigName.cString();
+				auto rig_result = buildSkeleton(rig_path, character_node);
+			}
+
+			auto behavior_path = project_folder / character_data->m_behaviorFilename.cString();
+			behavior_path = behavior_path.parent_path();
+
+			ProjectNode* behaviors_node =
+				character_node->appendChild(
+					_resourceManager.createSupport(project_file_index, { "Behaviors" }, character_node)
+				);
+
+			buildBehaviors(behavior_path, behaviors_node);
 		}
 	}
 

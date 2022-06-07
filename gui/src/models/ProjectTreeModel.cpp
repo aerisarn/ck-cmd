@@ -77,9 +77,15 @@ ProjectTreeModel::ModelEdge ProjectTreeModel::ModelEdge::childEdge(int index, Re
 			auto file = node->file();
 			HkxLinkedTableVariant v(*variant);
 			auto& links = v.links();
-			auto& link = links.at(index);
-			int index = manager.findIndex(file, link._ref);
-			return ModelEdge(node, file, link._row, link._column, manager.at(file, index));
+			if (index < links.size())
+			{
+				auto& link = links.at(index);
+				int index = manager.findIndex(file, link._ref);
+				return ModelEdge(node, file, link._row, link._column, manager.at(file, index));
+			}
+			else {
+				return ModelEdge(node, -1, index, 0, node->child(index - links.size()));
+			}
 		}
 		return ModelEdge(node, -1, index, 0, node->child(index));
 	}
@@ -107,13 +113,14 @@ int ProjectTreeModel::ModelEdge::childCount() const
 	case NodeType::ProjectNode:
 	{
 		ProjectNode* node = reinterpret_cast<ProjectNode*>(_childItem);
+		size_t havok_links = 0;
 		if (node->isVariant())
 		{
 			auto variant = node->variant();
 			auto file = node->file();
-			return HkxLinkedTableVariant(*variant).links().size();
+			havok_links =  HkxLinkedTableVariant(*variant).links().size();
 		}
-		return node->childCount();
+		return node->childCount() + havok_links;
 	}
 	case NodeType::HavokNative:
 	{
