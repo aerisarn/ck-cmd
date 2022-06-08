@@ -5,6 +5,7 @@
 #include <src/esp/IDLEBuilder.h>
 
 #include <hkbProjectStringData_1.h>
+#include <hkbCharacterData_7.h>
 #include <hkbCharacterStringData_5.h>
 #include <hkbBehaviorGraph_1.h>
 
@@ -31,10 +32,10 @@ std::pair<hkbProjectStringData*, size_t> ProjectBuilder::buildProjectFileModel()
 	return { project_data, project_file_index };
 }
 
-std::tuple<hkbCharacterStringData*, size_t, ProjectNode*> ProjectBuilder::buildCharacter(const fs::path& character_path, ProjectNode* characters_node)
+std::tuple<hkbCharacterData*, size_t, ProjectNode*> ProjectBuilder::buildCharacter(const fs::path& character_path, ProjectNode* characters_node)
 {
 	hkVariant* character_root;
-	hkbCharacterStringData* character_data = loadHkxFile<hkbCharacterStringData>(character_path, hkbCharacterStringDataClass, character_root);
+	hkbCharacterData* character_data = loadHkxFile<hkbCharacterData>(character_path, hkbCharacterDataClass, character_root);
 	if (character_data == NULL)
 		throw std::runtime_error("hkbCharacterStringData variant not found in " + character_path.string());
 	auto character_file_index = _resourceManager.index(character_path);
@@ -42,7 +43,7 @@ std::tuple<hkbCharacterStringData*, size_t, ProjectNode*> ProjectBuilder::buildC
 		_resourceManager.createHkxNode(
 			character_file_index,
 			{
-				character_data->m_name.cString(),
+				character_data->m_stringData->m_name.cString(),
 				(unsigned long long)character_root,
 				0,
 				character_file_index
@@ -157,13 +158,13 @@ ProjectBuilder::ProjectBuilder(
 			auto character_file_index = std::get<1>(character_result);
 			auto character_node = std::get<2>(character_result);
 
-			if (!std::string(character_data->m_rigName).empty())
+			if (!std::string(character_data->m_stringData->m_rigName).empty())
 			{
-				auto rig_path = project_folder / character_data->m_rigName.cString();
+				auto rig_path = project_folder / character_data->m_stringData->m_rigName.cString();
 				auto rig_result = buildSkeleton(rig_path, character_node);
 			}
 
-			auto behavior_path = project_folder / character_data->m_behaviorFilename.cString();
+			auto behavior_path = project_folder / character_data->m_stringData->m_behaviorFilename.cString();
 			behavior_path = behavior_path.parent_path();
 
 			ProjectNode* behaviors_node =

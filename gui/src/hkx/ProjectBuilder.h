@@ -6,7 +6,7 @@
 #include <src/hkx/BehaviorBuilder.h>
 
 class hkbProjectStringData;
-class hkbCharacterStringData;
+class hkbCharacterData;
 class hkbBehaviorGraphData;
 class hkbBehaviorGraphStringData;
 class hkaSkeleton;
@@ -37,12 +37,12 @@ namespace ckcmd {
 				}
 				if (data_index == -1)
 					throw std::runtime_error("hkbCharacterStringData variant not found in " + path.string());
-				root = &content.first;
+				root = &content.second[data_index];
 				return(T*)(content.second[data_index].m_object);
 			}
 
 			std::pair<hkbProjectStringData*, size_t>  buildProjectFileModel();
-			std::tuple<hkbCharacterStringData*, size_t, ProjectNode*> buildCharacter(const fs::path& project_folder, ProjectNode* characters_node);
+			std::tuple<hkbCharacterData*, size_t, ProjectNode*> buildCharacter(const fs::path& project_folder, ProjectNode* characters_node);
 			std::tuple<hkaSkeleton*, hkaSkeleton*, size_t, ProjectNode*> buildSkeleton(const fs::path& rig_path, ProjectNode* character_node);
 			std::vector<std::tuple<hkbBehaviorGraphData*, hkbBehaviorGraphStringData*, size_t, ProjectNode*>> buildBehaviors(const fs::path& behaviors_path, ProjectNode* behaviors_node);
 

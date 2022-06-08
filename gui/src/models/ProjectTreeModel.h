@@ -6,6 +6,8 @@
 #include <src/hkx/ResourceManager.h>
 #include <src/models/ProjectTreeActions.h>
 
+#include <src/models/ModelEdge.h>
+
 //Proof of concept, but unuseful. look for table/tree models instead
 
 namespace ckcmd {
@@ -14,53 +16,6 @@ namespace ckcmd {
         class ProjectTreeModel : public QAbstractItemModel {
             Q_OBJECT
                 friend class TreeBuilder;
-
-            enum class NodeType
-            {
-                Invalid = 0,
-                ProjectNode = 1,
-                HavokNative = 2
-            };
-
-            class ModelEdge
-            {
-                friend class ProjectTreeModel;
-
-                NodeType _parentType = NodeType::Invalid;
-                void* _parentItem = nullptr;
-                QModelIndex _parent;
-                int _file = -1;
-                int _row = -1;
-                int _column = -1;
-                NodeType _childType = NodeType::Invalid;
-                void* _childItem = nullptr;
-                QModelIndex _child;
-
-                auto as_tuple() const { return std::tie(_parentItem, _file, _row, _column, _childItem); }
-
-            public:
-                bool operator < (const ModelEdge& rhs) const {
-                    return 
-                        as_tuple() < rhs.as_tuple();
-                }
-
-                ModelEdge() {}
-
-                ModelEdge(ProjectNode*, int file, int row, int column, ProjectNode*);
-                ModelEdge(ProjectNode*, int file, int row, int column, hkVariant*);
-                ModelEdge(hkVariant*, int file, int row, int column, hkVariant*);
-
-                QVariant data(int row, int column) const;
-
-                ModelEdge childEdge(int index, ResourceManager& manager) const;
-                int childCount() const;
-            };
-
-            struct ModelEdgeComparator {
-                bool operator()(const ModelEdge* a, const ModelEdge* b) const {
-                    return *a < *b;
-                }
-            };
 
             std::map<ModelEdge*, qintptr, ModelEdgeComparator> _reverse_find;
             std::map<qintptr, ModelEdge> _direct_find;

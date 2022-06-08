@@ -1,143 +1,9 @@
 #include "ProjectTreeModel.h"
-#include <src/hkx/HkxLinkedTableVariant.h>
 #include <QBrush>
 
 using namespace ckcmd::HKX;
 
 
-ProjectTreeModel::ModelEdge::ModelEdge(ProjectNode* parent, int file, int row, int column, ProjectNode* child)
-{
-	_parentType = NodeType::ProjectNode;
-	_parentItem = reinterpret_cast<void*>(parent);
-	_file = file;
-	_row = row;
-	_column = column;
-	_childType = NodeType::ProjectNode;;
-	_childItem = reinterpret_cast<void*>(child);
-}
-
-ProjectTreeModel::ModelEdge::ModelEdge(ProjectNode* parent, int file, int row, int column, hkVariant* child)
-{
-	_parentType = NodeType::ProjectNode;
-	_parentItem = reinterpret_cast<void*>(parent);
-	_file = file;
-	_row = row;
-	_column = column;
-	_childType = NodeType::HavokNative;;
-	_childItem = reinterpret_cast<void*>(child);
-}
-
-ProjectTreeModel::ModelEdge::ModelEdge(hkVariant* parent, int file, int row, int column, hkVariant* child)
-{
-	_parentType = NodeType::HavokNative;
-	_parentItem = reinterpret_cast<void*>(parent);
-	_file = file;
-	_row = row;
-	_column = column;
-	_childType = NodeType::HavokNative;;
-	_childItem = reinterpret_cast<void*>(child);
-}
-
-QVariant ProjectTreeModel::ModelEdge::data(int row, int column) const
-{
-	switch (_childType)
-	{
-	case NodeType::ProjectNode:
-		return reinterpret_cast<ProjectNode*>(_childItem)->data(column);
-	case NodeType::HavokNative:
-	{
-		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		if (column == 0)
-		{
-			return HkxVariant(*variant).name();
-		}
-		else 
-		{
-			HkxLinkedTableVariant v(*variant);
-			return v.data(row, column - 1);
-		}
-	}
-	default:
-		return QVariant();
-	}
-	return QVariant();
-}
-
-ProjectTreeModel::ModelEdge ProjectTreeModel::ModelEdge::childEdge(int index, ResourceManager& manager) const
-{
-	switch (_childType)
-	{
-	case NodeType::ProjectNode:
-	{
-		ProjectNode* node = reinterpret_cast<ProjectNode*>(_childItem);
-		if (node->isVariant())
-		{
-			auto variant = node->variant();
-			auto file = node->file();
-			HkxLinkedTableVariant v(*variant);
-			auto& links = v.links();
-			if (index < links.size())
-			{
-				auto& link = links.at(index);
-				int index = manager.findIndex(file, link._ref);
-				return ModelEdge(node, file, link._row, link._column, manager.at(file, index));
-			}
-			else {
-				return ModelEdge(node, -1, index, 0, node->child(index - links.size()));
-			}
-		}
-		return ModelEdge(node, -1, index, 0, node->child(index));
-	}
-	case NodeType::HavokNative:
-	{
-		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		HkxLinkedTableVariant v(*variant);
-		auto& links = v.links();
-		auto& link = links.at(index);
-		int index = manager.findIndex(_file, link._ref);
-		if (index == -1)
-			__debugbreak();
-		return ModelEdge(variant, _file, link._row, link._column, manager.at(_file, index));
-	}
-	default:
-		return ModelEdge();
-	}
-	return ModelEdge();
-}
-
-
-//template<>
-//int hkChildCount(hkbBehaviorGraphClass* hk_class, hkVariant* variant)
-//{
-//	return HkxLinkedTableVariant(*variant).links().size();
-//}
-
-int ProjectTreeModel::ModelEdge::childCount() const
-{
-	switch (_childType)
-	{
-	case NodeType::ProjectNode:
-	{
-		ProjectNode* node = reinterpret_cast<ProjectNode*>(_childItem);
-		size_t havok_links = 0;
-		if (node->isVariant())
-		{
-			auto variant = node->variant();
-			auto file = node->file();
-			havok_links =  HkxLinkedTableVariant(*variant).links().size();
-		}
-		return node->childCount() + havok_links;
-	}
-	case NodeType::HavokNative:
-	{
-		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return hkChildCount(variant->m_class, variant);
-	}
-	default:
-		break;
-	}
-	return 0;
-}
 
 ProjectTreeModel::ProjectTreeModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent) :
 	_commandManager(commandManager),
@@ -147,28 +13,27 @@ ProjectTreeModel::ProjectTreeModel(CommandManager& commandManager, ResourceManag
 {
 }
 
-
-qintptr ProjectTreeModel::modelEdgeIndex(const ProjectTreeModel::ModelEdge& edge) const
+qintptr ProjectTreeModel::modelEdgeIndex(const ModelEdge& edge) const
 {
 	return _reverse_find.at(const_cast<ModelEdge*>(&edge));
 }
 
-const ProjectTreeModel::ModelEdge& ProjectTreeModel::modelEdge(const QModelIndex& index) const
+const ModelEdge& ProjectTreeModel::modelEdge(const QModelIndex& index) const
 {
 	return _direct_find.at(index.internalId());
 }
 
-ProjectTreeModel::ModelEdge& ProjectTreeModel::modelEdge(const QModelIndex& index)
+ModelEdge& ProjectTreeModel::modelEdge(const QModelIndex& index)
 {
 	return _direct_find[index.internalId()];
 }
 
-bool ProjectTreeModel::hasModelEdgeIndex(const ProjectTreeModel::ModelEdge& edge) const
+bool ProjectTreeModel::hasModelEdgeIndex(const ModelEdge& edge) const
 {
 	return _reverse_find.find(const_cast<ModelEdge*>(&edge)) != _reverse_find.end();
 }
 
-qintptr ProjectTreeModel::createModelEdgeIndex(const ProjectTreeModel::ModelEdge& edge)
+qintptr ProjectTreeModel::createModelEdgeIndex(const ModelEdge& edge)
 {
 	qintptr result = _direct_find.size() + 1;
 	_direct_find.insert({ result, edge });
