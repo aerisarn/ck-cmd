@@ -42,9 +42,9 @@ namespace ckcmd {
 			}
 
 			std::pair<hkbProjectStringData*, size_t>  buildProjectFileModel();
-			std::tuple<hkbCharacterData*, size_t, ProjectNode*> buildCharacter(const fs::path& project_folder, ProjectNode* characters_node);
-			void buildSkeleton(const fs::path& rig_path, ProjectNode* character_node, bool ragdoll);
-			std::vector<std::tuple<hkbBehaviorGraphData*, hkbBehaviorGraphStringData*, size_t, ProjectNode*>> buildBehaviors(const fs::path& behaviors_path, ProjectNode* behaviors_node);
+			std::tuple<hkbCharacterData*, size_t, ProjectNode*> buildCharacter(const fs::path& project_folder, ProjectNode* characters_node, int project_file_index);
+			void buildSkeleton(const fs::path& rig_path, ProjectNode* character_node, bool ragdoll, int project_file_index);
+			std::vector<std::tuple<hkbBehaviorGraphData*, hkbBehaviorGraphStringData*, size_t, ProjectNode*>> buildBehaviors(const fs::path& behaviors_path, ProjectNode* behaviors_node, int project_file_index);
 
 		public:
 			ProjectBuilder(

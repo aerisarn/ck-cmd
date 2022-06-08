@@ -5,10 +5,11 @@
 
 using namespace ckcmd::HKX;
 
-ModelEdge::ModelEdge(ProjectNode* parent, int file, int row, int column, ProjectNode* child)
+ModelEdge::ModelEdge(ProjectNode* parent, int project, int file, int row, int column, ProjectNode* child)
 {
 	_parentType = NodeType::ProjectNode;
 	_parentItem = reinterpret_cast<void*>(parent);
+	_project = project;
 	_file = file;
 	_row = row;
 	_column = column;
@@ -16,10 +17,11 @@ ModelEdge::ModelEdge(ProjectNode* parent, int file, int row, int column, Project
 	_childItem = reinterpret_cast<void*>(child);
 }
 
-ModelEdge::ModelEdge(ProjectNode* parent, int file, int row, int column, hkVariant* child)
+ModelEdge::ModelEdge(ProjectNode* parent, int project, int file, int row, int column, hkVariant* child)
 {
 	_parentType = NodeType::ProjectNode;
 	_parentItem = reinterpret_cast<void*>(parent);
+	_project = project;
 	_file = file;
 	_row = row;
 	_column = column;
@@ -27,10 +29,11 @@ ModelEdge::ModelEdge(ProjectNode* parent, int file, int row, int column, hkVaria
 	_childItem = reinterpret_cast<void*>(child);
 }
 
-ModelEdge::ModelEdge(hkVariant* parent, int file, int row, int column, hkVariant* child)
+ModelEdge::ModelEdge(hkVariant* parent, int project, int file, int row, int column, hkVariant* child)
 {
 	_parentType = NodeType::HavokNative;
 	_parentItem = reinterpret_cast<void*>(parent);
+	_project = project;
 	_file = file;
 	_row = row;
 	_column = column;
@@ -38,10 +41,11 @@ ModelEdge::ModelEdge(hkVariant* parent, int file, int row, int column, hkVariant
 	_childItem = reinterpret_cast<void*>(child);
 }
 
-ModelEdge::ModelEdge(hkVariant* parent, int file, int row, int column, hkVariant* child, NodeType childType)
+ModelEdge::ModelEdge(hkVariant* parent, int project, int file, int row, int column, hkVariant* child, NodeType childType)
 {
 	_parentType = NodeType::HavokNative;
 	_parentItem = reinterpret_cast<void*>(parent);
+	_project = project;
 	_file = file;
 	_row = row;
 	_column = column;
@@ -73,22 +77,23 @@ ModelEdge ModelEdge::childEdge(int index, ResourceManager& manager) const
 		{
 			auto variant = node->variant();
 			auto file = node->file();
+			auto project = node->project();
 
 			int havok_children = ProjectTreeHkHandler::getChildCount(variant, _childType);
 			if (index < havok_children)
 			{
-				return ProjectTreeHkHandler::getChild(node, index, file, variant, manager, _childType);
+				return ProjectTreeHkHandler::getChild(node, index, project, file, variant, manager, _childType);
 			}
 			else {
-				return ModelEdge(node, -1, index, 0, node->child(index - havok_children));
+				return ModelEdge(node, project, -1, index, 0, node->child(index - havok_children));
 			}
 		}
-		return ModelEdge(node, -1, index, 0, node->child(index));
+		return ModelEdge(node, _project, _file, index, 0, node->child(index));
 	}
 	default:
 	{
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::getChild(variant, index, _file, variant, manager, _childType);
+		return ProjectTreeHkHandler::getChild(variant, index, _project, _file, variant, manager, _childType);
 	}
 	}
 	return ModelEdge();

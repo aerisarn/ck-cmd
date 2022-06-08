@@ -78,6 +78,7 @@ QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& pare
 		ModelEdge edge(
 			_rootNode,
 			-1,
+			-1,
 			row,
 			column,
 			_rootNode->child(row)

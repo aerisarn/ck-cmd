@@ -33,7 +33,7 @@ std::pair<hkbProjectStringData*, size_t> ProjectBuilder::buildProjectFileModel()
 	return { project_data, project_file_index };
 }
 
-std::tuple<hkbCharacterData*, size_t, ProjectNode*> ProjectBuilder::buildCharacter(const fs::path& character_path, ProjectNode* characters_node)
+std::tuple<hkbCharacterData*, size_t, ProjectNode*> ProjectBuilder::buildCharacter(const fs::path& character_path, ProjectNode* characters_node, int project_file_index)
 {
 	hkVariant* character_root;
 	hkbCharacterData* character_data = loadHkxFile<hkbCharacterData>(character_path, hkbCharacterDataClass, character_root);
@@ -46,7 +46,7 @@ std::tuple<hkbCharacterData*, size_t, ProjectNode*> ProjectBuilder::buildCharact
 			{
 				character_data->m_stringData->m_name.cString(),
 				(unsigned long long)character_root,
-				0,
+				project_file_index,
 				character_file_index
 			},
 			characters_node
@@ -55,7 +55,7 @@ std::tuple<hkbCharacterData*, size_t, ProjectNode*> ProjectBuilder::buildCharact
 	return { character_data, character_file_index, character_node };
 }
 
-void ProjectBuilder::buildSkeleton(const fs::path& rig_path, ProjectNode* character_node, bool ragdoll)
+void ProjectBuilder::buildSkeleton(const fs::path& rig_path, ProjectNode* character_node, bool ragdoll, int project_file_index)
 {
 	auto& rig_contents = _resourceManager.get(rig_path);
 	auto rig_index = _resourceManager.index(rig_path);
@@ -82,9 +82,10 @@ void ProjectBuilder::buildSkeleton(const fs::path& rig_path, ProjectNode* charac
 			{
 				skeleton_data = &entry;
 			}
-			else {
-				ragdoll_data = &entry;
-			}
+		}
+		if (entry.m_class == &hkaRagdollInstanceClass)
+		{
+			ragdoll_data = &entry;
 		}
 	}
 	if (nullptr != skeleton_data)
@@ -95,7 +96,7 @@ void ProjectBuilder::buildSkeleton(const fs::path& rig_path, ProjectNode* charac
 				{
 					"Skeleton",
 					(unsigned long long)skeleton_data,
-					0,
+					project_file_index,
 					rig_index
 				},
 				character_node
@@ -110,7 +111,7 @@ void ProjectBuilder::buildSkeleton(const fs::path& rig_path, ProjectNode* charac
 				{
 					"Ragdoll",
 					(unsigned long long)ragdoll_data,
-					0,
+					project_file_index,
 					rig_index
 				},
 				character_node
@@ -121,7 +122,7 @@ void ProjectBuilder::buildSkeleton(const fs::path& rig_path, ProjectNode* charac
 
 typedef std::tuple<hkbBehaviorGraphData*, hkbBehaviorGraphStringData*, size_t, ProjectNode*> BehaviorDescriptor;
 
-std::vector<BehaviorDescriptor> ProjectBuilder::buildBehaviors(const fs::path& behaviors_path, ProjectNode* behaviors_node)
+std::vector<BehaviorDescriptor> ProjectBuilder::buildBehaviors(const fs::path& behaviors_path, ProjectNode* behaviors_node, int project_file_index)
 {
 	std::vector<BehaviorDescriptor> out;
 	fs::directory_iterator end_itr;
@@ -146,7 +147,7 @@ std::vector<BehaviorDescriptor> ProjectBuilder::buildBehaviors(const fs::path& b
 						{
 							behavior_graph->m_name.cString(),
 							(unsigned long long)behavior_root,
-							0,
+							project_file_index,
 							behavior_index
 						},
 						behaviors_node
@@ -181,13 +182,13 @@ ProjectBuilder::ProjectBuilder(
 		size_t project_file_index = project_data.second;
 		ProjectNode* characters_node = 
 			_parent->appendChild(
-				_resourceManager.createSupport(project_file_index, { "Characters" }, _parent)
+				_resourceManager.createSupport(project_file_index, { "Characters", "", project_file_index, -1 }, _parent)
 			);
 
 		for (int c = 0; c < data->m_characterFilenames.getSize(); c++)
 		{
 			auto character_path = project_folder / data->m_characterFilenames[c].cString();
-			auto character_result = buildCharacter(character_path, characters_node);
+			auto character_result = buildCharacter(character_path, characters_node, project_file_index);
 
 			auto character_data = std::get<0>(character_result);
 			auto character_file_index = std::get<1>(character_result);
@@ -196,7 +197,7 @@ ProjectBuilder::ProjectBuilder(
 			if (!std::string(character_data->m_stringData->m_rigName).empty())
 			{
 				auto rig_path = project_folder / character_data->m_stringData->m_rigName.cString();
-				buildSkeleton(rig_path, character_node, true);
+				buildSkeleton(rig_path, character_node, true, project_file_index);
 			}
 
 			auto behavior_path = project_folder / character_data->m_stringData->m_behaviorFilename.cString();
@@ -204,10 +205,10 @@ ProjectBuilder::ProjectBuilder(
 
 			ProjectNode* behaviors_node =
 				character_node->appendChild(
-					_resourceManager.createSupport(project_file_index, { "Behaviors" }, character_node)
+					_resourceManager.createSupport(project_file_index, { "Behaviors", "", project_file_index, -1 }, character_node)
 				);
 
-			buildBehaviors(behavior_path, behaviors_node);
+			buildBehaviors(behavior_path, behaviors_node, project_file_index);
 		}
 	}
 

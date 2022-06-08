@@ -8,6 +8,7 @@
 #include <hkbStateMachine_4.h>
 #include <hkbStateMachineStateInfo_4.h>
 #include <hkbStateMachineTransitionInfoArray_0.h>
+#include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
 
 using namespace ckcmd::HKX;
 
@@ -70,7 +71,7 @@ struct  HandleCharacterData
 		{
 			return DataListsName((int)childType);
 		}
-		else if (childType == NodeType::deformableSkinName)
+		if (childType == NodeType::deformableSkinName)
 		{
 			return string_data->m_deformableSkinNames[row].cString();
 		}
@@ -87,17 +88,17 @@ struct  HandleCharacterData
 		}
 	}
 
-	static ModelEdge get_child(int index, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
 		if (childType == NodeType::ProjectNode)
 		{
 			switch (index) {
 			case 0:
-				return ModelEdge(variant, file, index, 0, variant, NodeType::deformableSkinNames);
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::deformableSkinNames);
 			case 1:
-				return ModelEdge(variant, file, index, 0, variant, NodeType::animationNames);
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::animationNames);
 			case 2:
-				return ModelEdge(variant, file, index, 0, variant, NodeType::characterPropertyNames);
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyNames);
 			default:
 				break;
 			}
@@ -105,15 +106,15 @@ struct  HandleCharacterData
 		}
 		else if (childType == NodeType::deformableSkinNames)
 		{
-			return ModelEdge(variant, file, index, 0, variant, NodeType::deformableSkinName);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::deformableSkinName);
 		}
 		else if (childType == NodeType::animationNames)
 		{
-			return ModelEdge(variant, file, index, 0, variant, NodeType::animationName);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::animationName);
 		}
 		else if (childType == NodeType::characterPropertyNames)
 		{
-			return ModelEdge(variant, file, index, 0, variant, NodeType::characterPropertyName);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyName);
 		}
 		else {
 			return ModelEdge();
@@ -215,32 +216,32 @@ struct  HandleBehaviorData
 		}
 	}
 
-	static ModelEdge get_child(int index, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
 		if (childType == NodeType::ProjectNode)
 		{
 			switch (index) {
 			case 0:
-				return ModelEdge(variant, file, index, 0, variant, NodeType::behaviorEventNames);
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorEventNames);
 			case 1:
-				return ModelEdge(variant, file, index, 0, variant, NodeType::behaviorVariableNames);
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableNames);
 			case 2:
-				return ModelEdge(variant, file, index, 0, variant, NodeType::behaviorCharacterPropertyNames);
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyNames);
 			default:
 				break;
 			}
 		}
 		else if (childType == NodeType::behaviorEventNames)
 		{
-			return ModelEdge(variant, file, index, 0, variant, NodeType::behaviorEventName);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorEventName);
 		}
 		else if (childType == NodeType::behaviorVariableNames)
 		{
-			return ModelEdge(variant, file, index, 0, variant, NodeType::behaviorVariableName);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableName);
 		}
 		else if (childType == NodeType::behaviorCharacterPropertyNames)
 		{
-			return ModelEdge(variant, file, index, 0, variant, NodeType::behaviorCharacterPropertyName);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyName);
 		}
 		HkxLinkedTableVariant v(*variant);
 		auto& links = v.links();
@@ -248,7 +249,7 @@ struct  HandleBehaviorData
 		int file_index = manager.findIndex(file, link._ref);
 		if (file_index == -1)
 			__debugbreak();
-		return ModelEdge((ProjectNode*)nullptr, file, link._row, link._column, manager.at(file, file_index));
+		return ModelEdge((ProjectNode*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
 	}
 };
 
@@ -367,26 +368,26 @@ struct  HandleStateMachineData
 		return v.data(row, column - 1);
 	}
 
-	static ModelEdge get_child(int index, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
 		if (childType == NodeType::ProjectNode || childType == NodeType::HavokNative)
 		{
 			switch (index) {
 			case 0:
-				return ModelEdge(variant, file, index, 0, variant, NodeType::FSMWildcardTransitions);
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::FSMWildcardTransitions);
 			case 1:
-				return ModelEdge(variant, file, index, 0, variant, NodeType::FSMStateTransitions);
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::FSMStateTransitions);
 			default:
 				break;
 			}
 		}
 		else if (childType == NodeType::FSMWildcardTransitions)
 		{
-			return ModelEdge(variant, file, index, 0, variant, NodeType::FSMWildcardTransition);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::FSMWildcardTransition);
 		}
 		else if (childType == NodeType::FSMStateTransitions)
 		{
-			return ModelEdge(variant, file, index, 0, variant, NodeType::FSMStateTransition);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::FSMStateTransition);
 		}
 		HkxLinkedTableVariant v(*variant);
 		auto& links = v.links();
@@ -394,7 +395,7 @@ struct  HandleStateMachineData
 		int file_index = manager.findIndex(file, link._ref);
 		if (file_index == -1)
 			__debugbreak();
-		return ModelEdge((ProjectNode*)nullptr, file, link._row, link._column, manager.at(file, file_index));
+		return ModelEdge((ProjectNode*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
 	}
 };
 
@@ -458,15 +459,15 @@ struct  HandleSkeletonData
 		}
 	}
 
-	static ModelEdge get_child(int index, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
 		if (childType == NodeType::ProjectNode)
 		{
 			switch (index) {
 			case 0:
-				return ModelEdge(variant, file, index, 0, variant, NodeType::SkeletonBones);
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::SkeletonBones);
 			case 1:
-				return ModelEdge(variant, file, index, 0, variant, NodeType::SkeletonFloats);
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::SkeletonFloats);
 			default:
 				break;
 			}
@@ -474,11 +475,84 @@ struct  HandleSkeletonData
 		}
 		else if (childType == NodeType::SkeletonBones)
 		{
-			return ModelEdge(variant, file, index, 0, variant, NodeType::SkeletonBone);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::SkeletonBone);
 		}
 		else if (childType == NodeType::SkeletonFloats)
 		{
-			return ModelEdge(variant, file, index, 0, variant, NodeType::SkeletonFloat);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::SkeletonFloat);
+		}
+		else {
+			return ModelEdge();
+		}
+	}
+};
+
+struct  HandleRagdollData
+{
+	static const size_t DATA_SUPPORTS = 1;
+
+	static const char* DataListsName(int row)
+	{
+		switch ((NodeType)row) {
+		case NodeType::RagdollBones:
+			return "Bones";
+		default:
+			break;
+		}
+		return "Invalid Character Entry";
+	};
+
+	static int getChildCount(hkVariant* variant, NodeType childType)
+	{
+		auto* data = reinterpret_cast<hkaRagdollInstance*>(variant->m_object);
+		if (data == NULL)
+			return 0;
+		if (childType == NodeType::ProjectNode)
+		{
+			return DATA_SUPPORTS;
+		}
+		else if (childType == NodeType::RagdollBones)
+		{
+			if (NULL == data->m_skeleton)
+				return 0;
+			return data->m_skeleton->m_bones.getSize();
+		}
+		else {
+			return 0;
+		}
+	}
+
+	static QVariant data(int row, int column, hkVariant* variant, NodeType childType)
+	{
+		auto* data = reinterpret_cast<hkaRagdollInstance*>(variant->m_object);
+		if (childType == NodeType::RagdollBones)
+		{
+			return DataListsName((int)childType);
+		}
+		else if (childType == NodeType::RagdollBone)
+		{
+			return data->m_skeleton->m_bones[row].m_name.cString();
+		}
+		else {
+			return 0;
+		}
+	}
+
+	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+	{
+		if (childType == NodeType::ProjectNode)
+		{
+			switch (index) {
+			case 0:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::RagdollBones);
+			default:
+				break;
+			}
+			return ModelEdge();
+		}
+		else if (childType == NodeType::RagdollBones)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::RagdollBone);
 		}
 		else {
 			return ModelEdge();
@@ -504,6 +578,10 @@ int ProjectTreeHkHandler::getChildCount(hkVariant* variant, NodeType childType)
 	{
 		return HandleSkeletonData::getChildCount(variant, childType);
 	}
+	if (&hkaRagdollInstanceClass == variant->m_class)
+	{
+		return HandleRagdollData::getChildCount(variant, childType);
+	}
 	return HkxLinkedTableVariant(*variant).links().size();
 }
 
@@ -525,6 +603,10 @@ QVariant ProjectTreeHkHandler::data(int row, int column, hkVariant* variant, Nod
 	{
 		return HandleSkeletonData::data(row, column, variant, childType);
 	}
+	if (&hkaRagdollInstanceClass == variant->m_class)
+	{
+		return HandleRagdollData::data(row, column, variant, childType);
+	}
 	if (column == 0)
 	{
 		return HkxVariant(*variant).name();
@@ -533,23 +615,27 @@ QVariant ProjectTreeHkHandler::data(int row, int column, hkVariant* variant, Nod
 	return v.data(row, column - 1);
 }
 
-ModelEdge ProjectTreeHkHandler::get_child(int index, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+ModelEdge ProjectTreeHkHandler::get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 {
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return HandleCharacterData::get_child(index, file, variant, manager, childType);
+		return HandleCharacterData::get_child(index, project, file, variant, manager, childType);
 	}
 	if (&hkbBehaviorGraphClass == variant->m_class)
 	{
-		return HandleBehaviorData::get_child(index, file, variant, manager, childType);
+		return HandleBehaviorData::get_child(index, project, file, variant, manager, childType);
 	}
 	if (&hkbStateMachineClass == variant->m_class)
 	{
-		return HandleStateMachineData::get_child(index, file, variant, manager, childType);
+		return HandleStateMachineData::get_child(index, project, file, variant, manager, childType);
 	}
 	if (&hkaSkeletonClass == variant->m_class)
 	{
-		return HandleSkeletonData::get_child(index, file, variant, manager, childType);
+		return HandleSkeletonData::get_child(index, project, file, variant, manager, childType);
+	}
+	if (&hkaRagdollInstanceClass == variant->m_class)
+	{
+		return HandleRagdollData::get_child(index, project, file, variant, manager, childType);
 	}
 	HkxLinkedTableVariant v(*variant);
 	auto& links = v.links();
@@ -557,5 +643,5 @@ ModelEdge ProjectTreeHkHandler::get_child(int index, int file, hkVariant* varian
 	int file_index = manager.findIndex(file, link._ref);
 	if (file_index == -1)
 		__debugbreak();
-	return ModelEdge((ProjectNode*)nullptr, file, link._row, link._column, manager.at(file, file_index));
+	return ModelEdge((ProjectNode*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
 }

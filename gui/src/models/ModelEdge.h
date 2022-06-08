@@ -40,7 +40,9 @@ namespace ckcmd {
             SkeletonBones,
             SkeletonBone,
             SkeletonFloats,
-            SkeletonFloat
+            SkeletonFloat,
+            RagdollBones,
+            RagdollBone
         };
 
         class ModelEdge
@@ -51,6 +53,7 @@ namespace ckcmd {
             NodeType _parentType = NodeType::Invalid;
             void* _parentItem = nullptr;
             QModelIndex _parent;
+            int _project = -1;
             int _file = -1;
             int _row = -1;
             int _column = -1;
@@ -58,20 +61,58 @@ namespace ckcmd {
             void* _childItem = nullptr;
             QModelIndex _child;
 
-            auto as_tuple() const { return std::tie(_parentItem, _parentType, _file, _row, _column, _childItem, _childType); }
+            auto as_project_index_tuple() const
+            {
+                return std::tie(_project, _row, _column, _childType);
+            }
+
+            auto as_file_index_tuple() const
+            {
+                return std::tie(_file, _row, _column, _childType);
+            }
+
+            auto as_tuple() const
+            { 
+                return std::tie(_parentType, _parentItem, _file, _row, _column, _childItem, _childType);
+            }
 
         public:
             bool operator < (const ModelEdge& rhs) const {
-                return
-                    as_tuple() < rhs.as_tuple();
+                if (
+                        (
+                        _childType == NodeType::SkeletonBone ||
+                        _childType == NodeType::RagdollBone
+                        ) && (
+                            rhs._childType == NodeType::SkeletonBone ||
+                            rhs._childType == NodeType::RagdollBone
+                        )
+                    )
+                {
+                    return as_project_index_tuple() < rhs.as_project_index_tuple();
+                }
+                if (
+                    (
+                        _childType == NodeType::behaviorEventName ||
+                        _childType == NodeType::behaviorVariableName ||
+                        _childType == NodeType::behaviorCharacterPropertyName
+                    ) && (
+                        rhs._childType == NodeType::behaviorEventName ||
+                         rhs._childType == NodeType::behaviorVariableName ||
+                         rhs._childType == NodeType::behaviorCharacterPropertyName
+                    )
+                ) 
+                {
+                    return as_file_index_tuple() < rhs.as_file_index_tuple();
+                }             
+                return as_tuple() < rhs.as_tuple();
             }
 
             ModelEdge() {}
 
-            ModelEdge(ProjectNode*, int file, int row, int column, ProjectNode*);
-            ModelEdge(ProjectNode*, int file, int row, int column, hkVariant*);
-            ModelEdge(hkVariant*, int file, int row, int column, hkVariant*);
-            ModelEdge(hkVariant*, int file, int row, int column, hkVariant*, NodeType childType);
+            ModelEdge(ProjectNode*, int project, int file, int row, int column, ProjectNode*);
+            ModelEdge(ProjectNode*, int project, int file, int row, int column, hkVariant*);
+            ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*);
+            ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*, NodeType childType);
 
             QVariant data(int row, int column) const;
 

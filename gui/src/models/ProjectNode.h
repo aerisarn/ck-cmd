@@ -56,6 +56,7 @@ namespace ckcmd {
             bool isVariant() const;
             virtual hkVariant* variant() const;
             virtual int file() const;
+            virtual int project() const;
 
             bool isCharacter() const;
 

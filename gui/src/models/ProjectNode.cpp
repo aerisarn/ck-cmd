@@ -121,6 +121,10 @@ int ProjectNode::file() const {
 	return data(3).value<int>();
 }
 
+int ProjectNode::project() const {
+	return data(2).value<int>();
+}
+
 std::string ProjectNode::name()
 {
 	return data(0).toString().toUtf8().constData();
