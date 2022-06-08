@@ -36,7 +36,11 @@ namespace ckcmd {
             FSMWildcardTransitions,
             FSMWildcardTransition,
             FSMStateTransitions,
-            FSMStateTransition
+            FSMStateTransition,
+            SkeletonBones,
+            SkeletonBone,
+            SkeletonFloats,
+            SkeletonFloat
         };
 
         class ModelEdge

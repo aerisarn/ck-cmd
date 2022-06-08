@@ -8,6 +8,7 @@
 #include <hkbCharacterData_7.h>
 #include <hkbCharacterStringData_5.h>
 #include <hkbBehaviorGraph_1.h>
+#include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
 
 using namespace ckcmd::HKX;
 
@@ -54,34 +55,68 @@ std::tuple<hkbCharacterData*, size_t, ProjectNode*> ProjectBuilder::buildCharact
 	return { character_data, character_file_index, character_node };
 }
 
-std::tuple<hkaSkeleton*, hkaSkeleton*, size_t, ProjectNode*> ProjectBuilder::buildSkeleton(const fs::path& rig_path, ProjectNode* character_node)
+void ProjectBuilder::buildSkeleton(const fs::path& rig_path, ProjectNode* character_node, bool ragdoll)
 {
 	auto& rig_contents = _resourceManager.get(rig_path);
 	auto rig_index = _resourceManager.index(rig_path);
-	hkVariant* rig_root;
-	hkaSkeleton* skeleton_data = loadHkxFile<hkaSkeleton>(rig_path, hkaSkeletonClass, rig_root);
-	hkaSkeleton* ragdoll_data = nullptr;
-	for (auto& entry : rig_contents.second)
+	bool fileHasRagdoll = false;
+	hkRefPtr<const hkaSkeleton> ragdoll_skeleton = nullptr;
+	for (const auto& content : rig_contents.second)
 	{
-		if (entry.m_class == &hkaSkeletonClass && entry.m_object != skeleton_data)
+		if (content.m_class == &hkaRagdollInstanceClass)
 		{
-			ragdoll_data = reinterpret_cast<hkaSkeleton*>(entry.m_object);
+			fileHasRagdoll = true;
+			hkaRagdollInstance* ragdoll = (hkaRagdollInstance*)content.m_object;
+			ragdoll_skeleton = ragdoll->m_skeleton;
 			break;
 		}
 	}
-	ProjectNode* rig_node = character_node->appendChild(
-		_resourceManager.createHkxNode(
-			rig_index,
+
+	hkVariant* skeleton_data = nullptr;
+	hkVariant* ragdoll_data = nullptr;
+	for (auto& entry : rig_contents.second)
+	{
+		if (entry.m_class == &hkaSkeletonClass)
+		{
+			if (!fileHasRagdoll || ragdoll_skeleton.val() != entry.m_object)
 			{
-				skeleton_data->m_name.cString(),
-				(unsigned long long)rig_root,
-				0,
-				rig_index
-			},
-			character_node
-		)
-	);
-	return { skeleton_data, ragdoll_data, rig_index, rig_node };
+				skeleton_data = &entry;
+			}
+			else {
+				ragdoll_data = &entry;
+			}
+		}
+	}
+	if (nullptr != skeleton_data)
+	{
+		ProjectNode* rig_node = character_node->appendChild(
+			_resourceManager.createHkxNode(
+				rig_index,
+				{
+					"Skeleton",
+					(unsigned long long)skeleton_data,
+					0,
+					rig_index
+				},
+				character_node
+			)
+		);
+	}
+	if (ragdoll_data != skeleton_data)
+	{
+		ProjectNode* rig_node = character_node->appendChild(
+			_resourceManager.createHkxNode(
+				rig_index,
+				{
+					"Ragdoll",
+					(unsigned long long)ragdoll_data,
+					0,
+					rig_index
+				},
+				character_node
+			)
+		);
+	}
 }
 
 typedef std::tuple<hkbBehaviorGraphData*, hkbBehaviorGraphStringData*, size_t, ProjectNode*> BehaviorDescriptor;
@@ -161,7 +196,7 @@ ProjectBuilder::ProjectBuilder(
 			if (!std::string(character_data->m_stringData->m_rigName).empty())
 			{
 				auto rig_path = project_folder / character_data->m_stringData->m_rigName.cString();
-				auto rig_result = buildSkeleton(rig_path, character_node);
+				buildSkeleton(rig_path, character_node, true);
 			}
 
 			auto behavior_path = project_folder / character_data->m_stringData->m_behaviorFilename.cString();

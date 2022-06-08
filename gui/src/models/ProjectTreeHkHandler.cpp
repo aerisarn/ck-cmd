@@ -89,8 +89,6 @@ struct  HandleCharacterData
 
 	static ModelEdge get_child(int index, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
-		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
-		auto string_data = data->m_stringData;
 		if (childType == NodeType::ProjectNode)
 		{
 			switch (index) {
@@ -219,8 +217,6 @@ struct  HandleBehaviorData
 
 	static ModelEdge get_child(int index, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
-		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
-		auto string_data = data->m_stringData;
 		if (childType == NodeType::ProjectNode)
 		{
 			switch (index) {
@@ -373,8 +369,6 @@ struct  HandleStateMachineData
 
 	static ModelEdge get_child(int index, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
-		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
-		auto string_data = data->m_stringData;
 		if (childType == NodeType::ProjectNode || childType == NodeType::HavokNative)
 		{
 			switch (index) {
@@ -404,6 +398,93 @@ struct  HandleStateMachineData
 	}
 };
 
+struct  HandleSkeletonData
+{
+	static const size_t DATA_SUPPORTS = 2;
+
+	static const char* DataListsName(int row)
+	{
+		switch ((NodeType)row) {
+		case NodeType::SkeletonBones:
+			return "Bones";
+		case NodeType::SkeletonFloats:
+			return "Floats";
+		default:
+			break;
+		}
+		return "Invalid Character Entry";
+	};
+
+	static int getChildCount(hkVariant* variant, NodeType childType)
+	{
+		auto* data = reinterpret_cast<hkaSkeleton*>(variant->m_object);
+		if (data == NULL)
+			return 0;
+		if (childType == NodeType::ProjectNode)
+		{
+			return DATA_SUPPORTS;
+		}
+		else if (childType == NodeType::SkeletonBones)
+		{
+			return data->m_bones.getSize();
+		}
+		else if (childType == NodeType::SkeletonFloats)
+		{
+			return data->m_floatSlots.getSize();
+		}
+		else {
+			return 0;
+		}
+	}
+
+	static QVariant data(int row, int column, hkVariant* variant, NodeType childType)
+	{
+		auto* data = reinterpret_cast<hkaSkeleton*>(variant->m_object);
+		if (childType == NodeType::SkeletonBones ||
+			childType == NodeType::SkeletonFloats)
+		{
+			return DataListsName((int)childType);
+		}
+		else if (childType == NodeType::SkeletonBone)
+		{
+			return data->m_bones[row].m_name.cString();
+		}
+		else if (childType == NodeType::SkeletonFloat)
+		{
+			return data->m_floatSlots[row].cString();
+		}
+		else {
+			return 0;
+		}
+	}
+
+	static ModelEdge get_child(int index, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+	{
+		if (childType == NodeType::ProjectNode)
+		{
+			switch (index) {
+			case 0:
+				return ModelEdge(variant, file, index, 0, variant, NodeType::SkeletonBones);
+			case 1:
+				return ModelEdge(variant, file, index, 0, variant, NodeType::SkeletonFloats);
+			default:
+				break;
+			}
+			return ModelEdge();
+		}
+		else if (childType == NodeType::SkeletonBones)
+		{
+			return ModelEdge(variant, file, index, 0, variant, NodeType::SkeletonBone);
+		}
+		else if (childType == NodeType::SkeletonFloats)
+		{
+			return ModelEdge(variant, file, index, 0, variant, NodeType::SkeletonFloat);
+		}
+		else {
+			return ModelEdge();
+		}
+	}
+};
 
 int ProjectTreeHkHandler::getChildCount(hkVariant* variant, NodeType childType)
 {
@@ -418,6 +499,10 @@ int ProjectTreeHkHandler::getChildCount(hkVariant* variant, NodeType childType)
 	if (&hkbStateMachineClass == variant->m_class)
 	{
 		return HandleStateMachineData::getChildCount(variant, childType);
+	}
+	if (&hkaSkeletonClass == variant->m_class)
+	{
+		return HandleSkeletonData::getChildCount(variant, childType);
 	}
 	return HkxLinkedTableVariant(*variant).links().size();
 }
@@ -435,6 +520,10 @@ QVariant ProjectTreeHkHandler::data(int row, int column, hkVariant* variant, Nod
 	if (&hkbStateMachineClass == variant->m_class)
 	{
 		return HandleStateMachineData::data(row, column, variant, childType);
+	}
+	if (&hkaSkeletonClass == variant->m_class)
+	{
+		return HandleSkeletonData::data(row, column, variant, childType);
 	}
 	if (column == 0)
 	{
@@ -457,6 +546,10 @@ ModelEdge ProjectTreeHkHandler::get_child(int index, int file, hkVariant* varian
 	if (&hkbStateMachineClass == variant->m_class)
 	{
 		return HandleStateMachineData::get_child(index, file, variant, manager, childType);
+	}
+	if (&hkaSkeletonClass == variant->m_class)
+	{
+		return HandleSkeletonData::get_child(index, file, variant, manager, childType);
 	}
 	HkxLinkedTableVariant v(*variant);
 	auto& links = v.links();
