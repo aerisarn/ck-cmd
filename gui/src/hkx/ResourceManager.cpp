@@ -7,6 +7,7 @@
 #include "ResourceManager.h"
 
 #include <hkbProjectData_2.h>
+#include <hkbCharacterData_7.h>
 
 using namespace ckcmd::HKX;
 
@@ -300,16 +301,16 @@ void ResourceManager::scanWorkspace()
 	}
 }
 
-bool ResourceManager::isCharacterFileOpen(int index)
+bool ResourceManager::isCharacterFileOpen(int row)
 {
-	QString path = _characters.at(index);
+	QString path = _characters.at(row);
 	fs::path fs_path = path.toUtf8().constData();
 	return std::find(_files.begin(), _files.end(), fs_path) != _files.end();
 }
 
-bool ResourceManager::isMiscFileOpen(int index)
+bool ResourceManager::isMiscFileOpen(int row)
 {
-	QString path = _miscellaneous.at(index);
+	QString path = _miscellaneous.at(row);
 	fs::path fs_path = path.toUtf8().constData();
 	return std::find(_files.begin(), _files.end(), fs_path) != _files.end();
 }
@@ -318,14 +319,60 @@ void ResourceManager::openCharacterFile(int index)
 {
 	QString path = _characters.at(index);
 	fs::path fs_path = path.toUtf8().constData();
-	get(fs_path);
+	if (fs::exists(fs_path))
+	{
+		get(fs_path);
+	}
+}
+
+size_t ResourceManager::projectFileIndex(int row)
+{
+	QString path = _characters.at(row);
+	fs::path fs_path = path.toUtf8().constData();
+	return index(fs_path);
 }
 
 size_t ResourceManager::characterFileIndex(int row)
 {
 	QString path = _characters.at(row);
 	fs::path fs_path = path.toUtf8().constData();
-	return index(fs_path);
+	hkbProjectStringData* project_data = nullptr;
+	if (fs::exists(fs_path))
+	{
+		auto& contents = get(fs_path);
+		for (auto& item : contents.second)
+		{
+			if (&hkbProjectStringDataClass == item.m_class)
+			{
+				project_data = reinterpret_cast<hkbProjectStringData*>(item.m_object);
+				break;
+			}
+		}
+	}
+	if (nullptr != project_data && project_data->m_characterFilenames.getSize())
+	{
+		fs::path char_path = fs_path.parent_path() / project_data->m_characterFilenames[0].cString();
+		if (fs::exists(char_path))
+		{
+			auto& contents = get(char_path);
+			return index(char_path);
+		}
+	}
+	return -1;
+}
+
+hkVariant* ResourceManager::characterFileRoot(int character_index)
+{
+	auto& contents = get(character_index);
+	for (auto& item : contents.second)
+	{
+		if (&hkbCharacterDataClass == item.m_class)
+		{
+			return &item;
+		}
+	}
+
+	return nullptr;
 }
 
 void ResourceManager::closeCharacterFile(int string_index)

@@ -16,6 +16,7 @@ namespace ckcmd {
             ProjectNode,
             CharactersNode,
             CharacterNode,
+            CharacterHkxNode,
             MiscsNode,
             MiscNode,
             BehaviorNode,

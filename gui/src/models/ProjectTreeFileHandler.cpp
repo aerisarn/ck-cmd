@@ -12,7 +12,7 @@ int ProjectTreeFileHandler::getChildCount(int file_index, NodeType childType, Re
 	case NodeType::MiscsNode:
 		return _manager.miscellaneous_project_files();
 	case NodeType::CharacterNode:
-		if (_manager.isCharacterFileOpen(file_index)) {
+		if (file_index != -1) {
 			return 1;
 		}
 		return 0;
@@ -46,9 +46,9 @@ ModelEdge ProjectTreeFileHandler::getChild(int index, int project, int file, Nod
 		return ModelEdge(nullptr, -1, -1, index, -1, nullptr, NodeType::MiscNode);
 	case NodeType::CharacterNode:
 	{
-		auto file_index = _manager.characterFileIndex(index);
-		auto* variant = &_manager.get(file_index).first;
-		return ModelEdge(variant, file, file, index, -1, variant);
+		//auto file_index = _manager.characterFileIndex(file);
+		auto* variant = _manager.characterFileRoot(file);
+		return ModelEdge(variant, project, file, index, 0, variant, NodeType::CharacterHkxNode);
 	}
 	default:
 		break;

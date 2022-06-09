@@ -72,7 +72,7 @@ ModelEdge ModelEdge::childEdge(int index, ResourceManager& manager) const
 	case NodeType::MiscsNode:
 	case NodeType::CharacterNode:
 	case NodeType::MiscNode:
-		return ProjectTreeFileHandler::getChild(index, _file, _project, _childType, manager);
+		return ProjectTreeFileHandler::getChild(index, _project, _file, _childType, manager);
 	//case NodeType::ProjectNode:
 	//{
 	//	ProjectNode* node = reinterpret_cast<ProjectNode*>(_childItem);
@@ -110,7 +110,7 @@ int ModelEdge::childCount(ResourceManager& manager) const
 	case NodeType::MiscsNode:
 	case NodeType::CharacterNode:
 	case NodeType::MiscNode:
-		return ProjectTreeFileHandler::getChildCount(_row, _childType, manager);
+		return ProjectTreeFileHandler::getChildCount(_file, _childType, manager);
 	//case NodeType::ProjectNode:
 	//{
 	//	ProjectNode* node = reinterpret_cast<ProjectNode*>(_childItem);

@@ -3,7 +3,6 @@
 
 #include <core/HKXWrangler.h>
 #include <src/Log.h>
-#include <src/models/ProjectNode.h>
 #include <src/hkx/ITreeBuilderClassHandler.h>
 #include <src/hkx/ISpecialFieldsHandler.h>
 #include <src/workspace.h>
@@ -14,6 +13,7 @@
 typedef std::pair< hkVariant, std::vector<hkVariant>> hkx_file_t;
 
 struct Collection;
+struct hkVariant;
 
 namespace Sk {
 	class AACTRecord;
@@ -87,7 +87,9 @@ namespace ckcmd {
 			const QString& miscellaneous_project_file(int index) { return _miscellaneous.at(index); }
 
 			bool isCharacterFileOpen(int row);
+			size_t projectFileIndex(int row);
 			size_t characterFileIndex(int row);
+			hkVariant* characterFileRoot(int character_index);
 			void openCharacterFile(int row);
 			void closeCharacterFile(int row);
 

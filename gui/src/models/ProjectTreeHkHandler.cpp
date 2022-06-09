@@ -42,7 +42,7 @@ struct  HandleCharacterData
 		auto string_data = data->m_stringData;
 		if (string_data == NULL)
 			return 0;
-		if (childType == NodeType::ProjectNode)
+		if (childType == NodeType::CharacterHkxNode)
 		{
 			return DATA_SUPPORTS;
 		}
@@ -67,6 +67,9 @@ struct  HandleCharacterData
 	{
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
 		auto string_data = data->m_stringData;
+		if (childType == NodeType::CharacterHkxNode) {
+			return string_data->m_name;
+		}
 		if (childType == NodeType::deformableSkinNames ||
 			childType == NodeType::animationNames ||
 			childType == NodeType::characterPropertyNames)
@@ -77,22 +80,20 @@ struct  HandleCharacterData
 		{
 			return string_data->m_deformableSkinNames[row].cString();
 		}
-		else if (childType == NodeType::animationName)
+		if (childType == NodeType::animationName)
 		{
 			return string_data->m_animationNames[row].cString();
 		}
-		else if (childType == NodeType::characterPropertyName)
+		if (childType == NodeType::characterPropertyName)
 		{
 			return string_data->m_characterPropertyNames[row].cString();
 		}
-		else {
-			return 0;
-		}
+		return QVariant();
 	}
 
 	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
-		if (childType == NodeType::ProjectNode)
+		if (childType == NodeType::CharacterHkxNode)
 		{
 			switch (index) {
 			case 0:
@@ -646,4 +647,12 @@ ModelEdge ProjectTreeHkHandler::get_child(int index, int project, int file, hkVa
 	if (file_index == -1)
 		__debugbreak();
 	return ModelEdge((hkVariant*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
+}
+
+ModelEdge ProjectTreeHkHandler::getChild(hkVariant*, int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+{
+	auto edge = get_child(index, project, file, variant, manager, childType);
+	edge._parentItem = variant;
+	edge._parentType = NodeType::HavokNative;
+	return edge;
 }

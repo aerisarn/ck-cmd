@@ -213,36 +213,24 @@ void ProjectTreeModel::select(const QModelIndex& index)
 
 void ProjectTreeModel::activate(const QModelIndex& index)
 {
-	auto edge = modelEdge(index);
+	auto& edge = modelEdge(index);
 	if (edge._childType == NodeType::CharacterNode)
 	{
 		if (_resourceManager.isCharacterFileOpen(index.row()))
 		{
 			emit beginRemoveRows(index, 0, 2);
 			_resourceManager.closeCharacterFile(index.row());
+			edge._file = -1;
+			edge._project = -1;
 			emit endRemoveRows();
 		}
 		else {
 			emit beginInsertRows(index, 0, 2);
 			_resourceManager.openCharacterFile(index.row());
+			edge._file = _resourceManager.characterFileIndex(index.row());
+			edge._project = _resourceManager.projectFileIndex(index.row());
 			emit endInsertRows();
 		}
-
-		//ProjectNode* node_activated = reinterpret_cast<ProjectNode*>(edge._childItem);
-		//if (node_activated->isProjectRoot())
-		//{
-		//	if (node_activated->childCount() == 0)
-		//	{
-		//		emit beginInsertRows(index, 0, 2);
-		//		_actionsManager.OpenProject(node_activated);
-		//		emit endInsertRows();
-		//	}
-		//	else {
-		//		emit beginRemoveRows(index, 0, 2);
-		//		_actionsManager.CloseProject(node_activated);
-		//		emit endRemoveRows();
-		//	}
-		//}
 	}
 //else if (node_clicked->isSkeleton()) {
 //	
