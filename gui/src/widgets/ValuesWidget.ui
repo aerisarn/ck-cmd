@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>ValuesWidget</string>
+   <string>Editor</string>
   </property>
   <widget class="QWidget" name="verticalLayoutWidget">
    <property name="geometry">
@@ -22,18 +22,7 @@
      <height>431</height>
     </rect>
    </property>
-   <layout class="QVBoxLayout" name="verticalLayout">
-    <item>
-     <widget class="QLabel" name="valuesLabel">
-      <property name="text">
-       <string>Values</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QTableView" name="valuesView"/>
-    </item>
-   </layout>
+   <layout class="QVBoxLayout" name="verticalLayout"/>
   </widget>
  </widget>
  <resources/>

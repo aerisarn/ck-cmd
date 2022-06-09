@@ -2,6 +2,7 @@
 #include <src/models/ProjectTreeModel.h>
 
 #include "ui_ValuesWidget.h"
+#include "ui_HkTopNavigatorWidget.h"
 
 #include <src/hkx/RefDelegate.h>
 
@@ -14,7 +15,12 @@ ValuesWidget::ValuesWidget(ProjectTreeModel* model, CommandManager& command_mana
 	ui(new Ui::ValuesWidget),
 	ads::CDockWidget("Values",parent)
 {
-	//ui->setupUi(this);
+	ui->setupUi(this);
+
+	auto navigator = new Ui::HkTopNavigator();
+	navigator->setupUi(ui->verticalLayoutWidget);
+	//ui->verticalLayout->addWidget(w);
+
 	//ui->valuesView->setRowHeight(0,1024);
 	//ui->valuesView->setItemDelegate(new RefDelegate(_manager, this));
 	//setWidget(ui->verticalLayoutWidget);
