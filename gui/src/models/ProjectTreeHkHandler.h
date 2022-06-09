@@ -43,7 +43,7 @@ namespace ckcmd {
 		}
 
 		template <>
-		ModelEdge ProjectTreeHkHandler::getChild(hkVariant*, int project, int index, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+		ModelEdge ProjectTreeHkHandler::getChild(hkVariant*, int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 		{
 			auto edge = get_child(index, project, file, variant, manager, childType);
 			edge._parentItem = variant;
