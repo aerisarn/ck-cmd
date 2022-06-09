@@ -70,7 +70,7 @@ private:
     ckcmd::HKX::ProjectTreeModel _model;
     ckcmd::HKX::CommandManager _command_manager;
     ckcmd::HKX::ResourceManager _resource_manager;
-    ckcmd::HKX::AnimationManager _animation_manager;
+    //ckcmd::HKX::AnimationManager _animation_manager;
 
 
     //Actions

@@ -1,6 +1,7 @@
 #include <src/models/ProjectTreeHkHandler.h>
 #include <src/hkx/HkxLinkedTableVariant.h>
 
+#include <Common/Serialize/Util/hkRootLevelContainer.h>
 #include <hkbCharacterData_7.h>
 #include <hkbBehaviorGraph_1.h>
 #include <hkbBehaviorGraphData_2.h>
@@ -9,6 +10,7 @@
 #include <hkbStateMachineStateInfo_4.h>
 #include <hkbStateMachineTransitionInfoArray_0.h>
 #include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
+
 
 using namespace ckcmd::HKX;
 
@@ -249,7 +251,7 @@ struct  HandleBehaviorData
 		int file_index = manager.findIndex(file, link._ref);
 		if (file_index == -1)
 			__debugbreak();
-		return ModelEdge((ProjectNode*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
+		return ModelEdge((hkVariant*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
 	}
 };
 
@@ -395,7 +397,7 @@ struct  HandleStateMachineData
 		int file_index = manager.findIndex(file, link._ref);
 		if (file_index == -1)
 			__debugbreak();
-		return ModelEdge((ProjectNode*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
+		return ModelEdge((hkVariant*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
 	}
 };
 
@@ -643,5 +645,5 @@ ModelEdge ProjectTreeHkHandler::get_child(int index, int project, int file, hkVa
 	int file_index = manager.findIndex(file, link._ref);
 	if (file_index == -1)
 		__debugbreak();
-	return ModelEdge((ProjectNode*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
+	return ModelEdge((hkVariant*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
 }

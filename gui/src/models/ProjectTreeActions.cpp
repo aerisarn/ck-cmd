@@ -11,12 +11,12 @@ ProjectTreeActions::ProjectTreeActions(CommandManager& commandManager, ResourceM
 
 void ProjectTreeActions::OpenProject(ProjectNode* projectNode)
 {
-	ProjectBuilder b(
-		projectNode,
-		_commandManager,
-		_resourceManager,
-		projectNode->name()
-	);
+	//ProjectBuilder b(
+	//	projectNode,
+	//	_commandManager,
+	//	_resourceManager,
+	//	projectNode->name()
+	//);
 }
 
 void ProjectTreeActions::CloseProject(ProjectNode* projectNode)

@@ -1,14 +1,8 @@
 #pragma once
 
 #include <src/hkx/ResourceManager.h>
-#include <src/models/ProjectNode.h>
 
 #include <QAbstractItemModel>
-
-//Proof of concept, but unuseful. look for table/tree models instead
-
-class hkbBehaviorGraph;
-class hkbCharacterData;
 
 namespace ckcmd {
     namespace HKX {
@@ -20,6 +14,11 @@ namespace ckcmd {
         {
             Invalid = 0,
             ProjectNode,
+            CharactersNode,
+            CharacterNode,
+            MiscsNode,
+            MiscNode,
+            BehaviorNode,
             HavokNative,
             deformableSkinNames,
             deformableSkinName,
@@ -109,15 +108,17 @@ namespace ckcmd {
 
             ModelEdge() {}
 
-            ModelEdge(ProjectNode*, int project, int file, int row, int column, ProjectNode*);
-            ModelEdge(ProjectNode*, int project, int file, int row, int column, hkVariant*);
+            //ModelEdge(ProjectNode*, int project, int file, int row, int column, ProjectNode*);
+            //ModelEdge(ProjectNode*, int project, int file, int row, int column, hkVariant*);
+            //ModelEdge(void*, int project, int file, int row, int column, hkVariant*, NodeType childType);
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*);
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*, NodeType childType);
 
-            QVariant data(int row, int column) const;
-
+            QVariant data(int row, int column, ResourceManager& manager) const;
             ModelEdge childEdge(int index, ResourceManager& manager) const;
-            int childCount() const;
+            int childCount(ResourceManager& manager) const;
+
+            NodeType type();
         };
 
         struct ModelEdgeComparator {

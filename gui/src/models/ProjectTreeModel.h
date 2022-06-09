@@ -1,11 +1,9 @@
 #pragma once
 
 #include <QAbstractItemModel>
-#include <src/models/ProjectNode.h>
 #include <src/hkx/CommandManager.h>
 #include <src/hkx/ResourceManager.h>
 #include <src/models/ProjectTreeActions.h>
-
 #include <src/models/ModelEdge.h>
 
 //Proof of concept, but unuseful. look for table/tree models instead
@@ -31,6 +29,9 @@ namespace ckcmd {
             ResourceManager& _resourceManager;
             ProjectTreeActions _actionsManager;
 
+            const QString _charactersNode = "Characters Projects";
+            const QString _miscsNode = "Miscs Projects";
+
         public:
 
             ProjectTreeModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent = 0);
@@ -41,7 +42,7 @@ namespace ckcmd {
             void select(const QModelIndex& index);
             void activate(const QModelIndex& index);
 
-            ProjectNode::NodeType nodeType(const QModelIndex& index);
+            NodeType nodeType(const QModelIndex& index);
 
             ProjectTreeActions& actionsManager() { return _actionsManager;}
 
@@ -60,8 +61,6 @@ namespace ckcmd {
             Qt::ItemFlags flags(const QModelIndex& index) const override;
             bool setData(const QModelIndex& index, const QVariant& value,
                 int role = Qt::EditRole) override;
-
-            ProjectNode* _rootNode = NULL;
 
         };
     }

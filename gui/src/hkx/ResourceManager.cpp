@@ -14,6 +14,18 @@ ResourceManager::ResourceManager(WorkspaceConfig& workspace) :
 	_workspace(workspace),
 	_cache(_workspace.getFolder())
 {
+
+	LOG << "Opening " << _workspace.getFolder() << log_endl;
+
+	if (_workspace.empty())
+	{
+		LOG << "Workspace has no projects, scanning ... " << _workspace.getFolder() << log_endl;
+		scanWorkspace();
+	}
+
+	_characters = _workspace.getCharacterProjects();
+	_miscellaneous = _workspace.getMiscellaneousProjects();
+
 	_esp = new Collection((char* const)_workspace.getFolder().string().c_str(), 3);
 
 	ModFlags masterFlags = ModFlags(0xA);
@@ -131,7 +143,6 @@ hkx_file_t& ResourceManager::get(const fs::path& file)
 			}
 		}	
 		_contents[_files.size()] = new_file;
-		_nodes[_files.size()].reserve(new_file.second.size());
 		_files.push_back(file);
 	}
 	return _contents[index(file)];
@@ -161,185 +172,6 @@ bool ResourceManager::isHavokProject(const fs::path& file)
 		return false;
 	}
 
-}
-
-void ResourceManager::setClassHandler(size_t index, ITreeBuilderClassHandler* handler)
-{
-	_class_handlers[index] = handler;
-}
-
-void ResourceManager::setFieldHandler(size_t index, ISpecialFieldsHandler* handler)
-{
-	_field_handlers[index] = handler;
-}
-
-ITreeBuilderClassHandler* ResourceManager::classHandler(size_t index) const {
-	if (_class_handlers.find(index) != _class_handlers.end())
-		return _class_handlers.at(index);
-	return NULL;
-}
-
-ISpecialFieldsHandler* ResourceManager::fieldsHandler(size_t index) const {
-	if (_field_handlers.find(index) != _field_handlers.end())
-		return _field_handlers.find(index)->second;
-	return NULL;
-}
-
-ProjectNode* ResourceManager::createStatic(const QVector<QVariant>& data, ProjectNode* parentItem)
-{
-	return new ProjectNode(ProjectNode::NodeType::fixed, data, parentItem);
-}
-
-ProjectNode* ResourceManager::createStatic(const QVector<QVariant>& data, ProjectNode* parentItem, ProjectNode::NodeType type)
-{
-	return new ProjectNode(type, data, parentItem);
-}
-
-ProjectNode* ResourceManager::createSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::support, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createEventsSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::events_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createVariablesSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::variables_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createAnimationStylesSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::animation_styles_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createAnimationStyle(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::animation_style_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createProject(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::project_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createCharacter(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::character_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createBehavior(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::behavior_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createSkeleton(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::skeleton_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createAnimation(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::animation_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createMisc(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::misc_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createHkxProject(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::hkx_project_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createHkxCharacter(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::hkx_character_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createHkxNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::hkx_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::event_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createWeaponSetNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::weapon_set_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createClipEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::clip_event_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createVariableNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::variable_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createPropertyNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::property_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createActionNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::action_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-ProjectNode* ResourceManager::createIdleNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem) {
-	auto node = new ProjectNode(ProjectNode::NodeType::idle_node, data, parentItem);
-	_nodes[file_index].push_back(node);
-	return node;
-}
-
-
-ProjectNode* ResourceManager::findNode(int file, const hkVariant* variant) const
-{
-	const auto& nodes = _nodes.at(file);
-	auto node_it = std::find_if(nodes.begin(), nodes.end(),
-		[&variant](const ProjectNode* element) { return element->isVariant() && variant == (hkVariant*)element->data(1).value<unsigned long long>(); });
-	if (node_it != nodes.end())
-		return *node_it;
-	return nullptr;
-}
-
-ProjectNode* ResourceManager::findNode(int file, const void* object) const
-{
-	const auto& nodes = _nodes.at(file);
-	auto node_it = std::find_if(nodes.begin(), nodes.end(),
-		[&object](const ProjectNode* element) { return element->isVariant() && object == ((hkVariant*)element->data(1).value<unsigned long long>())->m_object; });
-	if (node_it != nodes.end())
-		return *node_it;
-	return nullptr;
 }
 
 const std::string& ResourceManager::get_sanitized_name(int file_index) {
@@ -433,3 +265,93 @@ std::set<Sk::IDLERecord*> ResourceManager::idles(size_t index)
 	}
 	return out;
 }
+
+void ResourceManager::scanWorkspace()
+{
+
+	for (auto& p : fs::recursive_directory_iterator(_workspace.getFolder()))
+	{
+		if (fs::is_regular_file(p.path())
+			&& (p.path().extension() == ".hkx" || p.path().extension() == ".xml")
+			)
+		{
+			//LOG << "Analyzing file ... " << p.path().string() << log_endl;
+			if (isHavokProject(p.path())) {
+				string sanitized_project_name = p.path().filename().replace_extension("").string();
+				//LOG << "Found project " << sanitized_project_name << log_endl;
+				CacheEntry* entry = findCacheEntry(sanitized_project_name);
+				if (NULL == entry)
+				{
+					LOG << " WARNING: " << sanitized_project_name << " was not found into the animation cache. The project won't be loaded by the game" << log_endl;
+				}
+				else {
+					if (entry->hasCache()) {
+						//LOG << "Project is a creature" << sanitized_project_name << log_endl;
+						_workspace.addCharacterProject(p.path().string().c_str(), sanitized_project_name.c_str());
+
+					}
+					else {
+						//LOG << "Project is miscellaneous" << sanitized_project_name << log_endl;
+						_workspace.addMiscellaneousProject(p.path().string().c_str(), sanitized_project_name.c_str());
+					}
+				}
+			}
+		}
+	}
+}
+
+bool ResourceManager::isCharacterFileOpen(int index)
+{
+	QString path = _characters.at(index);
+	fs::path fs_path = path.toUtf8().constData();
+	return std::find(_files.begin(), _files.end(), fs_path) != _files.end();
+}
+
+bool ResourceManager::isMiscFileOpen(int index)
+{
+	QString path = _miscellaneous.at(index);
+	fs::path fs_path = path.toUtf8().constData();
+	return std::find(_files.begin(), _files.end(), fs_path) != _files.end();
+}
+
+void ResourceManager::openCharacterFile(int index)
+{
+	QString path = _characters.at(index);
+	fs::path fs_path = path.toUtf8().constData();
+	get(fs_path);
+}
+
+size_t ResourceManager::characterFileIndex(int row)
+{
+	QString path = _characters.at(row);
+	fs::path fs_path = path.toUtf8().constData();
+	return index(fs_path);
+}
+
+void ResourceManager::closeCharacterFile(int string_index)
+{
+	QString path = _characters.at(string_index);
+	fs::path fs_path = path.toUtf8().constData();
+	int internal_index = index(fs_path);
+	_contents.erase(internal_index);
+	_files.erase(_files.begin() + internal_index);
+}
+
+void ResourceManager::openMiscFile(int index) 
+{
+	QString path = _miscellaneous.at(index);
+	fs::path fs_path = path.toUtf8().constData();
+	get(fs_path);
+}
+
+void ResourceManager::closeMiscFile(int index) {
+
+}
+
+size_t ResourceManager::miscFileIndex(int row)
+{
+	QString path = _miscellaneous.at(row);
+	fs::path fs_path = path.toUtf8().constData();
+	return index(fs_path);
+}
+

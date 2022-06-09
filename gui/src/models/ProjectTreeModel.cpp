@@ -59,7 +59,7 @@ QVariant ProjectTreeModel::data(const QModelIndex& index, int role) const
 	if (role != Qt::DisplayRole && role != Qt::EditRole)
 		return QVariant();
 
-	return modelEdge(index).data(index.row(), index.column());
+	return modelEdge(index).data(index.row(), index.column(), _resourceManager);
 }
 
 
@@ -74,17 +74,22 @@ QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& pare
 
 	if (!parent.isValid())
 	{
-		//root handling
-		ModelEdge edge(
-			_rootNode,
+		//root handling has two children, creatures and misc
+		ModelEdge edge;/*(
+			nullptr,
 			-1,
 			-1,
 			row,
 			column,
 			_rootNode->child(row)
-		);
+		);*/
+
 
 		edge._parent = QModelIndex();
+		edge._row = row;
+		edge._column = column;
+		edge._childType = row == 0 ? NodeType::CharactersNode : NodeType::MiscsNode;
+		edge._childItem = row == 0 ? (void*)(&_charactersNode) : (void*)(&_miscsNode);
 
 		if (!hasModelEdgeIndex(edge))
 		{
@@ -124,9 +129,9 @@ int ProjectTreeModel::rowCount(const QModelIndex& index) const
 {
 	int count = 0;
 	if (!index.isValid())
-		return _rootNode->childCount();
+		return 2;
 
-	return modelEdge(index).childCount();
+	return modelEdge(index).childCount(_resourceManager);
 }
 
 int ProjectTreeModel::columnCount(const QModelIndex& index) const
@@ -137,8 +142,8 @@ int ProjectTreeModel::columnCount(const QModelIndex& index) const
 QVariant ProjectTreeModel::headerData(int section, Qt::Orientation orientation,
 	int role) const
 {
-	if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
-		return _rootNode->data(section);
+	//if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
+	//	return _rootNode->data(section);
 
 	return QVariant();
 }
@@ -209,23 +214,35 @@ void ProjectTreeModel::select(const QModelIndex& index)
 void ProjectTreeModel::activate(const QModelIndex& index)
 {
 	auto edge = modelEdge(index);
-	if (edge._childType == NodeType::ProjectNode)
+	if (edge._childType == NodeType::CharacterNode)
 	{
-		ProjectNode* node_activated = reinterpret_cast<ProjectNode*>(edge._childItem);
-		if (node_activated->isProjectRoot())
+		if (_resourceManager.isCharacterFileOpen(index.row()))
 		{
-			if (node_activated->childCount() == 0)
-			{
-				emit beginInsertRows(index, 0, 2);
-				_actionsManager.OpenProject(node_activated);
-				emit endInsertRows();
-			}
-			else {
-				emit beginRemoveRows(index, 0, 2);
-				_actionsManager.CloseProject(node_activated);
-				emit endRemoveRows();
-			}
+			emit beginRemoveRows(index, 0, 2);
+			_resourceManager.closeCharacterFile(index.row());
+			emit endRemoveRows();
 		}
+		else {
+			emit beginInsertRows(index, 0, 2);
+			_resourceManager.openCharacterFile(index.row());
+			emit endInsertRows();
+		}
+
+		//ProjectNode* node_activated = reinterpret_cast<ProjectNode*>(edge._childItem);
+		//if (node_activated->isProjectRoot())
+		//{
+		//	if (node_activated->childCount() == 0)
+		//	{
+		//		emit beginInsertRows(index, 0, 2);
+		//		_actionsManager.OpenProject(node_activated);
+		//		emit endInsertRows();
+		//	}
+		//	else {
+		//		emit beginRemoveRows(index, 0, 2);
+		//		_actionsManager.CloseProject(node_activated);
+		//		emit endRemoveRows();
+		//	}
+		//}
 	}
 //else if (node_clicked->isSkeleton()) {
 //	
@@ -235,8 +252,7 @@ void ProjectTreeModel::activate(const QModelIndex& index)
 //}
 }
 
-ProjectNode::NodeType  ProjectTreeModel::nodeType(const QModelIndex& index)
+NodeType  ProjectTreeModel::nodeType(const QModelIndex& index)
 {
-	auto edge = modelEdge(index);
-	return edge._childType;
+	return modelEdge(index).type();
 }

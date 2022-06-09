@@ -12,6 +12,7 @@
 #include <src/hkx/HkxSimulation.h>
 #include <src/hkx/HkxItemPointer.h>
 #include <src/widgets/ActionHandler.h>
+#include <src/widgets/TreeContextMenuBuilder.h>
 
 #include <QTreeView>
 
@@ -29,8 +30,8 @@ class ProjectsWidget : public ::ads::CDockWidget, private Ui::ProjectsWidget
     ckcmd::HKX::ProjectTreeModel* _model;
     ckcmd::HKX::CommandManager& _commandManager;
     ckcmd::HKX::ResourceManager& _manager;
+    ckcmd::HKX::TreeContextMenuBuilder _menuBuilder;
     HkxSimulation* _simulation;
-    TreeContextMenuBuilder _menuBuilder;
 
 public:
     explicit ProjectsWidget(
