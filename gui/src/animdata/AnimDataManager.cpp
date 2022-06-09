@@ -53,16 +53,18 @@ AnimationManager::AnimationManager(WorkspaceConfig& workspace, ResourceManager& 
 
 void AnimationManager::buildProjectTree(ProjectNode* root)
 {
-	ProjectNode* charactersNode = _resource_manager.createStatic({ "Characters" }, root);
-	root->appendChild(charactersNode);
+	ProjectNode* charactersNode = root->appendChild(
+		new ProjectNode(ProjectNode::NodeType::characters_node, { "Characters" }, root)
+	);
 	auto _characters = _workspace.getCharacterProjects();
 	for (const auto& character : _characters) {
 		charactersNode->appendChild(
 			_resource_manager.createStatic({ character }, charactersNode, ProjectNode::NodeType::character_node)
 		);
 	}
-	ProjectNode* miscNode = _resource_manager.createStatic({ "Miscellaneous" }, root);
-	root->appendChild(miscNode);
+	ProjectNode* miscNode = root->appendChild(
+		new ProjectNode(ProjectNode::NodeType::characters_node, { "Miscellaneous" }, root)
+	);
 	auto _miscellanous = _workspace.getMiscellaneousProjects();
 	for (const auto& misc : _miscellanous) {
 		miscNode->appendChild(

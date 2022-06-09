@@ -94,13 +94,18 @@ namespace ckcmd {
 			ProjectNode* createMisc(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createHkxProject(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createHkxCharacter(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
-			ProjectNode* createHkxNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+
 			ProjectNode* createEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createVariableNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createPropertyNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createClipEventNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createActionNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 			ProjectNode* createIdleNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+
+			//Really useful
+			//ProjectNode* createProjectsSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			//ProjectNode* createMiscSupport(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
+			ProjectNode* createHkxNode(size_t file_index, const QVector<QVariant>& data, ProjectNode* parentItem = nullptr);
 
 			ProjectNode* findNode(int file, const hkVariant* variant) const;
 			ProjectNode* findNode(int file, const void* object) const;

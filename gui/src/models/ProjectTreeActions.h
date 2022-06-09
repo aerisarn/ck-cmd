@@ -16,7 +16,14 @@ namespace ckcmd {
 
             ProjectTreeActions(CommandManager& commandManager, ResourceManager& resourceManager);
 
+            //These actions do not possess undo/redo 
+            //you have to explicitly do the opposite to undo them
+
             void OpenProject(ProjectNode* projectNode);
+            void CloseProject(ProjectNode* projectNode);
+            void CreateProject();
+            void DeleteProject();
+
         };
     }
 }

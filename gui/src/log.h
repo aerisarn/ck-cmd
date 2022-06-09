@@ -49,3 +49,4 @@ namespace ckcmd {
 }
 
 #define LOG Log::Get() << __FILE__ << " "
+#define LOGINFO Log::Get() << "[INFO] " 

@@ -15,6 +15,9 @@ namespace ckcmd {
 
 			ActionHandler& _actionHandler;
 
+			QMenu* buildCharactersNodeMenu();
+			QMenu* buildMiscsNodeMenu();
+
 		public:
 			TreeContextMenuBuilder(ActionHandler& actionHandler)
 				: _actionHandler(actionHandler)

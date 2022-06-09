@@ -19,6 +19,8 @@ namespace ckcmd {
             enum class NodeType {
                 fixed,
                 support,
+                characters_node,
+                miscs_node,
                 project_node,
                 character_node,
                 behavior_node,

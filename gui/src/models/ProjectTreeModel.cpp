@@ -212,29 +212,31 @@ void ProjectTreeModel::activate(const QModelIndex& index)
 	if (edge._childType == NodeType::ProjectNode)
 	{
 		ProjectNode* node_activated = reinterpret_cast<ProjectNode*>(edge._childItem);
-		if (node_activated->isProjectRoot() && node_activated->childCount() == 0)
+		if (node_activated->isProjectRoot())
 		{
-			emit beginInsertRows(index, 0, 2);
-			_actionsManager.OpenProject(node_activated);
-			emit endInsertRows();
+			if (node_activated->childCount() == 0)
+			{
+				emit beginInsertRows(index, 0, 2);
+				_actionsManager.OpenProject(node_activated);
+				emit endInsertRows();
+			}
+			else {
+				emit beginRemoveRows(index, 0, 2);
+				_actionsManager.CloseProject(node_activated);
+				emit endRemoveRows();
+			}
 		}
 	}
-
-	//ProjectNode* node_clicked = _model->
-//if (node_clicked->isProjectRoot() && node_clicked->childCount() == 0) {
-//	_model->notifyBeginInsertRows(index, 0, 2);
-//	ProjectBuilder b(
-//		node_clicked,
-//		_commandManager,
-//		_manager,
-//		node_clicked->data(0).toString().toUtf8().constData()
-//	);
-//	_model->notifyEndInsertRows();
-//}
 //else if (node_clicked->isSkeleton()) {
 //	
 //	_simulation->addSkeleton(
 //		node_clicked->data(1).toString().toUtf8().constData()
 //	);
 //}
+}
+
+ProjectNode::NodeType  ProjectTreeModel::nodeType(const QModelIndex& index)
+{
+	auto edge = modelEdge(index);
+	return edge._childType;
 }

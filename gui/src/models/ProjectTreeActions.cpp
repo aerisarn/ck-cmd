@@ -18,3 +18,8 @@ void ProjectTreeActions::OpenProject(ProjectNode* projectNode)
 		projectNode->name()
 	);
 }
+
+void ProjectTreeActions::CloseProject(ProjectNode* projectNode)
+{
+
+}

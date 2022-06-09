@@ -1,6 +1,6 @@
 #include "ProjectsWidget.h"
 
-#include "ui_ProjectsWidget.h"
+
 
 #include <src/hkx/ProjectBuilder.h>
 #include <src/widgets/TreeContextMenuBuilder.h>
@@ -10,7 +10,8 @@ using namespace ckcmd::HKX;
 ProjectsWidget::ProjectsWidget(
 	ProjectTreeModel* model,
 	CommandManager& command_manager,
-	ResourceManager& manager, 
+	ResourceManager& manager,
+	ActionHandler& actionsHandler,
 	HkxSimulation* simulation,
 	QWidget* parent
 ) :
@@ -18,33 +19,21 @@ ProjectsWidget::ProjectsWidget(
 	_commandManager(command_manager),
 	_manager(manager),
 	_simulation(simulation),
-	ads::CDockWidget("Projects", parent),
-	ui(new Ui::ProjectsWidget)
+	_menuBuilder(actionsHandler),
+	ads::CDockWidget("Projects", parent)
 {
-	ui->setupUi(this);
-	setWidget(ui->verticalLayoutWidget);
-	ui->treeView->setModel(model);
-	ui->treeView->setContextMenuPolicy(Qt::CustomContextMenu);
+	setupUi(this);
+	setWidget(verticalLayoutWidget);
+	treeView->setModel(model);
+	treeView->setContextMenuPolicy(Qt::CustomContextMenu);
 
-	connect(ui->treeView, &QTreeView::doubleClicked, this, &ProjectsWidget::nodeDoubleClicked);
-	connect(ui->treeView, &QTreeView::clicked, this, &ProjectsWidget::nodeClicked);
-	connect(ui->treeView, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(treeMenu(QPoint)));
+	//connect(treeView, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(treeMenu(QPoint)));
 }
 
-void ProjectsWidget::nodeDoubleClicked(const QModelIndex& index)
+//void ProjectsWidget::nodeDoubleClicked(const QModelIndex& index)
+void ProjectsWidget::on_treeView_doubleClicked(const QModelIndex& index)
 {
 	_model->activate(index);
-	//ProjectNode* node_clicked = _model->
-	//if (node_clicked->isProjectRoot() && node_clicked->childCount() == 0) {
-	//	_model->notifyBeginInsertRows(index, 0, 2);
-	//	ProjectBuilder b(
-	//		node_clicked,
-	//		_commandManager,
-	//		_manager,
-	//		node_clicked->data(0).toString().toUtf8().constData()
-	//	);
-	//	_model->notifyEndInsertRows();
-	//}
 	//else if (node_clicked->isSkeleton()) {
 	//	
 	//	_simulation->addSkeleton(
@@ -117,23 +106,23 @@ void ProjectsWidget::nodeClicked(const QModelIndex& index)
 	//}
 }
 
-void ProjectsWidget::treeMenu(QPoint p)
+//void ProjectsWidget::treeMenu(QPoint p)
+void ProjectsWidget::on_treeView_customContextMenuRequested(const QPoint& pos)
 {
-	//const QModelIndex& index = ui->treeView->indexAt(p);
-	//ProjectNode* node_clicked = _model->getNode(index);
-	/*QMenu* menu = TreeContextMenuBuilder().build(node_clicked);
+	const QModelIndex& index = treeView->indexAt(pos);
+	ProjectNode* node_clicked = _model->getNode(index);
+	QMenu* menu = _menuBuilder.build(node_clicked);
 	if (menu != nullptr) {
 		menu->exec(this->mapToGlobal(p));
-	}*/
+	}
 }
 
 ProjectsWidget::~ProjectsWidget()
 {
-	delete ui;
 }
 
 QTreeView& ProjectsWidget::view()
 {
-	return *ui->treeView;
+	return *treeView;
 }
 

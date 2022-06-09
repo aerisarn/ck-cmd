@@ -3,12 +3,15 @@
 
 #include "DockWidget.h"
 
+#include "ui_ProjectsWidget.h"
+
 #include <src/log.h>
 #include <src/models/ProjectTreeModel.h>
 #include <src/hkx/CommandManager.h>
 #include <src/hkx/ResourceManager.h>
 #include <src/hkx/HkxSimulation.h>
 #include <src/hkx/HkxItemPointer.h>
+#include <src/widgets/ActionHandler.h>
 
 #include <QTreeView>
 
@@ -19,7 +22,7 @@ namespace Ui {
 }
 QT_END_NAMESPACE
 
-class ProjectsWidget : public ::ads::CDockWidget
+class ProjectsWidget : public ::ads::CDockWidget, private Ui::ProjectsWidget
 {
     Q_OBJECT
 
@@ -27,22 +30,28 @@ class ProjectsWidget : public ::ads::CDockWidget
     ckcmd::HKX::CommandManager& _commandManager;
     ckcmd::HKX::ResourceManager& _manager;
     HkxSimulation* _simulation;
+    TreeContextMenuBuilder _menuBuilder;
 
 public:
     explicit ProjectsWidget(
         ckcmd::HKX::ProjectTreeModel* model,
         ckcmd::HKX::CommandManager& commandManager,
         ckcmd::HKX::ResourceManager& manager,
+        ckcmd::HKX::ActionHandler& actionsHandler,
         HkxSimulation* simulation,
         QWidget* parent = 0);
     ~ProjectsWidget();
 
     QTreeView& view();
 
+private slots:
+    void on_treeView_doubleClicked(const QModelIndex& index);
+    void on_treeView_customContextMenuRequested(const QPoint& pos);
+
 public slots:
-    void nodeDoubleClicked(const QModelIndex& index);
+    //void nodeDoubleClicked(const QModelIndex& index);
     void nodeClicked(const QModelIndex& index);
-    void treeMenu(QPoint);
+    //void treeMenu(QPoint);
     void modelHasSetNewHkxItemPointer(
         const QModelIndex& parent, 
         const QModelIndex& index, 
@@ -55,9 +64,6 @@ public slots:
 signals:
     //file index in resource manager, object in file
     void variantSelected(size_t, QModelIndex index);
-
-private:
-    Ui::ProjectsWidget* ui;
 };
 
 #endif //PROJECTSWIDGET_H

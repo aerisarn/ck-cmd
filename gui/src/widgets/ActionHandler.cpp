@@ -8,12 +8,22 @@ using namespace ckcmd::HKX;
 
 void ActionHandler::buildSaveAction()
 {
-	_saveAction = new QAction(tr("&Save"), this);
-	_saveAction->setShortcuts(QKeySequence::Save);
-	_saveAction->setStatusTip(tr("Save current selected project"));
-	_saveAction->setEnabled(false);
-	connect(_saveAction, SIGNAL(triggered()), this, SLOT(save()));
+	_save = new QAction(tr("&Save"), this);
+	_save->setShortcuts(QKeySequence::Save);
+	_save->setStatusTip(tr("Save current selected project"));
+	_save->setEnabled(false);
+	connect(_save, SIGNAL(triggered()), this, SLOT(save()));
 }
+
+void ActionHandler::buildCreateProjectAction()
+{
+	_createProject = new QAction(tr("&New"), this);
+	_createProject->setShortcuts(QKeySequence::New);
+	_createProject->setStatusTip(tr("Create new project"));
+	_createProject->setEnabled(false);
+	connect(_createProject, SIGNAL(triggered()), this, SLOT(createProject()));
+}
+
 
 void ActionHandler::selectionChanged(const QItemSelection& selected, const QItemSelection& deselected)
 {
@@ -30,6 +40,7 @@ void ActionHandler::selectionChanged(const QItemSelection& selected, const QItem
 	//}
 }
 
+
 void ActionHandler::save()
 {
 	//if (_modelview.selectionModel()->selection().size() == 1) {
@@ -42,6 +53,17 @@ void ActionHandler::save()
 
 void ActionHandler::export_to(ProjectNode* project_node)
 {}
+
+void ActionHandler::createProject()
+{
+	//if (_modelview.selectionModel()->selection().size() == 1) {
+	//	auto selected = _modelview.selectionModel()->selection()[0];
+	//	auto model = (ProjectTreeModel*)_modelview.selectionModel()->selection()[0].model();
+	//	ProjectNode* node = model->getNode(selected.topLeft());
+	//	Saver(_resourceManager, node, model);
+	//}
+}
+
 
 
 QAction* ActionHandler::exportAction()

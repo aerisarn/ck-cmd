@@ -4,6 +4,7 @@
 
 #include <src/hkx/ResourceManager.h>
 #include <src/models/ProjectTreeModel.h>
+#include <src/models/ProjectTreeActions.h>
 
 #include <QObject>
 #include <QMenu>
@@ -16,37 +17,46 @@ namespace ckcmd {
 		{
 			Q_OBJECT
 
-			ResourceManager& _resourceManager;
-			QTreeView& _modelview;
+			ProjectTreeActions& _treeActions;
 
-			QAction* _saveAction;
+			QAction* _save;
+
+			QAction* _createProject;
 
 			void buildSaveAction();
+			void buildCreateProjectAction();
 
 		public slots:
 			void save();
+
+			void createProject();
+
 			void export_to(ProjectNode* project_node);
 
 			void selectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
 
 		public:
-			ActionHandler(ResourceManager& resourceManager, QTreeView& modelview, QObject* parent = nullptr) :
+			ActionHandler(ProjectTreeActions& treeActions, QObject* parent = nullptr) :
 				QObject(parent),
-				_saveAction(nullptr),
-				_resourceManager(resourceManager),
-				_modelview(modelview)
+				_save(nullptr),
+				_treeActions(treeActions)
 			{
 				buildSaveAction();
-				connect(_modelview.selectionModel(), &QItemSelectionModel::selectionChanged,
-						this, &ActionHandler::selectionChanged);
+
+
+				//connect(_modelview.selectionModel(), &QItemSelectionModel::selectionChanged,
+				//		this, &ActionHandler::selectionChanged);
 			}
 
 
 
-			QAction* saveAction() {	return _saveAction;	}
+			QAction* saveAction() {	return _save;	}
 			QAction* exportAction();
 			QAction* saveAction(ProjectNode* node);
 			QAction* exportAction(ProjectNode* node);
+
+			QAction* createProjectAction() { return _createProject; }
+
 		};
 	}
 }

@@ -66,8 +66,8 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	_animation_manager.buildProjectTree(_model._rootNode);
 	_simulation = new HkxSimulation(havok_router, _resource_manager);
 
+	_handler = new ckcmd::HKX::ActionHandler(_model.actionsManager(), this);
 	_projectTreeView = new ProjectsWidget(&_model, _command_manager, _resource_manager, _simulation, this);
-	_handler = new ckcmd::HKX::ActionHandler(_resource_manager, _projectTreeView->view(), this);
 	_valuesTableView = new ValuesWidget(&_model,_command_manager, _resource_manager, this);
 
 	ads::CDockWidget*  GLWidget = new ads::CDockWidget("Havok Preview", this);

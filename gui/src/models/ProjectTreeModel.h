@@ -41,33 +41,9 @@ namespace ckcmd {
             void select(const QModelIndex& index);
             void activate(const QModelIndex& index);
 
-            //void notifyBeginInsertRows(const QModelIndex& index, int first, int last) {
-            //    emit beginInsertRows(index, first, last);
-            //}
+            ProjectNode::NodeType nodeType(const QModelIndex& index);
 
-            //void notifyEndInsertRows() {
-            //    emit endInsertRows();
-            //}
-
-            //void notifyBeginRemoveRows(const QModelIndex& index, int first, int last) {
-            //    emit beginRemoveRows(index, first, last);
-            //}
-
-            //void notifyEndRemoveRows() {
-            //    emit endRemoveRows();
-            //}
-
-            //void notifyBeginMoveRows(const QModelIndex& sourceParent, int sourceFirst, int sourceLast, const QModelIndex& destinationParent, int destinationRow) {
-            //    emit beginMoveRows(sourceParent, sourceFirst, sourceLast, destinationParent, destinationRow);
-            //}
-
-            //void notifyEndMoveRows() {
-            //    emit endMoveRows();
-            //}
-
-            //void notifyElementChanged(const QModelIndex& index) {
-            //    emit dataChanged(index, index, { Qt::DisplayRole, Qt::EditRole });
-            //}
+            ProjectTreeActions& actionsManager() { return _actionsManager;}
 
 
             /*
@@ -84,8 +60,6 @@ namespace ckcmd {
             Qt::ItemFlags flags(const QModelIndex& index) const override;
             bool setData(const QModelIndex& index, const QVariant& value,
                 int role = Qt::EditRole) override;
-
-            //QModelIndex getIndex(ProjectNode* node) const;
 
             ProjectNode* _rootNode = NULL;
 

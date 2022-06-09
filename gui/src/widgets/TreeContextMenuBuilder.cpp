@@ -2,9 +2,26 @@
 
 using namespace ckcmd::HKX;
 
-QMenu* TreeContextMenuBuilder::build(ProjectNode* node)
+QMenu* TreeContextMenuBuilder::buildCharactersNodeMenu()
 {
 	QMenu* context_menu = new QMenu();
+	context_menu->addAction(_actionHandler.createProjectAction());
+	return context_menu;
+}
+
+QMenu* TreeContextMenuBuilder::buildMiscsNodeMenu()
+{
+	QMenu* context_menu = new QMenu();
+	context_menu->addAction(_actionHandler.createProjectAction());
+	return context_menu;
+}
+
+QMenu* TreeContextMenuBuilder::build(ProjectNode* node)
+{
+	if (node->type() == ProjectNode::NodeType::characters_node)
+		return buildCharactersNodeMenu();
+	if (node->type() == ProjectNode::NodeType::miscs_node)
+		return buildMiscsNodeMenu();
 	//return new QMenu();
 	//if (node->type() == ProjectNode::NodeType::event_node)
 	//{
