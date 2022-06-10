@@ -30,21 +30,6 @@ ModelEdge::ModelEdge(hkVariant* parent, int project, int file, int row, int colu
 
 NodeType ModelEdge::type()
 {
-	//switch (_childType)
-	//{
-	//case NodeType::ProjectNode:
-	//	switch (reinterpret_cast<ProjectNode*>(_childItem)->type())
-	//	{
-	//	case ProjectNode::NodeType::characters_node:
-	//		return NodeType::CharactersNode;
-	//	case ProjectNode::NodeType::miscs_node:
-	//		return NodeType::MiscsNode;
-	//	default:
-	//		return NodeType::HavokNative;
-	//	}
-	//default:
-	//	break;
-	//}
 	return _childType;
 }
 
@@ -73,26 +58,6 @@ ModelEdge ModelEdge::childEdge(int index, ResourceManager& manager) const
 	case NodeType::CharacterNode:
 	case NodeType::MiscNode:
 		return ProjectTreeFileHandler::getChild(index, _project, _file, _childType, manager);
-	//case NodeType::ProjectNode:
-	//{
-	//	ProjectNode* node = reinterpret_cast<ProjectNode*>(_childItem);
-	//	if (node->isVariant())
-	//	{
-	//		auto variant = node->variant();
-	//		auto file = node->file();
-	//		auto project = node->project();
-
-	//		int havok_children = ProjectTreeHkHandler::getChildCount(variant, _childType);
-	//		if (index < havok_children)
-	//		{
-	//			return ProjectTreeHkHandler::getChild(node, index, project, file, variant, manager, _childType);
-	//		}
-	//		else {
-	//			return ModelEdge(node, project, -1, index, 0, node->child(index - havok_children));
-	//		}
-	//	}
-	//	return ModelEdge(node, _project, _file, index, 0, node->child(index));
-	//}
 	default:
 	{
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
@@ -111,21 +76,10 @@ int ModelEdge::childCount(ResourceManager& manager) const
 	case NodeType::CharacterNode:
 	case NodeType::MiscNode:
 		return ProjectTreeFileHandler::getChildCount(_file, _childType, manager);
-	//case NodeType::ProjectNode:
-	//{
-	//	ProjectNode* node = reinterpret_cast<ProjectNode*>(_childItem);
-	//	size_t havok_links = 0;
-	//	if (node->isVariant())
-	//	{
-	//		auto variant = node->variant();
-	//		havok_links = ProjectTreeHkHandler::getChildCount(variant, _childType);
-	//	}
-	//	return node->childCount() + havok_links;
-	//}
 	default:
 	{
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::getChildCount(variant, _childType);
+		return ProjectTreeHkHandler::getChildCount(_project, variant, _childType, manager);
 	}
 	}
 	return 0;

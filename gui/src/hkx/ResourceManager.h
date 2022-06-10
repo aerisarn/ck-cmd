@@ -14,6 +14,7 @@ typedef std::pair< hkVariant, std::vector<hkVariant>> hkx_file_t;
 
 struct Collection;
 struct hkVariant;
+class hkbCharacterStringData;
 
 namespace Sk {
 	class AACTRecord;
@@ -92,6 +93,11 @@ namespace ckcmd {
 			hkVariant* characterFileRoot(int character_index);
 			void openCharacterFile(int row);
 			void closeCharacterFile(int row);
+			size_t hasRigAndRagdoll(int project_file, hkbCharacterStringData* string_data);
+			size_t getRigIndex(int project_file, hkbCharacterStringData* string_data);
+			hkVariant* getRigRoot(int project_file, int rig_index);
+			size_t getRagdollIndex(int project_file, const std::string& path);
+			hkVariant* getRagdollRoot(int project_file, int rig_index);
 
 			bool isMiscFileOpen(int row);
 			size_t miscFileIndex(int row);

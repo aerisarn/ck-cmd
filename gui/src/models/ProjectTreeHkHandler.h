@@ -13,11 +13,9 @@ namespace ckcmd {
 		class ProjectTreeHkHandler
 		{
 
-			static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType);
-
 		public:
 
-			static int getChildCount(hkVariant* variant, NodeType childType);
+			static int getChildCount(int project, hkVariant* variant, NodeType childType, ResourceManager& manager);
 
 			static ModelEdge getChild(hkVariant*, int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType);
 

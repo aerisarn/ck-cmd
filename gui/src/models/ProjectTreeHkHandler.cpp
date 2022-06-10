@@ -19,6 +19,8 @@ using namespace ckcmd::HKX;
 struct  HandleCharacterData
 {
 	static const size_t DATA_SUPPORTS = 4;
+	static const size_t RIG_INDEX = DATA_SUPPORTS;
+	static const size_t RAGDOLL_INDEX = DATA_SUPPORTS + 1;
 
 	static const char* DataListsName(int row)
 	{
@@ -35,7 +37,7 @@ struct  HandleCharacterData
 		return "Invalid Character Entry";
 	};
 
-	static int getChildCount(hkVariant* variant, NodeType childType)
+	static int getChildCount(int project, hkVariant* variant, NodeType childType, ResourceManager& manager)
 	{
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
 		if (data == NULL)
@@ -45,7 +47,9 @@ struct  HandleCharacterData
 			return 0;
 		if (childType == NodeType::CharacterHkxNode)
 		{
-			return DATA_SUPPORTS;
+			int count = DATA_SUPPORTS;
+			count += manager.hasRigAndRagdoll(project, string_data);
+			return count;
 		}
 		else if (childType == NodeType::deformableSkinNames)
 		{
@@ -59,9 +63,7 @@ struct  HandleCharacterData
 		{
 			return string_data->m_characterPropertyNames.getSize();
 		}
-		else {
-			return 0;
-		}
+		return 0;
 	}
 
 	static QVariant data(int row, int column, hkVariant* variant, NodeType childType)
@@ -109,6 +111,26 @@ struct  HandleCharacterData
 				return ModelEdge(variant, project, file, index, 0, variant, NodeType::animationNames);
 			case 3:
 				return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyNames);
+			case RIG_INDEX:
+			{
+				auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+				auto string_data = data->m_stringData;
+				int rig_index = manager.getRigIndex(project, string_data);
+				hkVariant* rig_root = manager.getRigRoot(project, rig_index);
+				return ModelEdge(variant, project, rig_index, 0, 0, rig_root);
+			}
+			case RAGDOLL_INDEX:
+			{
+				auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+				auto string_data = data->m_stringData;
+				int ragdoll_index = -1;
+				if (string_data->m_ragdollName.getLength() > 0)
+					ragdoll_index = manager.getRagdollIndex(project, string_data->m_ragdollName.cString());
+				else
+					ragdoll_index = manager.getRagdollIndex(project, string_data->m_rigName.cString());
+				hkVariant* ragdoll_root = manager.getRagdollRoot(project, ragdoll_index);
+				return ModelEdge(variant, project, ragdoll_index, 0, 0, ragdoll_root);
+			}
 			default:
 				break;
 			}
@@ -431,7 +453,7 @@ struct  HandleSkeletonData
 		auto* data = reinterpret_cast<hkaSkeleton*>(variant->m_object);
 		if (data == NULL)
 			return 0;
-		if (childType == NodeType::ProjectNode)
+		if (childType == NodeType::HavokNative)
 		{
 			return DATA_SUPPORTS;
 		}
@@ -464,14 +486,16 @@ struct  HandleSkeletonData
 		{
 			return data->m_floatSlots[row].cString();
 		}
-		else {
-			return 0;
+		else if (childType == NodeType::HavokNative) {
+			return "Skeleton";
 		}
+		return 0;
+
 	}
 
 	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
-		if (childType == NodeType::ProjectNode)
+		if (childType == NodeType::HavokNative)
 		{
 			switch (index) {
 			case 0:
@@ -517,7 +541,7 @@ struct  HandleRagdollData
 		auto* data = reinterpret_cast<hkaRagdollInstance*>(variant->m_object);
 		if (data == NULL)
 			return 0;
-		if (childType == NodeType::ProjectNode)
+		if (childType == NodeType::HavokNative)
 		{
 			return DATA_SUPPORTS;
 		}
@@ -543,6 +567,10 @@ struct  HandleRagdollData
 		{
 			return data->m_skeleton->m_bones[row].m_name.cString();
 		}
+		else if (childType == NodeType::HavokNative)
+		{
+			return "Ragdoll";
+		}
 		else {
 			return 0;
 		}
@@ -550,7 +578,7 @@ struct  HandleRagdollData
 
 	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
-		if (childType == NodeType::ProjectNode)
+		if (childType == NodeType::HavokNative)
 		{
 			switch (index) {
 			case 0:
@@ -592,11 +620,11 @@ struct  HandleBehaviorReference {
 
 };
 
-int ProjectTreeHkHandler::getChildCount(hkVariant* variant, NodeType childType)
+int ProjectTreeHkHandler::getChildCount(int project, hkVariant* variant, NodeType childType, ResourceManager& manager)
 {
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return HandleCharacterData::getChildCount(variant, childType);
+		return HandleCharacterData::getChildCount(project, variant, childType, manager);
 	}
 	if (&hkbBehaviorGraphClass == variant->m_class)
 	{
@@ -655,7 +683,7 @@ QVariant ProjectTreeHkHandler::data(int row, int column, hkVariant* variant, Nod
 	return v.data(row, column - 1);
 }
 
-ModelEdge ProjectTreeHkHandler::get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+ModelEdge ProjectTreeHkHandler::getChild(hkVariant*, int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 {
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
@@ -688,12 +716,4 @@ ModelEdge ProjectTreeHkHandler::get_child(int index, int project, int file, hkVa
 	if (file_index == -1)
 		__debugbreak();
 	return ModelEdge((hkVariant*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
-}
-
-ModelEdge ProjectTreeHkHandler::getChild(hkVariant*, int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
-{
-	auto edge = get_child(index, project, file, variant, manager, childType);
-	edge._parentItem = variant;
-	edge._parentType = NodeType::HavokNative;
-	return edge;
 }

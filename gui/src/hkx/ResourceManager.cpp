@@ -10,6 +10,7 @@
 #include <hkbCharacterData_7.h>
 #include <hkbBehaviorReferenceGenerator_0.h>
 #include <hkbBehaviorGraph_1.h>
+#include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
 
 using namespace ckcmd::HKX;
 
@@ -373,7 +374,6 @@ hkVariant* ResourceManager::characterFileRoot(int character_index)
 			return &item;
 		}
 	}
-
 	return nullptr;
 }
 
@@ -431,5 +431,94 @@ hkVariant* ResourceManager::behaviorFileRoot(int behavior_file)
 			return &item;
 		}
 	}
+}
+
+std::pair< hkRefPtr<const hkaSkeleton>, bool> hasRagdoll(const std::vector<hkVariant>& contents)
+{
+	for (const auto& content : contents)
+	{
+		if (content.m_class == &hkaRagdollInstanceClass)
+		{
+			return
+			{
+				reinterpret_cast<hkaRagdollInstance*>(content.m_object)->m_skeleton,
+				true
+			};
+		}
+	}
+	return { nullptr, false };
+}
+
+
+size_t ResourceManager::hasRigAndRagdoll(int project_file, hkbCharacterStringData* string_data)
+{
+	size_t count = 0;
+	fs::path behavior_path = path(project_file).parent_path();
+	fs::path rig_path = behavior_path / string_data->m_rigName.cString();
+	if (fs::exists(rig_path))
+		count += 1;
+	if (string_data->m_ragdollName.getLength() > 0)
+	{
+		fs::path ragdoll_path = behavior_path / string_data->m_ragdollName.cString();
+		if (fs::exists(ragdoll_path))
+			count += 1;
+	}
+	else if (fs::exists(rig_path))
+	{
+		//could have ragdoll inside the rig
+		auto contents = get(rig_path);
+		if (hasRagdoll(contents.second).second)
+			count += 1;
+	}
+	return count;
+}
+
+size_t ResourceManager::getRigIndex(int project_file, hkbCharacterStringData* string_data)
+{
+	fs::path behavior_path = path(project_file).parent_path();
+	behavior_path /= string_data->m_rigName.cString();
+	get(behavior_path);
+	return index(behavior_path);
+}
+
+hkVariant* ResourceManager::getRigRoot(int project_file, int rig_index)
+{
+	auto& rig_contents = get(rig_index);
+	auto ragdoll_info = hasRagdoll(rig_contents.second);
+	for (auto& entry : rig_contents.second)
+	{
+		if (entry.m_class == &hkaSkeletonClass)
+		{
+			if (ragdoll_info.second)
+			{
+				if (ragdoll_info.first.val() != entry.m_object)
+					return &entry;
+			}
+			else {
+				return &entry;
+			}
+		}
+	}
+	return nullptr;
+}
+
+size_t ResourceManager::getRagdollIndex(int project_file, const std::string& file)
+{
+	fs::path ragdoll_path = path(project_file).parent_path() / file;
+	get(ragdoll_path);
+	return index(ragdoll_path);
+}
+
+hkVariant* ResourceManager::getRagdollRoot(int project_file, int ragdoll_index)
+{
+	auto& ragdoll_contents = get(ragdoll_index);
+	for (auto& content : ragdoll_contents.second)
+	{
+		if (content.m_class == &hkaRagdollInstanceClass)
+		{
+			return &content;
+		}
+	}
+	return nullptr;
 }
 
