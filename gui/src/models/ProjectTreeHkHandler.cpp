@@ -10,6 +10,7 @@
 #include <hkbStateMachineStateInfo_4.h>
 #include <hkbStateMachineTransitionInfoArray_0.h>
 #include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
+#include <hkbBehaviorReferenceGenerator_0.h>
 
 
 using namespace ckcmd::HKX;
@@ -569,6 +570,28 @@ struct  HandleRagdollData
 	}
 };
 
+struct  HandleBehaviorReference {
+
+	static int getChildCount(hkVariant* variant, NodeType childType)
+	{
+		return 1;
+	}
+
+	static QVariant data(int row, int column, hkVariant* variant, NodeType childType)
+	{
+		hkbBehaviorReferenceGenerator* bfg = reinterpret_cast<hkbBehaviorReferenceGenerator*>(variant->m_object);
+		return bfg->m_behaviorName.cString();
+	}
+
+	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+	{
+		int behavior_file = manager.behaviorFileIndex(project, variant);
+		hkVariant* root = manager.behaviorFileRoot(behavior_file);
+		return ModelEdge(variant, project, behavior_file, index, 0, root, NodeType::BehaviorHkxNode);
+	}
+
+};
+
 int ProjectTreeHkHandler::getChildCount(hkVariant* variant, NodeType childType)
 {
 	if (&hkbCharacterDataClass == variant->m_class)
@@ -590,6 +613,10 @@ int ProjectTreeHkHandler::getChildCount(hkVariant* variant, NodeType childType)
 	if (&hkaRagdollInstanceClass == variant->m_class)
 	{
 		return HandleRagdollData::getChildCount(variant, childType);
+	}
+	if (&hkbBehaviorReferenceGeneratorClass == variant->m_class)
+	{
+		return HandleBehaviorReference::getChildCount(variant, childType);
 	}
 	return HkxLinkedTableVariant(*variant).links().size();
 }
@@ -615,6 +642,10 @@ QVariant ProjectTreeHkHandler::data(int row, int column, hkVariant* variant, Nod
 	if (&hkaRagdollInstanceClass == variant->m_class)
 	{
 		return HandleRagdollData::data(row, column, variant, childType);
+	}
+	if (&hkbBehaviorReferenceGeneratorClass == variant->m_class)
+	{
+		return HandleBehaviorReference::data(row, column, variant, childType);
 	}
 	if (column == 0)
 	{
@@ -645,6 +676,10 @@ ModelEdge ProjectTreeHkHandler::get_child(int index, int project, int file, hkVa
 	if (&hkaRagdollInstanceClass == variant->m_class)
 	{
 		return HandleRagdollData::get_child(index, project, file, variant, manager, childType);
+	}
+	if (&hkbBehaviorReferenceGeneratorClass == variant->m_class)
+	{
+		return HandleBehaviorReference::get_child(index, project, file, variant, manager, childType);
 	}
 	HkxLinkedTableVariant v(*variant);
 	auto& links = v.links();
