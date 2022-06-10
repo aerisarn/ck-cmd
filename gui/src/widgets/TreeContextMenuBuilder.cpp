@@ -16,12 +16,12 @@ QMenu* TreeContextMenuBuilder::buildMiscsNodeMenu()
 	return context_menu;
 }
 
-QMenu* TreeContextMenuBuilder::build(ProjectNode* node)
+QMenu* TreeContextMenuBuilder::build(NodeType type)
 {
-	if (node->type() == ProjectNode::NodeType::characters_node)
-		return buildCharactersNodeMenu();
-	if (node->type() == ProjectNode::NodeType::miscs_node)
-		return buildMiscsNodeMenu();
+	//if (node->type() == ProjectNode::NodeType::characters_node)
+	//	return buildCharactersNodeMenu();
+	//if (node->type() == ProjectNode::NodeType::miscs_node)
+	//	return buildMiscsNodeMenu();
 	//return new QMenu();
 	//if (node->type() == ProjectNode::NodeType::event_node)
 	//{

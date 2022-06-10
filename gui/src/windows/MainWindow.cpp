@@ -77,7 +77,7 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	GLWidget->setWidget(createHDBWidget());
 
 	connect(_projectTreeView, &ProjectsWidget::variantSelected, _valuesTableView, &ValuesWidget::setIndex);
-	connect(_valuesTableView, &ValuesWidget::HkxItemPointerChanged, _projectTreeView, &ProjectsWidget::modelHasSetNewHkxItemPointer);
+	//connect(_valuesTableView, &ValuesWidget::HkxItemPointerChanged, _projectTreeView, &ProjectsWidget::modelHasSetNewHkxItemPointer);
 
 	//File
 	ui->menuFile->addAction(_handler->saveAction());

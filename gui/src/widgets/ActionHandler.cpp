@@ -51,9 +51,6 @@ void ActionHandler::save()
 	//}
 }
 
-void ActionHandler::export_to(ProjectNode* project_node)
-{}
-
 void ActionHandler::createProject()
 {
 	//if (_modelview.selectionModel()->selection().size() == 1) {
@@ -64,19 +61,7 @@ void ActionHandler::createProject()
 	//}
 }
 
-
-
 QAction* ActionHandler::exportAction()
-{
-	return nullptr;
-}
-
-QAction* ActionHandler::saveAction(ProjectNode* node)
-{
-	return nullptr;
-}
-
-QAction* ActionHandler::exportAction(ProjectNode* node)
 {
 	return nullptr;
 }

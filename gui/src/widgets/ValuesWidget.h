@@ -31,10 +31,10 @@ public:
 
 public slots:
     void setIndex(int file_index, QModelIndex index);
-    void modelHasSetNewHkxItemPointer(ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
+    //void modelHasSetNewHkxItemPointer(ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
 
-signals:
-    void HkxItemPointerChanged(QModelIndex index, QModelIndex parent, ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
+//signals:
+//    void HkxItemPointerChanged(QModelIndex index, QModelIndex parent, ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
 };
 
 #endif //VALUESWIDGET_H

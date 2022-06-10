@@ -64,9 +64,9 @@ void ValuesWidget::setIndex(int file_index, QModelIndex index)
 		ui->valuesView->setVisible(true);
 	}*/
 }
-
-void ValuesWidget::modelHasSetNewHkxItemPointer(HkxItemPointer old_value, HkxItemPointer new_value, int file, hkVariant* variant)
-{
-	//emit HkxItemPointerChanged(_index, _model->getParentIndex(_index), old_value, new_value, file, variant);
-}
+//
+//void ValuesWidget::modelHasSetNewHkxItemPointer(HkxItemPointer old_value, HkxItemPointer new_value, int file, hkVariant* variant)
+//{
+//	//emit HkxItemPointerChanged(_index, _model->getParentIndex(_index), old_value, new_value, file, variant);
+//}
 

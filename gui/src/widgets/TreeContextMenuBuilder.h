@@ -1,7 +1,5 @@
 #pragma once
 
-#include <src/models/ProjectNode.h>
-
 #include <src/widgets/ActionHandler.h>
 
 #include <QObject>
@@ -22,7 +20,7 @@ namespace ckcmd {
 			TreeContextMenuBuilder(ActionHandler& actionHandler)
 				: _actionHandler(actionHandler)
 			{}
-			QMenu* build(ProjectNode* node);
+			QMenu* build(NodeType type);
 		};
 	}
 }

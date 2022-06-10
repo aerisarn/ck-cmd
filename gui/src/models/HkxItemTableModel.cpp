@@ -115,14 +115,14 @@ QVariant HkxItemTableModel::internalSetData(int file, hkVariant* variant, const 
 			old_value = g.value();
 
 
-			Setter s(index.row(), index.column(), _file, value, _handlers);
-			if (value.canConvert<HkxItemPointer>())
-			{
-				HkxItemPointer new_value(nullptr, nullptr);
-				HkxItemPointer old_value_ptr = g.value().value<HkxItemPointer>();
-				new_value = value.value<HkxItemPointer>();
-				emit HkxItemPointerChanged(old_value_ptr, new_value, _file, _variant);
-			}
+			Setter s(index.row(), index.column(), _file, value);
+			//if (value.canConvert<HkxItemPointer>())
+			//{
+			//	HkxItemPointer new_value(nullptr, nullptr);
+			//	HkxItemPointer old_value_ptr = g.value().value<HkxItemPointer>();
+			//	new_value = value.value<HkxItemPointer>();
+			//	emit HkxItemPointerChanged(old_value_ptr, new_value, _file, _variant);
+			//}
 			h.accept(s);
 			return old_value;
 		}

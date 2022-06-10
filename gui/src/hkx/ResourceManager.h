@@ -3,8 +3,6 @@
 
 #include <core/HKXWrangler.h>
 #include <src/Log.h>
-#include <src/hkx/ITreeBuilderClassHandler.h>
-#include <src/hkx/ISpecialFieldsHandler.h>
 #include <src/workspace.h>
 #include <core/AnimationCache.h>
 

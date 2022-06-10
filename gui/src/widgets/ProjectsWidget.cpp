@@ -1,8 +1,5 @@
 #include "ProjectsWidget.h"
 
-
-
-#include <src/hkx/ProjectBuilder.h>
 #include <src/widgets/TreeContextMenuBuilder.h>
 
 using namespace ckcmd::HKX;

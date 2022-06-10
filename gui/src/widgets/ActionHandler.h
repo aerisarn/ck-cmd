@@ -1,7 +1,5 @@
 #pragma once
 
-#include <src/models/ProjectNode.h>
-
 #include <src/hkx/ResourceManager.h>
 #include <src/models/ProjectTreeModel.h>
 #include <src/models/ProjectTreeActions.h>
@@ -31,8 +29,6 @@ namespace ckcmd {
 
 			void createProject();
 
-			void export_to(ProjectNode* project_node);
-
 			void selectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
 
 		public:
@@ -52,8 +48,6 @@ namespace ckcmd {
 
 			QAction* saveAction() {	return _save;	}
 			QAction* exportAction();
-			QAction* saveAction(ProjectNode* node);
-			QAction* exportAction(ProjectNode* node);
 
 			QAction* createProjectAction() { return _createProject; }
 

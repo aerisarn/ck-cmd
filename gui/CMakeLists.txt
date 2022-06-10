@@ -47,14 +47,6 @@ set (GUI_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/config.cpp"
                  "${CMAKE_CURRENT_SOURCE_DIR}/src/workspace.cpp"
                  "${CMAKE_CURRENT_SOURCE_DIR}/src/log.cpp")
 
-if(NOT DEFINED AnimData)
-    file(GLOB_RECURSE ANIMDATA_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/animdata/*.h)
-    file(GLOB_RECURSE ANIMDATA_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/animdata/*.cpp)
-
-    source_group("Animation Data\\Headers" FILES ${ANIMDATA_HEADERS})
-    source_group("Animation Data\\Sources" FILES ${ANIMDATA_SOURCES})
-endif()  
-
 if(NOT DEFINED Havok)
     file(GLOB_RECURSE HKX_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/hkx/*.h)
     file(GLOB_RECURSE HKX_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/hkx/*.cpp)
@@ -115,8 +107,6 @@ add_library( gui-lib STATIC
     ${HKX_SOURCES}
     ${ESP_HEADERS}
     ${ESP_SOURCES}
-    ${ANIMDATA_HEADERS}
-    ${ANIMDATA_SOURCES}
 )
 target_include_directories	(gui-lib  PUBLIC ${PROJECT_INCLUDES} )
 

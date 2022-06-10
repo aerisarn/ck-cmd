@@ -3,14 +3,12 @@
 #include <QAbstractTableModel>
 #include <QUndoStack>
 #include <core/HKXWrangler.h>
-#include <src/hkx/ISpecialFieldsHandler.h>
-#include <src/hkx/HkxItemPointer.h>
 #include <src/hkx/CommandManager.h>
 
 namespace ckcmd {
     namespace HKX {
 
-        class HkxItemTableModel : public QAbstractTableModel, public SpecialFieldsListener {
+        class HkxItemTableModel : public QAbstractTableModel {
             Q_OBJECT
 
             
@@ -79,9 +77,9 @@ namespace ckcmd {
             void setVariant(int file, hkVariant* variant) { beginResetModel(); _file = file, _variant = variant; endResetModel(); }
             int file() const { return _file; }
 
-        signals:
+        //signals:
 
-            void HkxItemPointerChanged(HkxItemPointer old_value, HkxItemPointer new_value, int file, hkVariant* variant);
+        //    void HkxItemPointerChanged(HkxItemPointer old_value, HkxItemPointer new_value, int file, hkVariant* variant);
 
         };
     }

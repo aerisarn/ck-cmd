@@ -6,8 +6,6 @@
 #include "ColumnCalculator.h"
 #include "HkxItemReal.h"
 
-#include <src/hkx/ISpecialFieldsHandler.h>
-
 #include <QVariant>
 #include <vector>
 

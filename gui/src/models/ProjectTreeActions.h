@@ -1,6 +1,5 @@
 #pragma once
 
-#include "ProjectNode.h"
 #include <src/hkx/CommandManager.h>
 #include <src/hkx/ResourceManager.h>
 
@@ -18,9 +17,6 @@ namespace ckcmd {
 
             //These actions do not possess undo/redo 
             //you have to explicitly do the opposite to undo them
-
-            void OpenProject(ProjectNode* projectNode);
-            void CloseProject(ProjectNode* projectNode);
             void CreateProject();
             void DeleteProject();
 

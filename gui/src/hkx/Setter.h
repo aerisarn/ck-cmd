@@ -6,15 +6,13 @@
 #include "ColumnCalculator.h"
 #include "HkxItemReal.h"
 
-#include <src/hkx/ISpecialFieldsHandler.h>
-
 #include <QVariant>
 #include <vector>
 
 namespace ckcmd {
 	namespace HKX {
 
-		class Setter : public HkxConcreteVisitor<Setter>, public SpecialFieldsListener {
+		class Setter : public HkxConcreteVisitor<Setter> {
 			QVariant _value;
 			int _row;
 			int _column;
@@ -29,13 +27,6 @@ namespace ckcmd {
 			Setter(const size_t row, const size_t column, int file_index, const QVariant& value) :
 				HkxConcreteVisitor(*this), 
 				_row(row), _column(column), _file_index(file_index), _value(value) {}
-
-			Setter(const size_t row, const size_t column, int file_index, const QVariant& value, const std::map<member_id_t, ISpecialFieldsHandler*>& handlers) :
-				HkxConcreteVisitor(*this),
-				_row(row), _column(column), _file_index(file_index), _value(value)
-			{
-				_handlers = handlers;
-			}
 
 			QVariant value() { return _value; }
 
@@ -68,13 +59,7 @@ namespace ckcmd {
 		void Setter::check(T& value) {
 			if (_row == 0)
 			{
-				//if (_handlers.find({ _class, _classmember }) != _handlers.end())
-				//{
-				//	_value = _handlers[{_class, _classmember}]->value(value, _class, _classmember, _lastVariant, _parentVariant);
-				//}
-				//else {
-					value = _value.value<T>();
-				//}
+				value = _value.value<T>();
 			}
 			_row -= 1;
 		}

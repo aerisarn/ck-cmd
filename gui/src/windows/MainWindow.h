@@ -13,7 +13,6 @@
 #include <src/widgets/ValuesWidget.h>
 #include <src/widgets/ActionHandler.h>
 
-#include <src/animdata/AnimDataManager.h>
 #include <src/hkx/HkxSimulation.h>
 #include <src/hkx/CommandManager.h>
 
@@ -70,8 +69,6 @@ private:
     ckcmd::HKX::ProjectTreeModel _model;
     ckcmd::HKX::CommandManager _command_manager;
     ckcmd::HKX::ResourceManager _resource_manager;
-    //ckcmd::HKX::AnimationManager _animation_manager;
-
 
     //Actions
     ckcmd::HKX::ActionHandler* _handler;
