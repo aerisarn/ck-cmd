@@ -17,7 +17,7 @@ using namespace ckcmd::HKX;
 
 struct  HandleCharacterData
 {
-	static const size_t DATA_SUPPORTS = 3;
+	static const size_t DATA_SUPPORTS = 4;
 
 	static const char* DataListsName(int row)
 	{
@@ -97,10 +97,16 @@ struct  HandleCharacterData
 		{
 			switch (index) {
 			case 0:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::deformableSkinNames);
+			{
+				hkbCharacterData* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+				int file = manager.behaviorFileIndex(project, data);
+				return ModelEdge(variant, project, file, index, 0, nullptr, NodeType::BehaviorHkxNode);
+			}
 			case 1:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::animationNames);
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::deformableSkinNames);
 			case 2:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::animationNames);
+			case 3:
 				return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyNames);
 			default:
 				break;

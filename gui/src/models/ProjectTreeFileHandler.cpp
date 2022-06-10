@@ -31,6 +31,8 @@ QVariant ProjectTreeFileHandler::data(int row, int column, int file_index, NodeT
 		return _manager.character_project_file(row);
 	case NodeType::MiscNode:
 		return _manager.miscellaneous_project_file(row);
+	case NodeType::BehaviorHkxNode:
+		return _manager.rootBehaviorFileName()
 	}
 	return QVariant();
 }

@@ -20,6 +20,7 @@ namespace ckcmd {
             MiscsNode,
             MiscNode,
             BehaviorNode,
+            BehaviorHkxNode,
             HavokNative,
             deformableSkinNames,
             deformableSkinName,
