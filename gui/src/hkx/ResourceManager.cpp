@@ -8,6 +8,8 @@
 
 #include <hkbProjectData_2.h>
 #include <hkbCharacterData_7.h>
+#include <hkbBehaviorReferenceGenerator_0.h>
+#include <hkbBehaviorGraph_1.h>
 
 using namespace ckcmd::HKX;
 
@@ -400,5 +402,34 @@ size_t ResourceManager::miscFileIndex(int row)
 	QString path = _miscellaneous.at(row);
 	fs::path fs_path = path.toUtf8().constData();
 	return index(fs_path);
+}
+
+size_t ResourceManager::behaviorFileIndex(int project_file, hkVariant* data)
+{
+	fs::path behavior_path = path(project_file).parent_path();
+	if (data->m_class == &hkbCharacterDataClass)
+	{
+		hkbCharacterData* char_data = reinterpret_cast<hkbCharacterData*>(data->m_object);
+		behavior_path /= char_data->m_stringData->m_behaviorFilename.cString();
+	}
+	else if (data->m_class == &hkbBehaviorReferenceGeneratorClass)
+	{
+		hkbBehaviorReferenceGenerator* brg = reinterpret_cast<hkbBehaviorReferenceGenerator*>(data->m_object);
+		behavior_path /= brg->m_behaviorName.cString();
+	}
+	get(behavior_path);
+	return index(behavior_path);
+}
+
+hkVariant* ResourceManager::behaviorFileRoot(int behavior_file)
+{
+	auto& contents = get(behavior_file);
+	for (auto& item : contents.second)
+	{
+		if (&hkbBehaviorGraphClass == item.m_class)
+		{
+			return &item;
+		}
+	}
 }
 

@@ -98,9 +98,9 @@ struct  HandleCharacterData
 			switch (index) {
 			case 0:
 			{
-				hkbCharacterData* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
-				int file = manager.behaviorFileIndex(project, data);
-				return ModelEdge(variant, project, file, index, 0, nullptr, NodeType::BehaviorHkxNode);
+				int file = manager.behaviorFileIndex(project, variant);
+				hkVariant* root = manager.behaviorFileRoot(file);
+				return ModelEdge(variant, project, file, index, 0, root, NodeType::BehaviorHkxNode);
 			}
 			case 1:
 				return ModelEdge(variant, project, file, index, 0, variant, NodeType::deformableSkinNames);
@@ -162,7 +162,7 @@ struct  HandleBehaviorData
 		auto string_data = data->m_stringData;
 		if (string_data == NULL)
 			return 0;
-		if (childType == NodeType::ProjectNode)
+		if (childType == NodeType::BehaviorHkxNode)
 		{
 			return DATA_SUPPORTS + HkxLinkedTableVariant(*variant).links().size();
 		}
@@ -227,7 +227,7 @@ struct  HandleBehaviorData
 
 	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
-		if (childType == NodeType::ProjectNode)
+		if (childType == NodeType::BehaviorHkxNode)
 		{
 			switch (index) {
 			case 0:

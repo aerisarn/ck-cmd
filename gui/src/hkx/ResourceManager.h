@@ -98,6 +98,8 @@ namespace ckcmd {
 			void openMiscFile(int row);
 			void closeMiscFile(int row);
 
+			size_t behaviorFileIndex(int project_file, hkVariant* data);
+			hkVariant* behaviorFileRoot(int behavior_file);
 		};
 	}
 }

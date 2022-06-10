@@ -31,8 +31,8 @@ QVariant ProjectTreeFileHandler::data(int row, int column, int file_index, NodeT
 		return _manager.character_project_file(row);
 	case NodeType::MiscNode:
 		return _manager.miscellaneous_project_file(row);
-	case NodeType::BehaviorHkxNode:
-		return _manager.rootBehaviorFileName()
+	case NodeType::BehaviorHkxNode:		
+		return _manager.path(file_index).string().c_str();
 	}
 	return QVariant();
 }
@@ -48,7 +48,6 @@ ModelEdge ProjectTreeFileHandler::getChild(int index, int project, int file, Nod
 		return ModelEdge(nullptr, -1, -1, index, -1, nullptr, NodeType::MiscNode);
 	case NodeType::CharacterNode:
 	{
-		//auto file_index = _manager.characterFileIndex(file);
 		auto* variant = _manager.characterFileRoot(file);
 		return ModelEdge(variant, project, file, index, 0, variant, NodeType::CharacterHkxNode);
 	}
