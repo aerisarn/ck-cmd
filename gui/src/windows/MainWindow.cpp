@@ -50,7 +50,6 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	_logger(new ckcmd::GUI::LogControl()),
 	_log_setter(_logger),
 	_resource_manager(_workspace),
-	//_animation_manager(_workspace, _resource_manager),
 	_model(_command_manager, _resource_manager, this),
 	ui(new Ui::MainWindow)
 {
@@ -76,7 +75,7 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	ads::CDockWidget*  GLWidget = new ads::CDockWidget("Havok Preview", this);
 	GLWidget->setWidget(createHDBWidget());
 
-	connect(_projectTreeView, &ProjectsWidget::variantSelected, _valuesTableView, &ValuesWidget::setIndex);
+	connect(_projectTreeView, &ProjectsWidget::selectionChanged, _valuesTableView, &ValuesWidget::treeSelectionChanged);
 	//connect(_valuesTableView, &ValuesWidget::HkxItemPointerChanged, _projectTreeView, &ProjectsWidget::modelHasSetNewHkxItemPointer);
 
 	//File

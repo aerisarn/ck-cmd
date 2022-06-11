@@ -21,9 +21,13 @@ ProjectsWidget::ProjectsWidget(
 {
 	setupUi(this);
 	setWidget(verticalLayoutWidget);
+	workspaceLabel->setText(QCoreApplication::translate("ProjectsWidget", "Workspace:", nullptr) + " " + _manager.workspace().getFolder().string().c_str());
+
+	treeView->setHeaderHidden(true);
 	treeView->setModel(model);
 	treeView->setContextMenuPolicy(Qt::CustomContextMenu);
 
+	connect(treeView->selectionModel(), &QItemSelectionModel::selectionChanged, this, &ProjectsWidget::on_treeView_selectionChanged);
 	//connect(treeView, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(treeMenu(QPoint)));
 }
 
@@ -112,6 +116,11 @@ void ProjectsWidget::on_treeView_customContextMenuRequested(const QPoint& pos)
 	//if (menu != nullptr) {
 	//	menu->exec(this->mapToGlobal(p));
 	//}
+}
+
+void ProjectsWidget::on_treeView_selectionChanged(const QItemSelection& selected, const QItemSelection& deselected)
+{
+	emit selectionChanged(selected, deselected);
 }
 
 ProjectsWidget::~ProjectsWidget()

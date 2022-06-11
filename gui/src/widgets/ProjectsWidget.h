@@ -48,6 +48,7 @@ public:
 private slots:
     void on_treeView_doubleClicked(const QModelIndex& index);
     void on_treeView_customContextMenuRequested(const QPoint& pos);
+    void on_treeView_selectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
 
 public slots:
     //void nodeDoubleClicked(const QModelIndex& index);
@@ -63,8 +64,8 @@ public slots:
     );
 
 signals:
-    //file index in resource manager, object in file
-    void variantSelected(size_t, QModelIndex index);
+
+    void selectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
 };
 
 #endif //PROJECTSWIDGET_H
