@@ -12,7 +12,11 @@
 #include <hkbBehaviorGraph_1.h>
 #include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
 
+#include <atomic>
+
 using namespace ckcmd::HKX;
+
+static std::atomic<size_t> runtime_file_id = 0;
 
 ResourceManager::ResourceManager(WorkspaceConfig& workspace) :
 	_workspace(workspace),
@@ -51,16 +55,23 @@ ResourceManager::~ResourceManager()
 }
 
 size_t ResourceManager::index(const fs::path& file) const {
-	auto index = std::distance(
-		_files.begin(),
-		std::find(_files.begin(), _files.end(), file)
-	);
-	return index;
+	for (const auto& entry : _files)
+	{
+		if (entry.second == file)
+		{
+			return entry.first;
+		}
+	}
+	return (size_t)-1;
 }
 
 fs::path ResourceManager::path(int file_index) const
 {
 	return _files.at(file_index);
+}
+
+bool ResourceManager::is_open(const fs::path& file) const {
+	return std::find_if(_files.begin(), _files.end(), [file](const auto& entry) {return file == entry.second; }) != _files.end();
 }
 
 int ResourceManager::findIndex(int file_index, const void* object) const
@@ -115,7 +126,7 @@ hkx_file_t& ResourceManager::get(size_t index)
 
 hkx_file_t& ResourceManager::get(const fs::path& file)
 {
-	if (std::find(_files.begin(), _files.end(), file) == _files.end()) {
+	if (!is_open(file)) {
 		HKXWrapper wrap;
 		fs::path xml_path = file;  xml_path.replace_extension(".xml");
 		fs::path hkx_path = file;  hkx_path.replace_extension(".hkx");
@@ -146,8 +157,8 @@ hkx_file_t& ResourceManager::get(const fs::path& file)
 				break;
 			}
 		}	
-		_contents[_files.size()] = new_file;
-		_files.push_back(file);
+		_contents[runtime_file_id] = new_file;
+		_files[runtime_file_id++] = file;
 	}
 	return _contents[index(file)];
 }
@@ -304,23 +315,30 @@ void ResourceManager::scanWorkspace()
 	}
 }
 
-bool ResourceManager::isCharacterFileOpen(int row)
+const QString& ResourceManager::projectPath(int row, ProjectType type)
 {
-	QString path = _characters.at(row);
-	fs::path fs_path = path.toUtf8().constData();
-	return std::find(_files.begin(), _files.end(), fs_path) != _files.end();
+	switch (type)
+	{
+	case ProjectType::character:
+		return _characters.at(row);
+	case ProjectType::misc:
+		return _miscellaneous.at(row);
+	default:
+		break;
+	}
+	return QString();
 }
 
-bool ResourceManager::isMiscFileOpen(int row)
+bool ResourceManager::isProjectFileOpen(int row, ProjectType type)
 {
-	QString path = _miscellaneous.at(row);
+	QString path = projectPath(row, type);
 	fs::path fs_path = path.toUtf8().constData();
-	return std::find(_files.begin(), _files.end(), fs_path) != _files.end();
+	return is_open(fs_path);
 }
 
-void ResourceManager::openCharacterFile(int index)
+void ResourceManager::openProjectFile(int row, ProjectType type)
 {
-	QString path = _characters.at(index);
+	QString path = projectPath(row, type);
 	fs::path fs_path = path.toUtf8().constData();
 	if (fs::exists(fs_path))
 	{
@@ -328,16 +346,16 @@ void ResourceManager::openCharacterFile(int index)
 	}
 }
 
-size_t ResourceManager::projectFileIndex(int row)
+size_t ResourceManager::projectFileIndex(int row, ProjectType type)
 {
-	QString path = _characters.at(row);
+	QString path = projectPath(row, type);
 	fs::path fs_path = path.toUtf8().constData();
 	return index(fs_path);
 }
 
-size_t ResourceManager::characterFileIndex(int row)
+size_t ResourceManager::characterFileIndex(int row, ProjectType type)
 {
-	QString path = _characters.at(row);
+	QString path = projectPath(row, type);
 	fs::path fs_path = path.toUtf8().constData();
 	hkbProjectStringData* project_data = nullptr;
 	if (fs::exists(fs_path))
@@ -377,31 +395,13 @@ hkVariant* ResourceManager::characterFileRoot(int character_index)
 	return nullptr;
 }
 
-void ResourceManager::closeCharacterFile(int string_index)
+void ResourceManager::close(int file_index)
 {
-	QString path = _characters.at(string_index);
-	fs::path fs_path = path.toUtf8().constData();
-	int internal_index = index(fs_path);
-	_contents.erase(internal_index);
-	_files.erase(_files.begin() + internal_index);
-}
-
-void ResourceManager::openMiscFile(int index) 
-{
-	QString path = _miscellaneous.at(index);
-	fs::path fs_path = path.toUtf8().constData();
-	get(fs_path);
-}
-
-void ResourceManager::closeMiscFile(int index) {
-
-}
-
-size_t ResourceManager::miscFileIndex(int row)
-{
-	QString path = _miscellaneous.at(row);
-	fs::path fs_path = path.toUtf8().constData();
-	return index(fs_path);
+	if (_contents.find(file_index) != _contents.end())
+	{
+		_contents.erase(file_index);
+		_files.erase(file_index);
+	}
 }
 
 size_t ResourceManager::behaviorFileIndex(int project_file, hkVariant* data)

@@ -13,7 +13,6 @@ namespace ckcmd {
         enum class NodeType
         {
             Invalid = 0,
-            ProjectNode,
             CharactersNode,
             CharacterNode,
             CharacterHkxNode,

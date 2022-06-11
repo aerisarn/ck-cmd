@@ -10,6 +10,7 @@
 
 #include <QPlainTextEdit>
 #include <QItemSelectionModel>
+#include <QStackedLayout>
 
 
 QT_BEGIN_NAMESPACE
@@ -29,6 +30,9 @@ class ValuesWidget : public ::ads::CDockWidget
     TopInfoWidget* _top_info;
     QPlainTextEdit* _empty_panel;
     QGridLayout* _mainLayout;
+    QWidget* _mainWidget;
+    QWidget* _editorPanel;
+    QStackedLayout* _editorPanelLayout;
 
 public:
     explicit ValuesWidget(ckcmd::HKX::ProjectTreeModel* model, ckcmd::HKX::CommandManager& command_manager, const ckcmd::HKX::ResourceManager& manager, QWidget* parent = 0);

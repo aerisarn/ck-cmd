@@ -3,7 +3,7 @@
 
 using namespace ckcmd::HKX;
 
-
+static size_t runtime_edge_index = 0;
 
 ProjectTreeModel::ProjectTreeModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent) :
 	_commandManager(commandManager),
@@ -35,10 +35,37 @@ bool ProjectTreeModel::hasModelEdgeIndex(const ModelEdge& edge) const
 
 qintptr ProjectTreeModel::createModelEdgeIndex(const ModelEdge& edge)
 {
-	qintptr result = _direct_find.size() + 1;
+	qintptr result = runtime_edge_index++;
 	_direct_find.insert({ result, edge });
 	_reverse_find.insert({ &_direct_find[result], result });
 	return result;
+}
+
+void  ProjectTreeModel::deleteAllModelEdgeIndexesForFile(int project_file)
+{
+	auto rev_it = _reverse_find.begin();
+	while (rev_it != _reverse_find.end())
+	{
+		if (rev_it->first->_project == project_file)
+		{
+			rev_it = _reverse_find.erase(rev_it);
+		}
+		else {
+			rev_it++;
+		}
+	}
+	auto dir_it = _direct_find.begin();
+	while (dir_it != _direct_find.end())
+	{
+		if (dir_it->second._project == project_file)
+		{
+			_resourceManager.close(dir_it->second._file);
+			dir_it = _direct_find.erase(dir_it);
+		}
+		else {
+			dir_it++;
+		}
+	}
 }
 
 /*
@@ -214,21 +241,24 @@ void ProjectTreeModel::select(const QModelIndex& index)
 void ProjectTreeModel::activate(const QModelIndex& index)
 {
 	auto& edge = modelEdge(index);
-	if (edge._childType == NodeType::CharacterNode)
+	if (edge._childType == NodeType::CharacterNode || edge._childType == NodeType::MiscNode)
 	{
-		if (_resourceManager.isCharacterFileOpen(index.row()))
+		ProjectType project_type = edge._childType == NodeType::CharacterNode ? ProjectType::character : ProjectType::misc;
+		if (_resourceManager.isProjectFileOpen(index.row(), project_type))
 		{
-			emit beginRemoveRows(index, 0, 2);
-			_resourceManager.closeCharacterFile(index.row());
+			emit beginRemoveRows(index, 0, 0);
 			edge._file = -1;
 			edge._project = -1;
+			int project_index = _resourceManager.projectFileIndex(index.row(), project_type);
+			deleteAllModelEdgeIndexesForFile(project_index);
+			_resourceManager.close(project_index);
 			emit endRemoveRows();
 		}
 		else {
-			emit beginInsertRows(index, 0, 2);
-			_resourceManager.openCharacterFile(index.row());
-			edge._file = _resourceManager.characterFileIndex(index.row());
-			edge._project = _resourceManager.projectFileIndex(index.row());
+			emit beginInsertRows(index, 0, 0);
+			_resourceManager.openProjectFile(index.row(), project_type);
+			edge._file = _resourceManager.characterFileIndex(index.row(), project_type);
+			edge._project = _resourceManager.projectFileIndex(index.row(), project_type);
 			emit endInsertRows();
 		}
 	}

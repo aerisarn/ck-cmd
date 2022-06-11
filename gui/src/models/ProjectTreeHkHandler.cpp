@@ -309,7 +309,7 @@ struct  HandleStateMachineData
 		if (FSM == NULL)
 			return 0;
 
-		if (childType == NodeType::ProjectNode || childType == NodeType::HavokNative)
+		if (childType == NodeType::HavokNative)
 		{
 			return DATA_SUPPORTS + HkxLinkedTableVariant(*variant).links().size();
 		}
@@ -402,7 +402,7 @@ struct  HandleStateMachineData
 
 	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
-		if (childType == NodeType::ProjectNode || childType == NodeType::HavokNative)
+		if (childType == NodeType::HavokNative)
 		{
 			switch (index) {
 			case 0:

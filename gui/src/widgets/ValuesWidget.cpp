@@ -2,6 +2,7 @@
 #include <src/models/ProjectTreeModel.h>
 
 #include "ui_HkTopNavigatorWidget.h"
+#include "ui_CharacterEditor.h"
 
 #include <src/hkx/RefDelegate.h>
 
@@ -14,19 +15,27 @@ ValuesWidget::ValuesWidget(ProjectTreeModel* model, CommandManager& command_mana
 	ads::CDockWidget("Values",parent)
 {
 
-	QWidget* main = new QWidget(this);
+	_mainWidget = new QWidget(this);
 
-	_top_info = new TopInfoWidget(main);
+	_top_info = new TopInfoWidget(_mainWidget);
 	_top_info->setVisible(false);
-	_empty_panel = new QPlainTextEdit(main);
+	_empty_panel = new QPlainTextEdit(_mainWidget);
 	_empty_panel->setEnabled(false);
 
-	_mainLayout = new QGridLayout(main);
+	_mainLayout = new QGridLayout(_mainWidget);
 	_mainLayout->setContentsMargins(0, 0, 0, 0);
 	_mainLayout->addWidget(_top_info, 0, 0);
-	_mainLayout->addWidget(_empty_panel, 1, 0);
 
-	setWidget(main);
+	_editorPanel = new QWidget(_mainWidget);
+	_editorPanelLayout = new QStackedLayout(_editorPanel);
+
+	_editorPanelLayout->addWidget(_empty_panel);
+	QPlainTextEdit* another_editor = new QPlainTextEdit(_mainWidget);
+	_editorPanelLayout->addWidget(another_editor);
+
+	_mainLayout->addWidget(_editorPanel, 1, 0);
+
+	setWidget(_mainWidget);
 	//ui->verticalLayout->addWidget(w);
 
 	//ui->valuesView->setRowHeight(0,1024);
@@ -47,7 +56,25 @@ ValuesWidget::~ValuesWidget()
 
 void ValuesWidget::treeSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected)
 {
-	_top_info->setVisible(true);
+	if (_top_info->isVisible())
+	{
+		_top_info->setVisible(false);
+		_editorPanelLayout->setCurrentIndex(1);
+	}
+	else {
+		_top_info->setVisible(true);
+		_editorPanelLayout->setCurrentIndex(0);
+	}
+	//_top_info->setVisible(true);
+	//_empty_panel->setVisible(false);
+	//_mainLayout->removeWidget(_empty_panel);
+	////QWidget* editor = new QWidget(_mainWidget);
+	////Ui::CharacterEditor* editGUI = new Ui::CharacterEditor();
+	////editGUI->setupUi(editor);
+	////editor->set
+	//QPlainTextEdit* another_editor = new QPlainTextEdit(_mainWidget);
+	//_mainLayout->addWidget(another_editor, 1, 0);
+	//_mainLayout->removeWidget(_empty_panel);
 }
 
 //void ValuesWidget::setIndex(int file_index, QModelIndex index)

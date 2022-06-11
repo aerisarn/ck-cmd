@@ -24,9 +24,15 @@ namespace ckcmd {
 
 		typedef std::vector<std::pair<int, const hkVariant*>> hk_object_list_t;
 
+		enum class ProjectType {
+			invalid = 0,
+			character = 1,
+			misc = 2
+		};
+
 		class ResourceManager {
 
-			std::vector<fs::path> _files;
+			std::map<size_t, fs::path> _files;
 			std::map<size_t, hkx_file_t> _contents;
 			std::map<size_t, string> _sanitized_names;
 			QStringList _characters;
@@ -37,6 +43,7 @@ namespace ckcmd {
 
 			const std::string& get_sanitized_name(int file_index);
 			void scanWorkspace();
+			const QString& projectPath(int row, ProjectType type);
 
 		public:
 
@@ -57,6 +64,7 @@ namespace ckcmd {
 
 			size_t index(const fs::path& file) const;
 			fs::path path(int file_index) const;
+			bool is_open(const fs::path& file) const;
 
 			int findIndex(int file_index, const void* object) const;
 			int findIndex(const fs::path& file, const void* object) const;
@@ -85,22 +93,20 @@ namespace ckcmd {
 			const QString& character_project_file(int index) { return _characters.at(index); }
 			const QString& miscellaneous_project_file(int index) { return _miscellaneous.at(index); }
 
-			bool isCharacterFileOpen(int row);
-			size_t projectFileIndex(int row);
-			size_t characterFileIndex(int row);
+			void close(int file_index);
+
+			bool isProjectFileOpen(int row, ProjectType type);
+			void openProjectFile(int row, ProjectType type);
+			size_t projectFileIndex(int row, ProjectType type);
+			size_t characterFileIndex(int row, ProjectType type);
+
 			hkVariant* characterFileRoot(int character_index);
-			void openCharacterFile(int row);
-			void closeCharacterFile(int row);
+
 			size_t hasRigAndRagdoll(int project_file, hkbCharacterStringData* string_data);
 			size_t getRigIndex(int project_file, hkbCharacterStringData* string_data);
 			hkVariant* getRigRoot(int project_file, int rig_index);
 			size_t getRagdollIndex(int project_file, const std::string& path);
 			hkVariant* getRagdollRoot(int project_file, int rig_index);
-
-			bool isMiscFileOpen(int row);
-			size_t miscFileIndex(int row);
-			void openMiscFile(int row);
-			void closeMiscFile(int row);
 
 			size_t behaviorFileIndex(int project_file, hkVariant* data);
 			hkVariant* behaviorFileRoot(int behavior_file);
