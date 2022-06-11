@@ -2,11 +2,14 @@
 #define VALUESWIDGET_H
 
 #include "DockWidget.h"
-#include <QItemDelegate>
+#include <src/widgets/HkTopNavigatorWidget.h>
 #include <src/models/HkxItemTableModel.h>
 #include <src/models/ProjectTreeModel.h>
 #include <src/hkx/ResourceManager.h>
 #include <src/log.h>
+
+#include <QPlainTextEdit>
+#include <QItemSelectionModel>
 
 
 QT_BEGIN_NAMESPACE
@@ -23,14 +26,16 @@ class ValuesWidget : public ::ads::CDockWidget
     QModelIndex _index;
     ckcmd::HKX::CommandManager& _command_manager;
     const ckcmd::HKX::ResourceManager & _manager;
-    Ui::ValuesWidget* ui;
+    TopInfoWidget* _top_info;
+    QPlainTextEdit* _empty_panel;
+    QGridLayout* _mainLayout;
 
 public:
     explicit ValuesWidget(ckcmd::HKX::ProjectTreeModel* model, ckcmd::HKX::CommandManager& command_manager, const ckcmd::HKX::ResourceManager& manager, QWidget* parent = 0);
     ~ValuesWidget();
 
 public slots:
-    void setIndex(int file_index, QModelIndex index);
+    void treeSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
     //void modelHasSetNewHkxItemPointer(ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
 
 //signals:

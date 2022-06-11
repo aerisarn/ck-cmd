@@ -1,7 +1,6 @@
 #include "ValuesWidget.h"
 #include <src/models/ProjectTreeModel.h>
 
-#include "ui_ValuesWidget.h"
 #include "ui_HkTopNavigatorWidget.h"
 
 #include <src/hkx/RefDelegate.h>
@@ -12,13 +11,22 @@ ValuesWidget::ValuesWidget(ProjectTreeModel* model, CommandManager& command_mana
 	_model(model),
 	_command_manager(command_manager),
 	_manager(manager),
-	ui(new Ui::ValuesWidget),
 	ads::CDockWidget("Values",parent)
 {
-	ui->setupUi(this);
 
-	auto navigator = new Ui::HkTopNavigator();
-	navigator->setupUi(ui->verticalLayoutWidget);
+	QWidget* main = new QWidget(this);
+
+	_top_info = new TopInfoWidget(main);
+	_top_info->setVisible(false);
+	_empty_panel = new QPlainTextEdit(main);
+	_empty_panel->setEnabled(false);
+
+	_mainLayout = new QGridLayout(main);
+	_mainLayout->setContentsMargins(0, 0, 0, 0);
+	_mainLayout->addWidget(_top_info, 0, 0);
+	_mainLayout->addWidget(_empty_panel, 1, 0);
+
+	setWidget(main);
 	//ui->verticalLayout->addWidget(w);
 
 	//ui->valuesView->setRowHeight(0,1024);
@@ -35,13 +43,15 @@ ValuesWidget::ValuesWidget(ProjectTreeModel* model, CommandManager& command_mana
 
 ValuesWidget::~ValuesWidget()
 {
-	delete ui;
 }
 
-#undef max
-
-void ValuesWidget::setIndex(int file_index, QModelIndex index)
+void ValuesWidget::treeSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected)
 {
+	_top_info->setVisible(true);
+}
+
+//void ValuesWidget::setIndex(int file_index, QModelIndex index)
+//{
 	/*_index = index;
 	ProjectNode* node = _model->getNode(index);
 
@@ -63,7 +73,7 @@ void ValuesWidget::setIndex(int file_index, QModelIndex index)
 		ui->valuesView->viewport()->setGeometry(vporig);
 		ui->valuesView->setVisible(true);
 	}*/
-}
+//}
 //
 //void ValuesWidget::modelHasSetNewHkxItemPointer(HkxItemPointer old_value, HkxItemPointer new_value, int file, hkVariant* variant)
 //{
