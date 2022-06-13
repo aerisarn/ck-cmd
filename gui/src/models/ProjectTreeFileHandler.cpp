@@ -13,8 +13,10 @@ int ProjectTreeFileHandler::getChildCount(int file_index, NodeType childType, Re
 		return _manager.miscellaneous_project_files();
 	case NodeType::CharacterNode:
 	case NodeType::MiscNode:
+		ProjectType res_type = childType == NodeType::CharacterNode ? ProjectType::character : ProjectType::misc;
 		if (file_index != -1) {
-			return 1;
+			//if (file_index != -1) {
+			return _manager.projectCharacters(file_index);
 		}
 		return 0;
 	}
@@ -42,16 +44,23 @@ ModelEdge ProjectTreeFileHandler::getChild(int index, int project, int file, Nod
 {
 	switch (childType) {
 	case NodeType::CharactersNode:
-	{
-		return ModelEdge(nullptr, -1, -1, index, -1, nullptr, NodeType::CharacterNode);
-	}
 	case NodeType::MiscsNode:
-		return ModelEdge(nullptr, -1, -1, index, -1, nullptr, NodeType::MiscNode);
+	{
+		ProjectType res_type = childType == NodeType::CharactersNode ? ProjectType::character : ProjectType::misc;
+		NodeType index_type = childType == NodeType::CharactersNode ? NodeType::CharacterNode : NodeType::MiscNode;
+		int project_file = -1;
+		if (_manager.isProjectFileOpen(index, res_type)) {
+			project_file = _manager.projectFileIndex(index, res_type);
+		}
+		return ModelEdge(nullptr, project_file, -1, index, -1, nullptr, index_type);
+	}
 	case NodeType::CharacterNode:
 	case NodeType::MiscNode:
 	{
-		auto* variant = _manager.characterFileRoot(file);
-		return ModelEdge(variant, project, file, index, 0, variant, NodeType::CharacterHkxNode);
+		ProjectType res_type = childType == NodeType::CharacterNode ? ProjectType::character : ProjectType::misc;
+		int character_file = _manager.characterFileIndex(index, project, res_type);
+		auto* variant = _manager.characterFileRoot(character_file);
+		return ModelEdge(variant, project, character_file, index, 0, variant, NodeType::CharacterHkxNode);
 	}
 	default:
 		break;

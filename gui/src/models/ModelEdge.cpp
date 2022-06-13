@@ -75,7 +75,7 @@ int ModelEdge::childCount(ResourceManager& manager) const
 	case NodeType::MiscsNode:
 	case NodeType::CharacterNode:
 	case NodeType::MiscNode:
-		return ProjectTreeFileHandler::getChildCount(_file, _childType, manager);
+		return ProjectTreeFileHandler::getChildCount(_project, _childType, manager);
 	default:
 	{
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);

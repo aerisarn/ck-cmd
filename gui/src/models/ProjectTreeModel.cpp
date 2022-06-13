@@ -158,7 +158,8 @@ int ProjectTreeModel::rowCount(const QModelIndex& index) const
 	if (!index.isValid())
 		return 2;
 
-	return modelEdge(index).childCount(_resourceManager);
+	const auto& edge = modelEdge(index);
+	return edge.childCount(_resourceManager);
 }
 
 int ProjectTreeModel::columnCount(const QModelIndex& index) const
@@ -247,9 +248,8 @@ void ProjectTreeModel::activate(const QModelIndex& index)
 		if (_resourceManager.isProjectFileOpen(index.row(), project_type))
 		{
 			emit beginRemoveRows(index, 0, 0);
-			edge._file = -1;
-			edge._project = -1;
 			int project_index = _resourceManager.projectFileIndex(index.row(), project_type);
+			edge._project = -1;
 			_resourceManager.closeProjectFile(index.row(), project_type);
 			deleteAllModelEdgeIndexesForFile(project_index);
 			emit endRemoveRows();
@@ -258,7 +258,6 @@ void ProjectTreeModel::activate(const QModelIndex& index)
 			emit beginInsertRows(index, 0, 0);
 			_resourceManager.openProjectFile(index.row(), project_type);
 			edge._project = _resourceManager.projectFileIndex(index.row(), project_type);
-			edge._file = _resourceManager.characterFileIndex(index.row(), project_type);
 			emit endInsertRows();
 		}
 	}

@@ -41,12 +41,10 @@ namespace ckcmd {
 			WorkspaceConfig& _workspace;
 			//TOO CUMBERSOME! Let's create our projects with blackjack and hookers
 			AnimationCache _cache;
-			//project_file, animation_row -> translations, rotations
-			std::map<std::pair<size_t, size_t>, std::string> _animations_root_movements;
-			//project_file -> animation_sets
-			std::map<size_t, AnimData::ProjectAttackListBlock*> _animation_sets;
-			//project_file, set index -> animation_row
-			std::multimap<std::pair<size_t, size_t>, size_t> _decoded_loaded_sets;
+			//project_file, crc32(name) -> translations, rotations
+			std::map<std::pair<size_t, long long>, AnimData::root_movement_t> _animations_root_movements;
+			//project_file, set index -> crc32(name)
+			std::multimap<std::pair<size_t, long long>, size_t> _decoded_loaded_sets;
 			
 			//IDLES
 			Collection* _esp;
@@ -75,7 +73,6 @@ namespace ckcmd {
 
 			hkx_file_t& get(size_t index);
 			hkx_file_t& get(const fs::path& file);
-			void save(size_t index);
 
 			std::set<Sk::AACTRecord*> actions();
 			std::set<Sk::IDLERecord*> idles(size_t index);
@@ -96,17 +93,10 @@ namespace ckcmd {
 			hkVariant* ResourceManager::at(size_t file_index, size_t _index);
 			const hkVariant* ResourceManager::at(size_t file_index, size_t _index) const;
 
-
 			hk_object_list_t findCompatibleNodes(size_t file_index, const hkClassMember* member_class) const;
-
-
-			//CacheEntry* findCacheEntry(const std::string& sanitized_name);
-			//CacheEntry* findOrCreateCacheEntry(size_t file_index, bool character);
-			//CacheEntry* findCacheEntry(size_t file_index);
-			//const AnimData::ClipMovementData& getMovement(size_t file_index, string clip);
-			//vector<AnimationCache::event_info_t> getEventsInfo(size_t file_index, string anim_event);
 			
-			void save_cache(int file_index);
+			void save(size_t file_index);
+			void save_cache(int project_index);
 
 			size_t character_project_files() { return _characters.size(); }
 			size_t miscellaneous_project_files() { return _miscellaneous.size(); }
@@ -119,9 +109,12 @@ namespace ckcmd {
 			bool isProjectFileOpen(int row, ProjectType type);
 			void openProjectFile(int row, ProjectType type);
 			void closeProjectFile(int row, ProjectType type);
+			void saveProject(int row, ProjectType type);
+			size_t projectCharacters(int project_index);
 			size_t projectFileIndex(int row, ProjectType type);
-			size_t characterFileIndex(int row, ProjectType type);
 
+
+			size_t characterFileIndex(int row, int project_file, ProjectType type);
 			hkVariant* characterFileRoot(int character_index);
 
 			size_t hasRigAndRagdoll(int project_file, hkbCharacterStringData* string_data);

@@ -62,7 +62,7 @@ struct CacheEntry
 		return movements.getMovementData();
 	}
 
-	std::string findMovement(const std::string& clip_name)
+	AnimData::root_movement_t findMovement(const std::string& clip_name)
 	{
 		if (hasCache())
 		{
@@ -70,7 +70,7 @@ struct CacheEntry
 			if (it != block.getClips().end())
 			{
 				if ((size_t)it->getCacheIndex() < movements.getMovementData().size())
-					return movements.getMovementData()[it->getCacheIndex()].getBlock();
+					return movements.getMovementData()[it->getCacheIndex()].getMovement();
 			}
 		}
 		return {};

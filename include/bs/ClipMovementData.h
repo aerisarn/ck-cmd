@@ -1,8 +1,14 @@
 #pragma once
 
 #include "StringListBlock.h"
+#include <array>
 
 namespace AnimData {
+
+	typedef std::pair<
+		std::map<float, std::array<float, 3>>,
+		std::map<float, std::array<float, 4>>
+	> root_movement_t;
 
 	class ClipMovementData : public BlockObject {
 
@@ -10,6 +16,18 @@ namespace AnimData {
 		std::string duration = "0";
 		StringListBlock traslations;
 		StringListBlock rotations;
+
+		void addTranslation(root_movement_t& data, const std::string& line) {
+			float time, x, y, z;
+			sscanf(line.c_str(), "%f %f %f %f\n", &time, &x, &y, &z);
+			data.first.insert({ time, { x, y, z } });
+		}
+
+		void addRotation(root_movement_t& data, const std::string& line) {
+			float time, x, y, z, w;
+			sscanf(line.c_str(), "%f %f %f %f %f\n", &time, &x, &y, &z, &w);
+			data.second.insert({ time, { x, y, z, w} });
+		}
 
 	public: 
 		void parseBlock(scannerpp::Scanner& input) override {
@@ -57,6 +75,20 @@ namespace AnimData {
 
 		void setRotations(StringListBlock rotations) {
 			this->rotations = rotations;
+		}
+
+		root_movement_t getMovement()
+		{
+			root_movement_t out;
+			for (size_t s = 0; s < traslations.size(); s++)
+			{
+				addTranslation(out, traslations[s]);
+			}
+			for (size_t s = 0; s < rotations.size(); s++)
+			{
+				addRotation(out, rotations[s]);
+			}
+			return out;
 		}
 	};
 }

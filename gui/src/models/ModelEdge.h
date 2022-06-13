@@ -18,6 +18,7 @@ namespace ckcmd {
             CharacterHkxNode,
             MiscsNode,
             MiscNode,
+            MiscHkxNode,
             BehaviorNode,
             BehaviorHkxNode,
             HavokNative,

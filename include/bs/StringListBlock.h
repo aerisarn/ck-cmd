@@ -29,6 +29,14 @@ namespace AnimData {
 			return strings;
 		}
 
+		virtual size_t size() {
+			return strings.size();
+		}
+
+		virtual std::string& operator[](int index) {
+			return strings[index];
+		}
+
 		void clear() {
 			strings.clear();
 		}
