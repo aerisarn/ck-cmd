@@ -35,9 +35,13 @@ public:
 
     void addCharacterProject(const QString& path, const QVariant& key);
     void addMiscellaneousProject(const QString& path, const QVariant& key);
+    void addCrc32(const QString& crc32, const QVariant& project_key);
 
     QStringList getCharacterProjects();
     QStringList getMiscellaneousProjects();
+    QStringList getCRC32s();
+
+    QString getCRC32(const QString& crc);
 
     WorkspaceConfig(const fs::path& path);
 

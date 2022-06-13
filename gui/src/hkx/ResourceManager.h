@@ -13,6 +13,7 @@ typedef std::pair< hkVariant, std::vector<hkVariant>> hkx_file_t;
 struct Collection;
 struct hkVariant;
 class hkbCharacterStringData;
+class hkbProjectStringData;
 
 namespace Sk {
 	class AACTRecord;
@@ -38,12 +39,31 @@ namespace ckcmd {
 			QStringList _characters;
 			QStringList _miscellaneous;
 			WorkspaceConfig& _workspace;
+			//TOO CUMBERSOME! Let's create our projects with blackjack and hookers
 			AnimationCache _cache;
+			//project_file, animation_row -> translations, rotations
+			std::map<std::pair<size_t, size_t>, std::string> _animations_root_movements;
+			//project_file -> animation_sets
+			std::map<size_t, AnimData::ProjectAttackListBlock*> _animation_sets;
+			//project_file, set index -> animation_row
+			std::multimap<std::pair<size_t, size_t>, size_t> _decoded_loaded_sets;
+			
+			//IDLES
 			Collection* _esp;
 
 			const std::string& get_sanitized_name(int file_index);
 			void scanWorkspace();
 			const QString& projectPath(int row, ProjectType type);
+			CacheEntry* findCacheEntry(const std::string& sanitized_name);
+			CacheEntry* findCacheEntry(size_t project_index);
+
+			bool isHavokProject(const fs::path& file);
+			bool isHavokAnimation(const fs::path& file);
+			std::array<std::string, 4>  animationCrc32(const fs::path& path);
+			bool isCreatureProject(int file_index);
+			hkbProjectStringData* getProjectRoot(int file_index);
+			hkbProjectStringData* getProjectRoot(const fs::path& fs_path);
+			hkbCharacterStringData* getCharacterString(int character_index);
 
 		public:
 
@@ -69,7 +89,7 @@ namespace ckcmd {
 			int findIndex(int file_index, const void* object) const;
 			int findIndex(const fs::path& file, const void* object) const;
 
-			bool isHavokProject(const fs::path& file);
+
 
 			hkVariant* at(const fs::path& file, size_t _index);
 			const hkVariant* at(const fs::path& file, size_t _index) const;
@@ -79,12 +99,13 @@ namespace ckcmd {
 
 			hk_object_list_t findCompatibleNodes(size_t file_index, const hkClassMember* member_class) const;
 
-			bool isCreatureProject(int file_index);
-			CacheEntry* findCacheEntry(const std::string& sanitized_name);
-			CacheEntry* findOrCreateCacheEntry(size_t file_index, bool character);
-			CacheEntry* findCacheEntry(size_t file_index);
-			const AnimData::ClipMovementData& getMovement(size_t file_index, string clip);
-			vector<AnimationCache::event_info_t> getEventsInfo(size_t file_index, string anim_event);
+
+			//CacheEntry* findCacheEntry(const std::string& sanitized_name);
+			//CacheEntry* findOrCreateCacheEntry(size_t file_index, bool character);
+			//CacheEntry* findCacheEntry(size_t file_index);
+			//const AnimData::ClipMovementData& getMovement(size_t file_index, string clip);
+			//vector<AnimationCache::event_info_t> getEventsInfo(size_t file_index, string anim_event);
+			
 			void save_cache(int file_index);
 
 			size_t character_project_files() { return _characters.size(); }
@@ -97,6 +118,7 @@ namespace ckcmd {
 
 			bool isProjectFileOpen(int row, ProjectType type);
 			void openProjectFile(int row, ProjectType type);
+			void closeProjectFile(int row, ProjectType type);
 			size_t projectFileIndex(int row, ProjectType type);
 			size_t characterFileIndex(int row, ProjectType type);
 

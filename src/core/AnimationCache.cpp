@@ -533,7 +533,7 @@ void AnimationCache::check_from_bsa(const ckcmd::BSA::BSAFile& bsa_file, const s
 			auto& strings = ab.getCrc32Data().getStrings();
 			for (auto& att : atts)
 				attacks.insert(att.getEventName());
-			std::list<std::string>::iterator it;
+			std::vector<std::string>::iterator it;
 			int i = 0;
 			string this_path;
 			for (it = strings.begin(); it != strings.end(); ++it) {

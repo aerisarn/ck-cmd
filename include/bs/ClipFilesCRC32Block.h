@@ -6,13 +6,13 @@
 namespace AnimData {
 	class ClipFilesCRC32Block : public TriBlock {
 
-		std::list<std::string> strings;
+		std::vector<std::string> strings;
 	public:
-		void setStrings(std::list<std::string> strings) {
+		void setStrings(std::vector<std::string> strings) {
 			this->strings = strings;
 		}
 
-		std::list<std::string>& getStrings() {
+		std::vector<std::string>& getStrings() {
 			return strings;
 		}
 

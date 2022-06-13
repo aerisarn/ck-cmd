@@ -71,7 +71,7 @@ struct  HandleCharacterData
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
 		auto string_data = data->m_stringData;
 		if (childType == NodeType::CharacterHkxNode) {
-			return string_data->m_name;
+			return string_data->m_name.cString();
 		}
 		if (childType == NodeType::deformableSkinNames ||
 			childType == NodeType::animationNames ||

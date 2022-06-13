@@ -53,7 +53,15 @@ if(NOT DEFINED Havok)
 
     source_group("Havok\\Headers" FILES ${HKX_HEADERS})
     source_group("Havok\\Sources" FILES ${HKX_SOURCES})
-endif()   
+endif()
+
+if(NOT DEFINED GAMEDATA)
+    file(GLOB_RECURSE GAMEDATA_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/gamedata/*.h)
+    file(GLOB_RECURSE GAMEDATA_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/gamedata/*.cpp)
+
+    source_group("GameData\\Headers" FILES ${GAMEDATA_HEADERS})
+    source_group("GameData\\Sources" FILES ${GAMEDATA_SOURCES})
+endif()  
 
 if(NOT DEFINED MODELS)
     file(GLOB_RECURSE MODEL_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/models/*.h)

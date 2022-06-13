@@ -250,15 +250,15 @@ void ProjectTreeModel::activate(const QModelIndex& index)
 			edge._file = -1;
 			edge._project = -1;
 			int project_index = _resourceManager.projectFileIndex(index.row(), project_type);
+			_resourceManager.closeProjectFile(index.row(), project_type);
 			deleteAllModelEdgeIndexesForFile(project_index);
-			_resourceManager.close(project_index);
 			emit endRemoveRows();
 		}
 		else {
 			emit beginInsertRows(index, 0, 0);
 			_resourceManager.openProjectFile(index.row(), project_type);
-			edge._file = _resourceManager.characterFileIndex(index.row(), project_type);
 			edge._project = _resourceManager.projectFileIndex(index.row(), project_type);
+			edge._file = _resourceManager.characterFileIndex(index.row(), project_type);
 			emit endInsertRows();
 		}
 	}

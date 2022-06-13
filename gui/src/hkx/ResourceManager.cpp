@@ -11,6 +11,8 @@
 #include <hkbBehaviorReferenceGenerator_0.h>
 #include <hkbBehaviorGraph_1.h>
 #include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
+#include <Animation/Animation/hkaAnimationContainer.h>
+#include <hkbClipGenerator_2.h>
 
 #include <atomic>
 
@@ -186,15 +188,31 @@ bool ResourceManager::isHavokProject(const fs::path& file)
 	catch (...) {
 		return false;
 	}
+}
 
+bool ResourceManager::isHavokAnimation(const fs::path& file)
+{
+	HKXWrapper wrap;
+	try {
+		auto root = wrap.read(file);
+		if (root)
+			return root->findObjectByType(hkaAnimationContainerClass.getName()) != NULL;
+		return false;
+	}
+	catch (...) {
+		return false;
+	}
+}
+
+std::string __inline internal_get_sanitized_name(const fs::path& path) {
+	return path.filename().replace_extension("").string();
 }
 
 const std::string& ResourceManager::get_sanitized_name(int file_index) {
 	if (_sanitized_names.find(file_index) == _sanitized_names.end())
 	{
 		auto p = _files.at(file_index);
-		string sanitized_project_name = p.filename().replace_extension("").string();
-		_sanitized_names[file_index] = sanitized_project_name;
+		_sanitized_names[file_index] = internal_get_sanitized_name(p);
 	}
 	return _sanitized_names.at(file_index);
 }
@@ -211,24 +229,26 @@ CacheEntry* ResourceManager::findCacheEntry(const std::string& sanitized_name)
 	return _cache.find(sanitized_name);
 }
 
-CacheEntry* ResourceManager::findOrCreateCacheEntry(size_t file_index, bool character)
-{
-	return _cache.findOrCreate(get_sanitized_name(file_index), character);
-}
-
 CacheEntry* ResourceManager::findCacheEntry(size_t file_index)
 {
 	return _cache.find(get_sanitized_name(file_index));
 }
 
-const AnimData::ClipMovementData& ResourceManager::getMovement(size_t file_index, string clip) {
-	return _cache.getMovement(get_sanitized_name(file_index), clip );
-}
+//CacheEntry* ResourceManager::findOrCreateCacheEntry(size_t file_index, bool character)
+//{
+//	return _cache.findOrCreate(get_sanitized_name(file_index), character);
+//}
+//
 
-vector<AnimationCache::event_info_t> ResourceManager::getEventsInfo(size_t file_index, string anim_event) 
-{
-	return _cache.getEventsInfo(get_sanitized_name(file_index), anim_event);
-}
+//
+//const AnimData::ClipMovementData& ResourceManager::getMovement(size_t file_index, string clip) {
+//	return _cache.getMovement(get_sanitized_name(file_index), clip );
+//}
+//
+//vector<AnimationCache::event_info_t> ResourceManager::getEventsInfo(size_t file_index, string anim_event) 
+//{
+//	return _cache.getEventsInfo(get_sanitized_name(file_index), anim_event);
+//}
 
 void ResourceManager::save_cache(int file_index)
 {
@@ -281,19 +301,42 @@ std::set<Sk::IDLERecord*> ResourceManager::idles(size_t index)
 	return out;
 }
 
+
+std::string crc_32(std::string& to_crc)
+{
+	transform(to_crc.begin(), to_crc.end(), to_crc.begin(), ::tolower);
+	long long crc = stoll(HkCRC::compute(to_crc), NULL, 16);
+	return to_string(crc);
+}
+
+std::array<std::string, 4>  ResourceManager::animationCrc32(const fs::path& path)
+{
+	fs::path absolute_folder = path.parent_path();
+	std::string clip_name = path.filename().replace_extension("").string();
+	std::string relative_path = "meshes\\" + fs::relative(absolute_folder, _workspace.getFolder()).generic_string();
+	string::size_type n = 0;
+	while ((n = relative_path.find('/', n)) != string::npos)
+	{
+		relative_path.replace(n, 1, "\\");
+		n += 1;
+	}
+	if (relative_path.at(relative_path.size() - 1) == '\\')
+		relative_path = relative_path.substr(0, relative_path.size() - 1);
+	return { relative_path, crc_32(relative_path), clip_name, crc_32(clip_name) };
+}
+
 void ResourceManager::scanWorkspace()
 {
-
 	for (auto& p : fs::recursive_directory_iterator(_workspace.getFolder()))
 	{
 		if (fs::is_regular_file(p.path())
 			&& (p.path().extension() == ".hkx" || p.path().extension() == ".xml")
 			)
 		{
-			//LOG << "Analyzing file ... " << p.path().string() << log_endl;
+			LOG << "Analyzing file ... " << p.path().string() << log_endl;
 			if (isHavokProject(p.path())) {
-				string sanitized_project_name = p.path().filename().replace_extension("").string();
-				//LOG << "Found project " << sanitized_project_name << log_endl;
+				string sanitized_project_name = internal_get_sanitized_name(p.path());
+				LOG << "Found project " << sanitized_project_name << log_endl;
 				CacheEntry* entry = findCacheEntry(sanitized_project_name);
 				if (NULL == entry)
 				{
@@ -311,6 +354,15 @@ void ResourceManager::scanWorkspace()
 					}
 				}
 			}
+			//else if (isHavokAnimation(p.path()))
+			//{
+			//	LOG << "Found animation " << p.path() << log_endl;
+			//	auto crc32strings = animationCrc32(p.path());
+			//	LOG << "Path: " << crc32strings[0] << " CRC32: " << crc32strings[1] << log_endl;
+			//	_workspace.addCrc32(crc32strings[1].c_str(), crc32strings[0].c_str()); //path
+			//	LOG << "Name: " << crc32strings[2] << " CRC32: " << crc32strings[3] << log_endl;
+			//	_workspace.addCrc32(crc32strings[3].c_str(), crc32strings[2].c_str()); //name
+			//}
 		}
 	}
 }
@@ -346,40 +398,212 @@ void ResourceManager::openProjectFile(int row, ProjectType type)
 	}
 }
 
+hkbProjectStringData* ResourceManager::getProjectRoot(int file_index)
+{
+	auto& contents = get(file_index);
+	for (auto& item : contents.second)
+	{
+		if (&hkbProjectStringDataClass == item.m_class)
+		{
+			return  reinterpret_cast<hkbProjectStringData*>(item.m_object);
+		}
+	}
+	return nullptr;
+}
+
+
+hkbCharacterStringData* ResourceManager::getCharacterString(int character_index)
+{
+	auto& contents = get(character_index);
+	for (auto& item : contents.second)
+	{
+		if (&hkbCharacterStringDataClass == item.m_class)
+		{
+			return  reinterpret_cast<hkbCharacterStringData*>(item.m_object);
+		}
+	}
+	return nullptr;
+}
+
+
+hkbProjectStringData* ResourceManager::getProjectRoot(const fs::path& fs_path)
+{
+	auto& contents = get(fs_path);
+	for (auto& item : contents.second)
+	{
+		if (&hkbProjectStringDataClass == item.m_class)
+		{
+			return  reinterpret_cast<hkbProjectStringData*>(item.m_object);
+		}
+	}
+	return nullptr;
+}
+
+void ResourceManager::closeProjectFile(int row, ProjectType type)
+{
+	QString path = projectPath(row, type);
+	fs::path fs_path = path.toUtf8().constData();
+	int project_index = index(fs_path);
+	//remove animation sets
+	_animation_sets.erase(project_index);
+	hkbProjectStringData* project_data = nullptr;
+	if (project_index != (size_t)-1)
+	{
+		project_data = getProjectRoot(project_index);
+	}
+	//remove animation sets/animations
+	if (nullptr != project_data && project_data->m_characterFilenames.getSize())
+	{
+		fs::path char_path = fs_path.parent_path() / project_data->m_characterFilenames[0].cString();
+		int character_index = index(char_path);
+		auto* string_data = getCharacterString(character_index);
+		if (nullptr != string_data && string_data->m_animationNames.getSize() && isCreatureProject(project_index))
+		{
+			for (int a = 0; a < string_data->m_animationNames.getSize(); ++a)
+			{
+				auto to_erase = _decoded_loaded_sets.equal_range({ project_index, a });
+				if (to_erase.first != to_erase.second)
+					_decoded_loaded_sets.erase(to_erase.first, to_erase.second);
+
+				auto clip_to_erase = _animations_root_movements.equal_range({ project_index, a });
+				if (clip_to_erase.first != clip_to_erase.second)
+					_animations_root_movements.erase(clip_to_erase.first, clip_to_erase.second);
+			}
+		}
+	}
+	close(project_index);
+}
+
 size_t ResourceManager::projectFileIndex(int row, ProjectType type)
 {
 	QString path = projectPath(row, type);
 	fs::path fs_path = path.toUtf8().constData();
+	int project_index = index(fs_path);
+	if (_animation_sets.find(project_index) == _animation_sets.end())
+	{
+		string sanitized_project_name = get_sanitized_name(project_index);
+		CacheEntry* entry = findCacheEntry(sanitized_project_name);
+		CreatureCacheEntry* creature_entry = dynamic_cast<CreatureCacheEntry*>(entry);
+		if (nullptr != creature_entry)
+		{
+			_animation_sets.insert({ project_index, &creature_entry->sets });
+		}
+	}
 	return index(fs_path);
 }
 
+struct ci_less
+{
+	// case-independent (ci) compare_less binary function
+	struct nocase_compare
+	{
+		bool operator() (const unsigned char& c1, const unsigned char& c2) const {
+			return tolower(c1) < tolower(c2);
+		}
+	};
+	bool operator() (const std::string& s1, const std::string& s2) const {
+		return std::lexicographical_compare
+		(s1.begin(), s1.end(),   // source range
+			s2.begin(), s2.end(),   // dest range
+			nocase_compare());  // comparison
+	}
+};
+
+
 size_t ResourceManager::characterFileIndex(int row, ProjectType type)
 {
+	size_t result = -1;
 	QString path = projectPath(row, type);
 	fs::path fs_path = path.toUtf8().constData();
+	int project_index = index(fs_path);
 	hkbProjectStringData* project_data = nullptr;
-	if (fs::exists(fs_path))
+	hkbCharacterStringData* string_data = nullptr;
+	if (project_index != (size_t)-1)
 	{
-		auto& contents = get(fs_path);
-		for (auto& item : contents.second)
-		{
-			if (&hkbProjectStringDataClass == item.m_class)
-			{
-				project_data = reinterpret_cast<hkbProjectStringData*>(item.m_object);
-				break;
-			}
-		}
+		project_data = getProjectRoot(project_index);
 	}
+	else if (fs::exists(fs_path))
+	{
+		project_data = getProjectRoot(fs_path);
+	}
+	bool already_open = false;
 	if (nullptr != project_data && project_data->m_characterFilenames.getSize())
 	{
 		fs::path char_path = fs_path.parent_path() / project_data->m_characterFilenames[0].cString();
-		if (fs::exists(char_path))
+		result = index(char_path);
+		if (result != (size_t)-1)
+		{
+			already_open = true;
+		}
+		else if (fs::exists(char_path))
 		{
 			auto& contents = get(char_path);
-			return index(char_path);
+			for (auto& item : contents.second)
+			{
+				if (&hkbCharacterStringDataClass == item.m_class)
+				{
+					string_data = reinterpret_cast<hkbCharacterStringData*>(item.m_object);
+					break;
+				}
+			}
+			result = index(char_path);
 		}
 	}
-	return -1;
+	if (result != (size_t)-1 && !already_open)
+	{
+		//build animation sets
+		if (nullptr != string_data && string_data->m_animationNames.getSize() && isCreatureProject(project_index))
+		{
+			auto sets = _animation_sets[project_index];
+			size_t sets_size = sets->getProjectFiles().getStrings().size();
+			CacheEntry* entry = findCacheEntry(project_index);
+			std::map<std::string, int> crc32_map;
+			std::map<std::string, int, ci_less> index_map;
+			for (int a = 0; a < string_data->m_animationNames.getSize(); ++a)
+			{
+				std::string anim_name = fs::path(string_data->m_animationNames[a].cString()).filename().replace_extension("").string();
+				std::string anim_crc32 = crc_32(anim_name);
+				crc32_map[anim_crc32] = a;
+				index_map[string_data->m_animationNames[a].cString()] = a;
+			}
+#pragma parallel for
+			for (int s = 0; s < sets_size; ++s)
+			{
+				auto& crcs = sets->getProjectAttackBlocks()[s].getCrc32Data().getStrings();
+				for (int c = 0; c < crcs.size(); ++c)
+				{
+					if (c % 3 == 1)
+					{
+						_decoded_loaded_sets.insert({ {(size_t)project_index, crc32_map[crcs.at(c)]}, (size_t)s });
+					}
+				}
+			}
+			//check clip generators
+			fs::path behavior_path = fs_path.parent_path() / string_data->m_behaviorFilename.cString(); behavior_path = behavior_path.parent_path();
+			for (auto& p : fs::directory_iterator(behavior_path))
+			{
+				if (fs::is_regular_file(p.path()))
+				{
+					HKXWrapper wrap;
+					hkArray<hkVariant> objects;
+					auto* rlc = wrap.read(p, objects);
+					if (&hkbBehaviorGraphClass == rlc->m_namedVariants[0].getClass())
+					{
+						for (const auto& obj : objects) {
+							if (obj.m_class == &hkbClipGeneratorClass) {
+								hkbClipGenerator* clip = (hkbClipGenerator*)obj.m_object;
+									auto movement = entry->findMovement(clip->m_name.cString());
+									auto it = index_map.find(clip->m_animationName.cString());
+									if (!movement.empty() && it != index_map.end())
+										_animations_root_movements[{project_index, it->second}] = movement;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return result;
 }
 
 hkVariant* ResourceManager::characterFileRoot(int character_index)
