@@ -43,8 +43,8 @@ namespace ckcmd {
 			AnimationCache _cache;
 			//project_file, crc32(name) -> translations, rotations
 			std::map<std::pair<size_t, long long>, AnimData::root_movement_t> _animations_root_movements;
-			//project_file, set index -> crc32(name)
-			std::multimap<std::pair<size_t, long long>, size_t> _decoded_loaded_sets;
+			//project_file, crc32(set) -> crc32(anim_name) 
+			std::multimap<std::pair<size_t, long long>, long long> _decoded_loaded_sets;
 			
 			//IDLES
 			Collection* _esp;

@@ -16,6 +16,10 @@ namespace AnimData {
 			this->movementData = movementData;
 		}
 
+		void clear() {
+			movementData.clear();
+		}
+
 		void parseBlock(scannerpp::Scanner& input) override {
 			while (input.hasNextLine()) {
 				ClipMovementData b;

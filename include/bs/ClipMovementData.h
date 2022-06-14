@@ -5,10 +5,11 @@
 
 namespace AnimData {
 
-	typedef std::pair<
-		std::map<float, std::array<float, 3>>,
-		std::map<float, std::array<float, 4>>
-	> root_movement_t;
+	struct root_movement_t {
+		float duration;
+		std::map<float, std::array<float, 3>> translations;
+		std::map<float, std::array<float, 4>> rotations;
+	};
 
 	class ClipMovementData : public BlockObject {
 
@@ -20,16 +21,36 @@ namespace AnimData {
 		void addTranslation(root_movement_t& data, const std::string& line) {
 			float time, x, y, z;
 			sscanf(line.c_str(), "%f %f %f %f\n", &time, &x, &y, &z);
-			data.first.insert({ time, { x, y, z } });
+			data.translations.insert({ time, { x, y, z } });
 		}
 
 		void addRotation(root_movement_t& data, const std::string& line) {
 			float time, x, y, z, w;
 			sscanf(line.c_str(), "%f %f %f %f %f\n", &time, &x, &y, &z, &w);
-			data.second.insert({ time, { x, y, z, w} });
+			data.rotations.insert({ time, { x, y, z, w} });
 		}
 
 	public: 
+
+		ClipMovementData() {}
+
+		ClipMovementData(root_movement_t data)
+		{
+			duration = std::to_string(data.duration);
+			for (const auto& translation : data.translations)
+			{
+				char temp[260];
+				sprintf(temp, "%f %f %f %f", translation.first, translation.second[0], translation.second[1], translation.second[2]);
+				traslations.append(temp);
+			}
+			for (const auto& rotation : data.rotations)
+			{
+				char temp[260];
+				sprintf(temp, "%f %f %f %f %f", rotation.first, rotation.second[0], rotation.second[1], rotation.second[2], rotation.second[3]);
+				rotations.append(temp);
+			}
+		}
+
 		void parseBlock(scannerpp::Scanner& input) override {
 			cacheIndex = input.nextInt();
 			duration = input.nextLine();
@@ -80,6 +101,7 @@ namespace AnimData {
 		root_movement_t getMovement()
 		{
 			root_movement_t out;
+			out.duration = std::stof(duration);
 			for (size_t s = 0; s < traslations.size(); s++)
 			{
 				addTranslation(out, traslations[s]);

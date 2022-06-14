@@ -33,6 +33,14 @@ namespace AnimData {
 			return strings.size();
 		}
 
+		virtual void resize(size_t new_size) {
+			return strings.resize(new_size);
+		}
+
+		virtual void reserve(size_t new_size) {
+			return strings.reserve(new_size);
+		}
+
 		virtual std::string& operator[](int index) {
 			return strings[index];
 		}
