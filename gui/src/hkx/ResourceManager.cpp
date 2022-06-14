@@ -234,22 +234,6 @@ CacheEntry* ResourceManager::findCacheEntry(size_t file_index)
 	return _cache.find(get_sanitized_name(file_index));
 }
 
-//CacheEntry* ResourceManager::findOrCreateCacheEntry(size_t file_index, bool character)
-//{
-//	return _cache.findOrCreate(get_sanitized_name(file_index), character);
-//}
-//
-
-//
-//const AnimData::ClipMovementData& ResourceManager::getMovement(size_t file_index, string clip) {
-//	return _cache.getMovement(get_sanitized_name(file_index), clip );
-//}
-//
-//vector<AnimationCache::event_info_t> ResourceManager::getEventsInfo(size_t file_index, string anim_event) 
-//{
-//	return _cache.getEventsInfo(get_sanitized_name(file_index), anim_event);
-//}
-
 void ResourceManager::save_cache(int project_index)
 {
 	string project = get_sanitized_name(project_index);
@@ -593,6 +577,7 @@ size_t ResourceManager::characterFileIndex(int row, int project_index, ProjectTy
 								hkbClipGenerator* clip = (hkbClipGenerator*)obj.m_object;
 									auto movement = entry->findMovement(clip->m_name.cString());
 									auto it = index_map.find(clip->m_animationName.cString());
+									std::string row = clip->m_animationName.cString();
 									if (it != index_map.end())
 										_animations_root_movements[{project_index, it->second}] = movement;
 									else
@@ -604,7 +589,6 @@ size_t ResourceManager::characterFileIndex(int row, int project_index, ProjectTy
 			}
 		}
 	}
-	//saveProject(0, type);
 	return result;
 }
 
@@ -713,7 +697,9 @@ void ResourceManager::saveProject(int row, ProjectType type)
 										if (get == movement_serialization_map.end())
 										{
 											clip_block.setCacheIndex(movements_cache.size());
-											movements_cache.push_back(AnimData::ClipMovementData(movement_it->second));
+											AnimData::ClipMovementData data(movement_it->second);
+											data.setCacheIndex(movements_cache.size());
+											movements_cache.push_back(data);
 											movement_serialization_map.push_back(&movement_it->second);
 										}
 										else {
@@ -753,9 +739,9 @@ void ResourceManager::saveProject(int row, ProjectType type)
 											triggers_it = anim_triggers.find(it->second);
 										}
 									}
-									clip_block.setPlaybackSpeed(std::to_string(clip->m_playbackSpeed));
-									clip_block.setCropStartTime(std::to_string(clip->m_cropStartAmountLocalTime));
-									clip_block.setCropEndTime(std::to_string(clip->m_cropEndAmountLocalTime));
+									clip_block.setPlaybackSpeed(AnimData::ClipMovementData::tes_float_cache_to_string(clip->m_playbackSpeed));
+									clip_block.setCropStartTime(AnimData::ClipMovementData::tes_float_cache_to_string(clip->m_cropStartAmountLocalTime));
+									clip_block.setCropEndTime(AnimData::ClipMovementData::tes_float_cache_to_string(clip->m_cropEndAmountLocalTime));
 									std::multimap<float, std::string> triggers;
 									if (triggers_it != anim_triggers.end())
 										triggers = triggers_it->second;
@@ -780,7 +766,7 @@ void ResourceManager::saveProject(int row, ProjectType type)
 									AnimData::StringListBlock eventList; eventList.reserve(triggers.size());
 									for (const auto& trigger : triggers)
 									{
-										eventList.append(trigger.second + ":" + std::to_string(trigger.first));
+										eventList.append(trigger.second + ":" + AnimData::ClipMovementData::tes_float_cache_to_string(trigger.first));
 									}
 									clip_block.setEvents(eventList);
 									clips_cache.push_back(clip_block);

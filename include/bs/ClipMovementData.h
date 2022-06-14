@@ -39,17 +39,38 @@ namespace AnimData {
 			duration = std::to_string(data.duration);
 			for (const auto& translation : data.translations)
 			{
-				char temp[260];
-				sprintf(temp, "%f %f %f %f", translation.first, translation.second[0], translation.second[1], translation.second[2]);
+				char temp[260] = { 0 };
+				sprintf(temp, "%s %s %s %s", 
+					tes_float_cache_to_string(translation.first).c_str(),
+					tes_float_cache_to_string(translation.second[0]).c_str(),
+					tes_float_cache_to_string(translation.second[1]).c_str(),
+					tes_float_cache_to_string(translation.second[2]).c_str()
+				);
 				traslations.append(temp);
 			}
 			for (const auto& rotation : data.rotations)
 			{
-				char temp[260];
-				sprintf(temp, "%f %f %f %f %f", rotation.first, rotation.second[0], rotation.second[1], rotation.second[2], rotation.second[3]);
+				char temp[260] = { 0 };
+				sprintf(temp, "%s %s %s %s %s", 
+					tes_float_cache_to_string(rotation.first).c_str(), 
+					tes_float_cache_to_string(rotation.second[0]).c_str(),
+					tes_float_cache_to_string(rotation.second[1]).c_str(),
+					tes_float_cache_to_string(rotation.second[2]).c_str(),
+					tes_float_cache_to_string(rotation.second[3]).c_str()
+				);
 				rotations.append(temp);
 			}
 		}
+
+		static std::string tes_float_cache_to_string(const float& t)
+		{
+			std::string str{ std::to_string(t) };
+			int offset{ 1 };
+			if (str.find_last_not_of('0') == str.find('.')) { offset = 0; }
+			str.erase(str.find_last_not_of('0') + offset, std::string::npos);
+			return str;
+		}
+
 
 		void parseBlock(scannerpp::Scanner& input) override {
 			cacheIndex = input.nextInt();

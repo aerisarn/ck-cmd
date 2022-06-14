@@ -70,7 +70,15 @@ struct CacheEntry
 			if (it != block.getClips().end())
 			{
 				if ((size_t)it->getCacheIndex() < movements.getMovementData().size())
-					return movements.getMovementData()[it->getCacheIndex()].getMovement();
+				{
+					auto& data = movements.getMovementData();
+					for (int m = 0; m < data.size(); ++m)
+					{
+						if (data[m].getCacheIndex() == it->getCacheIndex())
+							return data[m].getMovement();
+					}
+					return AnimData::root_movement_t();
+				}
 			}
 		}
 		return {};
