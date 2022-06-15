@@ -1,4 +1,5 @@
 #include "ProjectTreeModel.h"
+
 #include <QBrush>
 
 using namespace ckcmd::HKX;
@@ -102,15 +103,7 @@ QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& pare
 	if (!parent.isValid())
 	{
 		//root handling has two children, creatures and misc
-		ModelEdge edge;/*(
-			nullptr,
-			-1,
-			-1,
-			row,
-			column,
-			_rootNode->child(row)
-		);*/
-
+		ModelEdge edge;
 
 		edge._parent = QModelIndex();
 		edge._row = row;
@@ -170,8 +163,6 @@ int ProjectTreeModel::columnCount(const QModelIndex& index) const
 QVariant ProjectTreeModel::headerData(int section, Qt::Orientation orientation,
 	int role) const
 {
-	//if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
-	//	return _rootNode->data(section);
 
 	return QVariant();
 }
@@ -180,9 +171,6 @@ Qt::ItemFlags ProjectTreeModel::flags(const QModelIndex& index) const
 {
 	if (!index.isValid())
 		return Qt::NoItemFlags;
-	//auto node = getNode(index);
-	//if (node->type() == ProjectNode::NodeType::event_node)
-	//	return Qt::ItemIsEditable | QAbstractItemModel::flags(index);
 
 	return QAbstractItemModel::flags(index);
 }
@@ -190,7 +178,7 @@ Qt::ItemFlags ProjectTreeModel::flags(const QModelIndex& index) const
 bool ProjectTreeModel::setData(const QModelIndex& index, const QVariant& value,
 	int role)
 {
-	//auto node = getNode(index);
+	auto& edge = modelEdge(index);
 	//if (NULL != node)
 	//{
 	//	if (role == Qt::BackgroundRole && index.isValid())
@@ -199,40 +187,14 @@ bool ProjectTreeModel::setData(const QModelIndex& index, const QVariant& value,
 	//		return true;
 	//	}
 
-	//	if (node->type() == ProjectNode::NodeType::event_node)
-	//	{
-	//		BehaviorBuilder* builder = (BehaviorBuilder*)_resourceManager.fieldsHandler(node->data(2).value<int>());
-	//		return builder->renameEvent(node->data(3).value<int>(), value.value<QString>());
-	//	}
-	//}
+	if (index.column() == 0 && role == Qt::EditRole)
+	{
+		if (modelEdge(index).setData(index.row(), index.column(), value, _resourceManager));
+			emit dataChanged(index, index);
+	}
 	return false;
 }
 
-//QModelIndex ProjectTreeModel::getIndex(ProjectNode* node) const
-//{
-//	//ProjectNode* parentItem = node->parentItem();
-//
-//	if (node == _rootNode)
-//		return QModelIndex();
-//
-//	return createIndex(node->row(), 0, node);
-//}
-
-//bool ProjectTreeModel::insertRows(int row, int count, const QModelIndex& parent = QModelIndex())
-//{
-//	beginInsertRows(parent,
-//		row,
-//		row + count);
-//
-//	for (int i = row; i < row + count; i++)
-//	{
-//		getNode(parent)->appendChild(new _resourceManager.);
-//	}
-//
-//	this->endInsertRows();
-//
-//	return true;
-//}
 
 void ProjectTreeModel::select(const QModelIndex& index)
 {
@@ -269,7 +231,17 @@ void ProjectTreeModel::activate(const QModelIndex& index)
 //}
 }
 
-NodeType  ProjectTreeModel::nodeType(const QModelIndex& index)
+NodeType ProjectTreeModel::nodeType(const QModelIndex& index)
 {
 	return modelEdge(index).type();
+}
+
+hkVariant* ProjectTreeModel::variant(const QModelIndex& index)
+{
+	return reinterpret_cast<hkVariant*>(modelEdge(index)._childItem);
+}
+
+bool ProjectTreeModel::isVariant(const QModelIndex& index)
+{
+	return ::isVariant(nodeType(index));
 }

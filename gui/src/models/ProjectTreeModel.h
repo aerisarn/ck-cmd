@@ -6,7 +6,7 @@
 #include <src/models/ProjectTreeActions.h>
 #include <src/models/ModelEdge.h>
 
-//Proof of concept, but unuseful. look for table/tree models instead
+struct hkVariant;
 
 namespace ckcmd {
     namespace HKX {
@@ -46,7 +46,8 @@ namespace ckcmd {
             NodeType nodeType(const QModelIndex& index);
 
             ProjectTreeActions& actionsManager() { return _actionsManager;}
-
+            hkVariant* variant(const QModelIndex& index);
+            bool isVariant(const QModelIndex& index);
 
             /*
             ** AbstractItemModel(required methods)

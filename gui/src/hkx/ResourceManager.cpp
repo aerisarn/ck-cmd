@@ -575,13 +575,12 @@ size_t ResourceManager::characterFileIndex(int row, int project_index, ProjectTy
 						for (const auto& obj : objects) {
 							if (obj.m_class == &hkbClipGeneratorClass) {
 								hkbClipGenerator* clip = (hkbClipGenerator*)obj.m_object;
-									auto movement = entry->findMovement(clip->m_name.cString());
-									auto it = index_map.find(clip->m_animationName.cString());
-									std::string row = clip->m_animationName.cString();
-									if (it != index_map.end())
-										_animations_root_movements[{project_index, it->second}] = movement;
-									else
-										__debugbreak();
+								auto movement = entry->findMovement(clip->m_name.cString());
+								auto it = index_map.find(clip->m_animationName.cString());
+								if (it != index_map.end())
+									_animations_root_movements[{project_index, it->second}] = movement;
+								else
+									LOGINFO << "Clip: " << clip->m_animationName.cString() << " Was found in behavior clips but not into Character string data" << endl;
 							}
 						}
 					}

@@ -46,6 +46,12 @@ namespace ckcmd {
             RagdollBone
         };
 
+        static constexpr bool isVariant(NodeType t) {
+            return t == NodeType::CharacterHkxNode ||
+                t == NodeType::MiscHkxNode ||
+                t == NodeType::HavokNative;
+        }
+
         class ModelEdge
         {
             friend class ProjectTreeModel;
@@ -110,13 +116,11 @@ namespace ckcmd {
 
             ModelEdge() {}
 
-            //ModelEdge(ProjectNode*, int project, int file, int row, int column, ProjectNode*);
-            //ModelEdge(ProjectNode*, int project, int file, int row, int column, hkVariant*);
-            //ModelEdge(void*, int project, int file, int row, int column, hkVariant*, NodeType childType);
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*);
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*, NodeType childType);
 
             QVariant data(int row, int column, ResourceManager& manager) const;
+            bool setData(int row, int column, const QVariant& value, ResourceManager& manager);
             ModelEdge childEdge(int index, ResourceManager& manager) const;
             int childCount(ResourceManager& manager) const;
 

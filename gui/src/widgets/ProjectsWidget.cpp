@@ -27,7 +27,7 @@ ProjectsWidget::ProjectsWidget(
 	treeView->setModel(model);
 	treeView->setContextMenuPolicy(Qt::CustomContextMenu);
 
-	connect(treeView->selectionModel(), &QItemSelectionModel::selectionChanged, this, &ProjectsWidget::on_treeView_selectionChanged);
+	connect(treeView->selectionModel(), &QItemSelectionModel::currentChanged, this, &ProjectsWidget::on_treeView_selectionChanged);
 	//connect(treeView, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(treeMenu(QPoint)));
 }
 
@@ -118,9 +118,9 @@ void ProjectsWidget::on_treeView_customContextMenuRequested(const QPoint& pos)
 	//}
 }
 
-void ProjectsWidget::on_treeView_selectionChanged(const QItemSelection& selected, const QItemSelection& deselected)
+void ProjectsWidget::on_treeView_selectionChanged(const QModelIndex& current, const QModelIndex& previous)
 {
-	emit selectionChanged(selected, deselected);
+	emit selectionChanged(current, previous);
 }
 
 ProjectsWidget::~ProjectsWidget()

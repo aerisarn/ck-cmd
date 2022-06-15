@@ -11,10 +11,10 @@
 #include <hkbStateMachineTransitionInfoArray_0.h>
 #include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
 #include <hkbBehaviorReferenceGenerator_0.h>
+#include <hkbNode_1.h>
 
 
 using namespace ckcmd::HKX;
-
 
 struct  HandleCharacterData
 {
@@ -716,4 +716,14 @@ ModelEdge ProjectTreeHkHandler::getChild(hkVariant*, int index, int project, int
 	if (file_index == -1)
 		__debugbreak();
 	return ModelEdge((hkVariant*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
+}
+
+bool ProjectTreeHkHandler::setData(int project, int row, int column, hkVariant* variant, NodeType childType, const QVariant& value, ResourceManager& manager)
+{
+	if (column == 0)
+	{
+		//setting name
+		return HkxVariant(*variant).setName(value.toString());
+	}
+	return false;
 }

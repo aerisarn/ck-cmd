@@ -1,10 +1,13 @@
 #include "ValuesWidget.h"
+#include "WidgetFactory.h"
+
 #include <src/models/ProjectTreeModel.h>
+#include <hkbNode_1.h>
 
-#include "ui_HkTopNavigatorWidget.h"
-#include "ui_CharacterEditor.h"
+//#include "ui_HkTopNavigatorWidget.h"
+//#include "ui_CharacterEditor.h"
 
-#include <src/hkx/RefDelegate.h>
+//#include <src/hkx/RefDelegate.h>
 
 using namespace ckcmd::HKX;
 
@@ -17,7 +20,7 @@ ValuesWidget::ValuesWidget(ProjectTreeModel* model, CommandManager& command_mana
 
 	_mainWidget = new QWidget(this);
 
-	_top_info = new TopInfoWidget(_mainWidget);
+	_top_info = new TopInfoWidget(*model, _mainWidget);
 	_top_info->setVisible(false);
 	_empty_panel = new QPlainTextEdit(_mainWidget);
 	_empty_panel->setEnabled(false);
@@ -54,17 +57,38 @@ ValuesWidget::~ValuesWidget()
 {
 }
 
-void ValuesWidget::treeSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected)
+void ValuesWidget::checkTopInfoPanel(const QModelIndex& index)
 {
-	if (_top_info->isVisible())
+	if (_model->isVariant(index))
 	{
-		_top_info->setVisible(false);
-		_editorPanelLayout->setCurrentIndex(1);
+		_top_info->setVisible(true);
 	}
 	else {
-		_top_info->setVisible(true);
-		_editorPanelLayout->setCurrentIndex(0);
+		_top_info->setVisible(false);
 	}
+	_top_info->setIndex(index);
+}
+
+void ValuesWidget::checkBindings(const QModelIndex& index)
+{
+}
+
+void ValuesWidget::treeSelectionChanged(const QModelIndex& current, const QModelIndex& previous)
+{
+
+		checkTopInfoPanel(current);
+		checkBindings(current);
+
+
+	//if (_top_info->isVisible())
+	//{
+	//	_top_info->setVisible(false);
+	//	_editorPanelLayout->setCurrentIndex(1);
+	//}
+	//else {
+	//	_top_info->setVisible(true);
+	//	_editorPanelLayout->setCurrentIndex(0);
+	//}
 	//_top_info->setVisible(true);
 	//_empty_panel->setVisible(false);
 	//_mainLayout->removeWidget(_empty_panel);

@@ -84,3 +84,21 @@ int ModelEdge::childCount(ResourceManager& manager) const
 	}
 	return 0;
 }
+
+bool ModelEdge::setData(int row, int column, const QVariant& value, ResourceManager& manager)
+{
+	switch (_childType)
+	{
+	case NodeType::CharactersNode:
+	case NodeType::MiscsNode:
+	case NodeType::CharacterNode:
+	case NodeType::MiscNode:
+		return false;
+	default:
+	{
+		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
+		return ProjectTreeHkHandler::setData(_project, row, column, variant, _childType, value, manager);
+	}
+	}
+	return false;
+}

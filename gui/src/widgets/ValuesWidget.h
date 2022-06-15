@@ -3,7 +3,6 @@
 
 #include "DockWidget.h"
 #include <src/widgets/HkTopNavigatorWidget.h>
-#include <src/models/HkxItemTableModel.h>
 #include <src/models/ProjectTreeModel.h>
 #include <src/hkx/ResourceManager.h>
 #include <src/log.h>
@@ -34,12 +33,16 @@ class ValuesWidget : public ::ads::CDockWidget
     QWidget* _editorPanel;
     QStackedLayout* _editorPanelLayout;
 
+
+    void checkTopInfoPanel(const QModelIndex& index);
+    void checkBindings(const QModelIndex& index);
+
 public:
     explicit ValuesWidget(ckcmd::HKX::ProjectTreeModel* model, ckcmd::HKX::CommandManager& command_manager, const ckcmd::HKX::ResourceManager& manager, QWidget* parent = 0);
     ~ValuesWidget();
 
 public slots:
-    void treeSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
+    void treeSelectionChanged(const QModelIndex& current, const QModelIndex& previous);
     //void modelHasSetNewHkxItemPointer(ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
 
 //signals:
