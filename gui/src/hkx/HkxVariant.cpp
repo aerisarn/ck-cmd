@@ -12,7 +12,6 @@ QString HkxVariant::name()
 		auto member_ptr = ((char*)_variant.m_object) + member->getOffset();
 		auto c_str_ptr = (hkStringPtr*)(member_ptr);
 		return c_str_ptr->cString();
-		//display_name = QString("%1 \"%2\"").arg(display_name).arg(c_str_ptr);
 	}
 	return display_name;
 }
@@ -28,18 +27,9 @@ bool HkxVariant::setName(const QString& name)
 	auto member = _variant.m_class->getMemberByName("name");
 	if (HK_NULL != member)
 	{
-		//hkStringPtr member_ptr = (hkStringPtr)((char*)_variant.m_object) + member->getOffset();
-		//member_ptr = name.toUtf8().constData();
 		auto member_ptr = ((char*)_variant.m_object) + member->getOffset();
 		auto c_str_ptr = (hkStringPtr*)(member_ptr);
 		*c_str_ptr = name.toUtf8().constData();
-		//char* new_value = (char*) malloc(name.size() + 1);
-		//if (nullptr != new_value)
-		//{
-		//	memcpy(new_value, name.toUtf8().constData(), name.size());
-		//	*(uintptr_t*)member_ptr = (uintptr_t)&new_value[0];
-		//	return true;
-		//}
 	}
 	return false;
 }

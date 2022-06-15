@@ -1,8 +1,9 @@
 #include "ActionHandler.h"
 
 #include <src/hkx/Saver.h>
+#include <src/widgets/FBXImport.h>
 
-#include <src/models/ProjectTreeModel.h>
+//#include <src/models/ProjectTreeModel.h>
 
 using namespace ckcmd::HKX;
 
@@ -13,6 +14,14 @@ void ActionHandler::buildSaveAction()
 	_save->setStatusTip(tr("Save current selected project"));
 	_save->setEnabled(false);
 	connect(_save, SIGNAL(triggered()), this, SLOT(save()));
+}
+
+void ActionHandler::buildImportFBXAction()
+{
+	_importFBX = new QAction(tr("&Import FBX"), this);
+	_importFBX->setShortcuts(QKeySequence::InsertLineSeparator);
+	_importFBX->setStatusTip(tr("Import FBX Asset"));
+	connect(_importFBX, SIGNAL(triggered()), this, SLOT(importFBX()));
 }
 
 void ActionHandler::buildCreateProjectAction()
@@ -64,4 +73,10 @@ void ActionHandler::createProject()
 QAction* ActionHandler::exportAction()
 {
 	return nullptr;
+}
+
+void ActionHandler::importFBX()
+{
+	FBXImport* importUI = new FBXImport();
+	importUI->show();
 }

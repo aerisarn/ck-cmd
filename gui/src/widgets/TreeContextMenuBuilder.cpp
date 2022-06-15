@@ -18,6 +18,10 @@ QMenu* TreeContextMenuBuilder::buildMiscsNodeMenu()
 
 QMenu* TreeContextMenuBuilder::build(NodeType type)
 {
+	QMenu* context_menu = new QMenu();
+	context_menu->addAction(_actionHandler.importFBXAction());
+	return context_menu;
+
 	//if (node->type() == ProjectNode::NodeType::characters_node)
 	//	return buildCharactersNodeMenu();
 	//if (node->type() == ProjectNode::NodeType::miscs_node)

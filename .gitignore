@@ -1,4 +1,6 @@
 .vs
 build
+build19
 lib
 vendor
+gui/test

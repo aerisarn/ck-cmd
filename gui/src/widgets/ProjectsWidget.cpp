@@ -28,7 +28,7 @@ ProjectsWidget::ProjectsWidget(
 	treeView->setContextMenuPolicy(Qt::CustomContextMenu);
 
 	connect(treeView->selectionModel(), &QItemSelectionModel::currentChanged, this, &ProjectsWidget::on_treeView_selectionChanged);
-	//connect(treeView, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(treeMenu(QPoint)));
+	connect(treeView, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(treeMenu(QPoint)));
 }
 
 //void ProjectsWidget::nodeDoubleClicked(const QModelIndex& index)
@@ -111,11 +111,12 @@ void ProjectsWidget::nodeClicked(const QModelIndex& index)
 void ProjectsWidget::on_treeView_customContextMenuRequested(const QPoint& pos)
 {
 	const QModelIndex& index = treeView->indexAt(pos);
+	QMenu* menu = _menuBuilder.build(_model->nodeType(index));
+	if (menu != nullptr) {
+		menu->exec(this->mapToGlobal(pos));
+	}
 	//ProjectNode* node_clicked = _model->getNode(index);
-	//QMenu* menu = _menuBuilder.build(node_clicked);
-	//if (menu != nullptr) {
-	//	menu->exec(this->mapToGlobal(p));
-	//}
+
 }
 
 void ProjectsWidget::on_treeView_selectionChanged(const QModelIndex& current, const QModelIndex& previous)
