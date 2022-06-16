@@ -30,3 +30,8 @@ void FBXImport::on_pathLineEdit_textChanged(const QString& text)
 		FbxTreeView->setModel(_model.get());
 	}
 }
+
+void FBXImport::on_cancelButton_clicked(bool checked)
+{
+	setVisible(false);
+}

@@ -890,6 +890,7 @@ hkVariant* ResourceManager::behaviorFileRoot(int behavior_file)
 			return &item;
 		}
 	}
+	return nullptr;
 }
 
 std::pair< hkRefPtr<const hkaSkeleton>, bool> hasRagdoll(const std::vector<hkVariant>& contents)
@@ -979,5 +980,28 @@ hkVariant* ResourceManager::getRagdollRoot(int project_file, int ragdoll_index)
 		}
 	}
 	return nullptr;
+}
+
+
+
+std::vector<fs::path> ResourceManager::importAssets(int project_file, const fs::path& sourcePath, AssetType type)
+{
+	std::vector<fs::path> out;
+	return out;
+}
+
+size_t ResourceManager::assetsCount(int project_file, AssetType type)
+{
+	return 0;
+}
+
+void ResourceManager::clearAssetList(int project_file, AssetType type)
+{
+
+}
+
+void ResourceManager::refreshAssetList(int project_file, AssetType type)
+{
+
 }
 

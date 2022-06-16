@@ -19,9 +19,6 @@ namespace ckcmd {
             //you have to explicitly do the opposite to undo them
             void CreateProject();
             void DeleteProject();
-
-
-
         };
     }
 }

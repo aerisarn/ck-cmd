@@ -31,6 +31,12 @@ namespace ckcmd {
 			misc = 2
 		};
 
+		enum class AssetType {
+			invalid = 0,
+			skeleton,
+			animation
+		};
+
 		class ResourceManager {
 
 			std::map<size_t, fs::path> _files;
@@ -125,6 +131,11 @@ namespace ckcmd {
 
 			size_t behaviorFileIndex(int project_file, hkVariant* data);
 			hkVariant* behaviorFileRoot(int behavior_file);
+
+			std::vector<fs::path> importAssets(int project_file, const fs::path& sourcePath, AssetType type);
+			size_t assetsCount(int project_file, AssetType type);
+			void clearAssetList(int project_file, AssetType type);
+			void refreshAssetList(int project_file, AssetType type);
 		};
 	}
 }

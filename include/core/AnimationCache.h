@@ -72,7 +72,7 @@ struct CacheEntry
 				if ((size_t)it->getCacheIndex() < movements.getMovementData().size())
 				{
 					auto& data = movements.getMovementData();
-					for (int m = 0; m < data.size(); ++m)
+					for (size_t m = 0; m < data.size(); ++m)
 					{
 						if (data[m].getCacheIndex() == it->getCacheIndex())
 							return data[m].getMovement();

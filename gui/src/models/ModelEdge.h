@@ -52,6 +52,11 @@ namespace ckcmd {
                 t == NodeType::HavokNative;
         }
 
+        static constexpr bool isAssetsNode(NodeType t) {
+            return t == NodeType::animationNames ||
+                t == NodeType::deformableSkinNames;
+        }
+
         class ModelEdge
         {
             friend class ProjectTreeModel;

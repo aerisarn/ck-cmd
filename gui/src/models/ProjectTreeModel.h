@@ -48,6 +48,7 @@ namespace ckcmd {
             ProjectTreeActions& actionsManager() { return _actionsManager;}
             hkVariant* variant(const QModelIndex& index);
             bool isVariant(const QModelIndex& index);
+            bool isAssetsNode(const QModelIndex& index);
 
             /*
             ** AbstractItemModel(required methods)
@@ -63,6 +64,10 @@ namespace ckcmd {
             Qt::ItemFlags flags(const QModelIndex& index) const override;
             bool setData(const QModelIndex& index, const QVariant& value,
                 int role = Qt::EditRole) override;
+
+
+        public slots:
+            void refreshAssetList(const QModelIndex& parent, AssetType type);
 
         };
     }

@@ -138,6 +138,8 @@ void FBXTreeModel::ImportScene(const fs::path& file, const FBXImportOptions& opt
 		};
 		FbxSystemUnit::m.ConvertScene(_scene, lConversionOptions);
 	}
+
+	sdkManager->Destroy();
 }
 
 QVariant FBXTreeModel::data(const QModelIndex& index, int role) const
@@ -234,9 +236,9 @@ QVariant FBXTreeModel::headerData(int section, Qt::Orientation orientation, int 
 	{
 		switch (static_cast<FBXTreeColumns>(section))
 		{
-		case FBXTreeColumns::name: return "Node name";
-		case FBXTreeColumns::transform: return "Position, Translation";
-		case FBXTreeColumns::boneIndex: return "Animation Track Index";
+		case FBXTreeColumns::name: return tr("Node name");
+		case FBXTreeColumns::transform: return tr("Position, Translation");
+		case FBXTreeColumns::boneIndex: return tr("Animation Track Index");
 		default:
 			break;
 		}

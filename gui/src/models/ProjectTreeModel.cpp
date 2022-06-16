@@ -189,10 +189,49 @@ bool ProjectTreeModel::setData(const QModelIndex& index, const QVariant& value,
 
 	if (index.column() == 0 && role == Qt::EditRole)
 	{
-		if (modelEdge(index).setData(index.row(), index.column(), value, _resourceManager));
+		if (modelEdge(index).setData(index.row(), index.column(), value, _resourceManager))
 			emit dataChanged(index, index);
 	}
 	return false;
+}
+
+//void ProjectTreeModel::importAsset(const QModelIndex& parent, const fs::path& sourcePath, AssetType type)
+//{
+//	auto& edge = modelEdge(parent);
+//	if (isAssetsNode(parent) || nodeType(parent) == NodeType::CharacterHkxNode)
+//	{
+//		int row_start = edge.childCount(_resourceManager) - 1;
+//		auto result = _resourceManager.importAssets(edge._project, sourcePath, type);
+//		if (!result.empty())
+//		{
+//			emit beginInsertRows(parent, row_start, row_start + result.size());
+//			for (int r = 0; r < result.size(); ++r)
+//			{
+//				edge.setData(r + row_start, 0, QString(result[r].string().c_str()), _resourceManager);
+//			}
+//			emit endInsertRows();
+//		}
+//	}
+//}
+
+void ProjectTreeModel::refreshAssetList(const QModelIndex& parent, AssetType type)
+{
+	auto& edge = modelEdge(parent);
+	if (isAssetsNode(parent) )
+	{
+		int current_rows = edge.childCount(_resourceManager);
+		//full invalidate
+		int current_assets = _resourceManager.assetsCount(edge._project, type);
+		emit beginRemoveRows(parent, 0, current_rows);
+		_resourceManager.clearAssetList(edge._project, type);
+		emit endRemoveRows();
+		emit beginInsertRows(parent, 0, current_assets);
+		_resourceManager.refreshAssetList(edge._project, type);
+		emit endInsertRows();
+	}
+	else if (nodeType(parent) == NodeType::CharacterHkxNode){
+
+	}
 }
 
 
@@ -244,4 +283,9 @@ hkVariant* ProjectTreeModel::variant(const QModelIndex& index)
 bool ProjectTreeModel::isVariant(const QModelIndex& index)
 {
 	return ::isVariant(nodeType(index));
+}
+
+bool ProjectTreeModel::isAssetsNode(const QModelIndex& index)
+{
+	return ::isAssetsNode(nodeType(index));
 }

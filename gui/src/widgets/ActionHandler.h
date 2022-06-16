@@ -8,6 +8,8 @@
 #include <QMenu>
 #include <QTreeView>
 
+class FBXImport;
+
 namespace ckcmd {
 	namespace HKX {
 
@@ -22,6 +24,7 @@ namespace ckcmd {
 			QAction* _createProject;
 
 			QAction* _importFBX;
+			FBXImport* _importFBXDialog;
 
 			void buildSaveAction();
 			void buildImportFBXAction();
