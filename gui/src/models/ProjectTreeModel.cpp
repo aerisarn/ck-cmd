@@ -1,291 +1,190 @@
 #include "ProjectTreeModel.h"
 
-#include <QBrush>
-
 using namespace ckcmd::HKX;
 
-static size_t runtime_edge_index = 0;
-
-ProjectTreeModel::ProjectTreeModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent) :
-	_commandManager(commandManager),
-	_resourceManager(resourceManager),
-	_actionsManager(_commandManager, _resourceManager),
-	QAbstractItemModel(parent)
+QModelIndex ProjectTreeModel::mapToSource(const QModelIndex& proxyIndex) const
 {
-}
-
-qintptr ProjectTreeModel::modelEdgeIndex(const ModelEdge& edge) const
-{
-	return _reverse_find.at(const_cast<ModelEdge*>(&edge));
-}
-
-const ModelEdge& ProjectTreeModel::modelEdge(const QModelIndex& index) const
-{
-	return _direct_find.at(index.internalId());
-}
-
-ModelEdge& ProjectTreeModel::modelEdge(const QModelIndex& index)
-{
-	return _direct_find[index.internalId()];
-}
-
-bool ProjectTreeModel::hasModelEdgeIndex(const ModelEdge& edge) const
-{
-	return _reverse_find.find(const_cast<ModelEdge*>(&edge)) != _reverse_find.end();
-}
-
-qintptr ProjectTreeModel::createModelEdgeIndex(const ModelEdge& edge)
-{
-	qintptr result = runtime_edge_index++;
-	_direct_find.insert({ result, edge });
-	_reverse_find.insert({ &_direct_find[result], result });
-	return result;
-}
-
-void  ProjectTreeModel::deleteAllModelEdgeIndexesForFile(int project_file)
-{
-	auto rev_it = _reverse_find.begin();
-	while (rev_it != _reverse_find.end())
-	{
-		if (rev_it->first->_project == project_file)
-		{
-			rev_it = _reverse_find.erase(rev_it);
-		}
-		else {
-			rev_it++;
-		}
-	}
-	auto dir_it = _direct_find.begin();
-	while (dir_it != _direct_find.end())
-	{
-		if (dir_it->second._project == project_file)
-		{
-			_resourceManager.close(dir_it->second._file);
-			dir_it = _direct_find.erase(dir_it);
-		}
-		else {
-			dir_it++;
-		}
-	}
-}
-
-/*
-** AbstractItemModel(required methods)
-*/
-
-QVariant ProjectTreeModel::data(const QModelIndex& index, int role) const
-{
-	if (!index.isValid())
-		return QVariant();
-
-	//if (role == Qt::BackgroundRole && index.isValid())
-	//{
-	//	ProjectNode* item = getNode(index);
-	//	return QBrush(item->color());
-	//}
-
-	if (role != Qt::DisplayRole && role != Qt::EditRole)
-		return QVariant();
-
-	return modelEdge(index).data(index.row(), index.column(), _resourceManager);
-}
-
-
-
-//row = field
-//column = number of values in the field (1 scalar, >1 vector/matrix)
-QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& parent) const
-{
-	if (!hasIndex(row, column, parent))
+	if (!proxyIndex.isValid())
 		return QModelIndex();
 
-
-	if (!parent.isValid())
+	/*
+	            CharactersNode,
+            CharacterNode,
+            CharacterHkxNode,
+            MiscsNode,
+            MiscNode,
+            MiscHkxNode,
+            BehaviorNode,
+            BehaviorHkxNode,
+            HavokNative,
+            deformableSkinNames,
+            deformableSkinName,
+            animationNames,
+            animationName,
+	*/
+	auto source_index = sourceModel()->createIndex(0, 0, proxyIndex.internalId());
+	auto source_parent = sourceModel()->parent(source_index);
+	switch (sourceModel()->nodeType(source_parent))
 	{
-		//root handling has two children, creatures and misc
-		ModelEdge edge;
+	case NodeType::CharactersNode:
+	case NodeType::MiscsNode:
+	case NodeType::animationNames:
+		return sourceModel()->createIndex(proxyIndex.row(), proxyIndex.column(), proxyIndex.internalId());
+	default:
+		break;
+	}
 
-		edge._parent = QModelIndex();
-		edge._row = row;
-		edge._column = column;
-		edge._childType = row == 0 ? NodeType::CharactersNode : NodeType::MiscsNode;
-		edge._childItem = row == 0 ? (void*)(&_charactersNode) : (void*)(&_miscsNode);
-
-		if (!hasModelEdgeIndex(edge))
+	int source_rows = sourceModel()->rowCount(source_parent);
+	int source_columns = sourceModel()->columnCount(source_parent);
+	int target_children = proxyIndex.row();
+	int child_index = 0;
+	for (int r = 0; r < source_rows; ++r)
+	{
+		for (int c = 0; c < source_columns; ++c)
 		{
-			qintptr id = const_cast<ProjectTreeModel*>(this)->createModelEdgeIndex(edge);
-			edge._child = createIndex(row, column, id);
-			return edge._child;
+			if (sourceModel()->hasChildren(r, c, source_parent))
+			{
+				if (child_index == target_children)
+					return sourceModel()->createIndex(r, c, proxyIndex.internalId());
+				child_index++;
+			}
 		}
-		
-		edge._child = createIndex(row, column, _reverse_find.at(&edge));
-
-		return edge._child;
 	}
-	
-	auto parentEdge = modelEdge(parent);
-	auto childEdge = parentEdge.childEdge(row, _resourceManager);
-	if (!hasModelEdgeIndex(childEdge))
-	{
-		childEdge._parent = parent;
-		qintptr id = const_cast<ProjectTreeModel*>(this)->createModelEdgeIndex(childEdge);
-		childEdge._child = createIndex(row, column, id);
-		return childEdge._child;
-	}
-	childEdge._child = createIndex(row, column, _reverse_find.at(&childEdge));
-	return childEdge._child;
+	return QModelIndex();
 }
 
-QModelIndex ProjectTreeModel::parent(const QModelIndex& index) const
+QModelIndex ProjectTreeModel::mapFromSource(const QModelIndex& sourceIndex) const
 {
-	if (!index.isValid())
+	if (!sourceIndex.isValid())
 		return QModelIndex();
+	auto source_parent = sourceModel()->parent(sourceIndex);
+	auto type = sourceModel()->nodeType(source_parent);
+	if (type == NodeType::animationName)
+		int debug = 1;
+	switch (type)
+	{
+	case NodeType::CharactersNode:
+	case NodeType::MiscsNode:
+	case NodeType::animationNames:
+	{
+		QModelIndex index = sourceModel()->index(sourceIndex.row(), sourceIndex.column(), source_parent);
+		return createIndex(sourceIndex.row(), sourceIndex.column(), index.internalId());
+	}
+	default:
+		break;
+	}
 
-	auto edge = modelEdge(index);
-	return edge._parent;
+	int child_index = 0;
+	int source_rows = sourceModel()->rowCount(source_parent);
+	int source_columns = sourceModel()->columnCount(source_parent);
+	for (int r = 0; r < source_rows; ++r)
+	{
+		for (int c = 0; c < source_columns; ++c)
+		{
+			if (sourceModel()->hasChildren(r, c, source_parent))
+			{
+				QModelIndex index = sourceModel()->index(r, c, source_parent);
+				if (index == sourceIndex)
+					return createIndex(child_index, 0, index.internalId());
+			}
+			child_index++;
+		}
+	}
+
+	return createIndex(0, 0, source_parent.internalId());
 }
 
-int ProjectTreeModel::rowCount(const QModelIndex& index) const
+int ProjectTreeModel::columnCount(const QModelIndex& parent) const
 {
-	int count = 0;
-	if (!index.isValid())
-		return 2;
-
-	const auto& edge = modelEdge(index);
-	return edge.childCount(_resourceManager);
-}
-
-int ProjectTreeModel::columnCount(const QModelIndex& index) const
-{
+	if (nullptr == sourceModel())
+		return 0;
 	return 1;
 }
 
-QVariant ProjectTreeModel::headerData(int section, Qt::Orientation orientation,
-	int role) const
+int ProjectTreeModel::rowCount(const QModelIndex& parent) const
 {
-
-	return QVariant();
+	if (nullptr == sourceModel()) 
+		return 0;
+	int row = parent.row();
+	auto count = sourceModel()->childCount(mapToSource(parent));
+	return count;
 }
 
-Qt::ItemFlags ProjectTreeModel::flags(const QModelIndex& index) const
-{
-	if (!index.isValid())
-		return Qt::NoItemFlags;
-
-	return QAbstractItemModel::flags(index);
+QModelIndex ProjectTreeModel::parent(const QModelIndex& child) const {
+	if (!child.isValid() || !sourceModel()) return QModelIndex();
+	Q_ASSERT(child.model() == this);
+	QModelIndex mapped_child = mapToSource(child);
+	QModelIndex mapped_parent = sourceModel()->parent(mapped_child);
+	QModelIndex unmapped_parent = mapFromSource(mapped_parent);
+	return unmapped_parent;
 }
 
-bool ProjectTreeModel::setData(const QModelIndex& index, const QVariant& value,
-	int role)
-{
-	auto& edge = modelEdge(index);
-	//if (NULL != node)
-	//{
-	//	if (role == Qt::BackgroundRole && index.isValid())
-	//	{
-	//		node->setColor(value.value<QColor>());
-	//		return true;
-	//	}
-
-	if (index.column() == 0 && role == Qt::EditRole)
-	{
-		if (modelEdge(index).setData(index.row(), index.column(), value, _resourceManager))
-			emit dataChanged(index, index);
-	}
-	return false;
+QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& parent) const {
+	if (!sourceModel()) return {};
+	Q_ASSERT(!parent.isValid() || parent.model() == this);
+	QModelIndex mapped_parent = mapToSource(parent);
+	QModelIndex mapped_child = sourceModel()->index(row, column, mapped_parent);
+	QModelIndex unmapped_child = mapFromSource(mapped_child);
+	return unmapped_child;
 }
 
-//void ProjectTreeModel::importAsset(const QModelIndex& parent, const fs::path& sourcePath, AssetType type)
-//{
-//	auto& edge = modelEdge(parent);
-//	if (isAssetsNode(parent) || nodeType(parent) == NodeType::CharacterHkxNode)
-//	{
-//		int row_start = edge.childCount(_resourceManager) - 1;
-//		auto result = _resourceManager.importAssets(edge._project, sourcePath, type);
-//		if (!result.empty())
-//		{
-//			emit beginInsertRows(parent, row_start, row_start + result.size());
-//			for (int r = 0; r < result.size(); ++r)
-//			{
-//				edge.setData(r + row_start, 0, QString(result[r].string().c_str()), _resourceManager);
-//			}
-//			emit endInsertRows();
-//		}
-//	}
-//}
-
-void ProjectTreeModel::refreshAssetList(const QModelIndex& parent, AssetType type)
+QVariant ProjectTreeModel::data(const QModelIndex& proxyIndex, int role) const
 {
-	auto& edge = modelEdge(parent);
-	if (isAssetsNode(parent) )
-	{
-		int current_rows = edge.childCount(_resourceManager);
-		//full invalidate
-		int current_assets = _resourceManager.assetsCount(edge._project, type);
-		emit beginRemoveRows(parent, 0, current_rows);
-		_resourceManager.clearAssetList(edge._project, type);
-		emit endRemoveRows();
-		emit beginInsertRows(parent, 0, current_assets);
-		_resourceManager.refreshAssetList(edge._project, type);
-		emit endInsertRows();
-	}
-	else if (nodeType(parent) == NodeType::CharacterHkxNode){
-
-	}
+	return sourceModel()->data(mapToSource(proxyIndex), role);
 }
-
 
 void ProjectTreeModel::select(const QModelIndex& index)
 {
-
+	if (nullptr != sourceModel())
+		sourceModel()->select(mapToSource(index));
 }
 
 void ProjectTreeModel::activate(const QModelIndex& index)
 {
-	auto& edge = modelEdge(index);
-	if (edge._childType == NodeType::CharacterNode || edge._childType == NodeType::MiscNode)
+	if (nullptr != sourceModel())
 	{
-		ProjectType project_type = edge._childType == NodeType::CharacterNode ? ProjectType::character : ProjectType::misc;
-		if (_resourceManager.isProjectFileOpen(index.row(), project_type))
+		auto source_index = mapToSource(index);
+		auto type = sourceModel()->nodeType(source_index);
+		if (type == NodeType::CharacterNode || type == NodeType::MiscNode)
 		{
-			emit beginRemoveRows(index, 0, 0);
-			int project_index = _resourceManager.projectFileIndex(index.row(), project_type);
-			edge._project = -1;
-			_resourceManager.closeProjectFile(index.row(), project_type);
-			deleteAllModelEdgeIndexesForFile(project_index);
-			emit endRemoveRows();
-		}
-		else {
-			emit beginInsertRows(index, 0, 0);
-			_resourceManager.openProjectFile(index.row(), project_type);
-			edge._project = _resourceManager.projectFileIndex(index.row(), project_type);
-			emit endInsertRows();
+			if (rowCount(index) <= 0)
+			{
+				emit beginInsertRows(index, 0, 0);
+				sourceModel()->activate(source_index);
+				emit endInsertRows();
+			}
+			else {
+				emit beginRemoveRows(index, 0, 0);
+				sourceModel()->activate(source_index);
+				emit endRemoveRows();
+			}
 		}
 	}
-//else if (node_clicked->isSkeleton()) {
-//	
-//	_simulation->addSkeleton(
-//		node_clicked->data(1).toString().toUtf8().constData()
-//	);
+}
+
+bool ProjectTreeModel::insertRows(int row, int count, const QModelIndex& index)
+{
+	emit beginInsertRows(index, 0, 0);
+	bool result = sourceModel()->insertRows(row, count, mapToSource(index));
+	emit endInsertRows();
+	return result;
+}
+
+bool ProjectTreeModel::removeRows(int row, int count, const QModelIndex& index)
+{
+	emit beginRemoveRows(index, 0, 0);
+	bool result = sourceModel()->removeRows(row, count, mapToSource(index));
+	emit endRemoveRows();
+	return result;
+}
+
+//bool ProjectTreeModel::hasChildren(const QModelIndex& parent) const
+//{
+//	if (nullptr != sourceModel())
+//	{
+//		bool hasChildren = sourceModel()->hasChildren(mapToSource(parent));
+//		return hasChildren;
+//	}
+//	return false;
 //}
-}
 
-NodeType ProjectTreeModel::nodeType(const QModelIndex& index)
-{
-	return modelEdge(index).type();
-}
-
-hkVariant* ProjectTreeModel::variant(const QModelIndex& index)
-{
-	return reinterpret_cast<hkVariant*>(modelEdge(index)._childItem);
-}
-
-bool ProjectTreeModel::isVariant(const QModelIndex& index)
-{
-	return ::isVariant(nodeType(index));
-}
-
-bool ProjectTreeModel::isAssetsNode(const QModelIndex& index)
-{
-	return ::isAssetsNode(nodeType(index));
-}

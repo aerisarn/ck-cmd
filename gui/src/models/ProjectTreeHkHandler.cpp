@@ -649,6 +649,89 @@ int ProjectTreeHkHandler::getChildCount(int project, hkVariant* variant, NodeTyp
 	return HkxLinkedTableVariant(*variant).links().size();
 }
 
+int ProjectTreeHkHandler::childRows(int project, int file, int row, int column, hkVariant* variant, NodeType childType, ResourceManager& manager)
+{
+	if (&hkbCharacterDataClass == variant->m_class)
+	{
+		return HandleCharacterData::getChildCount(project, variant, childType, manager);
+	}
+	if (&hkbBehaviorGraphClass == variant->m_class)
+	{
+		return HandleBehaviorData::getChildCount(variant, childType);
+	}
+	if (&hkbStateMachineClass == variant->m_class)
+	{
+		return HandleStateMachineData::getChildCount(variant, childType);
+	}
+	if (&hkaSkeletonClass == variant->m_class)
+	{
+		return HandleSkeletonData::getChildCount(variant, childType);
+	}
+	if (&hkaRagdollInstanceClass == variant->m_class)
+	{
+		return HandleRagdollData::getChildCount(variant, childType);
+	}
+	if (&hkbBehaviorReferenceGeneratorClass == variant->m_class)
+	{
+		return HandleBehaviorReference::getChildCount(variant, childType);
+	}
+
+	HkxLinkedTableVariant v(*variant);
+	auto& links = v.links();
+	for (const auto& link : links)
+	{
+		if (link._row == row && link._column == column)
+		{
+			int file_index = manager.findIndex(file, link._ref);
+			if (file_index == -1)
+				__debugbreak();
+			return HkxTableVariant(*manager.at(file, file_index)).rows();
+		}
+	}
+	return 0;
+}
+
+int ProjectTreeHkHandler::childColumns(int project, int file, int row, int column, hkVariant* variant, ResourceManager& manager)
+{
+	if (&hkbCharacterDataClass == variant->m_class)
+	{
+		return 1;
+	}
+	if (&hkbBehaviorGraphClass == variant->m_class)
+	{
+		return 1;
+	}
+	if (&hkbStateMachineClass == variant->m_class)
+	{
+		return 1;
+	}
+	if (&hkaSkeletonClass == variant->m_class)
+	{
+		return 1;
+	}
+	if (&hkaRagdollInstanceClass == variant->m_class)
+	{
+		return 1;
+	}
+	if (&hkbBehaviorReferenceGeneratorClass == variant->m_class)
+	{
+		return 1;
+	}
+	HkxLinkedTableVariant v(*variant);
+	auto& links = v.links();
+	for (const auto& link : links)
+	{
+		if (link._row == row && link._column == column)
+		{
+			int file_index = manager.findIndex(file, link._ref);
+			if (file_index == -1)
+				__debugbreak();
+			return HkxTableVariant(*manager.at(file, file_index)).columns();
+		}
+	}
+	return 0;
+}
+
 QVariant ProjectTreeHkHandler::data(int row, int column, hkVariant* variant, NodeType childType)
 {
 	if (&hkbCharacterDataClass == variant->m_class)
@@ -683,39 +766,88 @@ QVariant ProjectTreeHkHandler::data(int row, int column, hkVariant* variant, Nod
 	return v.data(row, column - 1);
 }
 
-ModelEdge ProjectTreeHkHandler::getChild(hkVariant*, int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+bool ProjectTreeHkHandler::hasChild(hkVariant*, int row, int column, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 {
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return HandleCharacterData::get_child(index, project, file, variant, manager, childType);
+		return getChildCount(project, variant, childType, manager) > 0;
 	}
 	if (&hkbBehaviorGraphClass == variant->m_class)
 	{
-		return HandleBehaviorData::get_child(index, project, file, variant, manager, childType);
+		return getChildCount(project, variant, childType, manager) > 0;
 	}
 	if (&hkbStateMachineClass == variant->m_class)
 	{
-		return HandleStateMachineData::get_child(index, project, file, variant, manager, childType);
+		return getChildCount(project, variant, childType, manager) > 0;
 	}
 	if (&hkaSkeletonClass == variant->m_class)
 	{
-		return HandleSkeletonData::get_child(index, project, file, variant, manager, childType);
+		return getChildCount(project, variant, childType, manager) > 0;
 	}
 	if (&hkaRagdollInstanceClass == variant->m_class)
 	{
-		return HandleRagdollData::get_child(index, project, file, variant, manager, childType);
+		return getChildCount(project, variant, childType, manager) > 0;
 	}
 	if (&hkbBehaviorReferenceGeneratorClass == variant->m_class)
 	{
-		return HandleBehaviorReference::get_child(index, project, file, variant, manager, childType);
+		return getChildCount(project, variant, childType, manager) > 0;
+	}
+	if (column == 0)
+	{
+		return getChildCount(project, variant, childType, manager) > 0;
 	}
 	HkxLinkedTableVariant v(*variant);
 	auto& links = v.links();
-	auto& link = links.at(index);
-	int file_index = manager.findIndex(file, link._ref);
-	if (file_index == -1)
-		__debugbreak();
-	return ModelEdge((hkVariant*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
+	for (const auto& link : links)
+	{
+		if (link._row == row && link._column == column)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+ModelEdge ProjectTreeHkHandler::getChild(hkVariant*, int row, int column, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+{
+	if (&hkbCharacterDataClass == variant->m_class)
+	{
+		return HandleCharacterData::get_child(row, project, file, variant, manager, childType);
+	}
+	if (&hkbBehaviorGraphClass == variant->m_class)
+	{
+		return HandleBehaviorData::get_child(row, project, file, variant, manager, childType);
+	}
+	if (&hkbStateMachineClass == variant->m_class)
+	{
+		return HandleStateMachineData::get_child(row, project, file, variant, manager, childType);
+	}
+	if (&hkaSkeletonClass == variant->m_class)
+	{
+		return HandleSkeletonData::get_child(row, project, file, variant, manager, childType);
+	}
+	if (&hkaRagdollInstanceClass == variant->m_class)
+	{
+		return HandleRagdollData::get_child(row, project, file, variant, manager, childType);
+	}
+	if (&hkbBehaviorReferenceGeneratorClass == variant->m_class)
+	{
+		return HandleBehaviorReference::get_child(row, project, file, variant, manager, childType);
+	}
+	HkxLinkedTableVariant v(*variant);
+	auto& links = v.links();
+	for (const auto& link : links)
+	{
+		if (link._row == row && link._column == column)
+		{
+			int file_index = manager.findIndex(file, link._ref);
+			if (file_index == -1)
+				__debugbreak();
+			return ModelEdge((hkVariant*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
+		}
+	}
+	__debugbreak();
+	return ModelEdge();
 }
 
 bool ProjectTreeHkHandler::setData(int project, int row, int column, hkVariant* variant, NodeType childType, const QVariant& value, ResourceManager& manager)

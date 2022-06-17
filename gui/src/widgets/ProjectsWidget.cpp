@@ -5,26 +5,29 @@
 using namespace ckcmd::HKX;
 
 ProjectsWidget::ProjectsWidget(
-	ProjectTreeModel* model,
+	ProjectModel* model,
 	CommandManager& command_manager,
 	ResourceManager& manager,
 	ActionHandler& actionsHandler,
 	HkxSimulation* simulation,
 	QWidget* parent
 ) :
-	_model(model),
+	//_model(model),
 	_commandManager(command_manager),
 	_manager(manager),
 	_simulation(simulation),
 	_menuBuilder(actionsHandler),
 	ads::CDockWidget("Projects", parent)
 {
+	_model = new ProjectTreeModel();
+	_model->setSourceModel(model);
+
 	setupUi(this);
 	setWidget(verticalLayoutWidget);
 	workspaceLabel->setText(QCoreApplication::translate("ProjectsWidget", "Workspace:", nullptr) + " " + _manager.workspace().getFolder().string().c_str());
 
 	treeView->setHeaderHidden(true);
-	treeView->setModel(model);
+	treeView->setModel(_model);
 	treeView->setContextMenuPolicy(Qt::CustomContextMenu);
 
 	connect(treeView->selectionModel(), &QItemSelectionModel::currentChanged, this, &ProjectsWidget::on_treeView_selectionChanged);
@@ -110,11 +113,11 @@ void ProjectsWidget::nodeClicked(const QModelIndex& index)
 //void ProjectsWidget::treeMenu(QPoint p)
 void ProjectsWidget::on_treeView_customContextMenuRequested(const QPoint& pos)
 {
-	const QModelIndex& index = treeView->indexAt(pos);
-	QMenu* menu = _menuBuilder.build(_model->nodeType(index));
-	if (menu != nullptr) {
-		menu->exec(this->mapToGlobal(pos));
-	}
+	//const QModelIndex& index = treeView->indexAt(pos);
+	//QMenu* menu = _menuBuilder.build(_model->nodeType(index));
+	//if (menu != nullptr) {
+	//	menu->exec(this->mapToGlobal(pos));
+	//}
 	//ProjectNode* node_clicked = _model->getNode(index);
 
 }

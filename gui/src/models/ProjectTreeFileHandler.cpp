@@ -15,7 +15,6 @@ int ProjectTreeFileHandler::getChildCount(int file_index, NodeType childType, Re
 	case NodeType::MiscNode:
 		ProjectType res_type = childType == NodeType::CharacterNode ? ProjectType::character : ProjectType::misc;
 		if (file_index != -1) {
-			//if (file_index != -1) {
 			return _manager.projectCharacters(file_index);
 		}
 		return 0;
@@ -40,6 +39,11 @@ QVariant ProjectTreeFileHandler::data(int row, int column, int file_index, NodeT
 	return QVariant();
 }
 
+bool ProjectTreeFileHandler::hasChild(int row, int _project, int _file, NodeType childType, ResourceManager& manager)
+{
+	return getChildCount(_project, childType, manager) > 0;
+}
+
 ModelEdge ProjectTreeFileHandler::getChild(int index, int project, int file, NodeType childType, ResourceManager& _manager)
 {
 	switch (childType) {
@@ -49,10 +53,10 @@ ModelEdge ProjectTreeFileHandler::getChild(int index, int project, int file, Nod
 		ProjectType res_type = childType == NodeType::CharactersNode ? ProjectType::character : ProjectType::misc;
 		NodeType index_type = childType == NodeType::CharactersNode ? NodeType::CharacterNode : NodeType::MiscNode;
 		int project_file = -1;
-		if (_manager.isProjectFileOpen(index, res_type)) {
-			project_file = _manager.projectFileIndex(index, res_type);
-		}
-		return ModelEdge(nullptr, project_file, -1, index, -1, nullptr, index_type);
+		//if (_manager.isProjectFileOpen(index, res_type)) {
+		//	project_file = _manager.projectFileIndex(index, res_type);
+		//}
+		return ModelEdge(nullptr, project, -1, index, -1, nullptr, index_type);
 	}
 	case NodeType::CharacterNode:
 	case NodeType::MiscNode:

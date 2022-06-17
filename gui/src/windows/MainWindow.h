@@ -66,7 +66,7 @@ private:
 
     //Data
     WorkspaceConfig _workspace;
-    ckcmd::HKX::ProjectTreeModel _model;
+    ckcmd::HKX::ProjectModel _model;
     ckcmd::HKX::CommandManager _command_manager;
     ckcmd::HKX::ResourceManager _resource_manager;
 

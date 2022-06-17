@@ -17,7 +17,7 @@
    <item>
     <widget class="QTabWidget" name="mainTab">
      <property name="currentIndex">
-      <number>0</number>
+      <number>1</number>
      </property>
      <widget class="QWidget" name="setupTab">
       <attribute name="title">
@@ -64,7 +64,7 @@
                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Create Dummy Single Bone Rig&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                </property>
                <property name="text">
-                <string>...</string>
+                <string>+</string>
                </property>
               </widget>
              </item>
@@ -110,7 +110,7 @@
              <item>
               <widget class="QToolButton" name="behaviorNewButton">
                <property name="text">
-                <string>...</string>
+                <string>+</string>
                </property>
               </widget>
              </item>
@@ -203,6 +203,9 @@
                 <property name="text">
                  <string>X:</string>
                 </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
                </widget>
               </item>
               <item>
@@ -225,6 +228,9 @@
                <widget class="QLabel" name="label_3">
                 <property name="text">
                  <string>Y:</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                 </property>
                </widget>
               </item>
@@ -249,6 +255,9 @@
                 <property name="text">
                  <string>Z:</string>
                 </property>
+                <property name="alignment">
+                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                </property>
                </widget>
               </item>
               <item>
@@ -264,6 +273,9 @@
                 </property>
                 <property name="singleStep">
                  <double>0.100000000000000</double>
+                </property>
+                <property name="value">
+                 <double>1.000000000000000</double>
                 </property>
                </widget>
               </item>
@@ -342,14 +354,14 @@
              <item>
               <widget class="QToolButton" name="setAddButton">
                <property name="text">
-                <string>...</string>
+                <string>+</string>
                </property>
               </widget>
              </item>
              <item>
               <widget class="QToolButton" name="setRemoveButton">
                <property name="text">
-                <string>...</string>
+                <string>—</string>
                </property>
               </widget>
              </item>
@@ -371,14 +383,14 @@
                  <item>
                   <widget class="QToolButton" name="setEventAddButton">
                    <property name="text">
-                    <string>...</string>
+                    <string>+</string>
                    </property>
                   </widget>
                  </item>
                  <item>
                   <widget class="QToolButton" name="setEventRemoveButton">
                    <property name="text">
-                    <string>...</string>
+                    <string>—</string>
                    </property>
                   </widget>
                  </item>
@@ -403,14 +415,14 @@
                  <item>
                   <widget class="QToolButton" name="setEventAddButton_2">
                    <property name="text">
-                    <string>...</string>
+                    <string>+</string>
                    </property>
                   </widget>
                  </item>
                  <item>
                   <widget class="QToolButton" name="setEventRemoveButton_2">
                    <property name="text">
-                    <string>...</string>
+                    <string>—</string>
                    </property>
                   </widget>
                  </item>
@@ -437,14 +449,14 @@
                <item>
                 <widget class="QToolButton" name="setConditionsRemoveButton">
                  <property name="text">
-                  <string>...</string>
+                  <string>+</string>
                  </property>
                 </widget>
                </item>
                <item>
                 <widget class="QToolButton" name="setConditionsAddButton">
                  <property name="text">
-                  <string>...</string>
+                  <string>—</string>
                  </property>
                 </widget>
                </item>
@@ -471,14 +483,14 @@
              <item>
               <widget class="QToolButton" name="setAnimationsAddButton">
                <property name="text">
-                <string>...</string>
+                <string>+</string>
                </property>
               </widget>
              </item>
              <item>
               <widget class="QToolButton" name="setAnimationsRemoveButton">
                <property name="text">
-                <string>...</string>
+                <string>—</string>
                </property>
               </widget>
              </item>

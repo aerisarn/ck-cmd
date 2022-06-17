@@ -1,14 +1,32 @@
 #pragma once
-#include <src/models/ModelEdge.h>
+#include <src/models/ProjectTreeModel.h>
+
+#include <type_traits>
 
 #include <QWidget>
+#include <QStackedLayout>
 
 namespace ckcmd
 {
-	namespace HKX {
-		class WidgetFactory {
-		public:
-			static QWidget* getWidget(NodeType type);
-		};
+
+	enum class widgetType
+	{
+		invalid = 0,
+		CharacterEditor,
+		allEditors
+	};
+
+	template <typename T>
+	constexpr auto operator*(T e) noexcept
+		-> std::enable_if_t<std::is_enum<T>::value, std::underlying_type_t<T>>
+	{
+		return static_cast<std::underlying_type_t<T>>(e);
 	}
+
+	class WidgetFactory {
+	public:
+		static QWidget* getWidget(widgetType type, HKX::ProjectModel& model, QWidget* parent = nullptr);
+		static void loadAddWidgets(QStackedLayout* stack, HKX::ProjectModel& model, QWidget* parent = nullptr);
+	};
+
 }

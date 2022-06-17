@@ -35,7 +35,7 @@ class ProjectsWidget : public ::ads::CDockWidget, private Ui::ProjectsWidget
 
 public:
     explicit ProjectsWidget(
-        ckcmd::HKX::ProjectTreeModel* model,
+        ckcmd::HKX::ProjectModel* model,
         ckcmd::HKX::CommandManager& commandManager,
         ckcmd::HKX::ResourceManager& manager,
         ckcmd::HKX::ActionHandler& actionsHandler,

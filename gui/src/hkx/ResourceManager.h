@@ -42,8 +42,10 @@ namespace ckcmd {
 			std::map<size_t, fs::path> _files;
 			std::map<size_t, hkx_file_t> _contents;
 			std::map<size_t, string> _sanitized_names;
-			QStringList _characters;
-			QStringList _miscellaneous;
+			std::vector<fs::path> _characters;
+			std::vector<fs::path> _miscellaneous;
+			QStringList _charactersNames;
+			QStringList _miscellaneousNames;
 			WorkspaceConfig& _workspace;
 			//TOO CUMBERSOME! Let's create our projects with blackjack and hookers
 			AnimationCache _cache;
@@ -57,7 +59,7 @@ namespace ckcmd {
 
 			const std::string& get_sanitized_name(int file_index);
 			void scanWorkspace();
-			const QString& projectPath(int row, ProjectType type);
+			const fs::path& projectPath(int row, ProjectType type);
 			CacheEntry* findCacheEntry(const std::string& sanitized_name);
 			CacheEntry* findCacheEntry(size_t project_index);
 
@@ -107,8 +109,8 @@ namespace ckcmd {
 			size_t character_project_files() { return _characters.size(); }
 			size_t miscellaneous_project_files() { return _miscellaneous.size(); }
 
-			const QString& character_project_file(int index) { return _characters.at(index); }
-			const QString& miscellaneous_project_file(int index) { return _miscellaneous.at(index); }
+			const QString& character_project_file(int index) { return _charactersNames.at(index); }
+			const QString& miscellaneous_project_file(int index) { return _miscellaneousNames.at(index); }
 
 			void close(int file_index);
 

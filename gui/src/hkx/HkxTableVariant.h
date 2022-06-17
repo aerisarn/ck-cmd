@@ -16,9 +16,12 @@ namespace ckcmd {
 			size_t rows();
 			size_t columns();
 
-			QString name();
+			size_t columns(int row_index);
+
+			QStringList rowNames();
 
 			QVariant data(int row, int column);
+			bool setData(int row, int column, const QVariant& variant);
 		};
 
 	}

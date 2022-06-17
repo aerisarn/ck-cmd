@@ -17,10 +17,10 @@ private slots:
 //    void on_treeView_customContextMenuRequested(const QPoint& pos);
 //    void on_treeView_selectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
 
-public:
-    explicit TopInfoWidget(ckcmd::HKX::ProjectTreeModel& model, QWidget* parent = 0);
+    virtual void OnIndexSelected() override;
 
-    void setIndex(const QModelIndex& index);
+public:
+    explicit TopInfoWidget(ckcmd::HKX::ProjectModel& model, QWidget* parent = 0);
 
     QSize sizeHint() const override;
 

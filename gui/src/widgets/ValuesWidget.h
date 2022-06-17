@@ -22,7 +22,7 @@ class ValuesWidget : public ::ads::CDockWidget
 {
     Q_OBJECT
 
-    ckcmd::HKX::ProjectTreeModel* _model;
+    ckcmd::HKX::ProjectModel* _model;
     QModelIndex _index;
     ckcmd::HKX::CommandManager& _command_manager;
     const ckcmd::HKX::ResourceManager & _manager;
@@ -36,9 +36,10 @@ class ValuesWidget : public ::ads::CDockWidget
 
     void checkTopInfoPanel(const QModelIndex& index);
     void checkBindings(const QModelIndex& index);
+    void setEditor(const QModelIndex& index);
 
 public:
-    explicit ValuesWidget(ckcmd::HKX::ProjectTreeModel* model, ckcmd::HKX::CommandManager& command_manager, const ckcmd::HKX::ResourceManager& manager, QWidget* parent = 0);
+    explicit ValuesWidget(ckcmd::HKX::ProjectModel* model, ckcmd::HKX::CommandManager& command_manager, const ckcmd::HKX::ResourceManager& manager, QWidget* parent = 0);
     ~ValuesWidget();
 
 public slots:

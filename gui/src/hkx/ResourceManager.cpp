@@ -33,8 +33,17 @@ ResourceManager::ResourceManager(WorkspaceConfig& workspace) :
 		scanWorkspace();
 	}
 
-	_characters = _workspace.getCharacterProjects();
-	_miscellaneous = _workspace.getMiscellaneousProjects();
+	_charactersNames = _workspace.getCharacterProjects();
+	for (auto& character : _charactersNames)
+	{
+		_characters.push_back(character.toUtf8().constData());
+	}
+
+	_miscellaneousNames = _workspace.getMiscellaneousProjects();
+	for (auto& misc : _miscellaneousNames)
+	{
+		_miscellaneous.push_back(misc.toUtf8().constData());
+	}
 
 	_esp = new Collection((char* const)_workspace.getFolder().string().c_str(), 3);
 
@@ -357,7 +366,7 @@ void ResourceManager::scanWorkspace()
 	}
 }
 
-const QString& ResourceManager::projectPath(int row, ProjectType type)
+const fs::path& ResourceManager::projectPath(int row, ProjectType type)
 {
 	switch (type)
 	{
@@ -368,25 +377,22 @@ const QString& ResourceManager::projectPath(int row, ProjectType type)
 	default:
 		break;
 	}
-	return QString();
+	return fs::path();
 }
 
 bool ResourceManager::isProjectFileOpen(int row, ProjectType type)
 {
 	if (row < 0)
 		return false;
-	QString path = projectPath(row, type);
-	fs::path fs_path = path.toUtf8().constData();
-	return is_open(fs_path);
+	return is_open(projectPath(row, type));
 }
 
 void ResourceManager::openProjectFile(int row, ProjectType type)
 {
-	QString path = projectPath(row, type);
-	fs::path fs_path = path.toUtf8().constData();
-	if (fs::exists(fs_path))
+	auto& path = projectPath(row, type);
+	if (fs::exists(path))
 	{
-		get(fs_path);
+		get(path);
 	}
 }
 
@@ -441,8 +447,7 @@ hkbProjectStringData* ResourceManager::getProjectRoot(const fs::path& fs_path)
 
 void ResourceManager::closeProjectFile(int row, ProjectType type)
 {
-	QString path = projectPath(row, type);
-	fs::path fs_path = path.toUtf8().constData();
+	const fs::path& fs_path = projectPath(row, type);
 	int project_index = index(fs_path);
 	hkbProjectStringData* project_data = nullptr;
 	if (project_index != (size_t)-1)
@@ -476,9 +481,7 @@ void ResourceManager::closeProjectFile(int row, ProjectType type)
 
 size_t ResourceManager::projectFileIndex(int row, ProjectType type)
 {
-	QString path = projectPath(row, type);
-	fs::path fs_path = path.toUtf8().constData();
-	return index(fs_path);
+	return index(projectPath(row, type));
 }
 
 struct ci_less
@@ -593,8 +596,7 @@ size_t ResourceManager::characterFileIndex(int row, int project_index, ProjectTy
 
 void ResourceManager::saveProject(int row, ProjectType type)
 {
-	QString path = projectPath(row, type);
-	fs::path fs_path = path.toUtf8().constData();
+	fs::path fs_path = projectPath(row, type);
 	fs::path base_path = fs_path.parent_path();
 	int project_index = index(fs_path);
 	auto& project_contents = get(fs_path);

@@ -15,9 +15,10 @@ namespace ckcmd {
 
 		public:
 
-			static int ProjectTreeFileHandler::getChildCount(int file_index, NodeType childType, ResourceManager& _manager);
-			static QVariant ProjectTreeFileHandler::data(int row, int column, int file_index, NodeType childType, ResourceManager& _manager);
-			static ModelEdge ProjectTreeFileHandler::getChild(int index, int project, int file, NodeType childType, ResourceManager& _manager);
+			static int getChildCount(int file_index, NodeType childType, ResourceManager& _manager);
+			static QVariant data(int row, int column, int file_index, NodeType childType, ResourceManager& _manager);
+			static bool hasChild(int row, int _project, int _file, NodeType _childType, ResourceManager& manager);
+			static ModelEdge getChild(int index, int project, int file, NodeType childType, ResourceManager& _manager);
 		};
 
 

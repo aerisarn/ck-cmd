@@ -33,6 +33,38 @@ NodeType ModelEdge::type()
 	return _childType;
 }
 
+int ModelEdge::childRows(int row, int column, ResourceManager& manager) const
+{
+	switch (_childType)
+	{
+	case NodeType::CharactersNode:
+	case NodeType::MiscsNode:
+	case NodeType::CharacterNode:
+	case NodeType::MiscNode:
+		return ProjectTreeFileHandler::getChildCount(_project, _childType, manager);
+	default:
+		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
+		return ProjectTreeHkHandler::childRows(_project, _file, row, column, variant, _childType, manager);
+	}
+	return 0;
+}
+
+int ModelEdge::childColumns(int row, int column, ResourceManager& manager) const
+{
+	switch (_childType)
+	{
+	case NodeType::CharactersNode:
+	case NodeType::MiscsNode:
+	case NodeType::CharacterNode:
+	case NodeType::MiscNode:
+		return 1;
+	default:
+		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
+		return ProjectTreeHkHandler::childColumns(_project, _file, row, column, variant, manager);
+	}
+	return 0;
+}
+
 QVariant ModelEdge::data(int row, int column, ResourceManager& manager) const
 {
 	switch (_childType)
@@ -49,7 +81,7 @@ QVariant ModelEdge::data(int row, int column, ResourceManager& manager) const
 	return QVariant();
 }
 
-ModelEdge ModelEdge::childEdge(int index, ResourceManager& manager) const
+bool ModelEdge::hasChild(int row, int column, ResourceManager& manager) const
 {
 	switch (_childType)
 	{
@@ -57,11 +89,29 @@ ModelEdge ModelEdge::childEdge(int index, ResourceManager& manager) const
 	case NodeType::MiscsNode:
 	case NodeType::CharacterNode:
 	case NodeType::MiscNode:
-		return ProjectTreeFileHandler::getChild(index, _project, _file, _childType, manager);
+		return ProjectTreeFileHandler::hasChild(row, _project, _file, _childType, manager);
 	default:
 	{
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::getChild(variant, index, _project, _file, variant, manager, _childType);
+		return ProjectTreeHkHandler::hasChild(variant, row, column, _project, _file, variant, manager, _childType);
+	}
+	}
+	return false;
+}
+
+ModelEdge ModelEdge::childEdge(int row, int column, ResourceManager& manager) const
+{
+	switch (_childType)
+	{
+	case NodeType::CharactersNode:
+	case NodeType::MiscsNode:
+	case NodeType::CharacterNode:
+	case NodeType::MiscNode:
+		return ProjectTreeFileHandler::getChild(row, _project, _file, _childType, manager);
+	default:
+	{
+		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
+		return ProjectTreeHkHandler::getChild(variant, row, column, _project, _file, variant, manager, _childType);
 	}
 	}
 	return ModelEdge();

@@ -1,16 +1,21 @@
 #pragma once
 
 #include <QWidget>
-#include <src/models/ProjectTreeModel.h>
+#include <src/models/ProjectModel.h>
 
 namespace ckcmd {
 
 	class ModelWidget : public QWidget
 	{
 	protected:
-		HKX::ProjectTreeModel& _model;
-	public:
+		HKX::ProjectModel& _model;
+		QModelIndex _index;
+	
+		virtual void OnIndexSelected() = 0;
 
-		ModelWidget(HKX::ProjectTreeModel& model, QWidget* parent = 0);
+	public:
+		ModelWidget(HKX::ProjectModel& model, QWidget* parent = 0);
+
+		void setIndex(const QModelIndex& index);
 	};
 }

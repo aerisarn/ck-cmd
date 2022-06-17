@@ -7,7 +7,7 @@
 namespace ckcmd {
     namespace HKX {
 
-        class ProjectTreeModel;
+        class ProjectModel;
         class ProjectTreeHkHandler;
 
         enum class NodeType
@@ -59,7 +59,7 @@ namespace ckcmd {
 
         class ModelEdge
         {
-            friend class ProjectTreeModel;
+            friend class ProjectModel;
             friend class ProjectTreeHkHandler;
 
             NodeType _parentType = NodeType::Invalid;
@@ -124,9 +124,13 @@ namespace ckcmd {
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*);
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*, NodeType childType);
 
+            int childRows(int row, int column, ResourceManager& manager) const;
+            int childColumns(int row, int column, ResourceManager& manager) const;
+
             QVariant data(int row, int column, ResourceManager& manager) const;
             bool setData(int row, int column, const QVariant& value, ResourceManager& manager);
-            ModelEdge childEdge(int index, ResourceManager& manager) const;
+            bool hasChild(int row, int column, ResourceManager& manager) const;
+            ModelEdge childEdge(int row, int column, ResourceManager& manager) const;
             int childCount(ResourceManager& manager) const;
 
             NodeType type();
