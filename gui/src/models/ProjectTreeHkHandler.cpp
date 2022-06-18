@@ -21,6 +21,7 @@ struct  HandleCharacterData
 	static const size_t DATA_SUPPORTS = 4;
 	static const size_t RIG_INDEX = DATA_SUPPORTS;
 	static const size_t RAGDOLL_INDEX = DATA_SUPPORTS + 1;
+	static const size_t SUPPORT_END = RAGDOLL_INDEX + 1;
 
 	static const char* DataListsName(int row)
 	{
@@ -37,7 +38,34 @@ struct  HandleCharacterData
 		return "Invalid Character Entry";
 	};
 
-	static int getChildCount(int project, hkVariant* variant, NodeType childType, ResourceManager& manager)
+#undef max
+
+	static const int getColumns(int file, hkVariant* variant, ResourceManager& manager)
+	{
+		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+		if (data == NULL)
+			return 1;
+		auto string_data = data->m_stringData;
+		if (string_data == NULL)
+			return 0;
+		int file_index = manager.findIndex(file, &*string_data);
+		int additional = std::max(HkxTableVariant(*variant).columns(), HkxTableVariant(*manager.at(file, file_index)).columns());
+		return 1 + additional;
+	}
+
+	static const int getRows(int file, hkVariant* variant, ResourceManager& manager)
+	{
+		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+		if (data == NULL)
+			return 1;
+		auto string_data = data->m_stringData;
+		if (string_data == NULL)
+			return 0;
+		int file_index = manager.findIndex(file, &*string_data);
+		return SUPPORT_END + HkxTableVariant(*variant).rows() + HkxTableVariant(*manager.at(file, file_index)).rows();
+	}
+
+	static int getChildCount(int row,  int project, hkVariant* variant, NodeType childType, ResourceManager& manager)
 	{
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
 		if (data == NULL)
@@ -49,7 +77,9 @@ struct  HandleCharacterData
 		{
 			int count = DATA_SUPPORTS;
 			count += manager.hasRigAndRagdoll(project, string_data);
-			return count;
+			if (row < count)
+				return count;
+			return 0;
 		}
 		else if (childType == NodeType::deformableSkinNames)
 		{
@@ -66,32 +96,81 @@ struct  HandleCharacterData
 		return 0;
 	}
 
-	static QVariant data(int row, int column, hkVariant* variant, NodeType childType)
+	static int getRowColumns(int file, int row, int column, hkVariant* variant, NodeType childType, ResourceManager& manager)
+	{
+		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+		if (data == NULL)
+			return 0;
+		auto string_data = data->m_stringData;
+		if (string_data == NULL)
+			return 0;
+
+		if (childType == NodeType::CharacterHkxNode)
+		{
+			if (row < SUPPORT_END)
+				return 1;
+			HkxTableVariant data_variant(*variant);
+			int data_rows = data_variant.rows();
+			if (row < SUPPORT_END + data_rows)
+				return data_variant.columns(row - SUPPORT_END);
+			int string_data_index = manager.findIndex(file, &*string_data);
+			HkxTableVariant stringdata_variant(*manager.at(file, string_data_index));
+			int stringdata_rows = stringdata_variant.rows();
+			return stringdata_variant.columns(row - data_rows - SUPPORT_END);
+		}
+		return 0;
+	}
+
+	static QVariant data(int file, int row, int column, hkVariant* variant, NodeType childType, ResourceManager& manager)
 	{
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
 		auto string_data = data->m_stringData;
-		if (childType == NodeType::CharacterHkxNode) {
-			return string_data->m_name.cString();
-		}
-		if (childType == NodeType::deformableSkinNames ||
-			childType == NodeType::animationNames ||
-			childType == NodeType::characterPropertyNames)
+		if (column == 0)
 		{
-			return DataListsName((int)childType);
+			if (childType == NodeType::CharacterHkxNode) {
+				if (row == 0)
+					return string_data->m_name.cString();
+				if (row < SUPPORT_END)
+					return QVariant();
+				HkxTableVariant data_variant(*variant);
+				int data_rows = data_variant.rows();
+				if (row < SUPPORT_END + data_rows)
+					return data_variant.rowName(row - SUPPORT_END);
+				int string_data_index = manager.findIndex(file, &*string_data);
+				HkxTableVariant stringdata_variant(*manager.at(file, string_data_index));
+				int stringdata_rows = stringdata_variant.rows();
+				return stringdata_variant.rowName(row - data_rows - SUPPORT_END);
+			}
+			if (childType == NodeType::deformableSkinNames ||
+				childType == NodeType::animationNames ||
+				childType == NodeType::characterPropertyNames)
+			{
+				return DataListsName((int)childType);
+			}
+			if (childType == NodeType::deformableSkinName)
+			{
+				return string_data->m_deformableSkinNames[row].cString();
+			}
+			if (childType == NodeType::animationName)
+			{
+				return string_data->m_animationNames[row].cString();
+			}
+			if (childType == NodeType::characterPropertyName)
+			{
+				return string_data->m_characterPropertyNames[row].cString();
+			}
+			return QVariant();
 		}
-		if (childType == NodeType::deformableSkinName)
-		{
-			return string_data->m_deformableSkinNames[row].cString();
-		}
-		if (childType == NodeType::animationName)
-		{
-			return string_data->m_animationNames[row].cString();
-		}
-		if (childType == NodeType::characterPropertyName)
-		{
-			return string_data->m_characterPropertyNames[row].cString();
-		}
-		return QVariant();
+		if (row < SUPPORT_END)
+			return QVariant();
+		HkxTableVariant data_variant(*variant);
+		int data_rows = data_variant.rows();
+		if (row < SUPPORT_END + data_rows)
+			return data_variant.data(row - SUPPORT_END, column - 1);
+		int string_data_index = manager.findIndex(file, &*string_data);
+		HkxTableVariant stringdata_variant(*manager.at(file, string_data_index));
+		int stringdata_rows = stringdata_variant.rows();
+		return stringdata_variant.data(row - data_rows - SUPPORT_END, column - 1);
 	}
 
 	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
@@ -624,7 +703,7 @@ int ProjectTreeHkHandler::getChildCount(int project, hkVariant* variant, NodeTyp
 {
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return HandleCharacterData::getChildCount(project, variant, childType, manager);
+		return HandleCharacterData::getChildCount(0, project, variant, childType, manager);
 	}
 	if (&hkbBehaviorGraphClass == variant->m_class)
 	{
@@ -653,7 +732,7 @@ int ProjectTreeHkHandler::childRows(int project, int file, int row, int column, 
 {
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return HandleCharacterData::getChildCount(project, variant, childType, manager);
+		return HandleCharacterData::getRows(file, variant, manager);
 	}
 	if (&hkbBehaviorGraphClass == variant->m_class)
 	{
@@ -691,11 +770,20 @@ int ProjectTreeHkHandler::childRows(int project, int file, int row, int column, 
 	return 0;
 }
 
+int ProjectTreeHkHandler::childRowColumns(int project, int file, int row, int column, hkVariant* variant, NodeType childType, ResourceManager& manager)
+{
+	if (&hkbCharacterDataClass == variant->m_class)
+	{
+		return HandleCharacterData::getRowColumns(file, row, column, variant, childType, manager);
+	}
+	return HkxTableVariant(*variant).columns(row);;
+}
+
 int ProjectTreeHkHandler::childColumns(int project, int file, int row, int column, hkVariant* variant, ResourceManager& manager)
 {
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return 1;
+		return HandleCharacterData::getColumns(file, variant, manager);
 	}
 	if (&hkbBehaviorGraphClass == variant->m_class)
 	{
@@ -732,11 +820,11 @@ int ProjectTreeHkHandler::childColumns(int project, int file, int row, int colum
 	return 0;
 }
 
-QVariant ProjectTreeHkHandler::data(int row, int column, hkVariant* variant, NodeType childType)
+QVariant ProjectTreeHkHandler::data(int file, int row, int column, hkVariant* variant, NodeType childType, ResourceManager& manager)
 {
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return HandleCharacterData::data(row, column, variant, childType);
+		return HandleCharacterData::data(file, row, column, variant, childType, manager);
 	}
 	if (&hkbBehaviorGraphClass == variant->m_class)
 	{
@@ -770,7 +858,7 @@ bool ProjectTreeHkHandler::hasChild(hkVariant*, int row, int column, int project
 {
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return getChildCount(project, variant, childType, manager) > 0;
+		return HandleCharacterData::getChildCount(row, project, variant, childType, manager) > 0;
 	}
 	if (&hkbBehaviorGraphClass == variant->m_class)
 	{

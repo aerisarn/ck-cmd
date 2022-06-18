@@ -49,6 +49,22 @@ int ModelEdge::childRows(int row, int column, ResourceManager& manager) const
 	return 0;
 }
 
+int ModelEdge::rowColumns(int row, int column, ResourceManager& _resourceManager) const
+{
+	switch (_childType)
+	{
+	case NodeType::CharactersNode:
+	case NodeType::MiscsNode:
+	case NodeType::CharacterNode:
+	case NodeType::MiscNode:
+		return 1;
+	default:
+		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
+		return ProjectTreeHkHandler::childRowColumns(_project, _file, row, column, variant, _childType, _resourceManager);
+	}
+	return 0;
+}
+
 int ModelEdge::childColumns(int row, int column, ResourceManager& manager) const
 {
 	switch (_childType)
@@ -76,7 +92,7 @@ QVariant ModelEdge::data(int row, int column, ResourceManager& manager) const
 		return ProjectTreeFileHandler::data(row, column, _file, _childType, manager);// *reinterpret_cast<const QString*>(_childItem);
 	default:
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::data(row, column, variant, _childType);
+		return ProjectTreeHkHandler::data(_file, row, column, variant, _childType, manager);
 	}
 	return QVariant();
 }

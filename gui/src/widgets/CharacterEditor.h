@@ -12,6 +12,16 @@ class CharacterEditorWidget : public ckcmd::ModelWidget, private Ui::CharacterEd
 
     virtual void OnIndexSelected() override;
 
+    virtual size_t dataBindingRowStart() const override { return 6; } //TODO: HandleCharacterData::SUPPORT_END
+
+    StaticBindingTable dataBindingtable = {
+    };
+
+    virtual const StaticBindingTable& bindingTable() const override {
+        return dataBindingtable;
+    }
+
+
 private slots:
     //    void resizeNameToContent(const QString& text);
     //    void on_treeView_doubleClicked(const QModelIndex& index);

@@ -29,6 +29,13 @@ size_t HkxTableVariant::columns(int row_index)
 	return c.column(row_index);
 }
 
+QString HkxTableVariant::rowName(int row_index)
+{
+	NameGetter ng(row_index,"");
+	accept(ng);
+	return ng.name();
+}
+
 QVariant HkxTableVariant::data(int row, int column)
 {
 	Getter g(row, column);

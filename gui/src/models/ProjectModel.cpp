@@ -26,6 +26,8 @@ const ModelEdge& ProjectModel::modelEdge(const QModelIndex& index) const
 
 ModelEdge& ProjectModel::modelEdge(const QModelIndex& index)
 {
+	if (_direct_find.find(index.internalId()) == _direct_find.end())
+		int debug = 1;
 	return _direct_find[index.internalId()];
 }
 
@@ -158,6 +160,15 @@ int ProjectModel::rowCount(const QModelIndex& index) const
 
 	const auto& edge = modelEdge(index);
 	return edge.childRows(index.row(), index.column(), _resourceManager);
+}
+
+int ProjectModel::rowColumns(const QModelIndex& parent) const
+{
+	if (!parent.isValid())
+		return 2;
+
+	const auto& edge = modelEdge(parent);
+	return edge.rowColumns(parent.row(), parent.column(), _resourceManager);
 }
 
 int ProjectModel::columnCount(const QModelIndex& index) const

@@ -119,7 +119,7 @@ add_library( gui-lib STATIC
 target_include_directories	(gui-lib  PUBLIC ${PROJECT_INCLUDES} )
 
 add_executable(${PROJECT} WIN32
-    ${WINDOW_HEADERS} 
+    ${WINDOW_HEADERS}
     ${WINDOW_SOURCES} 
     ${WINDOW_UIS}
     ${WIDGET_HEADERS} 

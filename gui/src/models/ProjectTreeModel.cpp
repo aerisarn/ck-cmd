@@ -7,35 +7,37 @@ QModelIndex ProjectTreeModel::mapToSource(const QModelIndex& proxyIndex) const
 	if (!proxyIndex.isValid())
 		return QModelIndex();
 
-	/*
-	            CharactersNode,
-            CharacterNode,
-            CharacterHkxNode,
-            MiscsNode,
-            MiscNode,
-            MiscHkxNode,
-            BehaviorNode,
-            BehaviorHkxNode,
-            HavokNative,
-            deformableSkinNames,
-            deformableSkinName,
-            animationNames,
-            animationName,
-	*/
 	auto source_index = sourceModel()->createIndex(0, 0, proxyIndex.internalId());
 	auto source_parent = sourceModel()->parent(source_index);
+	
+	//Optmimization
 	switch (sourceModel()->nodeType(source_parent))
 	{
 	case NodeType::CharactersNode:
 	case NodeType::MiscsNode:
 	case NodeType::animationNames:
+	case NodeType::deformableSkinNames:
+	case NodeType::behaviorEventNames:
+	case NodeType::behaviorVariableNames:
 		return sourceModel()->createIndex(proxyIndex.row(), proxyIndex.column(), proxyIndex.internalId());
 	default:
 		break;
 	}
 
-	int source_rows = sourceModel()->rowCount(source_parent);
-	int source_columns = sourceModel()->columnCount(source_parent);
+	int source_rows = 0; 
+	int source_columns = 0;
+	//Optmimization
+	if (sourceModel()->nodeType(source_parent) == NodeType::CharacterHkxNode)
+	{
+		source_rows = sourceModel()->childCount(source_parent);
+		source_columns = 1;
+	}
+	else {
+		source_rows = sourceModel()->rowCount(source_parent);
+		source_columns = sourceModel()->columnCount(source_parent);
+	}
+
+
 	int target_children = proxyIndex.row();
 	int child_index = 0;
 	for (int r = 0; r < source_rows; ++r)
@@ -66,6 +68,9 @@ QModelIndex ProjectTreeModel::mapFromSource(const QModelIndex& sourceIndex) cons
 	case NodeType::CharactersNode:
 	case NodeType::MiscsNode:
 	case NodeType::animationNames:
+	case NodeType::deformableSkinNames:
+	case NodeType::behaviorEventNames:
+	case NodeType::behaviorVariableNames:
 	{
 		QModelIndex index = sourceModel()->index(sourceIndex.row(), sourceIndex.column(), source_parent);
 		return createIndex(sourceIndex.row(), sourceIndex.column(), index.internalId());
@@ -75,8 +80,18 @@ QModelIndex ProjectTreeModel::mapFromSource(const QModelIndex& sourceIndex) cons
 	}
 
 	int child_index = 0;
-	int source_rows = sourceModel()->rowCount(source_parent);
-	int source_columns = sourceModel()->columnCount(source_parent);
+	int source_rows = 0;
+	int source_columns = 0;
+	//Optmimization
+	if (sourceModel()->nodeType(source_parent) == NodeType::CharacterHkxNode)
+	{
+		source_rows = sourceModel()->childCount(source_parent);
+		source_columns = 1;
+	}
+	else {
+		source_rows = sourceModel()->rowCount(source_parent);
+		source_columns = sourceModel()->columnCount(source_parent);
+	}
 	for (int r = 0; r < source_rows; ++r)
 	{
 		for (int c = 0; c < source_columns; ++c)

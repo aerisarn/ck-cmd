@@ -125,6 +125,7 @@ namespace ckcmd {
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*, NodeType childType);
 
             int childRows(int row, int column, ResourceManager& manager) const;
+            int rowColumns(int row, int column, ResourceManager& _resourceManager) const;
             int childColumns(int row, int column, ResourceManager& manager) const;
 
             QVariant data(int row, int column, ResourceManager& manager) const;
