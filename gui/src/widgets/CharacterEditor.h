@@ -2,6 +2,9 @@
 
 #include <src/widgets/ModelWidget.h>
 
+#include <QStringListModel>
+#include <QCompleter>
+
 #include "ui_CharacterEditor.h"
 
 class hkbNode;
@@ -36,4 +39,8 @@ public:
 private:
 
     QModelIndex _selected;
+    QStringListModel* _behavior_file_options;
+    QCompleter* _behavior_completer;
+    QStringListModel* _rig_file_options;
+    QCompleter* _rig_completer;
 };

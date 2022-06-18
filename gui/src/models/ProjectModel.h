@@ -54,7 +54,10 @@ namespace ckcmd {
             hkVariant* variant(const QModelIndex& index);
             bool isVariant(const QModelIndex& index);
             bool isAssetsNode(const QModelIndex& index);
+
             int rowColumns(const QModelIndex& parent = QModelIndex()) const;
+
+            QAbstractItemModel* editModel(const QModelIndex& index, AssetType type);
 
             /*
             ** AbstractItemModel(required methods)

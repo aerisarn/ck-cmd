@@ -1,5 +1,6 @@
 #include "ProjectModel.h"
 
+#include <QStringListModel>
 #include <QBrush>
 
 using namespace ckcmd::HKX;
@@ -333,4 +334,19 @@ bool ProjectModel::isVariant(const QModelIndex& index)
 bool ProjectModel::isAssetsNode(const QModelIndex& index)
 {
 	return ::isAssetsNode(nodeType(index));
+}
+
+QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType type)
+{
+	auto& edge = modelEdge(index);
+	switch (edge.type())
+	{
+	case NodeType::CharacterHkxNode:
+	{
+		return new QStringListModel(_resourceManager.assetsList(edge._project, type));
+	}
+	default:
+		break;
+	}
+	return nullptr;
 }

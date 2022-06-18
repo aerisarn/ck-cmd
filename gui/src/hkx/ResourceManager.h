@@ -12,6 +12,7 @@ typedef std::pair< hkVariant, std::vector<hkVariant>> hkx_file_t;
 
 struct Collection;
 struct hkVariant;
+class hkbCharacterData;
 class hkbCharacterStringData;
 class hkbProjectStringData;
 
@@ -34,7 +35,8 @@ namespace ckcmd {
 		enum class AssetType {
 			invalid = 0,
 			skeleton,
-			animation
+			animation,
+			behavior
 		};
 
 		class ResourceManager {
@@ -70,6 +72,7 @@ namespace ckcmd {
 			hkbProjectStringData* getProjectRoot(int file_index);
 			hkbProjectStringData* getProjectRoot(const fs::path& fs_path);
 			hkbCharacterStringData* getCharacterString(int character_index);
+			hkbCharacterData* getCharacterData(int character_index);
 
 		public:
 
@@ -136,8 +139,11 @@ namespace ckcmd {
 
 			std::vector<fs::path> importAssets(int project_file, const fs::path& sourcePath, AssetType type);
 			size_t assetsCount(int project_file, AssetType type);
+
 			void clearAssetList(int project_file, AssetType type);
 			void refreshAssetList(int project_file, AssetType type);
+
+			QStringList assetsList(int project_index, AssetType type);
 		};
 	}
 }

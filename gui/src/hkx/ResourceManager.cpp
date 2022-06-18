@@ -417,6 +417,18 @@ hkbProjectStringData* ResourceManager::getProjectRoot(int file_index)
 	return nullptr;
 }
 
+hkbCharacterData* ResourceManager::getCharacterData(int character_index)
+{
+	auto& contents = get(character_index);
+	for (auto& item : contents.second)
+	{
+		if (&hkbCharacterDataClass == item.m_class)
+		{
+			return  reinterpret_cast<hkbCharacterData*>(item.m_object);
+		}
+	}
+	return nullptr;
+}
 
 hkbCharacterStringData* ResourceManager::getCharacterString(int character_index)
 {
@@ -430,7 +442,6 @@ hkbCharacterStringData* ResourceManager::getCharacterString(int character_index)
 	}
 	return nullptr;
 }
-
 
 hkbProjectStringData* ResourceManager::getProjectRoot(const fs::path& fs_path)
 {
@@ -1005,5 +1016,33 @@ void ResourceManager::clearAssetList(int project_file, AssetType type)
 void ResourceManager::refreshAssetList(int project_file, AssetType type)
 {
 
+}
+
+QStringList ResourceManager::assetsList(int project_index, AssetType type)
+{
+	QStringList out; out << "(none)";
+	fs::path project_path = path(project_index).parent_path();
+	fs::path asset_subfolder;
+	switch (type)
+	{
+	case AssetType::skeleton:
+		asset_subfolder = "Character Assets";
+		break;
+	case AssetType::behavior:
+		asset_subfolder = "Behaviors";
+		break;
+	case AssetType::animation:
+		asset_subfolder = "Animations";
+		break;
+	default:
+		return {};
+	}
+	auto asset_folder = project_path / asset_subfolder;
+	for (auto& entry : fs::directory_iterator(asset_folder))
+	{
+		if (fs::is_regular_file(entry.path()))
+			out << (asset_subfolder / entry.path().filename()).string().c_str();
+	}
+	return out;
 }
 

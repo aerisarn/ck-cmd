@@ -33,7 +33,7 @@ namespace ckcmd {
             virtual int columnCount(const QModelIndex& parent = QModelIndex()) const override;
             virtual int rowCount(const QModelIndex& parent = QModelIndex()) const override;
 
-            virtual QModelIndex ProjectTreeModel::parent(const QModelIndex& child) const override;
+            virtual QModelIndex parent(const QModelIndex& child) const override;
             virtual QModelIndex index(int row, int column, const QModelIndex& parent) const override;
 
             virtual QVariant data(const QModelIndex& proxyIndex, int role) const override;
