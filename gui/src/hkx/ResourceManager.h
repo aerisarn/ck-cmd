@@ -36,7 +36,9 @@ namespace ckcmd {
 			invalid = 0,
 			skeleton,
 			animation,
-			behavior
+			behavior,
+			bones,
+			ragdoll_bones
 		};
 
 		class ResourceManager {

@@ -1,5 +1,6 @@
 #include "ProjectModel.h"
 
+#include <src/models/SelectionProxyModel.h>
 #include <QStringListModel>
 #include <QBrush>
 
@@ -355,6 +356,27 @@ bool ProjectModel::isAssetsNode(const QModelIndex& index)
 	return ::isAssetsNode(nodeType(index));
 }
 
+QModelIndex ProjectModel::getChildAssetProxy(const QModelIndex& index, AssetType type, NodeType proxy_type)
+{
+	auto& edge = modelEdge(index);
+	int children = edge.childCount(_resourceManager);
+	for (int i = 0; i < children; ++i)
+	{
+		auto child_index = this->index(i, 0, index);
+		auto& child_edge = modelEdge(child_index);
+		if (modelEdge(child_index).type() == proxy_type)
+		{
+			QModelIndex bones_index;
+			if (!hasIndex(0, 0, child_index))
+				bones_index = createIndex(0, 0, child_index.internalId());
+			else
+				bones_index = this->index(0, 0, child_index);
+			return bones_index;
+		}
+	}
+	return QModelIndex();
+}
+
 QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType type)
 {
 	auto& edge = modelEdge(index);
@@ -362,6 +384,20 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 	{
 	case NodeType::CharacterHkxNode:
 	{
+		if (AssetType::bones == type)
+		{
+			auto skeleton_index = getChildAssetProxy(index, AssetType::bones, NodeType::SkeletonHkxNode);
+			if (skeleton_index.isValid())
+				return new SelectionProxyModel(this, skeleton_index);
+			return nullptr;
+		}
+		else if (AssetType::ragdoll_bones == type)
+		{
+			auto ragdoll_index = getChildAssetProxy(index, AssetType::ragdoll_bones, NodeType::RagdollHkxNode);
+			if (ragdoll_index.isValid())
+				return new SelectionProxyModel(this, ragdoll_index);
+			return nullptr;
+		}
 		return new QStringListModel(_resourceManager.assetsList(edge._project, type));
 	}
 	default:

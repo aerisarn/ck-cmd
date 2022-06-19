@@ -53,6 +53,9 @@ namespace ckcmd {
 		void bind(QWidget* widget, const QString& memberName);
 		void bind(QWidget* widget, const QByteArray& property_name, const QString& memberName, int column_index);
 
+		QVariant data(const char* memberName, int column);
+		bool setData(const char* memberName, int column, const QVariant& value, int role);
+
 	public:
 		ModelWidget(HKX::ProjectModel& model, QWidget* parent = 0);
 

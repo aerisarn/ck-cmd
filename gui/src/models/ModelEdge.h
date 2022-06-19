@@ -38,10 +38,12 @@ namespace ckcmd {
             FSMWildcardTransition,
             FSMStateTransitions,
             FSMStateTransition,
+            SkeletonHkxNode,
             SkeletonBones,
             SkeletonBone,
             SkeletonFloats,
             SkeletonFloat,
+            RagdollHkxNode,
             RagdollBones,
             RagdollBone
         };
@@ -92,11 +94,11 @@ namespace ckcmd {
             bool operator < (const ModelEdge& rhs) const {
                 if (
                         (
-                        _childType == NodeType::SkeletonBone ||
-                        _childType == NodeType::RagdollBone
+                        _childType == NodeType::SkeletonBones ||
+                        _childType == NodeType::RagdollBones
                         ) && (
-                            rhs._childType == NodeType::SkeletonBone ||
-                            rhs._childType == NodeType::RagdollBone
+                            rhs._childType == NodeType::SkeletonBones ||
+                            rhs._childType == NodeType::RagdollBones
                         )
                     )
                 {

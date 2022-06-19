@@ -1029,12 +1029,16 @@ void ResourceManager::refreshAssetList(int project_file, AssetType type)
 QStringList ResourceManager::assetsList(int project_index, AssetType type)
 {
 	QStringList out; out << "";
-	fs::path project_path = path(project_index).parent_path();
-	fs::path asset_subfolder;
+	fs::path project_file_path = path(project_index);
+	fs::path project_path = project_file_path.parent_path();
+	auto* project_root = getProjectRoot(project_file_path);
+	fs::path char_file_path = project_path / project_root->m_characterFilenames[0].cString();
+	get(char_file_path);
+	auto string_data = getCharacterString(index(char_file_path));
+	fs::path asset_subfolder = fs::path(string_data->m_rigName.cString()).parent_path();
 	switch (type)
 	{
 	case AssetType::skeleton:
-		asset_subfolder = "Character Assets";
 		break;
 	case AssetType::behavior:
 		asset_subfolder = "Behaviors";

@@ -157,3 +157,13 @@ void ModelWidget::bind(QWidget* widget, const QByteArray& property_name, const Q
 {
 	bind(widget, property_name, memberModelRow(memberName), column_index);
 }
+
+QVariant ModelWidget::data(const char* memberName, int column)
+{
+	return _model.data(_model.index(memberModelRow(memberName), dataBindingColumnStart() + column, _index));
+}
+
+bool ModelWidget::setData(const char* memberName, int column, const QVariant& value, int role)
+{
+	return _model.setData(_model.index(memberModelRow(memberName), dataBindingColumnStart() + column, _index), value, role);
+}

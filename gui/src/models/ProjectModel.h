@@ -28,6 +28,7 @@ namespace ckcmd {
             bool hasModelEdgeIndex(const ModelEdge& edge) const;
             qintptr createModelEdgeIndex(const ModelEdge& edge);
             void deleteAllModelEdgeIndexesForFile(int project_file);
+            QModelIndex getChildAssetProxy(const QModelIndex& index, AssetType type, NodeType proxy_type);
 
             CommandManager& _commandManager;
             ResourceManager& _resourceManager;

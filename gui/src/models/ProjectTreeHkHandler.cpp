@@ -87,18 +87,18 @@ struct  HandleCharacterData
 						return ModelEdge(variant, project, behavior_index, index, 0, root, NodeType::BehaviorHkxNode);
 
 					if (rig_root != NULL)
-						return ModelEdge(variant, project, rig_index, 0, 0, rig_root);
+						return ModelEdge(variant, project, rig_index, 0, 0, rig_root, NodeType::SkeletonHkxNode);
 
-					return ModelEdge(variant, project, ragdoll_index, 0, 0, ragdoll_root);
+					return ModelEdge(variant, project, ragdoll_index, 0, 0, ragdoll_root, NodeType::RagdollHkxNode);
 				}
 				else if (index == RIG_INDEX)
 				{
 					if (rig_root != NULL && root != NULL)
-						return ModelEdge(variant, project, rig_index, 0, 0, rig_root);
+						return ModelEdge(variant, project, rig_index, 0, 0, rig_root, NodeType::SkeletonHkxNode);
 
-					return ModelEdge(variant, project, ragdoll_index, 0, 0, ragdoll_root);
+					return ModelEdge(variant, project, ragdoll_index, 0, 0, ragdoll_root, NodeType::RagdollHkxNode);
 				}
-				return ModelEdge(variant, project, ragdoll_index, 0, 0, ragdoll_root);
+				return ModelEdge(variant, project, ragdoll_index, 0, 0, ragdoll_root, NodeType::RagdollHkxNode);
 			}
 			return ModelEdge();
 		}
@@ -287,7 +287,7 @@ struct  HandleCharacterData
 		HkxTableVariant mirroring_data_variant(*manager.at(file, mirroring_data_index));
 		int mirroring_data_rows = mirroring_data_variant.rows();
 		if (row < SUPPORT_END + data_rows + stringdata_rows + mirroring_data_rows)
-			return mirroring_data_variant.data(row - stringdata_rows - data_rows - SUPPORT_END, column);
+			return mirroring_data_variant.data(row - stringdata_rows - data_rows - SUPPORT_END, column - 1);
 		return QVariant();
 	}
 
@@ -615,7 +615,7 @@ struct  HandleSkeletonData
 		auto* data = reinterpret_cast<hkaSkeleton*>(variant->m_object);
 		if (data == NULL)
 			return 0;
-		if (childType == NodeType::HavokNative)
+		if (childType == NodeType::SkeletonHkxNode)
 		{
 			return DATA_SUPPORTS;
 		}
@@ -648,7 +648,7 @@ struct  HandleSkeletonData
 		{
 			return data->m_floatSlots[row].cString();
 		}
-		else if (childType == NodeType::HavokNative) {
+		else if (childType == NodeType::SkeletonHkxNode) {
 			return "Skeleton";
 		}
 		return 0;
@@ -657,7 +657,7 @@ struct  HandleSkeletonData
 
 	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
-		if (childType == NodeType::HavokNative)
+		if (childType == NodeType::SkeletonHkxNode)
 		{
 			switch (index) {
 			case 0:
@@ -703,7 +703,7 @@ struct  HandleRagdollData
 		auto* data = reinterpret_cast<hkaRagdollInstance*>(variant->m_object);
 		if (data == NULL)
 			return 0;
-		if (childType == NodeType::HavokNative)
+		if (childType == NodeType::RagdollHkxNode)
 		{
 			return DATA_SUPPORTS;
 		}
@@ -729,7 +729,7 @@ struct  HandleRagdollData
 		{
 			return data->m_skeleton->m_bones[row].m_name.cString();
 		}
-		else if (childType == NodeType::HavokNative)
+		else if (childType == NodeType::RagdollHkxNode)
 		{
 			return "Ragdoll";
 		}
@@ -740,7 +740,7 @@ struct  HandleRagdollData
 
 	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
-		if (childType == NodeType::HavokNative)
+		if (childType == NodeType::RagdollHkxNode)
 		{
 			switch (index) {
 			case 0:
