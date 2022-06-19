@@ -232,10 +232,27 @@ bool ProjectModel::setData(const QModelIndex& index, const QVariant& value,
 
 	if (role == Qt::EditRole)
 	{
+		int children = edge.childCount(_resourceManager);
 		if (edge.setData(index.row(), index.column(), value, _resourceManager))
 			emit dataChanged(index, index);
-		if (edge._childType == NodeType::CharacterHkxNode)
-			emit dataChanged(edge._parent, edge._parent);
+		int new_children = edge.childCount(_resourceManager);
+		if (children != new_children)
+		{
+			int difference = new_children - children;
+			if (difference > 0)
+			{
+				emit beginInsertRows(index, children - 1, children - 1 + difference);
+				emit endInsertRows();
+				emit beginInsertChildren(index, children - 1, children - 1 + difference);
+				emit endInsertChildren();
+			}
+			else {
+				emit beginRemoveRows(index, children - 1 + difference, children - 1);
+				emit endRemoveRows();
+				emit beginRemoveChildren(index, children - 1 + difference, children - 1);
+				emit endRemoveChildren();
+			}
+		}
 	}
 	return false;
 }

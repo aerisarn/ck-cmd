@@ -4,6 +4,8 @@
 #include <QVariant>
 #include <map>
 
+#include <src/hkx/HkxItemReal.h>
+
 //this could have been an inner class if not a Q_OBJECT
 class ModelWidgetSignalMapper : public QObject {
 	Q_OBJECT
@@ -30,5 +32,11 @@ public slots:
 	void receiveValue(double value) {
 		auto dest = _mapping.at(sender());
 		emit sendValue(dest.first, dest.second, value);
+	}
+
+	void receiveValue(ckcmd::HKX::HkxItemReal value) {
+		auto dest = _mapping.at(sender());
+		QVariant qvalue; qvalue.setValue(value);
+		emit sendValue(dest.first, dest.second, qvalue);
 	}
 };

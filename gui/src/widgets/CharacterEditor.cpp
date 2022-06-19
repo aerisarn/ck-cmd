@@ -11,9 +11,9 @@ CharacterEditorWidget::CharacterEditorWidget(ckcmd::HKX::ProjectModel& model, QW
     setupUi(this);
     dataBindingtable.push_back({ behavioComboBox, {}, "behaviorFilename", 0 });
     dataBindingtable.push_back({ rigComboBox, {}, "rigName", 0 });
-    dataBindingtable.push_back({ mirroringXDoubleSpinBox, {}, "mirrorAxis", 0 });
-    dataBindingtable.push_back({ mirroringYDoubleSpinBox, {}, "mirrorAxis", 1 });
-    dataBindingtable.push_back({ mirroringZDoubleSpinBox, {}, "mirrorAxis", 2 });
+    dataBindingtable.push_back({ this, {}, "mirrorAxis", 0 });
+    //dataBindingtable.push_back({ mirroringYDoubleSpinBox, {}, "mirrorAxis", 1 });
+    //dataBindingtable.push_back({ mirroringZDoubleSpinBox, {}, "mirrorAxis", 2 });
     //connect(nameLineEdit, &QLineEdit::textChanged, this, &TopInfoWidget::resizeNameToContent);
 }
 
@@ -70,8 +70,39 @@ void CharacterEditorWidget::setRigField()
     rigComboBox->setCurrentIndex(new_index);
 }
 
+ckcmd::HKX::HkxItemReal CharacterEditorWidget::readMirrorAxis()
+{
+    return ckcmd::HKX::HkxItemReal(
+        { {
+            (float)mirroringXDoubleSpinBox->value(),
+            (float)mirroringYDoubleSpinBox->value(),
+            (float)mirroringZDoubleSpinBox->value()
+        } }
+    );
+}
+
+void CharacterEditorWidget::writeMirrorAxis(ckcmd::HKX::HkxItemReal value)
+{
+    mirroringXDoubleSpinBox->setValue(value.value(0, 0));
+    mirroringYDoubleSpinBox->setValue(value.value(0, 1));
+    mirroringZDoubleSpinBox->setValue(value.value(0, 2));
+}
+
 void CharacterEditorWidget::OnIndexSelected()
 {
     setBehaviorField();
     setRigField();
+}
+
+void CharacterEditorWidget::on_mirroringXDoubleSpinBox_valueChanged(double d)
+{
+    emit mirrorAxisChanged(readMirrorAxis());
+}
+void CharacterEditorWidget::on_mirroringYDoubleSpinBox_valueChanged(double d)
+{
+    emit mirrorAxisChanged(readMirrorAxis());
+}
+void CharacterEditorWidget::on_mirroringZDoubleSpinBox_valueChanged(double d)
+{
+    emit mirrorAxisChanged(readMirrorAxis());
 }

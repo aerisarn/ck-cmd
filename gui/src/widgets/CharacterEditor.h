@@ -6,12 +6,14 @@
 #include <QCompleter>
 
 #include "ui_CharacterEditor.h"
+#include <src/hkx/HkxItemReal.h>
 
 class hkbNode;
 
 class CharacterEditorWidget : public ckcmd::ModelWidget, private Ui::CharacterEditor
 {
     Q_OBJECT
+    Q_PROPERTY(ckcmd::HKX::HkxItemReal mirrorAxis READ readMirrorAxis WRITE writeMirrorAxis USER true NOTIFY mirrorAxisChanged)
 
     virtual void OnIndexSelected() override;
 
@@ -29,15 +31,20 @@ class CharacterEditorWidget : public ckcmd::ModelWidget, private Ui::CharacterEd
 
 
 private slots:
-    //    void resizeNameToContent(const QString& text);
-    //    void on_treeView_doubleClicked(const QModelIndex& index);
-    //    void on_treeView_customContextMenuRequested(const QPoint& pos);
-    //    void on_treeView_selectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
+    void on_mirroringXDoubleSpinBox_valueChanged(double d);
+    void on_mirroringYDoubleSpinBox_valueChanged(double d);
+    void on_mirroringZDoubleSpinBox_valueChanged(double d);
 
 public:
     explicit CharacterEditorWidget(ckcmd::HKX::ProjectModel& model, QWidget* parent = 0);
 
     QSize sizeHint() const override;
+
+    ckcmd::HKX::HkxItemReal readMirrorAxis();
+    void writeMirrorAxis(ckcmd::HKX::HkxItemReal value);
+
+Q_SIGNALS:
+    void mirrorAxisChanged(ckcmd::HKX::HkxItemReal value);
 
 private:
 

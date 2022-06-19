@@ -33,11 +33,6 @@ namespace ckcmd {
             ResourceManager& _resourceManager;
             ProjectTreeActions _actionsManager;
 
-            const QString _charactersNode = "Characters Projects";
-            const QString _miscsNode = "Miscs Projects";
-
-            void openOrCloseProject(int project_index, NodeType type);
-
         public:
 
             ProjectModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent = 0);
@@ -80,6 +75,13 @@ namespace ckcmd {
 
         public slots:
             void refreshAssetList(const QModelIndex& parent, AssetType type);
+
+        Q_SIGNALS:
+            void beginInsertChildren(const QModelIndex& parent, int first, int last);
+            void endInsertChildren();
+
+            void beginRemoveChildren(const QModelIndex& parent, int first, int last);
+            void endRemoveChildren();
 
         };
     }

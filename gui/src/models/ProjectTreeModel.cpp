@@ -106,7 +106,7 @@ QModelIndex ProjectTreeModel::mapFromSource(const QModelIndex& sourceIndex) cons
 		}
 	}
 
-	return createIndex(0, 0, source_parent.internalId());
+	return createIndex(0, 0, sourceModel()->index(0, 0, source_parent).internalId());
 }
 
 int ProjectTreeModel::columnCount(const QModelIndex& parent) const
@@ -177,20 +177,115 @@ void ProjectTreeModel::activate(const QModelIndex& index)
 	}
 }
 
-bool ProjectTreeModel::insertRows(int row, int count, const QModelIndex& index)
-{
-	emit beginInsertRows(index, 0, 0);
-	bool result = sourceModel()->insertRows(row, count, mapToSource(index));
-	emit endInsertRows();
-	return result;
+//bool ProjectTreeModel::insertRows(int row, int count, const QModelIndex& index)
+//{
+//	emit beginInsertRows(index, 0, 0);
+//	bool result = sourceModel()->insertRows(row, count, mapToSource(index));
+//	emit endInsertRows();
+//	return result;
+//}
+//
+//bool ProjectTreeModel::removeRows(int row, int count, const QModelIndex& index)
+//{
+//	emit beginRemoveRows(index, 0, 0);
+//	bool result = sourceModel()->removeRows(row, count, mapToSource(index));
+//	emit endRemoveRows();
+//	return result;
+//}
+
+#undef max
+#undef min
+
+void ProjectTreeModel::setSourceModel(ProjectModel* newSourceModel)
+{ 
+	if (newSourceModel == sourceModel()) {
+		return;
+	}
+
+	beginResetModel();
+
+	disconnect(newSourceModel, nullptr, this, nullptr);
+
+	QAbstractProxyModel::setSourceModel(newSourceModel);
+
+	connect(newSourceModel, &ProjectModel::dataChanged,
+		this, &ProjectTreeModel::sourceDataChanged);
+	connect(newSourceModel, &ProjectModel::modelAboutToBeReset,
+		this, [this]() { beginResetModel(); });
+	connect(newSourceModel, &ProjectModel::modelReset,
+		this, [this]() { endResetModel(); });
+
+	connect(newSourceModel, &ProjectModel::beginInsertChildren,
+		this, &ProjectTreeModel::sourceBeginInsertChildren);
+	connect(newSourceModel, &ProjectModel::endInsertChildren,
+		this, &ProjectTreeModel::sourceEndInsertChildren);
+	connect(newSourceModel, &ProjectModel::beginRemoveChildren,
+		this, &ProjectTreeModel::sourceBeginRemoveChildren);
+	connect(newSourceModel, &ProjectModel::endRemoveChildren,
+		this, &ProjectTreeModel::sourceEndRemoveChildren);
+
+	endResetModel();
 }
 
-bool ProjectTreeModel::removeRows(int row, int count, const QModelIndex& index)
+void ProjectTreeModel::sourceDataChanged(const QModelIndex& topLeft, const QModelIndex& bottomRight, const QVector<int>& roles)
 {
-	emit beginRemoveRows(index, 0, 0);
-	bool result = sourceModel()->removeRows(row, count, mapToSource(index));
+	if (!topLeft.isValid() ||
+		!bottomRight.isValid() ||
+		(topLeft.parent() != bottomRight.parent()))
+	{
+		return;
+	}
+
+	const auto& parent = mapFromSource(topLeft.parent());
+
+	int minRow = std::numeric_limits<int>::max();
+	int maxRow = std::numeric_limits<int>::lowest();
+	int minCol = std::numeric_limits<int>::max();
+	int maxCol = std::numeric_limits<int>::lowest();
+	bool foundValidIndex = false;
+
+	for (int sourceRow = topLeft.row(); sourceRow <= bottomRight.row(); ++sourceRow) {
+		for (int sourceColumn = topLeft.column(); sourceColumn <= bottomRight.column(); ++sourceColumn) {
+			const auto index = mapFromSource(sourceModel()->index(sourceRow, sourceColumn, topLeft.parent()));
+			if (!index.isValid()) {
+				continue;
+			}
+
+			minRow = std::min(minRow, index.row());
+			maxRow = std::max(maxRow, index.row());
+			minCol = std::min(minCol, index.column());
+			maxCol = std::max(maxCol, index.column());
+			foundValidIndex = true;
+		}
+	}
+
+	if (foundValidIndex) {
+		emit dataChanged(index(minRow, minCol, parent),
+			index(maxRow, maxCol, parent),
+			roles);
+	}
+}
+
+void ProjectTreeModel::sourceBeginInsertChildren(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
+{
+	auto parent = mapFromSource(sourceParent);
+	emit beginInsertRows(parent, sourceFirst, sourceLast);
+}
+
+void ProjectTreeModel::sourceEndInsertChildren()
+{
+	emit endInsertRows();
+}
+
+void ProjectTreeModel::sourceBeginRemoveChildren(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)
+{
+	auto parent = mapFromSource(sourceParent);
+	int rowCount = this->rowCount(parent);
+	emit beginRemoveRows(parent, sourceFirst, sourceFirst);
+}
+void ProjectTreeModel::sourceEndRemoveChildren()
+{
 	emit endRemoveRows();
-	return result;
 }
 
 //bool ProjectTreeModel::hasChildren(const QModelIndex& parent) const

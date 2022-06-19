@@ -39,6 +39,16 @@ struct  HandleCharacterData
 		return "Invalid Character Entry";
 	};
 
+//	static const std::set<std::string> fileNodes
+//	(
+//		"deformableSkinNames",
+//		"animationNames",
+//		"characterPropertyNames"
+//		"rigName",
+//		"ragdollName"
+//		"behaviorFilename"
+//};
+
 #undef max
 
 	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
@@ -295,7 +305,8 @@ struct  HandleCharacterData
 		int string_data_index = manager.findIndex(file, &*string_data);
 		HkxTableVariant stringdata_variant(*manager.at(file, string_data_index));
 		int stringdata_rows = stringdata_variant.rows();
-		return stringdata_variant.setData(row - data_rows - SUPPORT_END, column - 1, value);
+		if (row < SUPPORT_END + data_rows + stringdata_rows)
+			return stringdata_variant.setData(row - data_rows - SUPPORT_END, column - 1, value);
 		int mirroring_data_index = manager.findIndex(file, &*mirror_data);
 		HkxTableVariant mirroring_data_variant(*manager.at(file, mirroring_data_index));
 		int mirroring_data_rows = mirroring_data_variant.rows();

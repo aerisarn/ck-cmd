@@ -26,8 +26,10 @@ public:
 
 private:
 
+    StaticBindingTable table = {};
+
     virtual const StaticBindingTable& bindingTable() const override {
-        return {};
+        return table;
     }
 
     QModelIndex _selected;
