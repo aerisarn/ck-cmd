@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QObject>
-
+#include <QVariant>
 #include <map>
 
 //this could have been an inner class if not a Q_OBJECT
@@ -19,9 +19,15 @@ public:
 	}
 
 Q_SIGNALS:
-	void sendValue(int row, int column, QString value);
+	void sendValue(int row, int column, QVariant value);
 public slots:
+
 	void receiveValue(QString value) {
+		auto dest = _mapping.at(sender());
+		emit sendValue(dest.first, dest.second, value);
+	}
+
+	void receiveValue(double value) {
 		auto dest = _mapping.at(sender());
 		emit sendValue(dest.first, dest.second, value);
 	}

@@ -24,6 +24,9 @@ class CharacterEditorWidget : public ckcmd::ModelWidget, private Ui::CharacterEd
         return dataBindingtable;
     }
 
+    void setBehaviorField();
+    void setRigField();
+
 
 private slots:
     //    void resizeNameToContent(const QString& text);

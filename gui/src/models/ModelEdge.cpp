@@ -163,7 +163,7 @@ bool ModelEdge::setData(int row, int column, const QVariant& value, ResourceMana
 	default:
 	{
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::setData(_project, row, column, variant, _childType, value, manager);
+		return ProjectTreeHkHandler::setData(row, column, _project, _file, variant, _childType, value, manager);
 	}
 	}
 	return false;

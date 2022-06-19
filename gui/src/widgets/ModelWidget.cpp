@@ -24,7 +24,7 @@ void ModelWidget::buildReflectionTable()
 
 	for (i; i < rows; ++i)
 	{
-		auto row_index = _model.index(i, j, _index);
+		auto row_index = _model.index(i, 0, _index);
 		columns = _model.rowColumns(row_index);
 		_members.insert(
 			{
@@ -44,9 +44,9 @@ void ModelWidget::doBindings()
 	}
 }
 
-void ModelWidget::doPropertyChange(int row, int column, QString value)
+void ModelWidget::doPropertyChange(int row, int column, QVariant value)
 {
-	auto index = _model.index(row, column, _index);
+	auto index = _model.index(row, column + dataBindingColumnStart(), _index);
 	_model.setData(index, value, Qt::EditRole);
 }
 
@@ -63,10 +63,15 @@ void ModelWidget::bind(QWidget* widget, const QByteArray& property_name, size_t 
 		const QMetaProperty to_bind_property = meta_sender->property(index);
 		if (to_bind_property.hasNotifySignal()) {
 			const QMetaMethod notifySignal = to_bind_property.notifySignal();
-			auto receive_slot_index = meta_receiver->indexOfSlot(QMetaObject::normalizedSignature("receiveValue(QString)"));
+			QString sig = QString("%1").arg(notifySignal.methodSignature().constData());
+			QRegExp exp("\\((.*)\\)");
+			exp.indexIn(sig);
+			auto parameter = exp.cap(1);
+			auto receive_slot = std::string("receiveValue(") + parameter.toUtf8().constData() + ")";
+			auto receive_slot_index = meta_receiver->indexOfSlot(receive_slot.c_str());
 			const QMetaMethod receiveSlot = meta_receiver->method(receive_slot_index);
 			//debug
-			QString sig = QString("2%1").arg(notifySignal.methodSignature().constData());
+
 			bool ok = connect(widget, notifySignal, &_widget_signal_map, receiveSlot);
 			if (!ok)
 				__debugbreak();

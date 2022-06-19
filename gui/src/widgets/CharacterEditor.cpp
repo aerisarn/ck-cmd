@@ -10,6 +10,10 @@ CharacterEditorWidget::CharacterEditorWidget(ckcmd::HKX::ProjectModel& model, QW
 {
     setupUi(this);
     dataBindingtable.push_back({ behavioComboBox, {}, "behaviorFilename", 0 });
+    dataBindingtable.push_back({ rigComboBox, {}, "rigName", 0 });
+    dataBindingtable.push_back({ mirroringXDoubleSpinBox, {}, "mirrorAxis", 0 });
+    dataBindingtable.push_back({ mirroringYDoubleSpinBox, {}, "mirrorAxis", 1 });
+    dataBindingtable.push_back({ mirroringZDoubleSpinBox, {}, "mirrorAxis", 2 });
     //connect(nameLineEdit, &QLineEdit::textChanged, this, &TopInfoWidget::resizeNameToContent);
 }
 
@@ -18,9 +22,8 @@ QSize CharacterEditorWidget::sizeHint() const
     return QSize(784, 302);
 }
 
-void CharacterEditorWidget::OnIndexSelected()
+void CharacterEditorWidget::setBehaviorField()
 {
-    //use a submodel;
     QString option = behavioComboBox->currentText();
     delete _behavior_file_options;
     _behavior_file_options = static_cast<QStringListModel*>(_model.editModel(_index, ckcmd::HKX::AssetType::behavior));
@@ -41,17 +44,34 @@ void CharacterEditorWidget::OnIndexSelected()
     behavioComboBox->setEditable(true);
     behavioComboBox->setInsertPolicy(QComboBox::NoInsert);
     behavioComboBox->setCurrentIndex(new_index);
+}
 
-    //int rows = _model.rowCount(_index);
-    //int columns = _model.columnCount(_index);
+void CharacterEditorWidget::setRigField()
+{
+    QString option = rigComboBox->currentText();
+    delete _rig_file_options;
+    _rig_file_options = static_cast<QStringListModel*>(_model.editModel(_index, ckcmd::HKX::AssetType::skeleton));
+    int new_index = -1;
+    auto options = _rig_file_options->stringList();
+    for (int i = 0; i < options.size(); ++i)
+    {
+        if (QString::compare(option, options.at(i), Qt::CaseInsensitive) == 0)
+        {
+            new_index = i;
+            break;
+        }
+    }
+    _rig_file_options->setParent(this); //last gets deleted
+    _rig_completer->setModel(_rig_file_options);
+    _rig_completer->setCompletionMode(QCompleter::InlineCompletion);
+    rigComboBox->setModel(_rig_file_options);
+    rigComboBox->setEditable(true);
+    rigComboBox->setInsertPolicy(QComboBox::NoInsert);
+    rigComboBox->setCurrentIndex(new_index);
+}
 
-    //std::vector<QVariant> datas;
-
-    //for (int i = 0; i < rows; ++i)
-    //{
-    //    for (int j = 0; j < columns; ++j)
-    //    {
-    //        datas.push_back(_model.data(_model.index(i, j, _index)));
-    //    }
-    //}
+void CharacterEditorWidget::OnIndexSelected()
+{
+    setBehaviorField();
+    setRigField();
 }

@@ -922,17 +922,25 @@ std::pair< hkRefPtr<const hkaSkeleton>, bool> hasRagdoll(const std::vector<hkVar
 	return { nullptr, false };
 }
 
+size_t ResourceManager::hasBehavior(int project_file, hkbCharacterStringData* string_data)
+{
+	fs::path project_path = path(project_file).parent_path();
+	fs::path behavior_path = project_path / string_data->m_behaviorFilename.cString();
+	if (fs::exists(behavior_path) && fs::is_regular_file(behavior_path))
+		return 1;
+	return 0;
+}
 
 size_t ResourceManager::hasRigAndRagdoll(int project_file, hkbCharacterStringData* string_data)
 {
 	size_t count = 0;
-	fs::path behavior_path = path(project_file).parent_path();
-	fs::path rig_path = behavior_path / string_data->m_rigName.cString();
+	fs::path project_path = path(project_file).parent_path();
+	fs::path rig_path = project_path / string_data->m_rigName.cString();
 	if (fs::exists(rig_path))
 		count += 1;
 	if (string_data->m_ragdollName.getLength() > 0)
 	{
-		fs::path ragdoll_path = behavior_path / string_data->m_ragdollName.cString();
+		fs::path ragdoll_path = project_path / string_data->m_ragdollName.cString();
 		if (fs::exists(ragdoll_path))
 			count += 1;
 	}
@@ -1020,7 +1028,7 @@ void ResourceManager::refreshAssetList(int project_file, AssetType type)
 
 QStringList ResourceManager::assetsList(int project_index, AssetType type)
 {
-	QStringList out; out << "(none)";
+	QStringList out; out << "";
 	fs::path project_path = path(project_index).parent_path();
 	fs::path asset_subfolder;
 	switch (type)

@@ -23,7 +23,7 @@ namespace ckcmd {
 			static ModelEdge getChild(hkVariant*, int row, int column, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType);
 
 			static QVariant data(int file, int row, int column, hkVariant* variant, NodeType childType, ResourceManager& manager);
-			static bool setData(int project, int row, int column, hkVariant* variant, NodeType childType, const QVariant& value, ResourceManager& manager);
+			static bool setData(int row, int column, int project, int file, hkVariant* variant, NodeType childType, const QVariant& value, ResourceManager& manager);
 		};
 	}
 }

@@ -230,10 +230,12 @@ bool ProjectModel::setData(const QModelIndex& index, const QVariant& value,
 	//		return true;
 	//	}
 
-	if (index.column() == 0 && role == Qt::EditRole)
+	if (role == Qt::EditRole)
 	{
-		if (modelEdge(index).setData(index.row(), index.column(), value, _resourceManager))
+		if (edge.setData(index.row(), index.column(), value, _resourceManager))
 			emit dataChanged(index, index);
+		if (edge._childType == NodeType::CharacterHkxNode)
+			emit dataChanged(edge._parent, edge._parent);
 	}
 	return false;
 }

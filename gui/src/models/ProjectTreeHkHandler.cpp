@@ -18,9 +18,10 @@ using namespace ckcmd::HKX;
 
 struct  HandleCharacterData
 {
-	static const size_t DATA_SUPPORTS = 4;
-	static const size_t RIG_INDEX = DATA_SUPPORTS;
-	static const size_t RAGDOLL_INDEX = DATA_SUPPORTS + 1;
+	static const size_t DATA_SUPPORTS = 3;
+	static const size_t BEHAVIOR_INDEX = DATA_SUPPORTS;
+	static const size_t RIG_INDEX = BEHAVIOR_INDEX + 1;
+	static const size_t RAGDOLL_INDEX = RIG_INDEX + 1;
 	static const size_t SUPPORT_END = RAGDOLL_INDEX + 1;
 
 	static const char* DataListsName(int row)
@@ -40,6 +41,74 @@ struct  HandleCharacterData
 
 #undef max
 
+	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+	{
+		if (childType == NodeType::CharacterHkxNode)
+		{
+			switch (index) {
+			case 0:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::deformableSkinNames);
+			case 1:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::animationNames);
+			case 2:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyNames);
+			default:
+				break;
+			}
+			if (index >= DATA_SUPPORTS)
+			{
+				auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+				auto string_data = data->m_stringData;
+
+				int behavior_index = manager.behaviorFileIndex(project, variant);
+				hkVariant* root = manager.behaviorFileRoot(behavior_index);
+				int rig_index = manager.getRigIndex(project, string_data);
+				hkVariant* rig_root = manager.getRigRoot(project, rig_index);
+				int ragdoll_index = -1;
+				if (string_data->m_ragdollName.getLength() > 0)
+					ragdoll_index = manager.getRagdollIndex(project, string_data->m_ragdollName.cString());
+				else
+					ragdoll_index = manager.getRagdollIndex(project, string_data->m_rigName.cString());
+				hkVariant* ragdoll_root = manager.getRagdollRoot(project, ragdoll_index);
+
+				if (index == BEHAVIOR_INDEX)
+				{
+					if (root != NULL)
+						return ModelEdge(variant, project, behavior_index, index, 0, root, NodeType::BehaviorHkxNode);
+
+					if (rig_root != NULL)
+						return ModelEdge(variant, project, rig_index, 0, 0, rig_root);
+
+					return ModelEdge(variant, project, ragdoll_index, 0, 0, ragdoll_root);
+				}
+				else if (index == RIG_INDEX)
+				{
+					if (rig_root != NULL && root != NULL)
+						return ModelEdge(variant, project, rig_index, 0, 0, rig_root);
+
+					return ModelEdge(variant, project, ragdoll_index, 0, 0, ragdoll_root);
+				}
+				return ModelEdge(variant, project, ragdoll_index, 0, 0, ragdoll_root);
+			}
+			return ModelEdge();
+		}
+		else if (childType == NodeType::deformableSkinNames)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::deformableSkinName);
+		}
+		else if (childType == NodeType::animationNames)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::animationName);
+		}
+		else if (childType == NodeType::characterPropertyNames)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyName);
+		}
+		else {
+			return ModelEdge();
+		}
+	}
+
 	static const int getColumns(int file, hkVariant* variant, ResourceManager& manager)
 	{
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
@@ -48,8 +117,16 @@ struct  HandleCharacterData
 		auto string_data = data->m_stringData;
 		if (string_data == NULL)
 			return 0;
-		int file_index = manager.findIndex(file, &*string_data);
-		int additional = std::max(HkxTableVariant(*variant).columns(), HkxTableVariant(*manager.at(file, file_index)).columns());
+		auto mirror_data = data->m_mirroredSkeletonInfo;
+		if (mirror_data == NULL)
+			return 0;
+		int string_data_index = manager.findIndex(file, &*string_data);
+		int mirror_data_index = manager.findIndex(file, &*mirror_data);
+		int additional = std::max({
+			HkxTableVariant(*variant).columns(),
+			HkxTableVariant(*manager.at(file, string_data_index)).columns(),
+			HkxTableVariant(*manager.at(file, mirror_data_index)).columns()
+		});
 		return 1 + additional;
 	}
 
@@ -61,8 +138,15 @@ struct  HandleCharacterData
 		auto string_data = data->m_stringData;
 		if (string_data == NULL)
 			return 0;
-		int file_index = manager.findIndex(file, &*string_data);
-		return SUPPORT_END + HkxTableVariant(*variant).rows() + HkxTableVariant(*manager.at(file, file_index)).rows();
+		auto mirror_data = data->m_mirroredSkeletonInfo;
+		if (mirror_data == NULL)
+			return 0;
+		int string_data_index = manager.findIndex(file, &*string_data);
+		int mirror_data_index = manager.findIndex(file, &*mirror_data);
+		return SUPPORT_END +
+			HkxTableVariant(*variant).rows() +
+			HkxTableVariant(*manager.at(file, string_data_index)).rows() +
+			HkxTableVariant(*manager.at(file, mirror_data_index)).rows();
 	}
 
 	static int getChildCount(int row,  int project, hkVariant* variant, NodeType childType, ResourceManager& manager)
@@ -76,6 +160,7 @@ struct  HandleCharacterData
 		if (childType == NodeType::CharacterHkxNode)
 		{
 			int count = DATA_SUPPORTS;
+			count += manager.hasBehavior(project, string_data);
 			count += manager.hasRigAndRagdoll(project, string_data);
 			if (row < count)
 				return count;
@@ -104,7 +189,9 @@ struct  HandleCharacterData
 		auto string_data = data->m_stringData;
 		if (string_data == NULL)
 			return 0;
-
+		auto mirror_data = data->m_mirroredSkeletonInfo;
+		if (mirror_data == NULL)
+			return 0;
 		if (childType == NodeType::CharacterHkxNode)
 		{
 			if (row < SUPPORT_END)
@@ -116,7 +203,13 @@ struct  HandleCharacterData
 			int string_data_index = manager.findIndex(file, &*string_data);
 			HkxTableVariant stringdata_variant(*manager.at(file, string_data_index));
 			int stringdata_rows = stringdata_variant.rows();
-			return stringdata_variant.columns(row - data_rows - SUPPORT_END);
+			if (row < SUPPORT_END + data_rows + stringdata_rows)
+				return stringdata_variant.columns(row - data_rows - SUPPORT_END);
+			int mirroring_data_index = manager.findIndex(file, &*mirror_data);
+			HkxTableVariant mirroring_data_variant(*manager.at(file, mirroring_data_index));
+			int mirroring_data_rows = mirroring_data_variant.rows();
+			if (row < SUPPORT_END + data_rows + stringdata_rows + mirroring_data_rows)
+				return mirroring_data_variant.columns(row - stringdata_rows - data_rows - SUPPORT_END);
 		}
 		return 0;
 	}
@@ -125,6 +218,7 @@ struct  HandleCharacterData
 	{
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
 		auto string_data = data->m_stringData;
+		auto mirror_data = data->m_mirroredSkeletonInfo;
 		if (column == 0)
 		{
 			if (childType == NodeType::CharacterHkxNode) {
@@ -139,7 +233,14 @@ struct  HandleCharacterData
 				int string_data_index = manager.findIndex(file, &*string_data);
 				HkxTableVariant stringdata_variant(*manager.at(file, string_data_index));
 				int stringdata_rows = stringdata_variant.rows();
-				return stringdata_variant.rowName(row - data_rows - SUPPORT_END);
+				if (row < SUPPORT_END + data_rows + stringdata_rows)
+					return stringdata_variant.rowName(row - data_rows - SUPPORT_END);
+				int mirroring_data_index = manager.findIndex(file, &*mirror_data);
+				HkxTableVariant mirroring_data_variant(*manager.at(file, mirroring_data_index));
+				int mirroring_data_rows = mirroring_data_variant.rows();
+				if (row < SUPPORT_END + data_rows + stringdata_rows + mirroring_data_rows)
+					return mirroring_data_variant.rowName(row - stringdata_rows - data_rows - SUPPORT_END);
+				return QVariant();
 			}
 			if (childType == NodeType::deformableSkinNames ||
 				childType == NodeType::animationNames ||
@@ -170,66 +271,37 @@ struct  HandleCharacterData
 		int string_data_index = manager.findIndex(file, &*string_data);
 		HkxTableVariant stringdata_variant(*manager.at(file, string_data_index));
 		int stringdata_rows = stringdata_variant.rows();
-		return stringdata_variant.data(row - data_rows - SUPPORT_END, column - 1);
+		if (row < SUPPORT_END + data_rows + stringdata_rows)
+			return stringdata_variant.data(row - data_rows - SUPPORT_END, column - 1);
+		int mirroring_data_index = manager.findIndex(file, &*mirror_data);
+		HkxTableVariant mirroring_data_variant(*manager.at(file, mirroring_data_index));
+		int mirroring_data_rows = mirroring_data_variant.rows();
+		if (row < SUPPORT_END + data_rows + stringdata_rows + mirroring_data_rows)
+			return mirroring_data_variant.data(row - stringdata_rows - data_rows - SUPPORT_END, column);
+		return QVariant();
 	}
 
-	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
+	static bool setData(int row, int column, int project, int file, hkVariant* variant, NodeType childType, const QVariant& value, ResourceManager& manager)
 	{
-		if (childType == NodeType::CharacterHkxNode)
-		{
-			switch (index) {
-			case 0:
-			{
-				int file = manager.behaviorFileIndex(project, variant);
-				hkVariant* root = manager.behaviorFileRoot(file);
-				return ModelEdge(variant, project, file, index, 0, root, NodeType::BehaviorHkxNode);
-			}
-			case 1:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::deformableSkinNames);
-			case 2:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::animationNames);
-			case 3:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyNames);
-			case RIG_INDEX:
-			{
-				auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
-				auto string_data = data->m_stringData;
-				int rig_index = manager.getRigIndex(project, string_data);
-				hkVariant* rig_root = manager.getRigRoot(project, rig_index);
-				return ModelEdge(variant, project, rig_index, 0, 0, rig_root);
-			}
-			case RAGDOLL_INDEX:
-			{
-				auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
-				auto string_data = data->m_stringData;
-				int ragdoll_index = -1;
-				if (string_data->m_ragdollName.getLength() > 0)
-					ragdoll_index = manager.getRagdollIndex(project, string_data->m_ragdollName.cString());
-				else
-					ragdoll_index = manager.getRagdollIndex(project, string_data->m_rigName.cString());
-				hkVariant* ragdoll_root = manager.getRagdollRoot(project, ragdoll_index);
-				return ModelEdge(variant, project, ragdoll_index, 0, 0, ragdoll_root);
-			}
-			default:
-				break;
-			}
-			return ModelEdge();
-		}
-		else if (childType == NodeType::deformableSkinNames)
-		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::deformableSkinName);
-		}
-		else if (childType == NodeType::animationNames)
-		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::animationName);
-		}
-		else if (childType == NodeType::characterPropertyNames)
-		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyName);
-		}
-		else {
-			return ModelEdge();
-		}
+		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+		auto string_data = data->m_stringData;
+		auto mirror_data = data->m_mirroredSkeletonInfo;
+		if (row < SUPPORT_END)
+			return false;
+		HkxTableVariant data_variant(*variant);
+		int data_rows = data_variant.rows();
+		if (row < SUPPORT_END + data_rows)
+			return data_variant.setData(row - SUPPORT_END, column - 1, value);
+		int string_data_index = manager.findIndex(file, &*string_data);
+		HkxTableVariant stringdata_variant(*manager.at(file, string_data_index));
+		int stringdata_rows = stringdata_variant.rows();
+		return stringdata_variant.setData(row - data_rows - SUPPORT_END, column - 1, value);
+		int mirroring_data_index = manager.findIndex(file, &*mirror_data);
+		HkxTableVariant mirroring_data_variant(*manager.at(file, mirroring_data_index));
+		int mirroring_data_rows = mirroring_data_variant.rows();
+		if (row < SUPPORT_END + data_rows + stringdata_rows + mirroring_data_rows)
+			return mirroring_data_variant.setData(row - stringdata_rows - data_rows - SUPPORT_END, column - 1, value);
+		return false;
 	}
 };
 
@@ -938,12 +1010,16 @@ ModelEdge ProjectTreeHkHandler::getChild(hkVariant*, int row, int column, int pr
 	return ModelEdge();
 }
 
-bool ProjectTreeHkHandler::setData(int project, int row, int column, hkVariant* variant, NodeType childType, const QVariant& value, ResourceManager& manager)
+bool ProjectTreeHkHandler::setData(int row, int column, int project, int file, hkVariant* variant, NodeType childType, const QVariant& value, ResourceManager& manager)
 {
 	if (column == 0)
 	{
 		//setting name
 		return HkxVariant(*variant).setName(value.toString());
+	}
+	if (&hkbCharacterDataClass == variant->m_class)
+	{
+		return HandleCharacterData::setData(row, column, project, file, variant, childType, value, manager);
 	}
 	return false;
 }

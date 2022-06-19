@@ -128,6 +128,7 @@ namespace ckcmd {
 			size_t characterFileIndex(int row, int project_file, ProjectType type);
 			hkVariant* characterFileRoot(int character_index);
 
+			size_t hasBehavior(int project_file, hkbCharacterStringData* string_data);
 			size_t hasRigAndRagdoll(int project_file, hkbCharacterStringData* string_data);
 			size_t getRigIndex(int project_file, hkbCharacterStringData* string_data);
 			hkVariant* getRigRoot(int project_file, int rig_index);
@@ -136,6 +137,7 @@ namespace ckcmd {
 
 			size_t behaviorFileIndex(int project_file, hkVariant* data);
 			hkVariant* behaviorFileRoot(int behavior_file);
+
 
 			std::vector<fs::path> importAssets(int project_file, const fs::path& sourcePath, AssetType type);
 			size_t assetsCount(int project_file, AssetType type);
