@@ -38,7 +38,8 @@ namespace ckcmd {
 			animation,
 			behavior,
 			bones,
-			ragdoll_bones
+			ragdoll_bones,
+			events
 		};
 
 		class ResourceManager {

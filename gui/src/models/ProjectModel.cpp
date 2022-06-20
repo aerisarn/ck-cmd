@@ -361,7 +361,12 @@ int ProjectModel::getProjectIndex(const QModelIndex& index)
 	return modelEdge(index)._project;
 }
 
-QModelIndex ProjectModel::getChildAssetProxy(const QModelIndex& index, AssetType type, NodeType proxy_type)
+int ProjectModel::getFileIndex(const QModelIndex& index)
+{
+	return modelEdge(index)._file;
+}
+
+QModelIndex ProjectModel::getChildAssetProxy(const QModelIndex& index, NodeType proxy_type)
 {
 	auto& edge = modelEdge(index);
 	int children = edge.childCount(_resourceManager);
@@ -371,12 +376,12 @@ QModelIndex ProjectModel::getChildAssetProxy(const QModelIndex& index, AssetType
 		auto& child_edge = modelEdge(child_index);
 		if (modelEdge(child_index).type() == proxy_type)
 		{
-			QModelIndex bones_index;
+			QModelIndex asset_index;
 			if (!hasIndex(0, 0, child_index))
-				bones_index = createIndex(0, 0, child_index.internalId());
+				asset_index = createIndex(0, 0, child_index.internalId());
 			else
-				bones_index = this->index(0, 0, child_index);
-			return bones_index;
+				asset_index = child_index;
+			return asset_index;
 		}
 	}
 	return QModelIndex();
@@ -391,16 +396,35 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 	{
 		if (AssetType::bones == type)
 		{
-			auto skeleton_index = getChildAssetProxy(index, AssetType::bones, NodeType::SkeletonHkxNode);
+			auto skeleton_index = getChildAssetProxy(index, NodeType::SkeletonHkxNode);
 			if (skeleton_index.isValid())
-				return new SelectionProxyModel(this, skeleton_index);
+			{
+				auto skeleton_bones_index = getChildAssetProxy(skeleton_index, NodeType::SkeletonBones);
+				if (skeleton_bones_index.isValid())
+					return new SelectionProxyModel(this, skeleton_bones_index);
+			}
 			return nullptr;
 		}
 		else if (AssetType::ragdoll_bones == type)
 		{
-			auto ragdoll_index = getChildAssetProxy(index, AssetType::ragdoll_bones, NodeType::RagdollHkxNode);
+			auto ragdoll_index = getChildAssetProxy(index, NodeType::RagdollHkxNode);
 			if (ragdoll_index.isValid())
-				return new SelectionProxyModel(this, ragdoll_index);
+			{
+				auto ragdoll_bones_index = getChildAssetProxy(ragdoll_index, NodeType::RagdollBones);
+				if (ragdoll_bones_index.isValid())
+					return new SelectionProxyModel(this, ragdoll_bones_index);
+			}
+			return nullptr;
+		}
+		else if (AssetType::events == type)
+		{
+			auto top_behavior_index = getChildAssetProxy(index, NodeType::BehaviorHkxNode);
+			if (top_behavior_index.isValid())
+			{
+				auto events_node = getChildAssetProxy(top_behavior_index, NodeType::behaviorEventNames);
+				if (events_node.isValid())
+					return new SelectionProxyModel(this, events_node);
+			}
 			return nullptr;
 		}
 		return new QStringListModel(_resourceManager.assetsList(edge._project, type));

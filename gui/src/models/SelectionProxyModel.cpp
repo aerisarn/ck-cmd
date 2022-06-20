@@ -60,3 +60,13 @@ QVariant SelectionProxyModel::data(const QModelIndex& proxyIndex, int role) cons
 	return sourceModel()->data(mapToSource(proxyIndex), role);
 }
 
+bool SelectionProxyModel::setData(const QModelIndex& proxyIndex, const QVariant& value, int role)
+{
+	return sourceModel()->setData(mapToSource(proxyIndex), value, role);
+}
+
+bool SelectionProxyModel::insertRows(int row, int count, const QModelIndex& parent)
+{
+	return sourceModel()->insertRows(row, count, mapToSource(parent));
+}
+

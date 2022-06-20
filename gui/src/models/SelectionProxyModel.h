@@ -35,8 +35,9 @@ namespace ckcmd {
             virtual QModelIndex index(int row, int column, const QModelIndex& parent) const override;
 
             virtual QVariant data(const QModelIndex& proxyIndex, int role) const override;
+            virtual bool setData(const QModelIndex& index, const QVariant& value,  int role = Qt::EditRole) override;
 
-            //virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
+            virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
             //virtual bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
         };
     }

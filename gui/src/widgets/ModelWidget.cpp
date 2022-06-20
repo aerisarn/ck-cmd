@@ -9,6 +9,9 @@ using namespace ckcmd::HKX;
 
 ModelWidget::ModelWidget(ProjectModel& model, QWidget* parent) :
 	_model(model),
+	_project_index(-1),
+	_file_index(-1),
+	_manager(model.getResourceManager()),
 	_delegate(new QItemDelegate(this)),
 	QWidget(parent)
 {
@@ -128,6 +131,8 @@ void ModelWidget::populate()
 void ModelWidget::setIndex(const QModelIndex& index) 
 { 
 	_index = index;
+	_project_index = _model.getProjectIndex(index);
+	_file_index = _model.getFileIndex(index);
 	if (doDataBinding())
 	{
 		if (!bindings_done)

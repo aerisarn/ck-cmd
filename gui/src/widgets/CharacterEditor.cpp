@@ -1,5 +1,7 @@
 #include "CharacterEditor.h"
 
+#include <QInputDialog>
+#include <src/widgets/IndexedEntityChooser.h>
 
 CharacterEditorWidget::CharacterEditorWidget(ckcmd::HKX::ProjectModel& model, QWidget* parent) :
     _behavior_file_options(new QStringListModel(this)),
@@ -112,29 +114,32 @@ void CharacterEditorWidget::setRigControls()
     }
 }
 
+void CharacterEditorWidget::updateSetComboBox()
+{
+
+    QStringList set_files;
+    setCurrentComboBox->blockSignals(true);
+    setCurrentComboBox->clear();
+    int set_file_size = _manager.getAnimationSetsFiles(_project_index);
+    for (int i = 0; i < set_file_size; ++i)
+    {
+        setCurrentComboBox->addItem(_manager.getAnimationSetsFile(_project_index, i));
+    }
+    setConditionsTableWidget->setColumnCount(3);
+    QStringList LIST;
+    LIST << "Min" << "Max" << "Variable";
+    setConditionsTableWidget->setHorizontalHeaderLabels(LIST);
+    setCurrentComboBox->blockSignals(false);
+    setCurrentComboBox->setCurrentIndex(0);
+    on_setCurrentComboBox_currentIndexChanged(0);
+
+}
+
 void CharacterEditorWidget::setAnimationSetsControls()
 {
-    //get project sets
-    auto project_id = _model.getProjectIndex(_index);
-    auto& manager = _model.getResourceManager();
-
-    if (manager.isCreatureProject(project_id))
+    if (_manager.isCreatureProject(_project_index))
     {
-        QStringList set_files;
-        setCurrentComboBox->blockSignals(true);
-        setCurrentComboBox->clear();
-        int set_file_size = manager.getAnimationSetsFiles(project_id);
-        for (int i = 0; i < set_file_size; ++i)
-        {
-            setCurrentComboBox->addItem(manager.getAnimationSetsFile(project_id, i));
-        }
-        setConditionsTableWidget->setColumnCount(3);
-        QStringList LIST;
-        LIST << "Min" << "Max" << "Variable";
-        setConditionsTableWidget->setHorizontalHeaderLabels(LIST);
-        setCurrentComboBox->blockSignals(false);
-        setCurrentComboBox->setCurrentIndex(0);
-        on_setCurrentComboBox_currentIndexChanged(0);
+        updateSetComboBox();
         mainTab->setTabVisible(1, true);
     }
     else {
@@ -205,16 +210,14 @@ void CharacterEditorWidget::on_selectPairedBoneTreeView_clicked(const QModelInde
 
 void CharacterEditorWidget::updateSetEvents(int set_index)
 {
-    auto project_index = _model.getProjectIndex(_index);
-    auto& manager = _model.getResourceManager();
     setTriggetingEventsView->setRowCount(0);
-    int events = manager.getAnimationSetEvents(project_index, set_index);
+    int events = _manager.getAnimationSetEvents(_project_index, set_index);
     for (int event_index = 0; event_index < events; ++event_index)
     {
         int index = setTriggetingEventsView->rowCount();
         setTriggetingEventsView->insertRow(index);
         QTableWidgetItem* item = new QTableWidgetItem();
-        auto name = manager.getAnimationSetEvent(project_index, set_index, event_index);
+        auto name = _manager.getAnimationSetEvent(_project_index, set_index, event_index);
         item->setText(name);
         setTriggetingEventsView->setItem(
             index,
@@ -226,19 +229,17 @@ void CharacterEditorWidget::updateSetEvents(int set_index)
 
 void CharacterEditorWidget::updateSetAttacks(int set_index)
 {
-    auto project_index = _model.getProjectIndex(_index);
-    auto& manager = _model.getResourceManager();
     setAttacksTreeWidget->clear();
-    int attacks = manager.getAnimationSetAttacks(project_index, set_index);
+    int attacks = _manager.getAnimationSetAttacks(_project_index, set_index);
     for (int attack_index = 0; attack_index < attacks; ++attack_index)
     {
         QTreeWidgetItem* item = new QTreeWidgetItem(setAttacksTreeWidget);
-        item->setText(0, manager.getAnimationSetAttackEvent(project_index, set_index, attack_index));
-        int attack_clips = manager.getAnimationSetAttackClips(project_index, set_index, attack_index);
+        item->setText(0, _manager.getAnimationSetAttackEvent(_project_index, set_index, attack_index));
+        int attack_clips = _manager.getAnimationSetAttackClips(_project_index, set_index, attack_index);
         for (int j = 0; j < attack_clips; ++j)
         {
             QTreeWidgetItem* clip_item = new QTreeWidgetItem();
-            clip_item->setText(0, manager.getAnimationSetAttackClip(project_index, set_index, attack_index, j));
+            clip_item->setText(0, _manager.getAnimationSetAttackClip(_project_index, set_index, attack_index, j));
             item->addChild(clip_item);
         }
     }
@@ -246,11 +247,8 @@ void CharacterEditorWidget::updateSetAttacks(int set_index)
 
 void CharacterEditorWidget::updateSetConditions(int set_index)
 {
-    auto project_index = _model.getProjectIndex(_index);
-    auto& manager = _model.getResourceManager();
-
     setConditionsTableWidget->setRowCount(0);
-    int conditions = manager.getAnimationSetVariables(project_index, set_index);
+    int conditions = _manager.getAnimationSetVariables(_project_index, set_index);
     for (int condition_index = 0; condition_index < conditions; ++condition_index)
     {
         int index = setConditionsTableWidget->rowCount();
@@ -258,28 +256,25 @@ void CharacterEditorWidget::updateSetConditions(int set_index)
         setConditionsTableWidget->setItem(
             index,
             0,
-            new QTableWidgetItem(QString::number(manager.getAnimationSetVariableMin(project_index, set_index, condition_index)))
+            new QTableWidgetItem(QString::number(_manager.getAnimationSetVariableMin(_project_index, set_index, condition_index)))
         );
         setConditionsTableWidget->setItem(
             index,
             1,
-            new QTableWidgetItem(QString::number(manager.getAnimationSetVariableMax(project_index, set_index, condition_index)))
+            new QTableWidgetItem(QString::number(_manager.getAnimationSetVariableMax(_project_index, set_index, condition_index)))
         );
         setConditionsTableWidget->setItem(
             index,
             2,
-            new QTableWidgetItem(manager.getAnimationSetVariable(project_index, set_index, condition_index))
+            new QTableWidgetItem(_manager.getAnimationSetVariable(_project_index, set_index, condition_index))
         );
     }
 }
 
 void CharacterEditorWidget::updateSetAnimations(int set_index)
 {
-    auto project_index = _model.getProjectIndex(_index);
-    auto& manager = _model.getResourceManager();
-
     setAnimationsTableWidget->setRowCount(0);
-    auto animations = manager.getAnimationSetAnimation(project_index, set_index);
+    auto animations = _manager.getAnimationSetAnimation(_project_index, set_index);
     for (const auto& animation : animations)
     {
         int index = setAnimationsTableWidget->rowCount();
@@ -294,10 +289,59 @@ void CharacterEditorWidget::updateSetAnimations(int set_index)
     }
 }
 
-void CharacterEditorWidget::on_setCurrentComboBox_currentIndexChanged(int set_index)
+void CharacterEditorWidget::updateSetControls(int set_index)
 {
     updateSetEvents(set_index);
     updateSetAttacks(set_index);
     updateSetConditions(set_index);
     updateSetAnimations(set_index);
+
+    if (setCurrentComboBox->count() > 1)
+    {
+        setRemoveButton->setEnabled(true);
+    }
+    else {
+        setRemoveButton->setEnabled(false);
+    }
+}
+
+void CharacterEditorWidget::on_setCurrentComboBox_currentIndexChanged(int set_index)
+{
+    updateSetControls(set_index);
+}
+
+//Set Panel
+void CharacterEditorWidget::on_setRemoveButton_clicked()
+{
+    if (setCurrentComboBox->count() > 1)
+    {
+        _manager.deleteAnimationSet(_project_index, setCurrentComboBox->currentIndex());
+        setCurrentComboBox->removeItem(setCurrentComboBox->currentIndex());
+        setCurrentComboBox->setCurrentIndex(0);
+    }
+}
+
+void CharacterEditorWidget::on_setAddButton_clicked()
+{
+    bool ok;
+    QString text = QInputDialog::getText(this, tr("Choose set name"),
+        tr("New set name:"), QLineEdit::Normal,
+        "", &ok);
+    if (ok && !text.isEmpty())
+    {
+        int new_set_index = _manager.getAnimationSetsFiles(_project_index);
+        _manager.createAnimationSet(_project_index, text);
+        updateSetComboBox();
+        setCurrentComboBox->setCurrentIndex(new_set_index);
+    }
+}
+
+void CharacterEditorWidget::on_setEventAddButton_clicked()
+{
+    auto* edit_events_model = _model.editModel(_index, ckcmd::HKX::AssetType::events);
+    if (nullptr != edit_events_model)
+    {
+        IndexedEntityChooser* chooser = new IndexedEntityChooser(edit_events_model);
+        chooser->exec();
+    }
 }

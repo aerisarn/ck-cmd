@@ -76,7 +76,7 @@ int ModelEdge::childColumns(int row, int column, ResourceManager& manager) const
 		return 1;
 	default:
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::childColumns(_project, _file, row, column, variant, manager);
+		return ProjectTreeHkHandler::childColumns(_project, _file, row, column, variant, _childType, manager);
 	}
 	return 0;
 }

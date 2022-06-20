@@ -27,13 +27,28 @@ namespace ckcmd {
             animationNames,
             animationName,
             characterPropertyNames,
-            characterPropertyName,
+            characterPropertyWords,
+            characterPropertyWord,
+            characterPropertyQuads,
+            characterPropertyQuad,
+            characterPropertyRefs,
+            characterPropertyRef,
             behaviorEventNames,
             behaviorEventName,
             behaviorVariableNames,
-            behaviorVariableName,
+            behaviorVariableWords,
+            behaviorVariableWord,
+            behaviorVariableQuads,
+            behaviorVariableQuad,
+            behaviorVariableRefs,
+            behaviorVariableRef,
             behaviorCharacterPropertyNames,
-            behaviorCharacterPropertyName,
+            behaviorCharacterPropertyWords,
+            behaviorCharacterPropertyWord,
+            behaviorCharacterPropertyQuads,
+            behaviorCharacterPropertyQuad,
+            behaviorCharacterPropertyRefs,
+            behaviorCharacterPropertyRef,
             FSMWildcardTransitions,
             FSMWildcardTransition,
             FSMStateTransitions,
@@ -46,6 +61,13 @@ namespace ckcmd {
             RagdollHkxNode,
             RagdollBones,
             RagdollBone
+        };
+
+        enum class VariableType
+        {
+            Word,
+            Quad,
+            Variant
         };
 
         static constexpr bool isVariant(NodeType t) {
@@ -107,12 +129,20 @@ namespace ckcmd {
                 if (
                     (
                         _childType == NodeType::behaviorEventName ||
-                        _childType == NodeType::behaviorVariableName ||
-                        _childType == NodeType::behaviorCharacterPropertyName
+                        _childType == NodeType::behaviorVariableWord ||
+                        _childType == NodeType::behaviorVariableQuad ||
+                        _childType == NodeType::behaviorVariableRef ||
+                        _childType == NodeType::behaviorCharacterPropertyWord ||
+                        _childType == NodeType::behaviorCharacterPropertyQuad ||
+                        _childType == NodeType::behaviorCharacterPropertyRef
                     ) && (
                         rhs._childType == NodeType::behaviorEventName ||
-                         rhs._childType == NodeType::behaviorVariableName ||
-                         rhs._childType == NodeType::behaviorCharacterPropertyName
+                        rhs._childType == NodeType::behaviorVariableWord ||
+                        rhs._childType == NodeType::behaviorVariableQuad ||
+                        rhs._childType == NodeType::behaviorVariableRef ||
+                        rhs._childType == NodeType::behaviorCharacterPropertyWord ||
+                        rhs._childType == NodeType::behaviorCharacterPropertyQuad ||
+                        rhs._childType == NodeType::behaviorCharacterPropertyRef
                     )
                 ) 
                 {

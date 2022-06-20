@@ -4,6 +4,7 @@
 #include <src/models/ProjectModel.h>
 #include <QAbstractItemDelegate>
 #include <src/widgets/ModelWidgetSignalMapper.h>
+#include <src/hkx/ResourceManager.h>
 
 #include <map>
 
@@ -28,6 +29,9 @@ namespace ckcmd {
 	protected:
 		HKX::ProjectModel& _model;
 		QModelIndex _index;
+		int _project_index;
+		int _file_index;
+		HKX::ResourceManager& _manager;
 		QAbstractItemDelegate* _delegate;
 	
 		virtual void OnIndexSelected() = 0;

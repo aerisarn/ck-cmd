@@ -16,13 +16,97 @@
 
 using namespace ckcmd::HKX;
 
+bool isWordVariable(int type)
+{
+	return type == hkbVariableInfo::VARIABLE_TYPE_BOOL ||
+		type == hkbVariableInfo::VARIABLE_TYPE_INT8 ||
+		type == hkbVariableInfo::VARIABLE_TYPE_INT16 ||
+		type == hkbVariableInfo::VARIABLE_TYPE_INT32 ||
+		type == hkbVariableInfo::VARIABLE_TYPE_REAL;
+}
+
+bool isQuadVariable(int type)
+{
+	return type == hkbVariableInfo::VARIABLE_TYPE_VECTOR3 ||
+		type == hkbVariableInfo::VARIABLE_TYPE_VECTOR4 ||
+		type == hkbVariableInfo::VARIABLE_TYPE_QUATERNION;
+}
+
+bool isRefVariable(int type)
+{
+	return type == hkbVariableInfo::VARIABLE_TYPE_POINTER;
+}
+
+static const char* VariableTypeListsName(int row)
+{
+	switch ((VariableType)row) {
+	case VariableType::Word:
+		return "Scalars";
+	case VariableType::Quad:
+		return "Vectors";
+	case VariableType::Variant:
+		return "References";
+	default:
+		break;
+	}
+	return "Invalid Behavior Entry";
+};
+
+static const size_t VARIABLE_SUPPORTS = 3;
+
+template <typename T>
+static bool addToContainer(int row_start, int count, hkArray<T>& container)
+{
+	if (row_start > container.getSize())
+		return false;
+	if (row_start == container.getSize())
+	{
+		for (int i = 0; i < count; i++)
+			container.pushBack(T());
+		return true;
+	}
+	for (int i = 0; i < count; i++)
+		container.insertAt(row_start, T());
+	return false;
+}
+
+template<typename T>
+int countElementsByType(hkArray<T>& container, std::function<bool(int)> typeClassifier)
+{
+	int count = 0;
+	for (int v = 0; v < container.getSize(); ++v)
+	{
+		if (typeClassifier(container[v].m_type))
+			count++;
+	}
+	return count;
+}
+
+template<typename T>
+T& getElementByTypeIndex(int row_index, hkArray<T>& container, const hkArray<hkbVariableInfo>& type_container, std::function<bool(int)> typeClassifier)
+{
+	int real_row_index = 0;
+	int type_row_index = 0;
+	for (int v = 0; v < type_container.getSize(); ++v)
+	{
+		if (typeClassifier(type_container[v].m_type))
+		{
+			if (type_row_index == row_index)
+				return container[real_row_index];
+			type_row_index++;
+		}
+		real_row_index++;
+	}
+	return T();
+}
+
 struct  HandleCharacterData
 {
-	static const size_t DATA_SUPPORTS = 3;
-	static const size_t BEHAVIOR_INDEX = DATA_SUPPORTS;
-	static const size_t RIG_INDEX = BEHAVIOR_INDEX + 1;
-	static const size_t RAGDOLL_INDEX = RIG_INDEX + 1;
-	static const size_t SUPPORT_END = RAGDOLL_INDEX + 1;
+	static const int DATA_SUPPORTS = 3;
+	static const int BEHAVIOR_INDEX = DATA_SUPPORTS;
+	static const int RIG_INDEX = BEHAVIOR_INDEX + 1;
+	static const int RAGDOLL_INDEX = RIG_INDEX + 1;
+	static const int SUPPORT_END = RAGDOLL_INDEX + 1;
 
 	static const char* DataListsName(int row)
 	{
@@ -38,16 +122,6 @@ struct  HandleCharacterData
 		}
 		return "Invalid Character Entry";
 	};
-
-//	static const std::set<std::string> fileNodes
-//	(
-//		"deformableSkinNames",
-//		"animationNames",
-//		"characterPropertyNames"
-//		"rigName",
-//		"ragdollName"
-//		"behaviorFilename"
-//};
 
 #undef max
 
@@ -112,15 +186,73 @@ struct  HandleCharacterData
 		}
 		else if (childType == NodeType::characterPropertyNames)
 		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyName);
+			switch (index) {
+			case 0:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyWords);
+			case 1:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyQuads);
+			case 2:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyRefs);
+			default:
+				break;
+			}
+			return ModelEdge();
+		}
+		else if (childType == NodeType::characterPropertyWords)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyWord);
+		}
+		else if (childType == NodeType::characterPropertyQuads)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyQuad);
+		}
+		else if (childType == NodeType::characterPropertyRefs)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyRef);
 		}
 		else {
 			return ModelEdge();
 		}
 	}
 
-	static const int getColumns(int file, hkVariant* variant, ResourceManager& manager)
+	static const int getColumns(int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
 	{
+		if (childType == NodeType::deformableSkinNames)
+		{
+			return 1;
+		}
+		else if (childType == NodeType::animationNames)
+		{
+			return 1;
+		}
+		else if (childType == NodeType::characterPropertyNames)
+		{
+			return 1;
+		}
+		else if (childType == NodeType::characterPropertyWords)
+		{
+			return 1;
+		}
+		else if (childType == NodeType::characterPropertyQuads)
+		{
+			return 1;
+		}
+		else if (childType == NodeType::characterPropertyRefs)
+		{
+			return 1;
+		}
+		else if (childType == NodeType::characterPropertyWord)
+		{
+			return 0;
+		}
+		else if (childType == NodeType::characterPropertyQuad)
+		{
+			return 0;
+		}
+		else if (childType == NodeType::characterPropertyRef)
+		{
+			return 0;
+		}
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
 		if (data == NULL)
 			return 1;
@@ -140,26 +272,7 @@ struct  HandleCharacterData
 		return 1 + additional;
 	}
 
-	static const int getRows(int file, hkVariant* variant, ResourceManager& manager)
-	{
-		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
-		if (data == NULL)
-			return 1;
-		auto string_data = data->m_stringData;
-		if (string_data == NULL)
-			return 0;
-		auto mirror_data = data->m_mirroredSkeletonInfo;
-		if (mirror_data == NULL)
-			return 0;
-		int string_data_index = manager.findIndex(file, &*string_data);
-		int mirror_data_index = manager.findIndex(file, &*mirror_data);
-		return SUPPORT_END +
-			HkxTableVariant(*variant).rows() +
-			HkxTableVariant(*manager.at(file, string_data_index)).rows() +
-			HkxTableVariant(*manager.at(file, mirror_data_index)).rows();
-	}
-
-	static int getChildCount(int row,  int project, hkVariant* variant, NodeType childType, ResourceManager& manager)
+	static int getChildCount(int row, int project, hkVariant* variant, NodeType childType, ResourceManager& manager)
 	{
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
 		if (data == NULL)
@@ -186,10 +299,104 @@ struct  HandleCharacterData
 		}
 		else if (childType == NodeType::characterPropertyNames)
 		{
-			return string_data->m_characterPropertyNames.getSize();
+			return VARIABLE_SUPPORTS;
+		}
+		else if (childType == NodeType::characterPropertyWords)
+		{
+			return countElementsByType(data->m_characterPropertyInfos, isWordVariable);
+		}
+		else if (childType == NodeType::characterPropertyWord)
+		{
+			return 0;
+		}
+		else if (childType == NodeType::characterPropertyQuads)
+		{
+			return countElementsByType(data->m_characterPropertyInfos, isQuadVariable);
+		}
+		else if (childType == NodeType::characterPropertyQuad)
+		{
+			return 0;
+		}
+		else if (childType == NodeType::characterPropertyRefs)
+		{
+			return countElementsByType(data->m_characterPropertyInfos, isRefVariable);
+		}
+		else if (childType == NodeType::characterPropertyRef)
+		{
+			return 0;
 		}
 		return 0;
 	}
+
+	static const int getRows(int project, int file, int row, int column, hkVariant* variant, NodeType childType, ResourceManager& manager)
+	{
+
+		if (childType == NodeType::deformableSkinNames)
+		{
+			if (column == 0)
+			{
+				return getChildCount(row, project, variant, childType, manager);
+			}
+			return 0;
+		}
+		else if (childType == NodeType::animationNames)
+		{
+			if (column == 0)
+			{
+				return getChildCount(row, project, variant, childType, manager);
+			}
+			return 0;
+		}
+		else if (childType == NodeType::characterPropertyNames)
+		{
+			if (column == 0)
+			{
+				return getChildCount(row, project, variant, childType, manager);
+			}
+			return 0;
+		}
+		else if (childType == NodeType::characterPropertyWords)
+		{
+			if (column == 0)
+			{
+				return getChildCount(row, project, variant, childType, manager);
+			}
+			return 0;
+		}
+		else if (childType == NodeType::characterPropertyQuads)
+		{
+			if (column == 0)
+			{
+				return getChildCount(row, project, variant, childType, manager);
+			}
+			return 0;
+		}
+		else if (childType == NodeType::characterPropertyRefs)
+		{
+			if (column == 0)
+			{
+				return getChildCount(row, project, variant, childType, manager);
+			}
+			return 0;
+		}		
+		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+		if (data == NULL)
+			return 1;
+		auto string_data = data->m_stringData;
+		if (string_data == NULL)
+			return 0;
+		auto mirror_data = data->m_mirroredSkeletonInfo;
+		if (mirror_data == NULL)
+			return 0;
+		int string_data_index = manager.findIndex(file, &*string_data);
+		int mirror_data_index = manager.findIndex(file, &*mirror_data);
+		return SUPPORT_END +
+			HkxTableVariant(*variant).rows() +
+			HkxTableVariant(*manager.at(file, string_data_index)).rows() +
+			HkxTableVariant(*manager.at(file, mirror_data_index)).rows();
+	}
+
+
 
 	static int getRowColumns(int file, int row, int column, hkVariant* variant, NodeType childType, ResourceManager& manager)
 	{
@@ -266,9 +473,37 @@ struct  HandleCharacterData
 			{
 				return string_data->m_animationNames[row].cString();
 			}
-			if (childType == NodeType::characterPropertyName)
+			if (
+				childType == NodeType::characterPropertyWords ||
+				childType == NodeType::characterPropertyQuads ||
+				childType == NodeType::characterPropertyRefs
+				)
 			{
-				return string_data->m_characterPropertyNames[row].cString();
+				return VariableTypeListsName((int)row);
+			}
+			if (childType == NodeType::characterPropertyWord)
+			{
+				if (column == 0)
+				{
+					return getElementByTypeIndex(row, string_data->m_characterPropertyNames, data->m_characterPropertyInfos, isWordVariable).cString();
+				}
+				return "InvalidColumn";
+			}
+			if (childType == NodeType::characterPropertyQuad)
+			{
+				if (column == 0)
+				{
+					return getElementByTypeIndex(row, string_data->m_characterPropertyNames, data->m_characterPropertyInfos, isQuadVariable).cString();
+				}
+				return "InvalidColumn";
+			}
+			if (childType == NodeType::characterPropertyRef)
+			{
+				if (column == 0)
+				{
+					return getElementByTypeIndex(row, string_data->m_characterPropertyNames, data->m_characterPropertyInfos, isRefVariable).cString();
+				}
+				return "InvalidColumn";
 			}
 			return QVariant();
 		}
@@ -357,21 +592,66 @@ struct  HandleBehaviorData
 		}
 		else if (childType == NodeType::behaviorVariableNames)
 		{
-			return string_data->m_variableNames.getSize();
+			//return string_data->m_variableNames.getSize();
+			return VARIABLE_SUPPORTS;
 		}
 		else if (childType == NodeType::behaviorCharacterPropertyNames)
 		{
-			return string_data->m_characterPropertyNames.getSize();
+			//return string_data->m_characterPropertyNames.getSize();
+			return VARIABLE_SUPPORTS;
 		}
 		else if (childType == NodeType::behaviorEventName)
 		{
 			return 0;
 		}
-		else if (childType == NodeType::behaviorVariableName)
+		else if (childType == NodeType::behaviorVariableWords)
+		{
+			return countElementsByType(data->m_variableInfos, isWordVariable);
+		}
+		else if (childType == NodeType::behaviorVariableWord)
 		{
 			return 0;
 		}
-		else if (childType == NodeType::behaviorCharacterPropertyName)
+		else if (childType == NodeType::behaviorVariableQuads)
+		{
+			return countElementsByType(data->m_variableInfos, isQuadVariable);
+		}
+		else if (childType == NodeType::behaviorVariableQuad)
+		{
+			return 0;
+		}
+		else if (childType == NodeType::behaviorVariableRefs)
+		{
+			return countElementsByType(data->m_variableInfos, isRefVariable);
+		}
+		else if (childType == NodeType::behaviorVariableRef)
+		{
+			return 0;
+		}
+
+		/*Character Properties*/
+
+		else if (childType == NodeType::behaviorCharacterPropertyWords)
+		{
+			return countElementsByType(data->m_characterPropertyInfos, isWordVariable);
+		}
+		else if (childType == NodeType::behaviorCharacterPropertyWord)
+		{
+			return 0;
+		}
+		else if (childType == NodeType::behaviorCharacterPropertyQuads)
+		{
+			return countElementsByType(data->m_characterPropertyInfos, isQuadVariable);
+		}
+		else if (childType == NodeType::behaviorCharacterPropertyQuad)
+		{
+			return 0;
+		}
+		else if (childType == NodeType::behaviorCharacterPropertyRefs)
+		{
+			return countElementsByType(data->m_characterPropertyInfos, isRefVariable);
+		}
+		else if (childType == NodeType::behaviorCharacterPropertyRef)
 		{
 			return 0;
 		}
@@ -388,26 +668,118 @@ struct  HandleBehaviorData
 		{
 			return DataListsName((int)childType);
 		}
-		else if (childType == NodeType::behaviorEventName)
+		if (
+			childType == NodeType::behaviorVariableWords ||
+			childType == NodeType::behaviorVariableQuads ||
+			childType == NodeType::behaviorVariableRefs ||
+			childType == NodeType::behaviorCharacterPropertyWords ||
+			childType == NodeType::behaviorCharacterPropertyQuads ||
+			childType == NodeType::behaviorCharacterPropertyRefs
+		)
 		{
-			return string_data->m_eventNames[row].cString();
+			return VariableTypeListsName((int)row);
 		}
-		else if (childType == NodeType::behaviorVariableName)
+		if (childType == NodeType::behaviorEventName)
 		{
-			return string_data->m_variableNames[row].cString();
+			if (column == 0)
+				return string_data->m_eventNames[row].cString();
+			return "InvalidColumn";
 		}
-		else if (childType == NodeType::behaviorCharacterPropertyName)
+		if (childType == NodeType::behaviorVariableWord)
 		{
-			return string_data->m_characterPropertyNames[row].cString();
-		}
-		else {
 			if (column == 0)
 			{
-				return HkxVariant(*variant).name();
+				return getElementByTypeIndex(row, string_data->m_variableNames, data->m_data->m_variableInfos, isWordVariable).cString();
 			}
-			HkxLinkedTableVariant v(*variant);
-			return v.data(row - DATA_SUPPORTS, column - 1);
+			return "InvalidColumn";
 		}
+		if (childType == NodeType::behaviorVariableQuad)
+		{
+			if (column == 0)
+			{
+				return getElementByTypeIndex(row, string_data->m_variableNames, data->m_data->m_variableInfos, isQuadVariable).cString();
+			}
+			return "InvalidColumn";
+		}
+		if (childType == NodeType::behaviorVariableRef)
+		{
+			if (column == 0)
+			{
+				return getElementByTypeIndex(row, string_data->m_variableNames, data->m_data->m_variableInfos, isRefVariable).cString();
+			}
+			return "InvalidColumn";
+		}
+		if (childType == NodeType::behaviorCharacterPropertyWord)
+		{
+			if (column == 0)
+			{
+				return getElementByTypeIndex(row, string_data->m_characterPropertyNames, data->m_data->m_characterPropertyInfos, isWordVariable).cString();
+			}
+			return "InvalidColumn";
+		}
+		if (childType == NodeType::behaviorCharacterPropertyQuad)
+		{
+			if (column == 0)
+			{
+				return getElementByTypeIndex(row, string_data->m_characterPropertyNames, data->m_data->m_characterPropertyInfos, isQuadVariable).cString();
+			}
+			return "InvalidColumn";
+		}
+		if (childType == NodeType::behaviorCharacterPropertyRef)
+		{
+			if (column == 0)
+			{
+				return getElementByTypeIndex(row, string_data->m_characterPropertyNames, data->m_data->m_characterPropertyInfos, isRefVariable).cString();
+			}
+			return "InvalidColumn";
+		}
+		if (column == 0)
+		{
+			return HkxVariant(*variant).name();
+		}
+		HkxLinkedTableVariant v(*variant);
+		return v.data(row - DATA_SUPPORTS, column - 1);
+	}
+
+	static bool setData(int row, int column, int project, int file, hkVariant* variant, NodeType childType, const QVariant& value, ResourceManager& manager)
+	{
+		auto* data = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
+		auto string_data = data->m_data->m_stringData;
+		if (childType == NodeType::behaviorEventName)
+		{
+			string_data->m_eventNames[row] = value.toString().toUtf8().constData();
+		}
+		//else if (childType == NodeType::behaviorVariableName)
+		//{
+		//	string_data->m_variableNames[row] = value.toString().toUtf8().constData();
+		//}
+		//else if (childType == NodeType::characterPropertyName)
+		//{
+		//	string_data->m_characterPropertyNames[row] = value.toString().toUtf8().constData();
+		//}
+		return false;
+	}
+
+	static bool addRows(int row_start, int count, int project, int file, hkVariant* variant, NodeType childType, ResourceManager& manager)
+	{
+		auto* data = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
+		auto string_data = data->m_data->m_stringData;
+		if (childType == NodeType::behaviorEventNames)
+		{
+			addToContainer(row_start, count, string_data->m_eventNames);
+			addToContainer(row_start, count, data->m_data->m_eventInfos);
+		}
+		//else if (childType == NodeType::behaviorVariableName)
+		//{
+		//	addToContainer(row_start, count, string_data->m_variableNames);
+		//	data->m_data->m_variableInitialValues->m
+		//	//string_data->m_variableNames[row] = value.toString().toUtf8().constData();
+		//}
+		//else if (childType == NodeType::characterPropertyName)
+		//{
+		//	//string_data->m_characterPropertyNames[row] = value.toString().toUtf8().constData();
+		//}
+		return false;
 	}
 
 	static ModelEdge get_child(int index, int project, int file, hkVariant* variant, ResourceManager& manager, NodeType childType)
@@ -431,11 +803,55 @@ struct  HandleBehaviorData
 		}
 		else if (childType == NodeType::behaviorVariableNames)
 		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableName);
+			switch (index) {
+			case 0:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableWords);
+			case 1:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableQuads);
+			case 2:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableRefs);
+			default:
+				break;
+			}
+			return ModelEdge();
+		}
+		else if (childType == NodeType::behaviorVariableWords)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableWord);
+		}
+		else if (childType == NodeType::behaviorVariableQuads)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableQuad);
+		}
+		else if (childType == NodeType::behaviorVariableRefs)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableRef);
 		}
 		else if (childType == NodeType::behaviorCharacterPropertyNames)
 		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyName);
+			switch (index) {
+			case 0:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyWords);
+			case 1:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyQuads);
+			case 2:
+				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyRefs);
+			default:
+				break;
+			}
+			return ModelEdge();
+		}
+		else if (childType == NodeType::behaviorCharacterPropertyWords)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyWord);
+		}
+		else if (childType == NodeType::behaviorCharacterPropertyQuads)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyQuad);
+		}
+		else if (childType == NodeType::behaviorCharacterPropertyRefs)
+		{
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyRef);
 		}
 		HkxLinkedTableVariant v(*variant);
 		auto& links = v.links();
@@ -815,7 +1231,7 @@ int ProjectTreeHkHandler::childRows(int project, int file, int row, int column, 
 {
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return HandleCharacterData::getRows(file, variant, manager);
+		return HandleCharacterData::getRows(project, file, row, column, variant, childType, manager);
 	}
 	if (&hkbBehaviorGraphClass == variant->m_class)
 	{
@@ -862,11 +1278,11 @@ int ProjectTreeHkHandler::childRowColumns(int project, int file, int row, int co
 	return HkxTableVariant(*variant).columns(row);;
 }
 
-int ProjectTreeHkHandler::childColumns(int project, int file, int row, int column, hkVariant* variant, ResourceManager& manager)
+int ProjectTreeHkHandler::childColumns(int project, int file, int row, int column, hkVariant* variant, NodeType childType, ResourceManager& manager)
 {
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return HandleCharacterData::getColumns(file, variant, manager);
+		return HandleCharacterData::getColumns(file, variant, manager, childType);
 	}
 	if (&hkbBehaviorGraphClass == variant->m_class)
 	{
@@ -1031,6 +1447,10 @@ bool ProjectTreeHkHandler::setData(int row, int column, int project, int file, h
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
 		return HandleCharacterData::setData(row, column, project, file, variant, childType, value, manager);
+	}
+	if (&hkbBehaviorGraphClass == variant->m_class)
+	{
+		return HandleBehaviorData::setData(row, column, project, file, variant, childType, value, manager);
 	}
 	return false;
 }
