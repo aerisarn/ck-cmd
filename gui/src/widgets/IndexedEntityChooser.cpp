@@ -19,7 +19,8 @@ void IndexedEntityChooser::accept()
 	{
 		_result = listView->currentIndex();
 	}
-	else {
+	else 
+	{
 		if (!lineEdit->text().isEmpty())
 		{
 			int new_row_index = listView->model()->rowCount();
@@ -38,3 +39,25 @@ void IndexedEntityChooser::accept()
 	QDialog::accept();
 }
 
+QModelIndex IndexedEntityChooser::getIndex(
+	QAbstractItemModel* viewModel,
+	QWidget* parent,
+	const QString& title,
+	const QString& selectLabel,
+	const QString& createLabel,
+	bool* ok)
+{
+	std::unique_ptr<IndexedEntityChooser> dialog = std::make_unique<IndexedEntityChooser>(viewModel, parent);
+	dialog->setWindowTitle(title);
+	dialog->selectRadioButton->setText(selectLabel);
+	dialog->createRadioButton->setText(createLabel);
+	const int ret = dialog->exec();
+	if (ok)
+		*ok = !!ret;
+	if (ret) {
+		return dialog->selectedIndex();
+	}
+	else {
+		return QModelIndex();
+	}
+}

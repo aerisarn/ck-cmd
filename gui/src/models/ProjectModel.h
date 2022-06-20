@@ -77,6 +77,8 @@ namespace ckcmd {
             bool setData(const QModelIndex& index, const QVariant& value,
                 int role = Qt::EditRole) override;
 
+            virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
+
 
         public slots:
             void refreshAssetList(const QModelIndex& parent, AssetType type);

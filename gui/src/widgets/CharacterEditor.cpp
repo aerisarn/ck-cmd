@@ -225,6 +225,24 @@ void CharacterEditorWidget::updateSetEvents(int set_index)
             item
         );
     }
+    if (events > 0 && setTriggetingEventsView->currentIndex().isValid())
+    {
+        setEventRemoveButton->setEnabled(true);
+    }
+    else {
+        setEventRemoveButton->setEnabled(false);
+    }
+}
+
+void CharacterEditorWidget::on_setTriggetingEventsView_itemClicked(QTableWidgetItem* item)
+{
+    if (setTriggetingEventsView->rowCount() > 0 && setTriggetingEventsView->currentIndex().isValid())
+    {
+        setEventRemoveButton->setEnabled(true);
+    }
+    else {
+        setEventRemoveButton->setEnabled(false);
+    }
 }
 
 void CharacterEditorWidget::updateSetAttacks(int set_index)
@@ -242,6 +260,13 @@ void CharacterEditorWidget::updateSetAttacks(int set_index)
             clip_item->setText(0, _manager.getAnimationSetAttackClip(_project_index, set_index, attack_index, j));
             item->addChild(clip_item);
         }
+    }
+    if (attacks > 0 && setAttacksTreeWidget->currentIndex().isValid())
+    {
+        setAttacksRemoveButton->setEnabled(true);
+    }
+    else {
+        setAttacksRemoveButton->setEnabled(false);
     }
 }
 
@@ -269,6 +294,13 @@ void CharacterEditorWidget::updateSetConditions(int set_index)
             new QTableWidgetItem(_manager.getAnimationSetVariable(_project_index, set_index, condition_index))
         );
     }
+    if (conditions > 0 && setConditionsTableWidget->currentIndex().isValid())
+    {
+        setConditionsRemoveButton->setEnabled(true);
+    }
+    else {
+        setConditionsRemoveButton->setEnabled(false);
+    }
 }
 
 void CharacterEditorWidget::updateSetAnimations(int set_index)
@@ -286,6 +318,13 @@ void CharacterEditorWidget::updateSetAnimations(int set_index)
             0,
             item
         );
+    }
+    if (animations.size() > 0 && setAnimationsTableWidget->currentIndex().isValid())
+    {
+        setAnimationsRemoveButton->setEnabled(true);
+    }
+    else {
+        setAnimationsRemoveButton->setEnabled(false);
     }
 }
 
@@ -341,7 +380,32 @@ void CharacterEditorWidget::on_setEventAddButton_clicked()
     auto* edit_events_model = _model.editModel(_index, ckcmd::HKX::AssetType::events);
     if (nullptr != edit_events_model)
     {
-        IndexedEntityChooser* chooser = new IndexedEntityChooser(edit_events_model);
-        chooser->exec();
+        bool ok;
+        QModelIndex event_index = IndexedEntityChooser::getIndex
+        (
+            edit_events_model,
+            this,
+            tr("Add triggering event"),
+            tr("Select an existing event:"),
+            tr("Create a new one:"),
+            &ok
+        );
+        QString event_name = event_index.data().toString();
+        if (ok && !event_name.isEmpty())
+        {
+            int set_index = setCurrentComboBox->currentIndex();
+            _manager.addAnimationSetEvent(_project_index, set_index, event_name);
+            updateSetEvents(set_index);
+        }
+    }
+}
+
+void CharacterEditorWidget::on_setEventRemoveButton_clicked()
+{
+    if (setTriggetingEventsView->currentIndex().isValid())
+    {
+        int set_index = setCurrentComboBox->currentIndex();
+        _manager.deleteAnimationSetEvent(_project_index, set_index, setTriggetingEventsView->currentIndex().row());
+        updateSetEvents(set_index);
     }
 }

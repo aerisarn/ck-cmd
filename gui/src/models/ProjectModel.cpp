@@ -434,3 +434,14 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 	}
 	return nullptr;
 }
+
+bool ProjectModel::insertRows(int row, int count, const QModelIndex& index)
+{
+	auto& edge = modelEdge(index);
+	emit beginInsertRows(index, row, row + count);
+	emit beginInsertChildren(index, row, row + count);
+	bool result = edge.insertRows(row, count, _resourceManager);
+	emit endInsertChildren();
+	emit endInsertRows();
+	return result;
+}

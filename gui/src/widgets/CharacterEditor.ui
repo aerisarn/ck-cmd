@@ -506,14 +506,14 @@
                 </widget>
                </item>
                <item>
-                <widget class="QToolButton" name="setConditionsRemoveButton">
+                <widget class="QToolButton" name="setConditionsAddButton">
                  <property name="text">
                   <string>+</string>
                  </property>
                 </widget>
                </item>
                <item>
-                <widget class="QToolButton" name="setConditionsAddButton">
+                <widget class="QToolButton" name="setConditionsRemoveButton">
                  <property name="text">
                   <string>—</string>
                  </property>

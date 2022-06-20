@@ -168,3 +168,21 @@ bool ModelEdge::setData(int row, int column, const QVariant& value, ResourceMana
 	}
 	return false;
 }
+
+bool ModelEdge::insertRows(int row_start, int count, ResourceManager& manager)
+{
+	switch (_childType)
+	{
+	case NodeType::CharactersNode:
+	case NodeType::MiscsNode:
+	case NodeType::CharacterNode:
+	case NodeType::MiscNode:
+		return false;
+	default:
+	{
+		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
+		return ProjectTreeHkHandler::addRows(row_start, count, _project, _file, variant, _childType, manager);
+	}
+	}
+	return false;
+}

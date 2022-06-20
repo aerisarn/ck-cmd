@@ -42,14 +42,18 @@ private slots:
     void on_mirroringXDoubleSpinBox_valueChanged(double d);
     void on_mirroringYDoubleSpinBox_valueChanged(double d);
     void on_mirroringZDoubleSpinBox_valueChanged(double d);
+
     void on_selectBoneTreeView_clicked(const QModelIndex& current);
     void on_selectPairedBoneTreeView_clicked(const QModelIndex& current);
-    void on_setCurrentComboBox_currentIndexChanged(int index);
 
     //Set Panel
+    void on_setCurrentComboBox_currentIndexChanged(int index);
+
     void on_setRemoveButton_clicked();
     void on_setAddButton_clicked();
     void on_setEventAddButton_clicked();
+    void on_setEventRemoveButton_clicked();
+    void on_setTriggetingEventsView_itemClicked(QTableWidgetItem* item);
 
 public:
     explicit CharacterEditorWidget(ckcmd::HKX::ProjectModel& model, QWidget* parent = 0);

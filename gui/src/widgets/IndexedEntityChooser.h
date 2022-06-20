@@ -16,7 +16,15 @@ public Q_SLOTS:
     virtual void accept() override;
 
 public:
-	IndexedEntityChooser(QAbstractItemModel* model, QWidget* parent = 0);
+	IndexedEntityChooser(QAbstractItemModel* viewModel, QWidget* parent = 0);
 	QModelIndex selectedIndex() const {return _result;}
+
+	static QModelIndex getIndex(
+		QAbstractItemModel* viewModel,
+		QWidget* parent,
+		const QString& title,
+		const QString& selectLabel,
+		const QString& createLabel,
+		bool* ok);
 
 };

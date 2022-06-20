@@ -396,8 +396,6 @@ struct  HandleCharacterData
 			HkxTableVariant(*manager.at(file, mirror_data_index)).rows();
 	}
 
-
-
 	static int getRowColumns(int file, int row, int column, hkVariant* variant, NodeType childType, ResourceManager& manager)
 	{
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
@@ -748,6 +746,7 @@ struct  HandleBehaviorData
 		if (childType == NodeType::behaviorEventName)
 		{
 			string_data->m_eventNames[row] = value.toString().toUtf8().constData();
+			return true;
 		}
 		//else if (childType == NodeType::behaviorVariableName)
 		//{
@@ -766,10 +765,15 @@ struct  HandleBehaviorData
 		auto string_data = data->m_data->m_stringData;
 		if (childType == NodeType::behaviorEventNames)
 		{
-			addToContainer(row_start, count, string_data->m_eventNames);
-			addToContainer(row_start, count, data->m_data->m_eventInfos);
+			bool result = addToContainer(row_start, count, string_data->m_eventNames);
+			if (!result)
+				return false;
+			result = addToContainer(row_start, count, data->m_data->m_eventInfos);
+			if (!result)
+				return false;
+			return true;
 		}
-		//else if (childType == NodeType::behaviorVariableName)
+		//else if (childType == NodeType::behaviorVariableNames)
 		//{
 		//	addToContainer(row_start, count, string_data->m_variableNames);
 		//	data->m_data->m_variableInitialValues->m
@@ -1439,11 +1443,6 @@ ModelEdge ProjectTreeHkHandler::getChild(hkVariant*, int row, int column, int pr
 
 bool ProjectTreeHkHandler::setData(int row, int column, int project, int file, hkVariant* variant, NodeType childType, const QVariant& value, ResourceManager& manager)
 {
-	if (column == 0)
-	{
-		//setting name
-		return HkxVariant(*variant).setName(value.toString());
-	}
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
 		return HandleCharacterData::setData(row, column, project, file, variant, childType, value, manager);
@@ -1451,6 +1450,20 @@ bool ProjectTreeHkHandler::setData(int row, int column, int project, int file, h
 	if (&hkbBehaviorGraphClass == variant->m_class)
 	{
 		return HandleBehaviorData::setData(row, column, project, file, variant, childType, value, manager);
+	}
+	if (column == 0)
+	{
+		//setting name
+		return HkxVariant(*variant).setName(value.toString());
+	}
+	return false;
+}
+
+bool ProjectTreeHkHandler::addRows(int row_start, int count, int project, int file, hkVariant* variant, NodeType childType, ResourceManager& manager)
+{
+	if (&hkbBehaviorGraphClass == variant->m_class)
+	{
+		return HandleBehaviorData::addRows(row_start, count, project, file, variant, childType, manager);
 	}
 	return false;
 }
