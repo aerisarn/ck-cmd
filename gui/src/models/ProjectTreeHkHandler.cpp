@@ -773,6 +773,21 @@ struct  HandleBehaviorData
 				return false;
 			return true;
 		}
+		if (childType == NodeType::behaviorCharacterPropertyWords)
+		{
+			bool result = addToContainer(row_start, count, string_data->m_variableNames);
+			if (!result)
+				return false;
+			result = addToContainer(row_start, count, data->m_data->m_variableInfos);
+			if (HK_NULL == data->m_data->m_variableInitialValues)
+			{
+				data->m_data->m_variableInitialValues = manager.createObject<hkbVariableValueSet>(file, &hkbVariableValueSetClass);
+			}
+			result = addToContainer(row_start, count, data->m_data->m_variableInitialValues->m_wordVariableValues);
+			if (!result)
+				return false;
+			return true;
+		}
 		//else if (childType == NodeType::behaviorVariableNames)
 		//{
 		//	addToContainer(row_start, count, string_data->m_variableNames);

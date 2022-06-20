@@ -48,12 +48,16 @@ private slots:
 
     //Set Panel
     void on_setCurrentComboBox_currentIndexChanged(int index);
-
-    void on_setRemoveButton_clicked();
     void on_setAddButton_clicked();
+    void on_setRemoveButton_clicked();
+
+    void on_setTriggetingEventsView_itemClicked(QTableWidgetItem* item);
     void on_setEventAddButton_clicked();
     void on_setEventRemoveButton_clicked();
-    void on_setTriggetingEventsView_itemClicked(QTableWidgetItem* item);
+
+    void on_setConditionsAddButton_clicked();
+    void on_setConditionsRemoveButton_clicked();
+
 
 public:
     explicit CharacterEditorWidget(ckcmd::HKX::ProjectModel& model, QWidget* parent = 0);

@@ -62,6 +62,7 @@ namespace ckcmd {
 
 	public:
 		ModelWidget(HKX::ProjectModel& model, QWidget* parent = 0);
+		virtual ~ModelWidget() {};
 
 		void setIndex(const QModelIndex& index);
 

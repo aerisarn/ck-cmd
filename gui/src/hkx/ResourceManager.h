@@ -39,7 +39,8 @@ namespace ckcmd {
 			behavior,
 			bones,
 			ragdoll_bones,
-			events
+			events,
+			variable_words,
 		};
 
 		class ResourceManager {
@@ -102,8 +103,6 @@ namespace ckcmd {
 			int findIndex(int file_index, const void* object) const;
 			int findIndex(const fs::path& file, const void* object) const;
 
-
-
 			hkVariant* at(const fs::path& file, size_t _index);
 			const hkVariant* at(const fs::path& file, size_t _index) const;
 			hkVariant* ResourceManager::at(size_t file_index, size_t _index);
@@ -144,6 +143,17 @@ namespace ckcmd {
 			size_t behaviorFileIndex(int project_file, hkVariant* data);
 			hkVariant* behaviorFileRoot(int behavior_file);
 
+			/* NODES */
+			template <typename T>
+			T* createObject(int file, const hkClass* hkclass) {
+				hkVariant v;
+				T* t = new T();
+				v.m_class = hkclass;
+				v.m_object = t;
+				_contents[file].second.push_back(v);
+				return t;
+			}
+
 			/* ASSETS */
 
 			std::vector<fs::path> importAssets(int project_file, const fs::path& sourcePath, AssetType type);
@@ -180,7 +190,7 @@ namespace ckcmd {
 			QString getAnimationSetVariable(int project_file, int set_index, int variable_index);
 			int getAnimationSetVariableMin(int project_file, int set_index, int variable_index);
 			int getAnimationSetVariableMax(int project_file, int set_index, int variable_index);
-			void addAnimationSetVariable(int project_file, int set_index, const QString& variable_index, int min_value, int max_value);
+			void addAnimationSetVariable(int project_file, int set_index, const QString& variable_name, int min_value, int max_value);
 			void deleteAnimationSetVariable(int project_file, int set_index, int variable_index);
 
 			QStringList getAnimationSetAnimation(int project_file, int set_index);

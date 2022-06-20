@@ -288,10 +288,12 @@ void CharacterEditorWidget::updateSetConditions(int set_index)
             1,
             new QTableWidgetItem(QString::number(_manager.getAnimationSetVariableMax(_project_index, set_index, condition_index)))
         );
+        QTableWidgetItem* variable = new QTableWidgetItem(_manager.getAnimationSetVariable(_project_index, set_index, condition_index));
+        variable->setFlags(variable->flags() & ~Qt::ItemIsEditable);
         setConditionsTableWidget->setItem(
             index,
             2,
-            new QTableWidgetItem(_manager.getAnimationSetVariable(_project_index, set_index, condition_index))
+            variable
         );
     }
     if (conditions > 0 && setConditionsTableWidget->currentIndex().isValid())
@@ -408,4 +410,34 @@ void CharacterEditorWidget::on_setEventRemoveButton_clicked()
         _manager.deleteAnimationSetEvent(_project_index, set_index, setTriggetingEventsView->currentIndex().row());
         updateSetEvents(set_index);
     }
+}
+
+void CharacterEditorWidget::on_setConditionsAddButton_clicked()
+{
+    auto* edit_variables_model = _model.editModel(_index, ckcmd::HKX::AssetType::variable_words);
+    if (nullptr != edit_variables_model)
+    {
+        bool ok;
+        QModelIndex variable_index = IndexedEntityChooser::getIndex
+        (
+            edit_variables_model,
+            this,
+            tr("Add conditioning variable"),
+            tr("Select an existing variable:"),
+            tr("Create a new one:"),
+            &ok
+        );
+        QString variable_name = variable_index.data().toString();
+        if (ok && !variable_name.isEmpty())
+        {
+            int set_index = setCurrentComboBox->currentIndex();
+            _manager.addAnimationSetVariable(_project_index, set_index, variable_name, 0, 0);
+            updateSetConditions(set_index);
+        }
+    }
+}
+
+void CharacterEditorWidget::on_setConditionsRemoveButton_clicked()
+{
+
 }
