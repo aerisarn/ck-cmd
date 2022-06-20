@@ -356,6 +356,11 @@ bool ProjectModel::isAssetsNode(const QModelIndex& index)
 	return ::isAssetsNode(nodeType(index));
 }
 
+int ProjectModel::getProjectIndex(const QModelIndex& index)
+{
+	return modelEdge(index)._project;
+}
+
 QModelIndex ProjectModel::getChildAssetProxy(const QModelIndex& index, AssetType type, NodeType proxy_type)
 {
 	auto& edge = modelEdge(index);

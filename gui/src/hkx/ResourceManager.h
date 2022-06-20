@@ -55,8 +55,8 @@ namespace ckcmd {
 			AnimationCache _cache;
 			//project_file, crc32(name) -> translations, rotations
 			std::map<std::pair<size_t, long long>, AnimData::root_movement_t> _animations_root_movements;
-			//project_file, crc32(set) -> crc32(anim_name) 
-			std::multimap<std::pair<size_t, long long>, long long> _decoded_loaded_sets;
+			//project_file, crc32(set) -> anim_name inside character data 
+			std::multimap<std::pair<size_t, long long>, std::string> _decoded_loaded_sets;
 			
 			//IDLES
 			Collection* _esp;
@@ -70,13 +70,15 @@ namespace ckcmd {
 			bool isHavokProject(const fs::path& file);
 			bool isHavokAnimation(const fs::path& file);
 			std::array<std::string, 4>  animationCrc32(const fs::path& path);
-			bool isCreatureProject(int file_index);
+
 			hkbProjectStringData* getProjectRoot(int file_index);
 			hkbProjectStringData* getProjectRoot(const fs::path& fs_path);
 			hkbCharacterStringData* getCharacterString(int character_index);
 			hkbCharacterData* getCharacterData(int character_index);
 
 		public:
+
+			bool isCreatureProject(int project_index);
 
 			ResourceManager(WorkspaceConfig& _workspace);
 
@@ -126,6 +128,7 @@ namespace ckcmd {
 			size_t projectCharacters(int project_index);
 			size_t projectFileIndex(int row, ProjectType type);
 
+			/*MODEL FILES*/
 
 			size_t characterFileIndex(int row, int project_file, ProjectType type);
 			hkVariant* characterFileRoot(int character_index);
@@ -140,6 +143,7 @@ namespace ckcmd {
 			size_t behaviorFileIndex(int project_file, hkVariant* data);
 			hkVariant* behaviorFileRoot(int behavior_file);
 
+			/* ASSETS */
 
 			std::vector<fs::path> importAssets(int project_file, const fs::path& sourcePath, AssetType type);
 			size_t assetsCount(int project_file, AssetType type);
@@ -148,6 +152,40 @@ namespace ckcmd {
 			void refreshAssetList(int project_file, AssetType type);
 
 			QStringList assetsList(int project_index, AssetType type);
+
+			/* CACHE SETS */
+
+			size_t getAnimationSetsFiles(int project_file);
+			QString getAnimationSetsFile(int project_file, int index);
+			void createAnimationSet(int project_file, const QString& name); //add .txt
+			void deleteAnimationSet(int project_file, int index);
+
+			size_t getAnimationSetEvents(int project_file, int set_index);
+			QString getAnimationSetEvent(int project_file, int set_index, int event_index);
+			void addAnimationSetEvent(int project_file, int set_index, const QString& event_name);
+			void deleteAnimationSetEvent(int project_file, int set_index, int event_index);
+
+			size_t getAnimationSetAttacks(int project_file, int set_index);
+			QString getAnimationSetAttackEvent(int project_file, int set_index, int attack_index);
+			void setAnimationSetAttackEvent(int project_file, int set_index, int attack_index, const QString& attack_event);
+			void addAnimationSetAttack(int project_file, int set_index, const QString& attack_event);
+			void deleteAnimationSetAttack(int project_file, int set_index, int attack_index);
+			size_t getAnimationSetAttackClips(int project_file, int set_index, int attack_index);
+			QString getAnimationSetAttackClip(int project_file, int set_index, int attack_index, int clip_index);
+			void addAnimationSetAttackClip(int project_file, int set_index, int attack_index, const QString& clip_generator_name);
+			void deleteAnimationSetAttackClip(int project_file, int set_index, int attack_index, int clip_index);
+
+			size_t getAnimationSetVariables(int project_file, int set_index);
+			QString getAnimationSetVariable(int project_file, int set_index, int variable_index);
+			int getAnimationSetVariableMin(int project_file, int set_index, int variable_index);
+			int getAnimationSetVariableMax(int project_file, int set_index, int variable_index);
+			void addAnimationSetVariable(int project_file, int set_index, const QString& variable_index, int min_value, int max_value);
+			void deleteAnimationSetVariable(int project_file, int set_index, int variable_index);
+
+			QStringList getAnimationSetAnimation(int project_file, int set_index);
+			void addAnimationSetAnimation(int project_file, int set_index, const QString& animation_path);
+			void deleteAnimationSetAnimation(int project_file, int set_index, const QString& animation_path);
+
 		};
 	}
 }

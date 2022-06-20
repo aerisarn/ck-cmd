@@ -50,6 +50,9 @@ namespace ckcmd {
             hkVariant* variant(const QModelIndex& index);
             bool isVariant(const QModelIndex& index);
             bool isAssetsNode(const QModelIndex& index);
+            int getProjectIndex(const QModelIndex& index);
+            ResourceManager& getResourceManager() { return _resourceManager; }
+
 
             int rowColumns(const QModelIndex& parent = QModelIndex()) const;
 

@@ -29,7 +29,12 @@ class CharacterEditorWidget : public ckcmd::ModelWidget, private Ui::CharacterEd
     void setBehaviorField();
     void setRigField();
     void setRigControls();
+    void setAnimationSetsControls();
 
+    void updateSetEvents(int set_index);
+    void updateSetAttacks(int set_index);
+    void updateSetConditions(int set_index);
+    void updateSetAnimations(int set_index);
 
 private slots:
     void on_mirroringXDoubleSpinBox_valueChanged(double d);
@@ -37,6 +42,7 @@ private slots:
     void on_mirroringZDoubleSpinBox_valueChanged(double d);
     void on_selectBoneTreeView_clicked(const QModelIndex& current);
     void on_selectPairedBoneTreeView_clicked(const QModelIndex& current);
+    void on_setCurrentComboBox_currentIndexChanged(int index);
 
 public:
     explicit CharacterEditorWidget(ckcmd::HKX::ProjectModel& model, QWidget* parent = 0);

@@ -21,6 +21,10 @@ namespace AnimData {
 			strings.push_back(file);
 		}
 
+		void remove(int index) {
+			strings.erase(strings.begin() + index);
+		}
+
 		void setStrings(std::vector<std::string> strings) {
 			this->strings = strings;
 		}

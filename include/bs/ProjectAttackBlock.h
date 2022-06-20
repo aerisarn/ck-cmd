@@ -20,6 +20,22 @@ namespace AnimData {
 			return swapEventsList;
 		}
 
+		size_t getSwapEventsListSize() {
+			return swapEventsList.size();
+		}
+
+		std::string& getSwapEvent(int index) {
+			return swapEventsList[index];
+		}
+
+		void addSwapEvent(const std::string& string) {
+			swapEventsList.append(string);
+		}
+
+		void removeSwapEvent(int index) {
+			swapEventsList.remove(index);
+		}
+
 		void setSwapEventsList(StringListBlock swapEventsList) {
 			this->swapEventsList = swapEventsList;
 		}
@@ -38,6 +54,51 @@ namespace AnimData {
 
 		void setAttackData(ClipAttacksBlock attackData) {
 			this->attackData = attackData;
+		}
+
+		size_t getAttacks()
+		{
+			return attackData.getAttacks();
+		}
+
+		void addAttack(const std::string& attack_event)
+		{
+			attackData.addAttack(attack_event);
+		}
+
+		void removeAttack(int index)
+		{
+			attackData.removeAttack(index);
+		}
+
+		std::string& getAttackEvent(int attack_index)
+		{
+			return this->attackData.getAttackEvent(attack_index);
+		}
+
+		void setAttackEvent(int attack_index, const std::string& attack_event)
+		{
+			this->attackData.setAttackEvent(attack_index, attack_event);
+		}
+
+		size_t getAttackClips(int attack_index)
+		{
+			return this->attackData.getAttackClips(attack_index);
+		}
+
+		std::string& getAttackClip(int attack_index, int clip_index)
+		{
+			return this->attackData.getAttackClip(attack_index, clip_index);
+		}
+
+		void addAttackClip(int attack_index, const std::string& clip_generator_name)
+		{
+			attackData.addAttackClip(attack_index, clip_generator_name);
+		}
+
+		void removeAttackClip(int attack_index, int clip_index)
+		{
+			attackData.removeAttackClip(attack_index, clip_index);
 		}
 		
 		ClipFilesCRC32Block& getCrc32Data() {
