@@ -26,8 +26,8 @@ namespace AnimData {
 
 		struct Data {
 			std::string variable_name;
-			EquipType value_min;
-			EquipType value_max;
+			int value_min;
+			int value_max;
 
 			std::string EquipTypeString(const EquipType& key) {
 				switch (key) {
@@ -63,7 +63,7 @@ namespace AnimData {
 
 			std::string getHandString()
 			{
-				std::string out = variable_name + " " + EquipTypeString(value_min);
+				std::string out = variable_name + " " + EquipTypeString((EquipType)value_min);
 				unsigned int i = value_min;
 				while (i < value_max)
 				{
@@ -111,8 +111,8 @@ namespace AnimData {
 					variables.push_back(
 						{
 							input.nextLine(),
-							(EquipType)std::atoi(input.nextLine().c_str()),
-							(EquipType)std::atoi(input.nextLine().c_str())
+							std::atoi(input.nextLine().c_str()),
+							std::atoi(input.nextLine().c_str())
 						}
 					);
 				}

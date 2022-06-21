@@ -14,6 +14,7 @@
 #include <Animation/Animation/hkaAnimationContainer.h>
 #include <hkbClipGenerator_2.h>
 
+#include <QSet>
 #include <atomic>
 
 using namespace ckcmd::HKX;
@@ -1050,12 +1051,116 @@ QStringList ResourceManager::assetsList(int project_index, AssetType type)
 		return {};
 	}
 	auto asset_folder = project_path / asset_subfolder;
-	for (auto& entry : fs::directory_iterator(asset_folder))
+	for (auto& entry : fs::recursive_directory_iterator(asset_folder))
 	{
-		if (fs::is_regular_file(entry.path()))
-			out << (asset_subfolder / entry.path().filename()).string().c_str();
+		if (fs::is_regular_file(entry.path()) && entry.path().extension() == ".hkx")
+		{
+			fs::path relative = fs::relative(entry.path(), project_path);
+			out << relative.string().c_str();
+		}
 	}
 	return out;
+}
+
+QStringList ResourceManager::clipList(int project_index)
+{
+	HKXWrapper wrap;
+	QSet<QString> out;
+	fs::path project_file_path = path(project_index);
+	fs::path project_path = project_file_path.parent_path();
+	auto* project_root = getProjectRoot(project_file_path);
+	fs::path char_file_path = project_path / project_root->m_characterFilenames[0].cString();
+	get(char_file_path);
+	auto string_data = getCharacterString(index(char_file_path));
+	fs::path behavior_subfolder = project_path / fs::path(string_data->m_behaviorFilename.cString()).parent_path();
+	for (auto& entry : fs::directory_iterator(behavior_subfolder))
+	{
+		if (fs::is_regular_file(entry.path()))
+		{
+			hkArray<hkVariant> to_read;
+			wrap.read(entry.path(), to_read);
+			for (int i = 0; i < to_read.getSize(); ++i)
+			{
+				if (to_read[i].m_class == &hkbClipGeneratorClass)
+				{
+					out << reinterpret_cast<hkbClipGenerator*>(to_read[i].m_object)->m_name.cString();
+				}
+			}
+		}
+	}
+	return out.toList();
+}
+
+QStringList ResourceManager::clipAnimationsList(int project_index)
+{
+	HKXWrapper wrap;
+	QSet<QString> out;
+	fs::path project_file_path = path(project_index);
+	fs::path project_path = project_file_path.parent_path();
+	auto* project_root = getProjectRoot(project_file_path);
+	fs::path char_file_path = project_path / project_root->m_characterFilenames[0].cString();
+	get(char_file_path);
+	auto string_data = getCharacterString(index(char_file_path));
+	fs::path behavior_subfolder = project_path / fs::path(string_data->m_behaviorFilename.cString()).parent_path();
+	for (auto& entry : fs::directory_iterator(behavior_subfolder))
+	{
+		if (fs::is_regular_file(entry.path()))
+		{
+			hkArray<hkVariant> to_read;
+			wrap.read(entry.path(), to_read);
+			for (int i = 0; i < to_read.getSize(); ++i)
+			{
+				if (to_read[i].m_class == &hkbClipGeneratorClass)
+				{
+					out << reinterpret_cast<hkbClipGenerator*>(to_read[i].m_object)->m_animationName.cString();
+				}
+			}
+		}
+	}
+	return out.toList();
+}
+
+QStringList ResourceManager::attackEventList(int project_index)
+{
+	HKXWrapper wrap;
+	QSet<QString> out;
+	fs::path project_file_path = path(project_index);
+	fs::path project_path = project_file_path.parent_path();
+	auto* project_root = getProjectRoot(project_file_path);
+	fs::path char_file_path = project_path / project_root->m_characterFilenames[0].cString();
+	get(char_file_path);
+	auto string_data = getCharacterString(index(char_file_path));
+	fs::path behavior_subfolder = project_path / fs::path(string_data->m_behaviorFilename.cString()).parent_path();
+	for (auto& entry : fs::directory_iterator(behavior_subfolder))
+	{
+		if (fs::is_regular_file(entry.path()))
+		{
+			hkArray<hkVariant> to_read;
+			wrap.read(entry.path(), to_read);
+			for (int i = 0; i < to_read.getSize(); ++i)
+			{
+				if (to_read[i].m_class == &hkbBehaviorGraphStringDataClass)
+				{
+					hkbBehaviorGraphStringData* string_data = reinterpret_cast<hkbBehaviorGraphStringData*>(to_read[i].m_object);
+					for (int e = 0; e < string_data->m_eventNames.getSize(); ++e)
+					{
+						QString eventName = string_data->m_eventNames[e].cString();
+						if (
+							eventName.startsWith("attackStart") ||
+							eventName.startsWith("attackPowerStart") ||
+							eventName.startsWith("bashStart") ||
+							eventName.startsWith("bashPowerStart")
+							)
+						{
+							out << eventName;
+						}
+					}
+					break;
+				}
+			}
+		}
+	}
+	return out.toList();
 }
 
 /* CACHE SETS */
@@ -1174,6 +1279,24 @@ int ResourceManager::getAnimationSetVariableMax(int project_file, int set_index,
 		return entry->sets.getBlockVariableMax(set_index, variable_index);
 	}
 	return 0;
+}
+
+void ResourceManager::setAnimationSetVariableMin(int project_file, int set_index, int variable_index, int min_value)
+{
+	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	if (entry != nullptr)
+	{
+		entry->sets.setBlockVariableMin(set_index, variable_index, min_value);
+	}
+}
+
+void ResourceManager::setAnimationSetVariableMax(int project_file, int set_index, int variable_index, int max_value)
+{
+	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	if (entry != nullptr)
+	{
+		entry->sets.setBlockVariableMax(set_index, variable_index, max_value);
+	}
 }
 
 void ResourceManager::addAnimationSetVariable(int project_file, int set_index, const QString& variable_name, int min_value, int max_value)

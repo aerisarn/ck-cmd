@@ -8,10 +8,9 @@
 #include "ui_CharacterEditor.h"
 #include <src/hkx/HkxItemReal.h>
 
-class hkbNode;
-
 class CharacterEditorWidget : public ckcmd::ModelWidget, private Ui::CharacterEditor
 {
+
     Q_OBJECT
     Q_PROPERTY(ckcmd::HKX::HkxItemReal mirrorAxis READ readMirrorAxis WRITE writeMirrorAxis USER true NOTIFY mirrorAxisChanged)
 
@@ -57,7 +56,15 @@ private slots:
 
     void on_setConditionsAddButton_clicked();
     void on_setConditionsRemoveButton_clicked();
+    void on_setConditionsTableWidget_itemClicked(QTableWidgetItem* item);
 
+    void on_setAttacksAddButton_clicked();
+    void on_setAttacksRemoveButton_clicked();
+    void on_setAttacksTreeWidget_itemClicked(QTreeWidgetItem* item, int column);
+
+    void on_setAnimationsAddButton_clicked();
+    void on_setAnimationsRemoveButton_clicked();
+    void on_setAnimationsTableWidget_itemClicked(QTableWidgetItem* item);
 
 public:
     explicit CharacterEditorWidget(ckcmd::HKX::ProjectModel& model, QWidget* parent = 0);

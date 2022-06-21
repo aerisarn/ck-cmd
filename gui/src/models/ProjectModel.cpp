@@ -1,7 +1,7 @@
 #include "ProjectModel.h"
 
 #include <src/models/SelectionProxyModel.h>
-#include <QStringListModel>
+#include <src/models/StringListModel.h>
 #include <QBrush>
 
 using namespace ckcmd::HKX;
@@ -441,7 +441,16 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 			}
 			return nullptr;
 		}
-		return new QStringListModel(_resourceManager.assetsList(edge._project, type));
+		else if (AssetType::attack_events == type) {
+			return new StringListModel(_resourceManager.attackEventList(edge._project));
+		}
+		else if (AssetType::clips == type) {
+			return new StringListModel(_resourceManager.clipList(edge._project));
+		}
+		else if (AssetType::clip_animations == type) {
+			return new StringListModel(_resourceManager.clipAnimationsList(edge._project));
+		}
+		return new StringListModel(_resourceManager.assetsList(edge._project, type));
 	}
 	default:
 		break;

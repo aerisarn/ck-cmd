@@ -87,14 +87,24 @@ namespace AnimData {
 			return projectAttackBlocks.at(set_index).getHandVariableData().getVariables().at(variable_index).value_max;
 		}
 
+		void setBlockVariableMin(int set_index, int variable_index, int value)
+		{
+			projectAttackBlocks.at(set_index).getHandVariableData().getVariables()[variable_index].value_min = value;
+		}
+
+		void setBlockVariableMax(int set_index, int variable_index, int value)
+		{
+			projectAttackBlocks.at(set_index).getHandVariableData().getVariables()[variable_index].value_max = value;
+		}
+
 		void addBlockVariable(int set_index, const std::string& name, int min, int max)
 		{
-			projectAttackBlocks.at(set_index).getHandVariableData().getVariables().push_back({ name, (HandVariableData::EquipType)min, (HandVariableData::EquipType)max });
+			projectAttackBlocks.at(set_index).getHandVariableData().getVariables().push_back({ name, min, max });
 		}
 
 		void removeBlockVariable(int set_index, int variable_index)
 		{
-			projectAttackBlocks.at(set_index).getHandVariableData().getVariables().erase(
+			projectAttackBlocks[set_index].getHandVariableData().getVariables().erase(
 				projectAttackBlocks.at(set_index).getHandVariableData().getVariables().begin() + variable_index
 			);
 		}

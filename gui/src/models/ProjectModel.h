@@ -79,7 +79,6 @@ namespace ckcmd {
 
             virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
 
-
         public slots:
             void refreshAssetList(const QModelIndex& parent, AssetType type);
 

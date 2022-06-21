@@ -41,6 +41,9 @@ namespace ckcmd {
 			ragdoll_bones,
 			events,
 			variable_words,
+			attack_events,
+			clips,
+			clip_animations
 		};
 
 		class ResourceManager {
@@ -163,6 +166,9 @@ namespace ckcmd {
 			void refreshAssetList(int project_file, AssetType type);
 
 			QStringList assetsList(int project_index, AssetType type);
+			QStringList clipList(int project_index);
+			QStringList clipAnimationsList(int project_index);
+			QStringList attackEventList(int project_index);
 
 			/* CACHE SETS */
 
@@ -190,6 +196,8 @@ namespace ckcmd {
 			QString getAnimationSetVariable(int project_file, int set_index, int variable_index);
 			int getAnimationSetVariableMin(int project_file, int set_index, int variable_index);
 			int getAnimationSetVariableMax(int project_file, int set_index, int variable_index);
+			void setAnimationSetVariableMin(int project_file, int set_index, int variable_index, int min_value);
+			void setAnimationSetVariableMax(int project_file, int set_index, int variable_index, int max_value);
 			void addAnimationSetVariable(int project_file, int set_index, const QString& variable_name, int min_value, int max_value);
 			void deleteAnimationSetVariable(int project_file, int set_index, int variable_index);
 
