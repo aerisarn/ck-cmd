@@ -5,6 +5,7 @@
 #include <src\hkx\RowCalculator.h>
 #include <src\hkx\ColumnCalculator.h>
 #include <src\hkx\NameGetter.h>
+#include <src\hkx\RowResizer.h>
 
 using namespace ckcmd::HKX;
 
@@ -61,4 +62,11 @@ QStringList HkxTableVariant::rowNames()
 		names << n.name();
 	}
 	return names;
+}
+
+bool HkxTableVariant::resizeColumns(int row, int column, int delta)
+{
+	RowResizer sizer(row, column, delta);
+	accept(sizer);
+	return sizer.result();
 }

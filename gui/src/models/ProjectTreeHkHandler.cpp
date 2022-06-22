@@ -529,6 +529,12 @@ struct  HandleCharacterData
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
 		auto string_data = data->m_stringData;
 		auto mirror_data = data->m_mirroredSkeletonInfo;
+		if (childType == NodeType::animationName)
+		{
+			string_data->m_animationNames[row] = value.toString().toUtf8().constData();
+			return true;
+		}
+
 		if (row < SUPPORT_END)
 			return false;
 		HkxTableVariant data_variant(*variant);
@@ -545,6 +551,34 @@ struct  HandleCharacterData
 		int mirroring_data_rows = mirroring_data_variant.rows();
 		if (row < SUPPORT_END + data_rows + stringdata_rows + mirroring_data_rows)
 			return mirroring_data_variant.setData(row - stringdata_rows - data_rows - SUPPORT_END, column - 1, value);
+		return false;
+	}
+
+	static bool addRows(int row_start, int count, int project, int file, hkVariant* variant, NodeType childType, ResourceManager& manager)
+	{
+		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+		auto string_data = data->m_stringData;
+		auto mirror_data = data->m_mirroredSkeletonInfo;
+
+		if (childType == NodeType::animationNames)
+		{
+			return addToContainer(row_start, count, string_data->m_animationNames);
+		}
+		return false;
+	}
+
+	static bool removeRows(int row_start, int count, int project, int file, hkVariant* variant, NodeType childType, ResourceManager& manager)
+	{
+		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+		auto string_data = data->m_stringData;
+		auto mirror_data = data->m_mirroredSkeletonInfo;
+
+		if (childType == NodeType::animationNames)
+		{
+			for (int i=0; i< count; ++i)
+				string_data->m_animationNames.removeAt(row_start);
+			return true;
+		}
 		return false;
 	}
 };
@@ -1480,5 +1514,27 @@ bool ProjectTreeHkHandler::addRows(int row_start, int count, int project, int fi
 	{
 		return HandleBehaviorData::addRows(row_start, count, project, file, variant, childType, manager);
 	}
+	if (&hkbCharacterDataClass == variant->m_class)
+	{
+		return HandleCharacterData::addRows(row_start, count, project, file, variant, childType, manager);
+	}
 	return false;
+}
+
+bool ProjectTreeHkHandler::removeRows(int row_start, int count, int project, int file, hkVariant* variant, NodeType childType, ResourceManager& manager)
+{
+	//if (&hkbBehaviorGraphClass == variant->m_class)
+	//{
+	//	return HandleBehaviorData::addRows(row_start, count, project, file, variant, childType, manager);
+	//}
+	if (&hkbCharacterDataClass == variant->m_class)
+	{
+		return HandleCharacterData::removeRows(row_start, count, project, file, variant, childType, manager);
+	}
+	return false;
+}
+
+bool ProjectTreeHkHandler::changeColumns(int row, int column_start, int delta, int _project, int _file, hkVariant* variant, NodeType childType, ResourceManager& manager)
+{
+	return HkxTableVariant(*variant).resizeColumns(row, column_start, delta);
 }

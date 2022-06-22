@@ -63,6 +63,14 @@ if(NOT DEFINED GAMEDATA)
     source_group("GameData\\Sources" FILES ${GAMEDATA_SOURCES})
 endif()  
 
+if(NOT DEFINED UTILITY)
+    file(GLOB_RECURSE UTILITY_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/utility/*.h)
+    file(GLOB_RECURSE UTILITY_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/utility/*.cpp)
+
+    source_group("Utility\\Headers" FILES ${UTILITY_HEADERS})
+    source_group("Utility\\Sources" FILES ${UTILITY_SOURCES})
+endif()  
+
 if(NOT DEFINED MODELS)
     file(GLOB_RECURSE MODEL_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/models/*.h)
     file(GLOB_RECURSE MODEL_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/models/*.cpp)
@@ -115,6 +123,8 @@ add_library( gui-lib STATIC
     ${HKX_SOURCES}
     ${ESP_HEADERS}
     ${ESP_SOURCES}
+    ${UTILITY_HEADERS}
+    ${UTILITY_SOURCES}
 )
 target_include_directories	(gui-lib  PUBLIC ${PROJECT_INCLUDES} )
 

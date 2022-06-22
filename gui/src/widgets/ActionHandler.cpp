@@ -2,6 +2,7 @@
 
 #include <src/hkx/Saver.h>
 #include <src/widgets/FBXImport.h>
+#include <src/utility/Conversion.h>
 
 //#include <src/models/ProjectTreeModel.h>
 
@@ -24,6 +25,13 @@ void ActionHandler::buildImportFBXAction()
 	connect(_importFBX, SIGNAL(triggered()), this, SLOT(importFBX()));
 }
 
+void ActionHandler::buildRemoveAnimation()
+{
+	_removeAnimation = new QAction(tr("&Remove Animation"), this);
+	_removeAnimation->setShortcuts(QKeySequence::DeleteCompleteLine);
+	_removeAnimation->setStatusTip(tr("Remove Animation"));
+	connect(_removeAnimation, SIGNAL(triggered()), this, SLOT(removeAnimation()));
+}
 void ActionHandler::buildCreateProjectAction()
 {
 	_createProject = new QAction(tr("&New"), this);
@@ -32,23 +40,6 @@ void ActionHandler::buildCreateProjectAction()
 	_createProject->setEnabled(false);
 	connect(_createProject, SIGNAL(triggered()), this, SLOT(createProject()));
 }
-
-
-void ActionHandler::selectionChanged(const QItemSelection& selected, const QItemSelection& deselected)
-{
-	//if (selected.size() == 1) {
-	//	auto model = (ProjectTreeModel*)selected[0].model();
-	//	ProjectNode* node = model->getNode(selected[0].topLeft());
-	//	if (node->canSaveOrExport())
-	//	{
-	//		_saveAction->setEnabled(true);
-	//	}
-	//	else {
-	//		_saveAction->setEnabled(false);
-	//	}
-	//}
-}
-
 
 void ActionHandler::save()
 {
@@ -77,8 +68,37 @@ QAction* ActionHandler::exportAction()
 
 void ActionHandler::importFBX()
 {
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
 	bool ok;
-	fs::path import_path = FBXImport::getPath(
+	auto selection = FBXImport::getPath(
+		_model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::animation),
 		nullptr,
 		&ok);
+
+	if (ok && !selection.first.empty() && !selection.second.empty())
+	{
+		fs::path out = Conversion::convertFbxAnimationToHkx(selection.first, selection.second);
+		fs::path base = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::project);
+		fs::path result_path = fs::relative(out, base);
+		int animations = _model.rowCount(index);
+		_model.insertRow(animations, index);
+		QModelIndex new_index = _model.index(animations, 0, index);
+		_model.setData(new_index, result_path.string().c_str());
+	}
+}
+
+void ActionHandler::removeAnimation()
+{
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+	_model.removeRow(index.row(), index.parent());
 }

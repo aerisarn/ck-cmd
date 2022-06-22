@@ -34,6 +34,7 @@ namespace ckcmd {
 
 		enum class AssetType {
 			invalid = 0,
+			project,
 			skeleton,
 			animation,
 			behavior,
@@ -161,7 +162,7 @@ namespace ckcmd {
 
 			std::vector<fs::path> importAssets(int project_file, const fs::path& sourcePath, AssetType type);
 			size_t assetsCount(int project_file, AssetType type);
-
+			fs::path assetFolder(int project_file, AssetType type);
 			void clearAssetList(int project_file, AssetType type);
 			void refreshAssetList(int project_file, AssetType type);
 

@@ -40,6 +40,27 @@
     </layout>
    </item>
    <item>
+    <widget class="QLabel" name="label_3">
+     <property name="text">
+      <string>Destination folder:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QLineEdit" name="destinationPathLineEdit"/>
+     </item>
+     <item>
+      <widget class="QToolButton" name="destinationPathSelectButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
     <widget class="QLabel" name="label_2">
      <property name="text">
       <string>FBX file info:</string>

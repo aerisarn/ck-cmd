@@ -2,51 +2,48 @@
 
 using namespace ckcmd::HKX;
 
-QMenu* TreeContextMenuBuilder::buildCharactersNodeMenu()
+void TreeContextMenuBuilder::buildCharactersNodeMenu(std::vector<QAction*>& actions)
 {
-	QMenu* context_menu = new QMenu();
-	context_menu->addAction(_actionHandler.createProjectAction());
-	return context_menu;
+	actions.push_back(_actionHandler.createProjectAction());
 }
 
-QMenu* TreeContextMenuBuilder::buildMiscsNodeMenu()
+void TreeContextMenuBuilder::buildMiscsNodeMenu(std::vector<QAction*>& actions)
 {
-	QMenu* context_menu = new QMenu();
-	context_menu->addAction(_actionHandler.createProjectAction());
-	return context_menu;
+	actions.push_back(_actionHandler.createProjectAction());
 }
 
-QMenu* TreeContextMenuBuilder::buildAnimationsMenu()
+void TreeContextMenuBuilder::buildAnimationsMenu(std::vector<QAction*>& actions)
 {
-	QMenu* context_menu = new QMenu();
-	context_menu->addAction(_actionHandler.importFBXAction());
-	return context_menu;
+	actions.push_back(_actionHandler.importFBXAction());
 }
 
-QMenu* TreeContextMenuBuilder::build(NodeType type)
+void TreeContextMenuBuilder::buildAnimationMenu(std::vector<QAction*>& actions)
 {
+	actions.push_back(_actionHandler.removeAnimationAction());
+}
+
+QMenu* TreeContextMenuBuilder::build(NodeType type, QVariant action_data)
+{
+	std::vector<QAction*> applicable_actions;
 	switch (type) {
 		case NodeType::animationNames:
-			return buildAnimationsMenu();
+			buildAnimationsMenu(applicable_actions);
+			break;
+		case NodeType::animationName:
+			buildAnimationMenu(applicable_actions);
+			break;
 		default:
 			break;
 	}
-
-	//if (node->type() == ProjectNode::NodeType::characters_node)
-	//	return buildCharactersNodeMenu();
-	//if (node->type() == ProjectNode::NodeType::miscs_node)
-	//	return buildMiscsNodeMenu();
-	//return new QMenu();
-	//if (node->type() == ProjectNode::NodeType::event_node)
-	//{
-
-	//}
-	//else if (node->type() == ProjectNode::NodeType::character_node ||
-	//	node->type() == ProjectNode::NodeType::misc_node)
-	//{
-	//	auto save_action = new QAction(tr("&Save"), context_menu);
-	//	save_action->setShortcuts(QKeySequence::Save);
-	//	save_action->setStatusTip(tr("Create a new file"));
-	//}
+	if (!applicable_actions.empty())
+	{
+		QMenu* menu = new QMenu();
+		for (auto& action : applicable_actions)
+		{
+			action->setData(action_data);
+			menu->addAction(action);
+		}
+		return menu;
+	}
 	return nullptr;
 }

@@ -467,3 +467,24 @@ bool ProjectModel::insertRows(int row, int count, const QModelIndex& index)
 	emit endInsertRows();
 	return result;
 }
+
+bool ProjectModel::removeRows(int row, int count, const QModelIndex& index)
+{
+	auto& edge = modelEdge(index);
+	int rows = rowCount(index);
+	emit beginRemoveRows(index, row , row + count - 1);
+	emit beginRemoveChildren(index, row, row + count - 1);
+	bool result = edge.removeRows(row, count, _resourceManager);
+	emit endRemoveChildren();
+	emit endRemoveRows();
+	return result;
+}
+
+bool ProjectModel::insertColumns(int row, int column, int count, const QModelIndex& index)
+{
+	auto& edge = modelEdge(index);
+	emit beginInsertColumns(index, column, column + count - 1);
+	bool result = edge.insertColumns(row, column, count, _resourceManager);
+	emit endInsertColumns();
+	return result;
+}

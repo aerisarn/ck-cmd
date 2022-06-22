@@ -186,3 +186,33 @@ bool ModelEdge::insertRows(int row_start, int count, ResourceManager& manager)
 	}
 	return false;
 }
+
+bool ModelEdge::removeRows(int row_start, int count, ResourceManager& manager)
+{
+	switch (_childType)
+	{
+	case NodeType::CharactersNode:
+	case NodeType::MiscsNode:
+	case NodeType::CharacterNode:
+	case NodeType::MiscNode:
+		return false;
+	default:
+	{
+		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
+		return ProjectTreeHkHandler::removeRows(row_start, count, _project, _file, variant, _childType, manager);
+	}
+	}
+	return false;
+}
+
+bool ModelEdge::insertColumns(int row, int column_start, int count, ResourceManager& manager)
+{
+	hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
+	return ProjectTreeHkHandler::changeColumns(row, column_start, count, _project, _file, variant, _childType, manager);
+}
+
+bool ModelEdge::removeColumns(int row, int column_start, int count, ResourceManager& manager)
+{
+	hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
+	return ProjectTreeHkHandler::changeColumns(row, column_start, -count, _project, _file, variant, _childType, manager);
+}

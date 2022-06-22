@@ -166,6 +166,9 @@ namespace ckcmd {
             ModelEdge childEdge(int row, int column, ResourceManager& manager) const;
             int childCount(ResourceManager& manager) const;
             bool insertRows(int row_start, int count, ResourceManager& manager);
+            bool removeRows(int row_start, int count, ResourceManager& manager);
+            bool insertColumns(int row, int column_start, int count, ResourceManager& manager);
+            bool removeColumns(int row, int column_start, int count, ResourceManager& manager);
 
             NodeType type();
         };

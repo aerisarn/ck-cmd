@@ -13,17 +13,17 @@ namespace ckcmd {
 
 			ActionHandler& _actionHandler;
 
-			QMenu* buildCharactersNodeMenu();
-			QMenu* buildMiscsNodeMenu();
-			QMenu* buildAnimationsMenu();
-
+			void buildCharactersNodeMenu(std::vector<QAction*>& actions);
+			void buildMiscsNodeMenu(std::vector<QAction*>& actions);
+			void buildAnimationsMenu(std::vector<QAction*>& actions);
+			void buildAnimationMenu(std::vector<QAction*>& actions);
 
 		public:
 			TreeContextMenuBuilder(ActionHandler& actionHandler)
 				: _actionHandler(actionHandler)
 			{}
 
-			QMenu* build(NodeType type);
+			QMenu* build(NodeType type, QVariant action_data);
 		};
 	}
 }

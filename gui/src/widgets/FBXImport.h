@@ -10,20 +10,24 @@ class FBXImport : public QDialog, private Ui::FBXImport
 	Q_OBJECT
 
 	std::shared_ptr<ckcmd::HKX::FBXTreeModel> _model;
-	QString _lastOpenedFolder;
+	static QString _lastOpenedFolder;
+	static QString _lastImportFolder;
 	fs::path _selection;
+	fs::path _destination;
 
 private slots:
 
 	void on_pathSelectButton_clicked(bool checked);
+	void on_destinationPathSelectButton_clicked(bool checked);
 	void on_pathLineEdit_textChanged(const QString& text);
 
 public:
 
-	FBXImport(QWidget* parent = NULL);
-	fs::path selected() { return _selection; }
+	FBXImport(const fs::path& destination_folder, QWidget* parent = NULL);
+	std::pair<fs::path, fs::path> selected() { return { _selection, _destination }; }
 
-	static fs::path getPath(
+	static std::pair<fs::path, fs::path> getPath(
+		const fs::path& path,
 		QWidget* parent,
 		bool* ok);
 };

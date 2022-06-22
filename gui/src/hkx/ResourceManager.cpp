@@ -1027,6 +1027,22 @@ void ResourceManager::refreshAssetList(int project_file, AssetType type)
 
 }
 
+fs::path ResourceManager::assetFolder(int project_index, AssetType type)
+{
+	fs::path project_file_path = path(project_index);
+	fs::path project_path = project_file_path.parent_path();
+	switch (type)
+	{
+	case AssetType::behavior:
+		return project_path / "Behaviors";
+	case AssetType::animation:
+		return project_path / "Animations";
+	default:
+		break;
+	}
+	return project_path;
+}
+
 QStringList ResourceManager::assetsList(int project_index, AssetType type)
 {
 	QStringList out; out << "";

@@ -23,9 +23,11 @@ namespace ckcmd {
 			QAction* _createProject;
 
 			QAction* _importFBX;
+			QAction* _removeAnimation;
 
 			void buildSaveAction();
 			void buildImportFBXAction();
+			void buildRemoveAnimation();
 			void buildCreateProjectAction();
 
 		public slots:
@@ -33,8 +35,7 @@ namespace ckcmd {
 
 			void createProject();
 			void importFBX();
-
-			void selectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
+			void removeAnimation();
 
 		public:
 			ActionHandler(ProjectModel& model, QObject* parent = nullptr) :
@@ -44,9 +45,7 @@ namespace ckcmd {
 			{
 				buildSaveAction();
 				buildImportFBXAction();
-
-				//connect(_modelview.selectionModel(), &QItemSelectionModel::selectionChanged,
-				//		this, &ActionHandler::selectionChanged);
+				buildRemoveAnimation();
 			}
 
 
@@ -54,7 +53,7 @@ namespace ckcmd {
 			QAction* saveAction() {	return _save;	}
 			QAction* exportAction();
 			QAction* importFBXAction() { return _importFBX; };
-
+			QAction* removeAnimationAction() { return _removeAnimation; }
 			QAction* createProjectAction() { return _createProject; }
 
 		};

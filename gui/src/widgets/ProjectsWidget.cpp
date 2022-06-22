@@ -114,7 +114,7 @@ void ProjectsWidget::nodeClicked(const QModelIndex& index)
 void ProjectsWidget::on_treeView_customContextMenuRequested(const QPoint& pos)
 {
 	const QModelIndex& index = treeView->indexAt(pos);
-	QMenu* menu = _menuBuilder.build(_model->nodeType(index));
+	QMenu* menu = _menuBuilder.build(_model->nodeType(index), _model->mapToSource(index));
 	if (menu != nullptr) {
 		menu->exec(this->mapToGlobal(pos));
 	}
