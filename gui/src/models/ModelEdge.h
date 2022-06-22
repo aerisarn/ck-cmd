@@ -27,28 +27,31 @@ namespace ckcmd {
             animationNames,
             animationName,
             characterPropertyNames,
-            characterPropertyWords,
-            characterPropertyWord,
-            characterPropertyQuads,
-            characterPropertyQuad,
-            characterPropertyRefs,
-            characterPropertyRef,
+            characterProperty,
+            //characterPropertyWords,
+            //characterPropertyWord,
+            //characterPropertyQuads,
+            //characterPropertyQuad,
+            //characterPropertyRefs,
+            //characterPropertyRef,
             behaviorEventNames,
             behaviorEventName,
             behaviorVariableNames,
-            behaviorVariableWords,
-            behaviorVariableWord,
-            behaviorVariableQuads,
-            behaviorVariableQuad,
-            behaviorVariableRefs,
-            behaviorVariableRef,
+            behaviorVariable,
+            //behaviorVariableWords,
+            //behaviorVariableWord,
+            //behaviorVariableQuads,
+            //behaviorVariableQuad,
+            //behaviorVariableRefs,
+            //behaviorVariableRef,
             behaviorCharacterPropertyNames,
-            behaviorCharacterPropertyWords,
-            behaviorCharacterPropertyWord,
-            behaviorCharacterPropertyQuads,
-            behaviorCharacterPropertyQuad,
-            behaviorCharacterPropertyRefs,
-            behaviorCharacterPropertyRef,
+            behaviorCharacterProperty,
+            //behaviorCharacterPropertyWords,
+            //behaviorCharacterPropertyWord,
+            //behaviorCharacterPropertyQuads,
+            //behaviorCharacterPropertyQuad,
+            //behaviorCharacterPropertyRefs,
+            //behaviorCharacterPropertyRef,
             FSMWildcardTransitions,
             FSMWildcardTransition,
             FSMStateTransitions,
@@ -129,20 +132,12 @@ namespace ckcmd {
                 if (
                     (
                         _childType == NodeType::behaviorEventName ||
-                        _childType == NodeType::behaviorVariableWord ||
-                        _childType == NodeType::behaviorVariableQuad ||
-                        _childType == NodeType::behaviorVariableRef ||
-                        _childType == NodeType::behaviorCharacterPropertyWord ||
-                        _childType == NodeType::behaviorCharacterPropertyQuad ||
-                        _childType == NodeType::behaviorCharacterPropertyRef
+                        _childType == NodeType::behaviorVariable ||
+                        _childType == NodeType::behaviorCharacterProperty
                     ) && (
                         rhs._childType == NodeType::behaviorEventName ||
-                        rhs._childType == NodeType::behaviorVariableWord ||
-                        rhs._childType == NodeType::behaviorVariableQuad ||
-                        rhs._childType == NodeType::behaviorVariableRef ||
-                        rhs._childType == NodeType::behaviorCharacterPropertyWord ||
-                        rhs._childType == NodeType::behaviorCharacterPropertyQuad ||
-                        rhs._childType == NodeType::behaviorCharacterPropertyRef
+                        rhs._childType == NodeType::behaviorVariable ||
+                        rhs._childType == NodeType::behaviorCharacterProperty
                     )
                 ) 
                 {

@@ -37,23 +37,6 @@ bool isRefVariable(int type)
 	return type == hkbVariableInfo::VARIABLE_TYPE_POINTER;
 }
 
-static const char* VariableTypeListsName(int row)
-{
-	switch ((VariableType)row) {
-	case VariableType::Word:
-		return "Scalars";
-	case VariableType::Quad:
-		return "Vectors";
-	case VariableType::Variant:
-		return "References";
-	default:
-		break;
-	}
-	return "Invalid Behavior Entry";
-};
-
-static const size_t VARIABLE_SUPPORTS = 3;
-
 template <typename T>
 static bool addToContainer(int row_start, int count, hkArray<T>& container)
 {
@@ -186,29 +169,7 @@ struct  HandleCharacterData
 		}
 		else if (childType == NodeType::characterPropertyNames)
 		{
-			switch (index) {
-			case 0:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyWords);
-			case 1:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyQuads);
-			case 2:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyRefs);
-			default:
-				break;
-			}
-			return ModelEdge();
-		}
-		else if (childType == NodeType::characterPropertyWords)
-		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyWord);
-		}
-		else if (childType == NodeType::characterPropertyQuads)
-		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyQuad);
-		}
-		else if (childType == NodeType::characterPropertyRefs)
-		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterPropertyRef);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::characterProperty);
 		}
 		else {
 			return ModelEdge();
@@ -229,29 +190,9 @@ struct  HandleCharacterData
 		{
 			return 1;
 		}
-		else if (childType == NodeType::characterPropertyWords)
+		else if (childType == NodeType::characterProperty)
 		{
 			return 1;
-		}
-		else if (childType == NodeType::characterPropertyQuads)
-		{
-			return 1;
-		}
-		else if (childType == NodeType::characterPropertyRefs)
-		{
-			return 1;
-		}
-		else if (childType == NodeType::characterPropertyWord)
-		{
-			return 0;
-		}
-		else if (childType == NodeType::characterPropertyQuad)
-		{
-			return 0;
-		}
-		else if (childType == NodeType::characterPropertyRef)
-		{
-			return 0;
 		}
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
 		if (data == NULL)
@@ -299,29 +240,9 @@ struct  HandleCharacterData
 		}
 		else if (childType == NodeType::characterPropertyNames)
 		{
-			return VARIABLE_SUPPORTS;
+			return string_data->m_characterPropertyNames.getSize();
 		}
-		else if (childType == NodeType::characterPropertyWords)
-		{
-			return countElementsByType(data->m_characterPropertyInfos, isWordVariable);
-		}
-		else if (childType == NodeType::characterPropertyWord)
-		{
-			return 0;
-		}
-		else if (childType == NodeType::characterPropertyQuads)
-		{
-			return countElementsByType(data->m_characterPropertyInfos, isQuadVariable);
-		}
-		else if (childType == NodeType::characterPropertyQuad)
-		{
-			return 0;
-		}
-		else if (childType == NodeType::characterPropertyRefs)
-		{
-			return countElementsByType(data->m_characterPropertyInfos, isRefVariable);
-		}
-		else if (childType == NodeType::characterPropertyRef)
+		else if (childType == NodeType::characterProperty)
 		{
 			return 0;
 		}
@@ -355,30 +276,6 @@ struct  HandleCharacterData
 			}
 			return 0;
 		}
-		else if (childType == NodeType::characterPropertyWords)
-		{
-			if (column == 0)
-			{
-				return getChildCount(row, project, variant, childType, manager);
-			}
-			return 0;
-		}
-		else if (childType == NodeType::characterPropertyQuads)
-		{
-			if (column == 0)
-			{
-				return getChildCount(row, project, variant, childType, manager);
-			}
-			return 0;
-		}
-		else if (childType == NodeType::characterPropertyRefs)
-		{
-			if (column == 0)
-			{
-				return getChildCount(row, project, variant, childType, manager);
-			}
-			return 0;
-		}		
 		auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
 		if (data == NULL)
 			return 1;
@@ -471,35 +368,11 @@ struct  HandleCharacterData
 			{
 				return string_data->m_animationNames[row].cString();
 			}
-			if (
-				childType == NodeType::characterPropertyWords ||
-				childType == NodeType::characterPropertyQuads ||
-				childType == NodeType::characterPropertyRefs
-				)
-			{
-				return VariableTypeListsName((int)row);
-			}
-			if (childType == NodeType::characterPropertyWord)
+			if (childType == NodeType::characterProperty)
 			{
 				if (column == 0)
 				{
-					return getElementByTypeIndex(row, string_data->m_characterPropertyNames, data->m_characterPropertyInfos, isWordVariable).cString();
-				}
-				return "InvalidColumn";
-			}
-			if (childType == NodeType::characterPropertyQuad)
-			{
-				if (column == 0)
-				{
-					return getElementByTypeIndex(row, string_data->m_characterPropertyNames, data->m_characterPropertyInfos, isQuadVariable).cString();
-				}
-				return "InvalidColumn";
-			}
-			if (childType == NodeType::characterPropertyRef)
-			{
-				if (column == 0)
-				{
-					return getElementByTypeIndex(row, string_data->m_characterPropertyNames, data->m_characterPropertyInfos, isRefVariable).cString();
+					return string_data->m_characterPropertyNames[row].cString();
 				}
 				return "InvalidColumn";
 			}
@@ -624,66 +497,23 @@ struct  HandleBehaviorData
 		}
 		else if (childType == NodeType::behaviorVariableNames)
 		{
-			//return string_data->m_variableNames.getSize();
-			return VARIABLE_SUPPORTS;
+			return string_data->m_variableNames.getSize();
 		}
 		else if (childType == NodeType::behaviorCharacterPropertyNames)
 		{
-			//return string_data->m_characterPropertyNames.getSize();
-			return VARIABLE_SUPPORTS;
+			return string_data->m_characterPropertyNames.getSize();
 		}
 		else if (childType == NodeType::behaviorEventName)
 		{
 			return 0;
 		}
-		else if (childType == NodeType::behaviorVariableWords)
-		{
-			return countElementsByType(data->m_variableInfos, isWordVariable);
-		}
-		else if (childType == NodeType::behaviorVariableWord)
+		else if (childType == NodeType::behaviorVariable)
 		{
 			return 0;
 		}
-		else if (childType == NodeType::behaviorVariableQuads)
-		{
-			return countElementsByType(data->m_variableInfos, isQuadVariable);
-		}
-		else if (childType == NodeType::behaviorVariableQuad)
-		{
-			return 0;
-		}
-		else if (childType == NodeType::behaviorVariableRefs)
-		{
-			return countElementsByType(data->m_variableInfos, isRefVariable);
-		}
-		else if (childType == NodeType::behaviorVariableRef)
-		{
-			return 0;
-		}
-
 		/*Character Properties*/
 
-		else if (childType == NodeType::behaviorCharacterPropertyWords)
-		{
-			return countElementsByType(data->m_characterPropertyInfos, isWordVariable);
-		}
-		else if (childType == NodeType::behaviorCharacterPropertyWord)
-		{
-			return 0;
-		}
-		else if (childType == NodeType::behaviorCharacterPropertyQuads)
-		{
-			return countElementsByType(data->m_characterPropertyInfos, isQuadVariable);
-		}
-		else if (childType == NodeType::behaviorCharacterPropertyQuad)
-		{
-			return 0;
-		}
-		else if (childType == NodeType::behaviorCharacterPropertyRefs)
-		{
-			return countElementsByType(data->m_characterPropertyInfos, isRefVariable);
-		}
-		else if (childType == NodeType::behaviorCharacterPropertyRef)
+		else if (childType == NodeType::behaviorCharacterProperty)
 		{
 			return 0;
 		}
@@ -700,68 +530,25 @@ struct  HandleBehaviorData
 		{
 			return DataListsName((int)childType);
 		}
-		if (
-			childType == NodeType::behaviorVariableWords ||
-			childType == NodeType::behaviorVariableQuads ||
-			childType == NodeType::behaviorVariableRefs ||
-			childType == NodeType::behaviorCharacterPropertyWords ||
-			childType == NodeType::behaviorCharacterPropertyQuads ||
-			childType == NodeType::behaviorCharacterPropertyRefs
-		)
-		{
-			return VariableTypeListsName((int)row);
-		}
 		if (childType == NodeType::behaviorEventName)
 		{
 			if (column == 0)
 				return string_data->m_eventNames[row].cString();
 			return "InvalidColumn";
 		}
-		if (childType == NodeType::behaviorVariableWord)
+		if (childType == NodeType::behaviorVariable)
 		{
 			if (column == 0)
 			{
-				return getElementByTypeIndex(row, string_data->m_variableNames, data->m_data->m_variableInfos, isWordVariable).cString();
+				return string_data->m_variableNames[row].cString();
 			}
 			return "InvalidColumn";
 		}
-		if (childType == NodeType::behaviorVariableQuad)
+		if (childType == NodeType::behaviorCharacterProperty)
 		{
 			if (column == 0)
 			{
-				return getElementByTypeIndex(row, string_data->m_variableNames, data->m_data->m_variableInfos, isQuadVariable).cString();
-			}
-			return "InvalidColumn";
-		}
-		if (childType == NodeType::behaviorVariableRef)
-		{
-			if (column == 0)
-			{
-				return getElementByTypeIndex(row, string_data->m_variableNames, data->m_data->m_variableInfos, isRefVariable).cString();
-			}
-			return "InvalidColumn";
-		}
-		if (childType == NodeType::behaviorCharacterPropertyWord)
-		{
-			if (column == 0)
-			{
-				return getElementByTypeIndex(row, string_data->m_characterPropertyNames, data->m_data->m_characterPropertyInfos, isWordVariable).cString();
-			}
-			return "InvalidColumn";
-		}
-		if (childType == NodeType::behaviorCharacterPropertyQuad)
-		{
-			if (column == 0)
-			{
-				return getElementByTypeIndex(row, string_data->m_characterPropertyNames, data->m_data->m_characterPropertyInfos, isQuadVariable).cString();
-			}
-			return "InvalidColumn";
-		}
-		if (childType == NodeType::behaviorCharacterPropertyRef)
-		{
-			if (column == 0)
-			{
-				return getElementByTypeIndex(row, string_data->m_characterPropertyNames, data->m_data->m_characterPropertyInfos, isRefVariable).cString();
+				return string_data->m_characterPropertyNames[row].cString();
 			}
 			return "InvalidColumn";
 		}
@@ -807,7 +594,7 @@ struct  HandleBehaviorData
 				return false;
 			return true;
 		}
-		if (childType == NodeType::behaviorCharacterPropertyWords)
+		if (childType == NodeType::behaviorCharacterProperty)
 		{
 			bool result = addToContainer(row_start, count, string_data->m_variableNames);
 			if (!result)
@@ -856,55 +643,11 @@ struct  HandleBehaviorData
 		}
 		else if (childType == NodeType::behaviorVariableNames)
 		{
-			switch (index) {
-			case 0:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableWords);
-			case 1:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableQuads);
-			case 2:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableRefs);
-			default:
-				break;
-			}
-			return ModelEdge();
-		}
-		else if (childType == NodeType::behaviorVariableWords)
-		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableWord);
-		}
-		else if (childType == NodeType::behaviorVariableQuads)
-		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableQuad);
-		}
-		else if (childType == NodeType::behaviorVariableRefs)
-		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariableRef);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorVariable);
 		}
 		else if (childType == NodeType::behaviorCharacterPropertyNames)
 		{
-			switch (index) {
-			case 0:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyWords);
-			case 1:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyQuads);
-			case 2:
-				return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyRefs);
-			default:
-				break;
-			}
-			return ModelEdge();
-		}
-		else if (childType == NodeType::behaviorCharacterPropertyWords)
-		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyWord);
-		}
-		else if (childType == NodeType::behaviorCharacterPropertyQuads)
-		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyQuad);
-		}
-		else if (childType == NodeType::behaviorCharacterPropertyRefs)
-		{
-			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterPropertyRef);
+			return ModelEdge(variant, project, file, index, 0, variant, NodeType::behaviorCharacterProperty);
 		}
 		HkxLinkedTableVariant v(*variant);
 		auto& links = v.links();

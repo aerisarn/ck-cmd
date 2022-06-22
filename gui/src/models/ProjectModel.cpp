@@ -426,7 +426,7 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 					if (events_node.isValid())
 						return new SelectionProxyModel(this, events_node);
 				}
-				else if (AssetType::variable_words == type) {
+				/*else if (AssetType::variable_words == type) {
 					auto variables_node = getChildAssetProxy(top_behavior_index, NodeType::behaviorVariableNames);
 					if (variables_node.isValid())
 					{
@@ -436,7 +436,7 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 							return new SelectionProxyModel(this, variables_floats_node);
 						}
 					}
-				}
+				}*/
 			}
 			return nullptr;
 		}
