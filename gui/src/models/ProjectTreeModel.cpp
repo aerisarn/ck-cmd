@@ -288,6 +288,11 @@ void ProjectTreeModel::sourceEndRemoveChildren()
 	emit endRemoveRows();
 }
 
+NodeType ProjectTreeModel::nodeType(const QModelIndex& index)
+{
+	return sourceModel()->nodeType(mapToSource(index));
+}
+
 //bool ProjectTreeModel::hasChildren(const QModelIndex& parent) const
 //{
 //	if (nullptr != sourceModel())

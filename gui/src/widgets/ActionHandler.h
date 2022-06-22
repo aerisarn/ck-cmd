@@ -1,8 +1,7 @@
 #pragma once
 
 #include <src/hkx/ResourceManager.h>
-#include <src/models/ProjectTreeModel.h>
-#include <src/models/ProjectTreeActions.h>
+#include <src/models/ProjectModel.h>
 
 #include <QObject>
 #include <QMenu>
@@ -17,14 +16,13 @@ namespace ckcmd {
 		{
 			Q_OBJECT
 
-			ProjectTreeActions& _treeActions;
+			ProjectModel& _model;
 
 			QAction* _save;
 
 			QAction* _createProject;
 
 			QAction* _importFBX;
-			FBXImport* _importFBXDialog;
 
 			void buildSaveAction();
 			void buildImportFBXAction();
@@ -39,10 +37,10 @@ namespace ckcmd {
 			void selectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
 
 		public:
-			ActionHandler(ProjectTreeActions& treeActions, QObject* parent = nullptr) :
+			ActionHandler(ProjectModel& model, QObject* parent = nullptr) :
 				QObject(parent),
 				_save(nullptr),
-				_treeActions(treeActions)
+				_model(model)
 			{
 				buildSaveAction();
 				buildImportFBXAction();

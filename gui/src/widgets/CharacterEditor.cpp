@@ -573,7 +573,8 @@ void CharacterEditorWidget::on_setAttacksTreeWidget_itemClicked(QTreeWidgetItem*
     {
         setAttacksRemoveButton->setEnabled(true);
     }
-    else {
+    else 
+    {
         setAttacksRemoveButton->setEnabled(false);
     }
 }

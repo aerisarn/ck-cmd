@@ -16,11 +16,21 @@ QMenu* TreeContextMenuBuilder::buildMiscsNodeMenu()
 	return context_menu;
 }
 
-QMenu* TreeContextMenuBuilder::build(NodeType type)
+QMenu* TreeContextMenuBuilder::buildAnimationsMenu()
 {
 	QMenu* context_menu = new QMenu();
 	context_menu->addAction(_actionHandler.importFBXAction());
 	return context_menu;
+}
+
+QMenu* TreeContextMenuBuilder::build(NodeType type)
+{
+	switch (type) {
+		case NodeType::animationNames:
+			return buildAnimationsMenu();
+		default:
+			break;
+	}
 
 	//if (node->type() == ProjectNode::NodeType::characters_node)
 	//	return buildCharactersNodeMenu();

@@ -28,10 +28,26 @@ void FBXImport::on_pathLineEdit_textChanged(const QString& text)
 	{
 		_model = std::make_shared< ckcmd::HKX::FBXTreeModel>(std_text);
 		FbxTreeView->setModel(_model.get());
+		FbxTreeView->setVisible(false);
+		FbxTreeView->resizeColumnToContents(0);
+		FbxTreeView->resizeColumnToContents(1);
+		FbxTreeView->resizeColumnToContents(2);
+		FbxTreeView->setVisible(true);
 	}
 }
 
-void FBXImport::on_cancelButton_clicked(bool checked)
+fs::path FBXImport::getPath(
+	QWidget* parent,
+	bool* ok)
 {
-	setVisible(false);
+	std::unique_ptr<FBXImport> dialog = std::make_unique<FBXImport>(parent);
+	const int ret = dialog->exec();
+	if (ok)
+		*ok = !!ret;
+	if (ret) {
+		return dialog->selected();
+	}
+	else {
+		return {};
+	}
 }

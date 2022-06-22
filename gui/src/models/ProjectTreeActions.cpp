@@ -2,8 +2,13 @@
 
 using namespace ckcmd::HKX;
 
-ProjectTreeActions::ProjectTreeActions(CommandManager& commandManager, ResourceManager& resourceManager) :
-	_commandManager(commandManager),
-	_resourceManager(resourceManager)
+ProjectTreeActions::ProjectTreeActions(ProjectModel& model) :
+	_model(model)
 {
 }
+
+void ProjectTreeActions::CreateProject()
+{}
+
+void ProjectTreeActions::DeleteProject()
+{}

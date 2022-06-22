@@ -25,6 +25,7 @@ namespace ckcmd {
 
         class FBXTreeModel : public QAbstractItemModel {
             
+            FbxManager* _sdkManager;
             FbxScene* _scene;
 
             void ImportScene(const fs::path& fileName, const FBXImportOptions& options = FBXImportOptions());
@@ -32,9 +33,8 @@ namespace ckcmd {
 
         public:
 
-            FBXTreeModel(FbxNode* root);
             FBXTreeModel(const fs::path& file);
-
+            ~FBXTreeModel();
 
             /*
             ** AbstractItemModel(required methods)

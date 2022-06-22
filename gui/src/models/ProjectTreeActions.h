@@ -1,19 +1,17 @@
 #pragma once
 
-#include <src/hkx/CommandManager.h>
-#include <src/hkx/ResourceManager.h>
+#include <src/models/ProjectModel.h>
 
 namespace ckcmd {
     namespace HKX {
 
         class ProjectTreeActions
         {
-            CommandManager& _commandManager;
-            ResourceManager& _resourceManager;
+            ProjectModel& _model;
 
         public:
 
-            ProjectTreeActions(CommandManager& commandManager, ResourceManager& resourceManager);
+            ProjectTreeActions(ProjectModel& _model);
 
             //These actions do not possess undo/redo 
             //you have to explicitly do the opposite to undo them

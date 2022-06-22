@@ -113,13 +113,11 @@ void ProjectsWidget::nodeClicked(const QModelIndex& index)
 //void ProjectsWidget::treeMenu(QPoint p)
 void ProjectsWidget::on_treeView_customContextMenuRequested(const QPoint& pos)
 {
-	//const QModelIndex& index = treeView->indexAt(pos);
-	//QMenu* menu = _menuBuilder.build(_model->nodeType(index));
-	//if (menu != nullptr) {
-	//	menu->exec(this->mapToGlobal(pos));
-	//}
-	//ProjectNode* node_clicked = _model->getNode(index);
-
+	const QModelIndex& index = treeView->indexAt(pos);
+	QMenu* menu = _menuBuilder.build(_model->nodeType(index));
+	if (menu != nullptr) {
+		menu->exec(this->mapToGlobal(pos));
+	}
 }
 
 void ProjectsWidget::on_treeView_selectionChanged(const QModelIndex& current, const QModelIndex& previous)

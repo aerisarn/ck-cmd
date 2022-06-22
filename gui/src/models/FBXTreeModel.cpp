@@ -2,6 +2,18 @@
 
 using namespace ckcmd::HKX;
 
+FBXTreeModel::FBXTreeModel(const fs::path& file)
+	: _scene(nullptr),
+	_sdkManager(FbxManager::Create())
+{
+	ImportScene(file);
+}
+
+FBXTreeModel::~FBXTreeModel()
+{
+	_sdkManager->Destroy();
+}
+
 QString getBoneTransform(FbxNode* pNode) {
 	FbxAMatrix matrixGeo;
 	matrixGeo.SetIdentity();
@@ -35,19 +47,6 @@ QString getBoneTransform(FbxNode* pNode) {
 		.arg(QString::number(lS[2],'f', 2));
 }
 
-
-FBXTreeModel::FBXTreeModel(FbxNode* root)
-    : _scene(root->GetScene())
-{
-
-}
-
-FBXTreeModel::FBXTreeModel(const fs::path& file)
-	: _scene(nullptr)
-{
-	ImportScene(file);
-}
-
 void FBXTreeModel::CloseScene() {
 	if (_scene)
 		_scene->Destroy();
@@ -56,9 +55,8 @@ void FBXTreeModel::CloseScene() {
 }
 
 void FBXTreeModel::ImportScene(const fs::path& file, const FBXImportOptions& options) {
-	FbxManager* sdkManager = FbxManager::Create();
-	FbxIOSettings* ios = FbxIOSettings::Create(sdkManager, IOSROOT);
-	sdkManager->SetIOSettings(ios);
+	FbxIOSettings* ios = FbxIOSettings::Create(_sdkManager, IOSROOT);
+	_sdkManager->SetIOSettings(ios);
 
 	ios->SetBoolProp(IMP_FBX_MATERIAL, true);
 	ios->SetBoolProp(IMP_FBX_TEXTURE, true);
@@ -68,7 +66,7 @@ void FBXTreeModel::ImportScene(const fs::path& file, const FBXImportOptions& opt
 	ios->SetBoolProp(IMP_FBX_ANIMATION, true);
 	ios->SetBoolProp(IMP_FBX_GLOBAL_SETTINGS, true);
 
-	FbxImporter* iImporter = FbxImporter::Create(sdkManager, "");
+	FbxImporter* iImporter = FbxImporter::Create(_sdkManager, "");
 	if (!iImporter->Initialize(file.string().c_str(), -1, ios)) {
 		iImporter->Destroy();
 		return;
@@ -77,7 +75,7 @@ void FBXTreeModel::ImportScene(const fs::path& file, const FBXImportOptions& opt
 	if (_scene)
 		CloseScene();
 
-	_scene = FbxScene::Create(sdkManager, file.string().c_str());
+	_scene = FbxScene::Create(_sdkManager, file.string().c_str());
 
 	bool status = iImporter->Import(_scene);
 
@@ -138,8 +136,6 @@ void FBXTreeModel::ImportScene(const fs::path& file, const FBXImportOptions& opt
 		};
 		FbxSystemUnit::m.ConvertScene(_scene, lConversionOptions);
 	}
-
-	sdkManager->Destroy();
 }
 
 QVariant FBXTreeModel::data(const QModelIndex& index, int role) const

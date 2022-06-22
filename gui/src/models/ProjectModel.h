@@ -3,7 +3,6 @@
 #include <QAbstractItemModel>
 #include <src/hkx/CommandManager.h>
 #include <src/hkx/ResourceManager.h>
-#include <src/models/ProjectTreeActions.h>
 #include <src/models/ModelEdge.h>
 
 struct hkVariant;
@@ -32,7 +31,6 @@ namespace ckcmd {
 
             CommandManager& _commandManager;
             ResourceManager& _resourceManager;
-            ProjectTreeActions _actionsManager;
 
         public:
 
@@ -46,7 +44,6 @@ namespace ckcmd {
 
             NodeType nodeType(const QModelIndex& index);
 
-            ProjectTreeActions& actionsManager() { return _actionsManager;}
             hkVariant* variant(const QModelIndex& index);
             bool isVariant(const QModelIndex& index);
             bool isAssetsNode(const QModelIndex& index);

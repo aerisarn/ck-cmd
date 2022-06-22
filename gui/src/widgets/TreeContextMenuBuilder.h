@@ -15,11 +15,14 @@ namespace ckcmd {
 
 			QMenu* buildCharactersNodeMenu();
 			QMenu* buildMiscsNodeMenu();
+			QMenu* buildAnimationsMenu();
+
 
 		public:
 			TreeContextMenuBuilder(ActionHandler& actionHandler)
 				: _actionHandler(actionHandler)
 			{}
+
 			QMenu* build(NodeType type);
 		};
 	}

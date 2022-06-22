@@ -11,7 +11,6 @@ static size_t runtime_edge_index = 0;
 ProjectModel::ProjectModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent) :
 	_commandManager(commandManager),
 	_resourceManager(resourceManager),
-	_actionsManager(_commandManager, _resourceManager),
 	QAbstractItemModel(parent)
 {
 }

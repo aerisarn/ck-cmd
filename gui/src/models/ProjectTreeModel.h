@@ -41,6 +41,7 @@ namespace ckcmd {
             //virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
             //virtual bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
 
+            NodeType nodeType(const QModelIndex& index);
 
         private slots:
             /**

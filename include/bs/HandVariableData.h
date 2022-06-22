@@ -64,7 +64,7 @@ namespace AnimData {
 			std::string getHandString()
 			{
 				std::string out = variable_name + " " + EquipTypeString((EquipType)value_min);
-				unsigned int i = value_min;
+				int i = value_min;
 				while (i < value_max)
 				{
 					out += "|" + EquipTypeString((EquipType)++i);

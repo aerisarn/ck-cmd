@@ -21,8 +21,6 @@ void ActionHandler::buildImportFBXAction()
 	_importFBX = new QAction(tr("&Import FBX"), this);
 	_importFBX->setShortcuts(QKeySequence::InsertLineSeparator);
 	_importFBX->setStatusTip(tr("Import FBX Asset"));
-	_importFBXDialog = new FBXImport();
-	_importFBXDialog->setVisible(false);
 	connect(_importFBX, SIGNAL(triggered()), this, SLOT(importFBX()));
 }
 
@@ -79,5 +77,8 @@ QAction* ActionHandler::exportAction()
 
 void ActionHandler::importFBX()
 {
-	_importFBXDialog->setVisible(true);
+	bool ok;
+	fs::path import_path = FBXImport::getPath(
+		nullptr,
+		&ok);
 }
