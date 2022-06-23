@@ -735,7 +735,12 @@ struct  HandleBehaviorData
 		int file_index = manager.findIndex(file, link._ref);
 		if (file_index == -1)
 			__debugbreak();
-		return ModelEdge((hkVariant*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
+		return ModelEdge((hkVariant*)nullptr, project, file, link._row, link._column + 1, manager.at(file, file_index));
+	}
+
+	static const int getRows(int project, int file, int row, int column, hkVariant* variant, NodeType childType, ResourceManager& manager)
+	{
+
 	}
 };
 
@@ -881,7 +886,7 @@ struct  HandleStateMachineData
 		int file_index = manager.findIndex(file, link._ref);
 		if (file_index == -1)
 			__debugbreak();
-		return ModelEdge((hkVariant*)nullptr, project, file, link._row, link._column, manager.at(file, file_index));
+		return ModelEdge((hkVariant*)nullptr, project, file, link._row, link._column + 1, manager.at(file, file_index));
 	}
 };
 
@@ -1111,11 +1116,11 @@ int ProjectTreeHkHandler::childRows(int project, int file, int row, int column, 
 	}
 	if (&hkbBehaviorGraphClass == variant->m_class)
 	{
-		return HandleBehaviorData::getChildCount(variant, childType);
+		return HandleBehaviorData::getRows(project, file, row, column, variant, childType, manager);
 	}
 	if (&hkbStateMachineClass == variant->m_class)
 	{
-		return HandleStateMachineData::getChildCount(variant, childType);
+		return HandleStateMachineData::getRows(project, file, row, column, variant, childType, manager);
 	}
 	if (&hkaSkeletonClass == variant->m_class)
 	{
@@ -1134,7 +1139,7 @@ int ProjectTreeHkHandler::childRows(int project, int file, int row, int column, 
 	auto& links = v.links();
 	for (const auto& link : links)
 	{
-		if (link._row == row && link._column == column)
+		if (link._row == row && link._column == column - 1)
 		{
 			int file_index = manager.findIndex(file, link._ref);
 			if (file_index == -1)

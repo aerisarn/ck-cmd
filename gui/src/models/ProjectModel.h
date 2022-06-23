@@ -42,7 +42,7 @@ namespace ckcmd {
             void select(const QModelIndex& index);
             void activate(const QModelIndex& index);
 
-            NodeType nodeType(const QModelIndex& index);
+            NodeType nodeType(const QModelIndex& index) const;
 
             hkVariant* variant(const QModelIndex& index);
             bool isVariant(const QModelIndex& index);

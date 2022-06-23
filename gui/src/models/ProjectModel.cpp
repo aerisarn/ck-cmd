@@ -136,7 +136,7 @@ QModelIndex ProjectModel::index(int row, int column, const QModelIndex& parent) 
 			childEdge._parent = parent;
 			qintptr id = const_cast<ProjectModel*>(this)->createModelEdgeIndex(childEdge);
 			auto& createdChildEdge = const_cast<ProjectModel*>(this)->_direct_find[id];
-			createdChildEdge._child = createIndex(row, column, id);
+			createdChildEdge._child = createIndex(createdChildEdge._row, createdChildEdge._column, id);
 			return createdChildEdge._child;
 		}
 		childEdge._child = createIndex(row, column, _reverse_find.at(&childEdge));
@@ -150,7 +150,7 @@ QModelIndex ProjectModel::parent(const QModelIndex& index) const
 	if (!index.isValid())
 		return QModelIndex();
 
-	auto edge = modelEdge(index);
+	const auto& edge = modelEdge(index);
 	return edge._parent;
 }
 
@@ -332,9 +332,9 @@ void ProjectModel::activate(const QModelIndex& index)
 //}
 }
 
-NodeType ProjectModel::nodeType(const QModelIndex& index)
+NodeType ProjectModel::nodeType(const QModelIndex& index) const
 {
-	auto type = modelEdge(index).type();
+	const auto& type = modelEdge(index).type();
 	if (type == NodeType::animationNames)
 		int debug = 1;
 	return type;

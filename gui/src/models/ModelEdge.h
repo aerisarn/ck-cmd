@@ -113,7 +113,7 @@ namespace ckcmd {
 
             auto as_tuple() const
             { 
-                return std::tie(_parentType, _parentItem, _file, _row, _column, _childItem, _subindex, _childType);
+                return std::tie(_parentType, _parentItem, _file, _row, _column, _subindex, _childItem, _childType);
             }
 
         public:
@@ -149,6 +149,21 @@ namespace ckcmd {
 
             ModelEdge() {}
 
+            ModelEdge(const ModelEdge& other)
+            {
+                _parentType = other._parentType;
+                _parentItem = other._parentItem;
+                _parent = other._parent;
+                _project = other._project;
+                _file = other._file;
+                _row = other._row;
+                _column = other._column;
+                _subindex = other._subindex;
+                _childType = other._childType;
+                _childItem = other._childItem;
+                _child = other._child;
+            }
+
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*);
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*, NodeType childType);
             ModelEdge(hkVariant*, int project, int file, int row, int column, int subindex, hkVariant*, NodeType childType);
@@ -167,7 +182,7 @@ namespace ckcmd {
             bool insertColumns(int row, int column_start, int count, ResourceManager& manager);
             bool removeColumns(int row, int column_start, int count, ResourceManager& manager);
 
-            NodeType type();
+            NodeType type() const;
         };
 
         struct ModelEdgeComparator {

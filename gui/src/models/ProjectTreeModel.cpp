@@ -59,7 +59,7 @@ QModelIndex ProjectTreeModel::mapFromSource(const QModelIndex& sourceIndex) cons
 {
 	if (!sourceIndex.isValid())
 		return QModelIndex();
-	auto source_parent = sourceModel()->parent(sourceIndex);
+	auto& source_parent = sourceModel()->parent(sourceIndex);
 	auto type = sourceModel()->nodeType(source_parent);
 	if (type == NodeType::animationName)
 		int debug = 1;
@@ -138,7 +138,46 @@ QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& pare
 	if (!sourceModel()) return {};
 	Q_ASSERT(!parent.isValid() || parent.model() == this);
 	QModelIndex mapped_parent = mapToSource(parent);
-	QModelIndex mapped_child = sourceModel()->index(row, column, mapped_parent);
+	if (mapped_parent == QModelIndex())
+	{
+		return mapFromSource(sourceModel()->index(row, 0, QModelIndex()));
+	}
+	int source_rows = 0;
+	int source_columns = 0;
+	//Optmimization
+	if (sourceModel()->nodeType(mapped_parent) == NodeType::CharacterHkxNode)
+	{
+		source_rows = sourceModel()->childCount(mapped_parent);
+		source_columns = 1;
+	}
+	else {
+		source_rows = sourceModel()->rowCount(mapped_parent);
+		source_columns = sourceModel()->columnCount(mapped_parent);
+	}
+	QModelIndex mapped_child;
+	int target_children = row;
+	int child_index = 0;
+	bool found = false;
+	for (int r = 0; r < source_rows; ++r)
+	{
+		for (int c = 0; c < source_columns; ++c)
+		{
+			if (sourceModel()->hasChildren(r, c, mapped_parent))
+			{
+				if (child_index == target_children)
+				{
+					mapped_child = sourceModel()->index(r, c, mapped_parent);
+					found = true;
+					break;
+				}
+				child_index++;
+			}
+		}
+		if (found)
+			break;
+	}
+
+	//QModelIndex mapped_child = sourceModel()->index(row, column, mapped_parent);
 	QModelIndex unmapped_child = mapFromSource(mapped_child);
 	return unmapped_child;
 }

@@ -41,7 +41,7 @@ ModelEdge::ModelEdge(hkVariant* parent, int project, int file, int row, int colu
 	_childItem = reinterpret_cast<void*>(child);
 }
 
-NodeType ModelEdge::type()
+NodeType ModelEdge::type() const
 {
 	return _childType;
 }
