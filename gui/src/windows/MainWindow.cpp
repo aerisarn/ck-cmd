@@ -63,11 +63,7 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	ads::CDockWidget* LogWidget = new ads::CDockWidget("Logger", this);
 	LogWidget->setWidget(_logger);
 	
-
-	//_model._rootNode = _resource_manager.createStatic({ _workspace.getFolder().string().c_str() }, NULL);
-	//_animation_manager.buildProjectTree(_model._rootNode);
 	_simulation = new HkxSimulation(havok_router, _resource_manager);
-
 
 	_handler = new ckcmd::HKX::ActionHandler(_model, this);
 	_projectTreeView = new ProjectsWidget(&_model, _command_manager, _resource_manager, *_handler, _simulation, this);
@@ -77,10 +73,9 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	GLWidget->setWidget(createHDBWidget());
 
 	connect(_projectTreeView, &ProjectsWidget::selectionChanged, _valuesTableView, &ValuesWidget::treeSelectionChanged);
-	//connect(_valuesTableView, &ValuesWidget::HkxItemPointerChanged, _projectTreeView, &ProjectsWidget::modelHasSetNewHkxItemPointer);
 
 	//File
-	ui->menuFile->addAction(_handler->saveAction());
+	//ui->menuFile->addAction(_handler->saveAction());
 
 	//Edit
 	ui->menuEdit->addAction(_command_manager.createUndoAction(this));

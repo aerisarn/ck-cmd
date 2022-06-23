@@ -50,7 +50,7 @@ namespace ckcmd {
 
 
 
-			QAction* saveAction() {	return _save;	}
+			QAction* saveAction(const QVariant& action_data);
 			QAction* exportAction();
 			QAction* importFBXAction() { return _importFBX; };
 			QAction* removeAnimationAction() { return _removeAnimation; }

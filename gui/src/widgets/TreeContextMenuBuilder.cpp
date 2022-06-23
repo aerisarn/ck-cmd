@@ -12,6 +12,11 @@ void TreeContextMenuBuilder::buildMiscsNodeMenu(std::vector<QAction*>& actions)
 	actions.push_back(_actionHandler.createProjectAction());
 }
 
+void TreeContextMenuBuilder::buildProjectNodeMenu(std::vector<QAction*>& actions, const QVariant& action_data)
+{
+	actions.push_back(_actionHandler.saveAction(action_data));
+}
+
 void TreeContextMenuBuilder::buildAnimationsMenu(std::vector<QAction*>& actions)
 {
 	actions.push_back(_actionHandler.importFBXAction());
@@ -31,6 +36,10 @@ QMenu* TreeContextMenuBuilder::build(NodeType type, QVariant action_data)
 			break;
 		case NodeType::animationName:
 			buildAnimationMenu(applicable_actions);
+			break;
+		case NodeType::CharacterNode:
+		case NodeType::MiscNode:
+			buildProjectNodeMenu(applicable_actions, action_data);
 			break;
 		default:
 			break;

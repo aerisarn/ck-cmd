@@ -13,8 +13,22 @@ void ActionHandler::buildSaveAction()
 	_save = new QAction(tr("&Save"), this);
 	_save->setShortcuts(QKeySequence::Save);
 	_save->setStatusTip(tr("Save current selected project"));
-	_save->setEnabled(false);
 	connect(_save, SIGNAL(triggered()), this, SLOT(save()));
+}
+
+QAction* ActionHandler::saveAction(const QVariant& action_data)
+{
+	QModelIndex index = action_data.value<QModelIndex>();
+	if (index.isValid())
+	{
+		int project_index = _model.getProjectIndex(index);
+		bool enable = project_index != -1 && _model.getResourceManager().is_open(project_index);
+		_save->setEnabled(enable);
+	}
+	else {
+		_save->setEnabled(false);
+	}
+	return _save;
 }
 
 void ActionHandler::buildImportFBXAction()
@@ -43,12 +57,14 @@ void ActionHandler::buildCreateProjectAction()
 
 void ActionHandler::save()
 {
-	//if (_modelview.selectionModel()->selection().size() == 1) {
-	//	auto selected = _modelview.selectionModel()->selection()[0];
-	//	auto model = (ProjectTreeModel*)_modelview.selectionModel()->selection()[0].model();
-	//	ProjectNode* node = model->getNode(selected.topLeft());
-	//	Saver(_resourceManager, node, model);
-	//}
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+	int project_index = _model.getProjectIndex(index);
+	_model.getResourceManager().saveProject(project_index);
 }
 
 void ActionHandler::createProject()

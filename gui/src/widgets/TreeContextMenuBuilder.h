@@ -15,6 +15,7 @@ namespace ckcmd {
 
 			void buildCharactersNodeMenu(std::vector<QAction*>& actions);
 			void buildMiscsNodeMenu(std::vector<QAction*>& actions);
+			void buildProjectNodeMenu(std::vector<QAction*>& actions, const QVariant& action_data);
 			void buildAnimationsMenu(std::vector<QAction*>& actions);
 			void buildAnimationMenu(std::vector<QAction*>& actions);
 

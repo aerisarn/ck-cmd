@@ -86,6 +86,11 @@ bool ResourceManager::is_open(const fs::path& file) const {
 	return std::find_if(_files.begin(), _files.end(), [file](const auto& entry) {return file == entry.second; }) != _files.end();
 }
 
+bool ResourceManager::is_open(int file_index) const {
+	return _files.find(file_index) != _files.end();
+}
+
+
 int ResourceManager::findIndex(int file_index, const void* object) const
 {
 	auto& _objects = _contents.at(file_index).second;
@@ -609,8 +614,14 @@ size_t ResourceManager::characterFileIndex(int row, int project_index, ProjectTy
 void ResourceManager::saveProject(int row, ProjectType type)
 {
 	fs::path fs_path = projectPath(row, type);
-	fs::path base_path = fs_path.parent_path();
 	int project_index = index(fs_path);
+	saveProject(project_index);
+}
+
+void ResourceManager::saveProject(int project_index)
+{
+	fs::path fs_path = path(project_index);
+	fs::path base_path = fs_path.parent_path();
 	auto& project_contents = get(fs_path);
 	HKXWrapper wrap; wrap.write_le_se((hkRootLevelContainer*)project_contents.first.m_object, fs_path);
 	hkbProjectStringData* project_data = getProjectRoot(project_index);
@@ -629,9 +640,9 @@ void ResourceManager::saveProject(int row, ProjectType type)
 		auto* string_data = getCharacterString(character_index);
 		if (nullptr != string_data)
 		{
-			bool creature = (type == ProjectType::character);
-			CacheEntry* entry = _cache.findOrCreate(get_sanitized_name(project_index), creature);
+			CacheEntry* entry = _cache.find(get_sanitized_name(project_index));
 			CreatureCacheEntry* creature_entry = dynamic_cast<CreatureCacheEntry*>(entry);
+			bool creature = (creature_entry != nullptr);
 			entry->block.clear();
 			entry->movements.clear();
 			auto& clips_cache = entry->block.getClips();
@@ -648,9 +659,6 @@ void ResourceManager::saveProject(int row, ProjectType type)
 			{
 				if (fs::is_regular_file(p.path()))
 				{
-					
-					//hkArray<hkVariant> objects;
-					//auto* rlc = wrap.read(p, objects);
 					int behavior_index = index(p.path());
 					hkRootLevelContainer* behavior_root = nullptr;
 					if (behavior_index == -1)

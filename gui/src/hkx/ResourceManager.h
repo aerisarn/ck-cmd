@@ -103,6 +103,7 @@ namespace ckcmd {
 			size_t index(const fs::path& file) const;
 			fs::path path(int file_index) const;
 			bool is_open(const fs::path& file) const;
+			bool is_open(int file_index) const;
 
 			int findIndex(int file_index, const void* object) const;
 			int findIndex(const fs::path& file, const void* object) const;
@@ -129,6 +130,7 @@ namespace ckcmd {
 			void openProjectFile(int row, ProjectType type);
 			void closeProjectFile(int row, ProjectType type);
 			void saveProject(int row, ProjectType type);
+			void saveProject(int project_index);
 			size_t projectCharacters(int project_index);
 			size_t projectFileIndex(int row, ProjectType type);
 
