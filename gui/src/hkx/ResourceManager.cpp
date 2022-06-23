@@ -1101,13 +1101,12 @@ QStringList ResourceManager::clipList(int project_index)
 	{
 		if (fs::is_regular_file(entry.path()))
 		{
-			hkArray<hkVariant> to_read;
-			wrap.read(entry.path(), to_read);
-			for (int i = 0; i < to_read.getSize(); ++i)
+			auto& contents = get(entry.path());
+			for (int i = 0; i < contents.second.size(); ++i)
 			{
-				if (to_read[i].m_class == &hkbClipGeneratorClass)
+				if (contents.second[i].m_class == &hkbClipGeneratorClass)
 				{
-					out << reinterpret_cast<hkbClipGenerator*>(to_read[i].m_object)->m_name.cString();
+					out << reinterpret_cast<hkbClipGenerator*>(contents.second[i].m_object)->m_name.cString();
 				}
 			}
 		}
@@ -1130,13 +1129,12 @@ QStringList ResourceManager::clipAnimationsList(int project_index)
 	{
 		if (fs::is_regular_file(entry.path()))
 		{
-			hkArray<hkVariant> to_read;
-			wrap.read(entry.path(), to_read);
-			for (int i = 0; i < to_read.getSize(); ++i)
+			auto& contents = get(entry.path());
+			for (int i = 0; i < contents.second.size(); ++i)
 			{
-				if (to_read[i].m_class == &hkbClipGeneratorClass)
+				if (contents.second[i].m_class == &hkbClipGeneratorClass)
 				{
-					out << reinterpret_cast<hkbClipGenerator*>(to_read[i].m_object)->m_animationName.cString();
+					out << reinterpret_cast<hkbClipGenerator*>(contents.second[i].m_object)->m_animationName.cString();
 				}
 			}
 		}
@@ -1159,13 +1157,12 @@ QStringList ResourceManager::attackEventList(int project_index)
 	{
 		if (fs::is_regular_file(entry.path()))
 		{
-			hkArray<hkVariant> to_read;
-			wrap.read(entry.path(), to_read);
-			for (int i = 0; i < to_read.getSize(); ++i)
+			auto& contents = get(entry.path());
+			for (int i = 0; i < contents.second.size(); ++i)
 			{
-				if (to_read[i].m_class == &hkbBehaviorGraphStringDataClass)
+				if (contents.second[i].m_class == &hkbBehaviorGraphStringDataClass)
 				{
-					hkbBehaviorGraphStringData* string_data = reinterpret_cast<hkbBehaviorGraphStringData*>(to_read[i].m_object);
+					hkbBehaviorGraphStringData* string_data = reinterpret_cast<hkbBehaviorGraphStringData*>(contents.second[i].m_object);
 					for (int e = 0; e < string_data->m_eventNames.getSize(); ++e)
 					{
 						QString eventName = string_data->m_eventNames[e].cString();
@@ -1177,6 +1174,47 @@ QStringList ResourceManager::attackEventList(int project_index)
 							)
 						{
 							out << eventName;
+						}
+					}
+					break;
+				}
+			}
+		}
+	}
+	return out.toList();
+}
+
+QStringList ResourceManager::wordVariableList(int project_index)
+{
+	HKXWrapper wrap;
+	QSet<QString> out;
+	fs::path project_file_path = path(project_index);
+	fs::path project_path = project_file_path.parent_path();
+	auto* project_root = getProjectRoot(project_file_path);
+	fs::path char_file_path = project_path / project_root->m_characterFilenames[0].cString();
+	get(char_file_path);
+	auto string_data = getCharacterString(index(char_file_path));
+	fs::path behavior_subfolder = project_path / fs::path(string_data->m_behaviorFilename.cString()).parent_path();
+	for (auto& entry : fs::directory_iterator(behavior_subfolder))
+	{
+		if (fs::is_regular_file(entry.path()))
+		{
+			auto& contents = get(entry.path());
+			for (int i = 0; i < contents.second.size(); ++i)
+			{
+				if (contents.second[i].m_class == &hkbBehaviorGraphDataClass)
+				{
+					hkbBehaviorGraphData* data = reinterpret_cast<hkbBehaviorGraphData*>(contents.second[i].m_object);
+					hkbBehaviorGraphStringData* string_data = data->m_stringData;
+					for (int v = 0; v < data->m_variableInfos.getSize(); ++v)
+					{
+						if (data->m_variableInfos[v].m_type == hkbVariableInfo::VARIABLE_TYPE_BOOL ||
+							data->m_variableInfos[v].m_type == hkbVariableInfo::VARIABLE_TYPE_INT8 ||
+							data->m_variableInfos[v].m_type == hkbVariableInfo::VARIABLE_TYPE_INT16 ||
+							data->m_variableInfos[v].m_type == hkbVariableInfo::VARIABLE_TYPE_INT32 ||
+							data->m_variableInfos[v].m_type == hkbVariableInfo::VARIABLE_TYPE_REAL)
+						{
+							out << string_data->m_variableNames[v].cString();
 						}
 					}
 					break;

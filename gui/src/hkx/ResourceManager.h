@@ -172,6 +172,7 @@ namespace ckcmd {
 			QStringList clipList(int project_index);
 			QStringList clipAnimationsList(int project_index);
 			QStringList attackEventList(int project_index);
+			QStringList wordVariableList(int project_index);
 
 			/* CACHE SETS */
 

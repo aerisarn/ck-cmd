@@ -415,7 +415,7 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 			}
 			return nullptr;
 		}
-		else if (AssetType::events == type || AssetType::variable_words == type)
+		else if (AssetType::events == type)
 		{
 			auto top_behavior_index = getChildAssetProxy(index, NodeType::BehaviorHkxNode);
 			if (top_behavior_index.isValid())
@@ -426,19 +426,11 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 					if (events_node.isValid())
 						return new SelectionProxyModel(this, events_node);
 				}
-				/*else if (AssetType::variable_words == type) {
-					auto variables_node = getChildAssetProxy(top_behavior_index, NodeType::behaviorVariableNames);
-					if (variables_node.isValid())
-					{
-						auto variables_floats_node = getChildAssetProxy(variables_node, NodeType::behaviorVariableWords);
-						if (variables_floats_node.isValid())
-						{
-							return new SelectionProxyModel(this, variables_floats_node);
-						}
-					}
-				}*/
 			}
 			return nullptr;
+		}
+		else if (AssetType::variable_words == type) {
+			return new StringListModel(_resourceManager.wordVariableList(edge._project));
 		}
 		else if (AssetType::attack_events == type) {
 			return new StringListModel(_resourceManager.attackEventList(edge._project));
