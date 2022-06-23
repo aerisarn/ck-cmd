@@ -21,9 +21,6 @@ namespace ckcmd {
             void select(const QModelIndex& index);
             void activate(const QModelIndex& index);
 
-            //Proxy
-            //virtual bool hasChildren(const QModelIndex& parent = QModelIndex()) const override;
-
             virtual void setSourceModel(ProjectModel* sourceModel);
             ProjectModel* sourceModel() const { return static_cast<ProjectModel*>(QAbstractProxyModel::sourceModel()); }
 
@@ -35,6 +32,7 @@ namespace ckcmd {
 
             virtual QModelIndex parent(const QModelIndex& child) const override;
             virtual QModelIndex index(int row, int column, const QModelIndex& parent) const override;
+            virtual bool hasChildren(const QModelIndex& parent = QModelIndex()) const override;
 
             virtual QVariant data(const QModelIndex& proxyIndex, int role) const override;
 

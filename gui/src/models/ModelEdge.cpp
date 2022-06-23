@@ -28,6 +28,19 @@ ModelEdge::ModelEdge(hkVariant* parent, int project, int file, int row, int colu
 	_childItem = reinterpret_cast<void*>(child);
 }
 
+ModelEdge::ModelEdge(hkVariant* parent, int project, int file, int row, int column, int subindex, hkVariant* child, NodeType childType)
+{
+	_parentType = NodeType::HavokNative;
+	_parentItem = reinterpret_cast<void*>(parent);
+	_project = project;
+	_file = file;
+	_row = row;
+	_column = column;
+	_subindex = subindex;
+	_childType = childType;
+	_childItem = reinterpret_cast<void*>(child);
+}
+
 NodeType ModelEdge::type()
 {
 	return _childType;
@@ -92,7 +105,7 @@ QVariant ModelEdge::data(int row, int column, ResourceManager& manager) const
 		return ProjectTreeFileHandler::data(row, column, _file, _childType, manager);// *reinterpret_cast<const QString*>(_childItem);
 	default:
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::data(_file, row, column, variant, _childType, manager);
+		return ProjectTreeHkHandler::data(_file, row, column, _subindex, variant, _childType, manager);
 	}
 	return QVariant();
 }
@@ -127,7 +140,7 @@ ModelEdge ModelEdge::childEdge(int row, int column, ResourceManager& manager) co
 	default:
 	{
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::getChild(variant, row, column, _project, _file, variant, manager, _childType);
+		return ProjectTreeHkHandler::getChild(variant, row, column, _subindex, _project, _file, variant, manager, _childType);
 	}
 	}
 	return ModelEdge();

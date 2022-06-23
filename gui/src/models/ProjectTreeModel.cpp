@@ -143,6 +143,11 @@ QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& pare
 	return unmapped_child;
 }
 
+bool ProjectTreeModel::hasChildren(const QModelIndex& parent) const
+{
+	return rowCount(parent) > 0 && columnCount(parent) > 0;
+}
+
 QVariant ProjectTreeModel::data(const QModelIndex& proxyIndex, int role) const
 {
 	return sourceModel()->data(mapToSource(proxyIndex), role);

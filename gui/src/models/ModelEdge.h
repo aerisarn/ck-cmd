@@ -96,6 +96,7 @@ namespace ckcmd {
             int _file = -1;
             int _row = -1;
             int _column = -1;
+            int _subindex = -1;
             NodeType _childType = NodeType::Invalid;
             void* _childItem = nullptr;
             QModelIndex _child;
@@ -112,7 +113,7 @@ namespace ckcmd {
 
             auto as_tuple() const
             { 
-                return std::tie(_parentType, _parentItem, _file, _row, _column, _childItem, _childType);
+                return std::tie(_parentType, _parentItem, _file, _row, _column, _childItem, _subindex, _childType);
             }
 
         public:
@@ -150,6 +151,7 @@ namespace ckcmd {
 
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*);
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*, NodeType childType);
+            ModelEdge(hkVariant*, int project, int file, int row, int column, int subindex, hkVariant*, NodeType childType);
 
             int childRows(int row, int column, ResourceManager& manager) const;
             int rowColumns(int row, int column, ResourceManager& _resourceManager) const;
