@@ -98,7 +98,7 @@ int ResourceManager::findIndex(int file_index, const void* object) const
 		if (_objects[i].m_object == object)
 			return i;
 	}
-	return -1;
+	return HK_INVALID_REF;
 }
 
 int ResourceManager::findIndex(const fs::path& file, const void* object) const

@@ -1,7 +1,7 @@
 #include "WidgetFactory.h"
 
 #include "CharacterEditor.h"
-#include "SampleWidget.h"
+#include "GenericWidget.h"
 
 using namespace ckcmd;
 using namespace ckcmd::HKX;
@@ -12,8 +12,8 @@ QWidget* WidgetFactory::getWidget(widgetType type, HKX::ProjectModel& model, QWi
 	{
 	case widgetType::CharacterEditor:
 		return new CharacterEditorWidget(model, parent);
-	case widgetType::SampleWidget:
-		return new SampleWidget(model, parent);
+	case widgetType::GenericWidget:
+		return new GenericWidget(model, parent);
 	default:
 		break;
 	}

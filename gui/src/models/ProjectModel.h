@@ -65,7 +65,7 @@ namespace ckcmd {
             int rowCount(const QModelIndex& parent = QModelIndex()) const override;
             int columnCount(const QModelIndex& parent = QModelIndex()) const override;
             int childCount(const QModelIndex& parent = QModelIndex())  const;
-            bool hasChildren(int row, int column, const QModelIndex& index) const;
+            std::vector<QModelIndex> children(const QModelIndex& parent = QModelIndex()) const;
             virtual bool hasChildren(const QModelIndex& parent = QModelIndex()) const override;
             QVariant headerData(int section, Qt::Orientation orientation,
                 int role = Qt::DisplayRole) const override;

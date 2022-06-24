@@ -169,7 +169,7 @@ int ProjectModel::rowColumns(const QModelIndex& parent) const
 		return 2;
 
 	const auto& edge = modelEdge(parent);
-	return edge.rowColumns(parent.row(), parent.column(), _resourceManager);
+	return edge.childColumns(parent.row(), parent.column(), _resourceManager);
 }
 
 int ProjectModel::columnCount(const QModelIndex& index) const
@@ -189,13 +189,14 @@ int ProjectModel::childCount(const QModelIndex& index) const
 	return edge.childCount(_resourceManager);
 }
 
-bool ProjectModel::hasChildren(int row, int column, const QModelIndex& index) const
+std::vector<QModelIndex> ProjectModel::children(const QModelIndex& parent = QModelIndex()) const
 {
-	if (!index.isValid())
-		return index.row() < 2;
+	if (!parent.isValid())
+		return {index(0, 0, QModelIndex()), index(1, 0, QModelIndex()) };
 
-	const auto& edge = modelEdge(index);
-	return edge.hasChild(row, column, _resourceManager);
+	const auto& edge = modelEdge(parent);
+	auto indices = edge.children(_resourceManager);
+	return edge.children(_resourceManager);
 }
 
 bool ProjectModel::hasChildren(const QModelIndex& parent) const

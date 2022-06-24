@@ -63,6 +63,10 @@ void ValuesWidget::setEditor(const QModelIndex& index)
 	{
 	case NodeType::CharacterHkxNode:
 		type = widgetType::CharacterEditor;
+		break;
+	case NodeType::HavokNative:
+		type = widgetType::GenericWidget;
+		break;
 	default:
 		break;
 	}

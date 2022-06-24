@@ -56,7 +56,7 @@ ModelEdge ProjectTreeFileHandler::getChild(int index, int project, int file, Nod
 		//if (_manager.isProjectFileOpen(index, res_type)) {
 		//	project_file = _manager.projectFileIndex(index, res_type);
 		//}
-		return ModelEdge(nullptr, project, -1, index, -1, nullptr, index_type);
+		return ModelEdge(nullptr, project, -1, index, 0, nullptr, index_type);
 	}
 	case NodeType::CharacterNode:
 	case NodeType::MiscNode:

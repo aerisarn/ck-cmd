@@ -27,15 +27,15 @@ QModelIndex ProjectTreeModel::mapToSource(const QModelIndex& proxyIndex) const
 	int source_rows = 0; 
 	int source_columns = 0;
 	//Optmimization
-	if (sourceModel()->nodeType(source_parent) == NodeType::CharacterHkxNode)
-	{
-		source_rows = sourceModel()->childCount(source_parent);
-		source_columns = 1;
-	}
-	else {
+	//if (sourceModel()->nodeType(source_parent) == NodeType::CharacterHkxNode)
+	//{
+	//	source_rows = sourceModel()->childCount(source_parent);
+	//	source_columns = 1;
+	//}
+	//else {
 		source_rows = sourceModel()->rowCount(source_parent);
 		source_columns = sourceModel()->columnCount(source_parent);
-	}
+	//}
 
 
 	int target_children = proxyIndex.row();
@@ -83,15 +83,15 @@ QModelIndex ProjectTreeModel::mapFromSource(const QModelIndex& sourceIndex) cons
 	int source_rows = 0;
 	int source_columns = 0;
 	//Optmimization
-	if (sourceModel()->nodeType(source_parent) == NodeType::CharacterHkxNode)
-	{
-		source_rows = sourceModel()->childCount(source_parent);
-		source_columns = 1;
-	}
-	else {
+	//if (sourceModel()->nodeType(source_parent) == NodeType::CharacterHkxNode)
+	//{
+	//	source_rows = sourceModel()->childCount(source_parent);
+	//	source_columns = 1;
+	//}
+	//else {
 		source_rows = sourceModel()->rowCount(source_parent);
 		source_columns = sourceModel()->columnCount(source_parent);
-	}
+	//}
 	for (int r = 0; r < source_rows; ++r)
 	{
 		for (int c = 0; c < source_columns; ++c)
@@ -145,23 +145,27 @@ QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& pare
 	int source_rows = 0;
 	int source_columns = 0;
 	//Optmimization
-	if (sourceModel()->nodeType(mapped_parent) == NodeType::CharacterHkxNode)
-	{
-		source_rows = sourceModel()->childCount(mapped_parent);
-		source_columns = 1;
-	}
-	else {
+	//if (sourceModel()->nodeType(mapped_parent) == NodeType::CharacterHkxNode)
+	//{
+	//	source_rows = sourceModel()->childCount(mapped_parent);
+	//	source_columns = 1;
+	//}
+	//else {
 		source_rows = sourceModel()->rowCount(mapped_parent);
 		source_columns = sourceModel()->columnCount(mapped_parent);
-	}
+	//}
 	QModelIndex mapped_child;
+	QModelIndex source_children;
 	int target_children = row;
 	int child_index = 0;
 	bool found = false;
 	for (int r = 0; r < source_rows; ++r)
 	{
+		source_children = sourceModel()->index(r, 0, mapped_parent);
+		source_columns = sourceModel()->columnCount(source_children);
 		for (int c = 0; c < source_columns; ++c)
 		{
+
 			if (sourceModel()->hasChildren(r, c, mapped_parent))
 			{
 				if (child_index == target_children)

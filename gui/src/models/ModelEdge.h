@@ -8,7 +8,6 @@ namespace ckcmd {
     namespace HKX {
 
         class ProjectModel;
-        class ProjectTreeHkHandler;
 
         enum class NodeType
         {
@@ -28,30 +27,12 @@ namespace ckcmd {
             animationName,
             characterPropertyNames,
             characterProperty,
-            //characterPropertyWords,
-            //characterPropertyWord,
-            //characterPropertyQuads,
-            //characterPropertyQuad,
-            //characterPropertyRefs,
-            //characterPropertyRef,
             behaviorEventNames,
             behaviorEventName,
             behaviorVariableNames,
             behaviorVariable,
-            //behaviorVariableWords,
-            //behaviorVariableWord,
-            //behaviorVariableQuads,
-            //behaviorVariableQuad,
-            //behaviorVariableRefs,
-            //behaviorVariableRef,
             behaviorCharacterPropertyNames,
             behaviorCharacterProperty,
-            //behaviorCharacterPropertyWords,
-            //behaviorCharacterPropertyWord,
-            //behaviorCharacterPropertyQuads,
-            //behaviorCharacterPropertyQuad,
-            //behaviorCharacterPropertyRefs,
-            //behaviorCharacterPropertyRef,
             FSMWildcardTransitions,
             FSMWildcardTransition,
             FSMStateTransitions,
@@ -87,7 +68,6 @@ namespace ckcmd {
         class ModelEdge
         {
             friend class ProjectModel;
-            friend class ProjectTreeHkHandler;
 
             NodeType _parentType = NodeType::Invalid;
             void* _parentItem = nullptr;
@@ -167,16 +147,34 @@ namespace ckcmd {
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*);
             ModelEdge(hkVariant*, int project, int file, int row, int column, hkVariant*, NodeType childType);
             ModelEdge(hkVariant*, int project, int file, int row, int column, int subindex, hkVariant*, NodeType childType);
+            ModelEdge(const ModelEdge& parent, int project, int file, int row, int column, int subindex, hkVariant*, NodeType childType);
 
+            NodeType parentType() const {return _parentType;}
+            template<typename T>
+            T* parentItem() const { return static_cast<T*>(_parentItem); }
+            int project() const { return _project; }
+            int file() const { return _file; }
+            int row() const { return _row; }
+            int column() const { return _column; }
+            int subindex() const { return _subindex; }
+            NodeType childType() const { return _childType; }
+            template<typename T>
+            T* childItem() const { return static_cast<T*>(_childItem); }
+            
             int childRows(int row, int column, ResourceManager& manager) const;
-            int rowColumns(int row, int column, ResourceManager& _resourceManager) const;
             int childColumns(int row, int column, ResourceManager& manager) const;
+            int childCount(ResourceManager& manager) const;
+            
+            ModelEdge childEdge(int row, int column, ResourceManager& manager) const;
+            ModelEdge childEdge(int row, int column, ResourceManager& manager) const;
 
             QVariant data(int row, int column, ResourceManager& manager) const;
             bool setData(int row, int column, const QVariant& value, ResourceManager& manager);
-            bool hasChild(int row, int column, ResourceManager& manager) const;
-            ModelEdge childEdge(int row, int column, ResourceManager& manager) const;
-            int childCount(ResourceManager& manager) const;
+
+            std::vector<std::pair<int,int>> children(ResourceManager& manager);
+
+
+
             bool insertRows(int row_start, int count, ResourceManager& manager);
             bool removeRows(int row_start, int count, ResourceManager& manager);
             bool insertColumns(int row, int column_start, int count, ResourceManager& manager);

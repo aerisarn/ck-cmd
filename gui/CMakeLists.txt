@@ -77,6 +77,14 @@ if(NOT DEFINED MODELS)
 
     source_group("Models\\Headers" FILES ${MODEL_HEADERS})
     source_group("Models\\Sources" FILES ${MODEL_SOURCES})
+endif()
+
+if(NOT DEFINED EDGES)
+    file(GLOB_RECURSE EDGE_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/edges/*.h)
+    file(GLOB_RECURSE EDGE_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/edges/*.cpp)
+
+    source_group("Models\\Edges\\Headers" FILES ${EDGE_HEADERS})
+    source_group("Models\\Edges\\Sources" FILES ${EDGE_SOURCES})
 endif()   
 
 if(NOT DEFINED ESPS)
@@ -119,6 +127,8 @@ add_library( gui-lib STATIC
     ${GUI_SOURCES}
     ${MODEL_HEADERS}
     ${MODEL_SOURCES}
+    ${EDGE_HEADERS}
+    ${EDGE_SOURCES}
     ${HKX_HEADERS}
     ${HKX_SOURCES}
     ${ESP_HEADERS}

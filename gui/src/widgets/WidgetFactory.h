@@ -13,7 +13,7 @@ namespace ckcmd
 	{
 		invalid = 0,
 		CharacterEditor,
-		SampleWidget,
+		GenericWidget,
 		allEditors
 	};
 

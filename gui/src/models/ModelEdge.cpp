@@ -41,6 +41,20 @@ ModelEdge::ModelEdge(hkVariant* parent, int project, int file, int row, int colu
 	_childItem = reinterpret_cast<void*>(child);
 }
 
+ModelEdge::ModelEdge(const ModelEdge& parent, int project, int file, int row, int column, int subindex, hkVariant* child, NodeType childType)
+{
+	_parentType = parent._parentType;
+	_parentItem = parent._parentItem;
+	_parent = parent._parent;
+	_project = project;
+	_file = file;
+	_row = row;
+	_column = column;
+	_subindex = subindex;
+	_childType = childType;
+	_childItem = reinterpret_cast<void*>(child);
+}
+
 NodeType ModelEdge::type() const
 {
 	return _childType;
@@ -56,24 +70,7 @@ int ModelEdge::childRows(int row, int column, ResourceManager& manager) const
 	case NodeType::MiscNode:
 		return ProjectTreeFileHandler::getChildCount(_project, _childType, manager);
 	default:
-		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::childRows(_project, _file, row, column, variant, _childType, manager);
-	}
-	return 0;
-}
-
-int ModelEdge::rowColumns(int row, int column, ResourceManager& _resourceManager) const
-{
-	switch (_childType)
-	{
-	case NodeType::CharactersNode:
-	case NodeType::MiscsNode:
-	case NodeType::CharacterNode:
-	case NodeType::MiscNode:
-		return 1;
-	default:
-		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::childRowColumns(_project, _file, row, column, variant, _childType, _resourceManager);
+		return ProjectTreeHkHandler::childRows(row, column, *this, manager);
 	}
 	return 0;
 }
@@ -88,8 +85,7 @@ int ModelEdge::childColumns(int row, int column, ResourceManager& manager) const
 	case NodeType::MiscNode:
 		return 1;
 	default:
-		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::childColumns(_project, _file, row, column, variant, _childType, manager);
+		return ProjectTreeHkHandler::childColumns(row, column, *this, manager);
 	}
 	return 0;
 }
@@ -102,10 +98,9 @@ QVariant ModelEdge::data(int row, int column, ResourceManager& manager) const
 	case NodeType::MiscsNode:
 	case NodeType::CharacterNode:
 	case NodeType::MiscNode:
-		return ProjectTreeFileHandler::data(row, column, _file, _childType, manager);// *reinterpret_cast<const QString*>(_childItem);
+		return ProjectTreeFileHandler::data(row, column, _project, _childType, manager);
 	default:
-		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::data(_file, row, column, _subindex, variant, _childType, manager);
+		return ProjectTreeHkHandler::data(row, column, *this, manager);
 	}
 	return QVariant();
 }
@@ -121,8 +116,7 @@ bool ModelEdge::hasChild(int row, int column, ResourceManager& manager) const
 		return ProjectTreeFileHandler::hasChild(row, _project, _file, _childType, manager);
 	default:
 	{
-		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::hasChild(variant, row, column, _project, _file, variant, manager, _childType);
+		return ProjectTreeHkHandler::hasChild(row, column, *this, manager);
 	}
 	}
 	return false;
@@ -139,8 +133,7 @@ ModelEdge ModelEdge::childEdge(int row, int column, ResourceManager& manager) co
 		return ProjectTreeFileHandler::getChild(row, _project, _file, _childType, manager);
 	default:
 	{
-		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::getChild(variant, row, column, _subindex, _project, _file, variant, manager, _childType);
+		return ProjectTreeHkHandler::child(row, column, *this, manager);
 	}
 	}
 	return ModelEdge();
@@ -157,8 +150,7 @@ int ModelEdge::childCount(ResourceManager& manager) const
 		return ProjectTreeFileHandler::getChildCount(_project, _childType, manager);
 	default:
 	{
-		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::getChildCount(_project, variant, _childType, manager);
+		return ProjectTreeHkHandler::childCount(*this, manager);
 	}
 	}
 	return 0;
@@ -175,8 +167,7 @@ bool ModelEdge::setData(int row, int column, const QVariant& value, ResourceMana
 		return false;
 	default:
 	{
-		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::setData(row, column, _project, _file, variant, _childType, value, manager);
+		return ProjectTreeHkHandler::setData(row, column, *this, value, manager);
 	}
 	}
 	return false;
@@ -194,7 +185,7 @@ bool ModelEdge::insertRows(int row_start, int count, ResourceManager& manager)
 	default:
 	{
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::addRows(row_start, count, _project, _file, variant, _childType, manager);
+		return ProjectTreeHkHandler::addRows(row_start, count, *this, manager);
 	}
 	}
 	return false;
@@ -212,7 +203,7 @@ bool ModelEdge::removeRows(int row_start, int count, ResourceManager& manager)
 	default:
 	{
 		hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-		return ProjectTreeHkHandler::removeRows(row_start, count, _project, _file, variant, _childType, manager);
+		return ProjectTreeHkHandler::removeRows(row_start, count, *this, manager);
 	}
 	}
 	return false;
@@ -221,11 +212,11 @@ bool ModelEdge::removeRows(int row_start, int count, ResourceManager& manager)
 bool ModelEdge::insertColumns(int row, int column_start, int count, ResourceManager& manager)
 {
 	hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-	return ProjectTreeHkHandler::changeColumns(row, column_start, count, _project, _file, variant, _childType, manager);
+	return ProjectTreeHkHandler::changeColumns(row, column_start, count, *this, manager);
 }
 
 bool ModelEdge::removeColumns(int row, int column_start, int count, ResourceManager& manager)
 {
 	hkVariant* variant = reinterpret_cast<hkVariant*>(_childItem);
-	return ProjectTreeHkHandler::changeColumns(row, column_start, -count, _project, _file, variant, _childType, manager);
+	return ProjectTreeHkHandler::changeColumns(row, column_start, -count, *this, manager);
 }

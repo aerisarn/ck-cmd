@@ -21,6 +21,8 @@ namespace Sk {
 	class IDLERecord;
 }
 
+#define HK_INVALID_REF -1
+
 namespace ckcmd {
 	namespace HKX {
 
