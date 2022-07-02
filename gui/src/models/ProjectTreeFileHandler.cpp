@@ -39,10 +39,25 @@ QVariant ProjectTreeFileHandler::data(int row, int column, int file_index, NodeT
 	return QVariant();
 }
 
-bool ProjectTreeFileHandler::hasChild(int row, int _project, int _file, NodeType childType, ResourceManager& manager)
+int ProjectTreeFileHandler::childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager)
 {
-	return getChildCount(_project, childType, manager) > 0;
+	switch (edge.childType()) {
+	case NodeType::CharactersNode:
+	case NodeType::MiscsNode:
+		return row;
+	case NodeType::CharacterNode:
+	case NodeType::MiscNode:
+	{
+		if (edge.project() != -1)
+			return row;
+		return -1;
+	}
+	default:
+		break;
+	}
+	return -1;
 }
+
 
 ModelEdge ProjectTreeFileHandler::getChild(int index, int project, int file, NodeType childType, ResourceManager& _manager)
 {

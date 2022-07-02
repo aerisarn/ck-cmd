@@ -9,15 +9,11 @@
 namespace ckcmd {
 	namespace HKX {
 
-
 		struct BehaviorModel
 		{
-
-			static const size_t DATA_SUPPORTS = 3;
-
-			static const char* DataListsName(int row)
+			static const char* DataListsName(NodeType type)
 			{
-				switch ((NodeType)row) {
+				switch (type) {
 				case NodeType::behaviorEventNames:
 					return "Events";
 				case NodeType::behaviorVariableNames:
@@ -30,22 +26,22 @@ namespace ckcmd {
 				return "Invalid Behavior Entry";
 			};
 
-			static int childRows(int row, int column, ModelEdge& edge, ResourceManager& manager);
-			static int childRowColumns(int row, ModelEdge& edge, ResourceManager& manager);
-			static int childColumns(int row, int column, ModelEdge& edge, ResourceManager& manager);
-			static int childCount(ModelEdge& edge, ResourceManager& manager);
-			static bool hasChild(int row, int column, ModelEdge& edge, ResourceManager& manager);
-			static ModelEdge child(int row, int column, ModelEdge& edge, ResourceManager& manager);
+			//rows with lists to be shown
+			static const QStringList children_rows;
 
-			static QVariant data(int row, int column, ModelEdge& edge, ResourceManager& manager);
-			static bool setData(int row, int column, ModelEdge& edge, const QVariant& data, ResourceManager& manager);
-			static bool addRows(int row_start, int count, ModelEdge& edge, ResourceManager& manager);
-			static bool removeRows(int row_start, int count, ModelEdge& edge, ResourceManager& manager);
-			static bool changeColumns(int row, int column_start, int delta, ModelEdge& edge, ResourceManager& manager);
+			static int rows(const ModelEdge& edge, ResourceManager& manager);
+			static int columns(int row, const ModelEdge& edge, ResourceManager& manager);
+			static int childCount(const ModelEdge& edge, ResourceManager& manager);
+			static std::pair<int, int> child(int index, const ModelEdge& edge, ResourceManager& manager);
+			static int childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager);
+			static ModelEdge child(int row, int column, const ModelEdge& edge, ResourceManager& manager);
 
+			static QVariant data(int row, int column, const ModelEdge& edge, ResourceManager& manager);
+			static bool setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager);
+			static bool addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager);
+			static bool removeRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager);
+			static bool changeColumns(int row, int column_start, int delta, const ModelEdge& edge, ResourceManager& manager);
 			
 		};
-
-
 	}
 }

@@ -16,8 +16,8 @@ namespace ckcmd {
 			void accept(HkxItemVisitor& visitor) const;
 			void accept(HkxItemVisitor& visitor);
 
-			QString name();
-			QString className();
+			QString name() const;
+			QString className() const;
 			bool setName(const QString& name);
 
 		protected:

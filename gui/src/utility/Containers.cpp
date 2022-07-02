@@ -1,4 +1,6 @@
 #include <src/utility/Containers.h>
+#include <src/hkx/HkxLinkedTableVariant.h>
+
 
 bool ckcmd::HKX::isWordVariable(int type)
 {
@@ -19,4 +21,20 @@ bool ckcmd::HKX::isQuadVariable(int type)
 bool ckcmd::HKX::isRefVariable(int type)
 {
 	return type == hkbVariableInfo::VARIABLE_TYPE_POINTER;
+}
+
+
+int ckcmd::HKX::variantLink(int row, int column, hkVariant* variant)
+{
+	auto links = ckcmd::HKX::HkxLinkedTableVariant(*variant).links();
+	int link_index = 0;
+	for (const auto& link : links)
+	{
+		if (link._row == row && link._column == column)
+		{
+			return link_index;
+		}
+		link_index++;
+	}
+	return -1;
 }

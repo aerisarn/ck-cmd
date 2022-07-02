@@ -4,6 +4,7 @@
 #include <Common/Base/Container/Array/hkArray.h>
 #include <hkbVariableInfo_1.h>
 
+
 #include <functional>
 
 namespace ckcmd {
@@ -12,6 +13,7 @@ namespace ckcmd {
 		bool isWordVariable(int type);
 		bool isQuadVariable(int type);
 		bool isRefVariable(int type);
+		int variantLink(int row, int column, hkVariant* variant);
 
 		template <typename T>
 		static bool addToContainer(int row_start, int count, hkArray<T>& container)

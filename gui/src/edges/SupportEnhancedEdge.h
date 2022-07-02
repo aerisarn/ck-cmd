@@ -1,25 +1,17 @@
 #pragma once
 
-#include <src/edges/SupportEnhancedEdge.h>
-
-#include <hkbStateMachine_4.h>
-#include <hkbStateMachineStateInfo_4.h>
-#include <hkbStateMachineTransitionInfoArray_0.h>
+#include <src/models/ModelEdge.h>
+#include <src/edges/MultipleVariantsEdge.h>
 
 namespace ckcmd {
 	namespace HKX {
 
-		class StateMachineModel : public SupportEnhancedEdge
+		class SupportEnhancedEdge : public MultipleVariantsEdge
 		{
-
-			hkbStateMachine* variant(const ModelEdge& edge) const;
-			virtual std::vector<std::function<hkVariant* (hkVariant*)>> additional_variants() const override { return {}; }
-
 		protected:
-
-			virtual int supports() const override;
-			virtual const char* supportName(int support_index) const override;
-			virtual NodeType supportType(int support_index) const override;
+			virtual int supports() const = 0;
+			virtual const char* supportName(int support_index) const = 0;
+			virtual NodeType supportType(int support_index) const = 0;
 
 		public:
 
@@ -30,6 +22,11 @@ namespace ckcmd {
 			virtual int childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
 			virtual ModelEdge child(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
 			virtual QVariant data(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
+
+			virtual bool setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager) override;
+			virtual bool addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager) override;
+			virtual bool removeRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager) override;
+			virtual bool changeColumns(int row, int column_start, int delta, const ModelEdge& edge, ResourceManager& manager) override;
 		};
 	}
 }

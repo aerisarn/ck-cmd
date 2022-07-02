@@ -569,7 +569,7 @@ void CharacterEditorWidget::on_setAttacksRemoveButton_clicked()
 
 void CharacterEditorWidget::on_setAttacksTreeWidget_itemClicked(QTreeWidgetItem* item, int column)
 {
-    if (!setAttacksTreeWidget->children().isEmpty() > 0 && setAttacksTreeWidget->currentIndex().isValid())
+    if (!setAttacksTreeWidget->children().isEmpty() && setAttacksTreeWidget->currentIndex().isValid())
     {
         setAttacksRemoveButton->setEnabled(true);
     }

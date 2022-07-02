@@ -6,6 +6,7 @@
 #include <src\hkx\ColumnCalculator.h>
 #include <src\hkx\NameGetter.h>
 #include <src\hkx\RowResizer.h>
+#include <src\hkx\ArrayFinder.h>
 
 using namespace ckcmd::HKX;
 
@@ -62,6 +63,13 @@ QStringList HkxTableVariant::rowNames()
 		names << n.name();
 	}
 	return names;
+}
+
+std::vector<int>  HkxTableVariant::arrayrows()
+{
+	ArrayFinder af;
+	accept(af);
+	return af.arrayrows();
 }
 
 bool HkxTableVariant::resizeColumns(int row, int column, int delta)

@@ -15,10 +15,11 @@ namespace ckcmd {
 
 		public:
 
-			static int childRows(int row, int column, const ModelEdge& edge, ResourceManager& manager);
-			static int childColumns(int row, int column, const ModelEdge& edge, ResourceManager& manager);
+			static int rows(const ModelEdge& edge, ResourceManager& manager);
+			static int columns(int row, const ModelEdge& edge, ResourceManager& manager);
 			static int childCount(const ModelEdge& edge, ResourceManager& manager);
-			static bool hasChild(int row, int column, const ModelEdge& edge, ResourceManager& manager);
+			static std::pair<int, int> child(int index, const ModelEdge& edge, ResourceManager& manager);
+			static int childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager);
 			static ModelEdge child(int row, int column, const ModelEdge& edge, ResourceManager& manager);
 
 			static QVariant data(int row, int column, const ModelEdge& edge, ResourceManager& manager);

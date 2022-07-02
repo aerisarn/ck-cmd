@@ -1,7 +1,352 @@
-//#include <src/edges/BehaviorModel.h>
-//
-//using namespace ckcmd::HKX;
-//
+#include <src/edges/BehaviorModel.h>
+#include <src/hkx/HkxLinkedTableVariant.h>
+
+#include <src/utility/Containers.h>
+
+using namespace ckcmd::HKX;
+
+const QStringList BehaviorModel::children_rows
+{
+	"eventNames",
+	"variableNames",
+	"characterPropertyNames"
+};
+
+
+int BehaviorModel::rows(const ModelEdge& edge, ResourceManager& manager)
+{
+	hkVariant* variant = edge.childItem<hkVariant>();
+	if (nullptr != variant)
+	{
+		auto* graph = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
+		if (graph == NULL)
+			return 0;
+		auto data = graph->m_data;
+		if (data == NULL)
+			return 0;
+		auto string_data = data->m_stringData;
+		if (string_data == NULL)
+			return 0;
+
+		if (edge.childType() == NodeType::behaviorEventNames)
+		{
+			return string_data->m_eventNames.getSize();
+		}
+		else if (edge.childType() == NodeType::behaviorVariableNames)
+		{
+			return string_data->m_variableNames.getSize();
+		}
+		else if (edge.childType() == NodeType::behaviorCharacterPropertyNames)
+		{
+			return string_data->m_characterPropertyNames.getSize();
+		}
+		else if (edge.childType() == NodeType::behaviorEventName)
+		{
+			return 0;
+		}
+		else if (edge.childType() == NodeType::behaviorVariable)
+		{
+			return 0;
+		}
+		else if (edge.childType() == NodeType::behaviorCharacterProperty)
+		{
+			return 0;
+		}
+		int graph_rows = HkxTableVariant(*variant).rows();
+		int data_index = manager.findIndex(edge.file(), &*data);
+		int data_rows = HkxTableVariant(*manager.at(edge.file(), data_index)).rows();
+		int stringdata_index = manager.findIndex(edge.file(), &*string_data);
+		int stringdata_rows = HkxTableVariant(*manager.at(edge.file(), stringdata_index)).rows();
+
+		return 1 + graph_rows + data_rows + stringdata_rows;
+	}
+	return 0;
+}
+
+int BehaviorModel::columns(int row, const ModelEdge& edge, ResourceManager& manager)
+{
+	if (row == 0)
+		return 1;
+	hkVariant* variant = edge.childItem<hkVariant>();
+	if (nullptr != variant)
+	{
+		if (
+			edge.childType() == NodeType::behaviorEventNames ||
+			edge.childType() == NodeType::behaviorVariableNames ||
+			edge.childType() == NodeType::behaviorCharacterPropertyNames ||
+			edge.childType() == NodeType::behaviorEventName ||
+			edge.childType() == NodeType::behaviorVariable
+			)
+		{
+			return 1;
+		}
+		auto* graph = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
+		if (graph == NULL)
+			return 0;
+		auto data = graph->m_data;
+		if (data == NULL)
+			return 0;
+		auto string_data = data->m_stringData;
+		if (string_data == NULL)
+			return 0;
+
+		int graph_rows = HkxTableVariant(*variant).rows();
+		int data_index = manager.findIndex(edge.file(), &*data);
+		int data_rows = HkxTableVariant(*manager.at(edge.file(), data_index)).rows();
+		int stringdata_index = manager.findIndex(edge.file(), &*string_data);
+		int stringdata_rows = HkxTableVariant(*manager.at(edge.file(), stringdata_index)).rows();
+
+		if (row - 1 < graph_rows)
+		{
+			return HkxTableVariant(*variant).columns(row - 1) + 1;
+		}
+		if (row - 1 - graph_rows < data_rows)
+		{
+			return HkxTableVariant(*manager.at(edge.file(), data_index)).columns(row - 1 - graph_rows) + 1;
+		}
+		if (row - 1 - graph_rows - data_rows < stringdata_rows)
+		{
+			return HkxTableVariant(*manager.at(edge.file(), stringdata_index)).columns(row - 1 - graph_rows - data_rows) + 1;
+		}
+	}
+	return 0;
+}
+
+int BehaviorModel::childCount(const ModelEdge& edge, ResourceManager& manager)
+{
+	switch (edge.childType())
+	{
+	case NodeType::behaviorEventNames:
+	case NodeType::behaviorVariableNames:
+	case NodeType::behaviorCharacterPropertyNames:
+		return rows(edge, manager);
+	case NodeType::behaviorEventName:
+	case NodeType::behaviorVariable:
+	case NodeType::behaviorCharacterProperty:
+		return 0;
+	default:
+		break;
+	}
+	hkVariant* variant = edge.childItem<hkVariant>();
+	if (nullptr != variant)
+	{
+		if (edge.childType() == NodeType::BehaviorHkxNode)
+		{
+			int size = HkxLinkedTableVariant(*variant).links().size();
+			return children_rows.size() + size;
+		}
+	}
+	return 0;
+}
+
+std::pair<int, int> BehaviorModel::child(int index, const ModelEdge& edge, ResourceManager& manager)
+{
+	switch (edge.childType())
+	{
+	case NodeType::behaviorEventNames:
+	case NodeType::behaviorVariableNames:
+	case NodeType::behaviorCharacterPropertyNames:
+		return { index, 0 };
+	case NodeType::behaviorEventName:
+	case NodeType::behaviorVariable:
+	case NodeType::behaviorCharacterProperty:
+		return { -1, -1 };
+	default:
+		break;
+	}
+	hkVariant* variant = edge.childItem<hkVariant>();
+	if (nullptr != variant)
+	{
+		auto* graph = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
+		if (graph == NULL)
+			return { -1, -1 };
+		auto data = graph->m_data;
+		if (data == NULL)
+			return { -1, -1 };
+		auto string_data = data->m_stringData;
+		if (string_data == NULL)
+			return { -1, -1 };
+
+		int graph_rows = HkxTableVariant(*variant).rows();
+		int data_index = manager.findIndex(edge.file(), &*data);
+		int data_rows = HkxTableVariant(*manager.at(edge.file(), data_index)).rows();
+		int stringdata_index = manager.findIndex(edge.file(), &*string_data);
+		int stringdata_rows = HkxTableVariant(*manager.at(edge.file(), stringdata_index)).rows();
+		if (index < children_rows.size())
+		{
+			const QString& row_name = children_rows[index];
+			int row_index = HkxTableVariant(*manager.at(edge.file(), stringdata_index)).rowNames().indexOf(row_name);
+			if (row_index != -1)
+				return { 1 + graph_rows + data_rows + row_index, 0 };
+		}
+		auto links = HkxLinkedTableVariant(*variant).links();
+		int graph_links = links.size();
+		int graph_link_index = index - children_rows.size();
+		if  (graph_link_index >= 0 && graph_link_index < graph_links)
+		{
+			return { links.at(graph_link_index)._row + 1, links.at(graph_link_index)._column + 1 };
+		}
+	}
+	return { -1, -1 };
+}
+
+int BehaviorModel::childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager)
+{
+	hkVariant* variant = edge.childItem<hkVariant>();
+	if (nullptr != variant)
+	{
+		auto* graph = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
+		if (graph == NULL)
+			return -1;
+		auto data = graph->m_data;
+		if (data == NULL)
+			return -1;
+		auto string_data = data->m_stringData;
+		if (string_data == NULL)
+			return -1;
+
+		int graph_rows = HkxTableVariant(*variant).rows();
+		int data_index = manager.findIndex(edge.file(), &*data);
+		int data_rows = HkxTableVariant(*manager.at(edge.file(), data_index)).rows();
+		int stringdata_index = manager.findIndex(edge.file(), &*string_data);
+		int stringdata_rows = HkxTableVariant(*manager.at(edge.file(), stringdata_index)).rows();
+
+		switch (edge.childType())
+		{
+		case NodeType::behaviorEventNames:
+		case NodeType::behaviorVariableNames:
+		case NodeType::behaviorCharacterPropertyNames:
+			return row;
+		default:
+			break;
+		}
+		int child_index = row - 1 - graph_rows - data_rows;
+		if (child_index >= 0 && child_index < stringdata_rows) {
+			return children_rows.indexOf(HkxTableVariant(*manager.at(edge.file(), stringdata_index)).rowName(child_index));
+		}
+
+		int link_index = variantLink(row - 1, column - 1, variant);
+		if (link_index != -1)
+			return children_rows.size() + link_index;
+	}
+	return -1;
+}
+
+ModelEdge BehaviorModel::child(int row, int column, const ModelEdge& edge, ResourceManager& manager)
+{
+	hkVariant* variant = edge.childItem<hkVariant>();
+	if (nullptr != variant)
+	{
+		auto* graph = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
+		if (graph == NULL)
+			return ModelEdge();
+		auto data = graph->m_data;
+		if (data == NULL)
+			return ModelEdge();
+		auto string_data = data->m_stringData;
+		if (string_data == NULL)
+			return ModelEdge();
+
+		switch (edge.type())
+		{
+		case NodeType::behaviorEventNames:
+			return ModelEdge(edge, edge.project(), edge.file(), row, 0, edge.subindex(), variant, NodeType::behaviorEventName);
+		case NodeType::behaviorVariableNames:
+			return ModelEdge(edge, edge.project(), edge.file(), row, 0, edge.subindex(), variant, NodeType::behaviorVariable);
+		case NodeType::behaviorCharacterPropertyNames:
+			return ModelEdge(edge, edge.project(), edge.file(), row, 0, edge.subindex(), variant, NodeType::behaviorCharacterProperty);
+		case NodeType::behaviorEventName:
+		case NodeType::behaviorVariable:
+		case NodeType::behaviorCharacterProperty:
+			throw std::runtime_error("Child from leaf node requested!");
+		default:
+			break;
+		}
+		int child_index = childIndex(row, column, edge, manager);
+		if (child_index != -1)
+		{
+			switch (child_index)
+			{
+			case 0:
+				return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::behaviorEventNames);
+			case 1:
+				return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::behaviorVariableNames);
+			case 2:
+				return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::behaviorCharacterPropertyNames);
+			default:
+				break;
+			}
+		}
+		int link_index = variantLink(row - 1, column -1, variant);
+		if (link_index != -1)
+		{
+			HkxLinkedTableVariant v(*variant);
+			auto& links = v.links();
+			auto& link = links.at(link_index);
+			int file_index = manager.findIndex(edge.file(), link._ref);
+			if (file_index == -1)
+				__debugbreak();
+			return ModelEdge(edge, edge.project(), edge.file(), link._row + 1, link._column + 1, edge.subindex(), manager.at(edge.file(), file_index),NodeType::HavokNative);
+		}
+	}
+	return ModelEdge();
+}
+
+QVariant BehaviorModel::data(int row, int column, const ModelEdge& edge, ResourceManager& manager)
+{
+	hkVariant* variant = edge.childItem<hkVariant>();
+	if (nullptr != variant)
+	{
+		auto* data = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
+		auto string_data = data->m_data->m_stringData;
+		if (edge.childType() == NodeType::behaviorEventNames ||
+			edge.childType() == NodeType::behaviorVariableNames ||
+			edge.childType() == NodeType::behaviorCharacterPropertyNames)
+		{
+			return DataListsName(edge.type());
+		}
+		if (edge.childType() == NodeType::behaviorEventName)
+		{
+			if (column == 0)
+				return string_data->m_eventNames[edge.row()].cString();
+			return "InvalidColumn";
+		}
+		if (edge.childType() == NodeType::behaviorVariable)
+		{
+			if (column == 0)
+			{
+				return string_data->m_variableNames[edge.row()].cString();
+			}
+			return "InvalidColumn";
+		}
+		if (edge.childType() == NodeType::behaviorCharacterProperty)
+		{
+			if (column == 0)
+			{
+				return string_data->m_characterPropertyNames[edge.row()].cString();
+			}
+			return "InvalidColumn";
+		}
+		if (column == 0 && row == 0)
+		{
+			return HkxVariant(*variant).name();
+		}
+		else if (column == 0)
+		{
+			return HkxTableVariant(*variant).rowName(row - 1);
+		}
+		HkxTableVariant v(*variant);
+		return v.data(row - 1, column - 1);
+	}
+	return "Invalid row or column";
+}
+
+//bool setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager);
+//bool addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager);
+//bool removeRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager);
+//bool changeColumns(int row, int column_start, int delta, const ModelEdge& edge, ResourceManager& manager);
+
+
 //int BehaviorModel::childRows(int row, int column, ModelEdge& edge, ResourceManager& manager)
 //{
 //	if (

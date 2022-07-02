@@ -2,7 +2,7 @@
 
 using namespace ckcmd::HKX;
 
-QString HkxVariant::name()
+QString HkxVariant::name() const
 {
 	QString display_name = _variant.m_class->getName();
 	//check if the object has a name we can display
@@ -16,7 +16,7 @@ QString HkxVariant::name()
 	return display_name;
 }
 
-QString HkxVariant::className()
+QString HkxVariant::className() const
 {
 	return _variant.m_class->getName();
 }

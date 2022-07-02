@@ -28,7 +28,7 @@ void ModelWidget::buildReflectionTable()
 	for (i; i < rows; ++i)
 	{
 		auto row_index = _model.index(i, 0, _index);
-		columns = _model.rowColumns(row_index);
+		columns = _model.columnCount(row_index);
 		_members.insert(
 			{
 				row_index.data().toString(),
@@ -93,7 +93,7 @@ void ModelWidget::bind(QWidget* widget, size_t row_index, size_t column_index)
 void ModelWidget::populate(int row_index, int column_index, QWidget* widget, const QByteArray& propertyName)
 {
 	QModelIndex rowIndex = _model.index(row_index, dataBindingColumnStart() + column_index, _index);
-	int values = _model.rowColumns(rowIndex);
+	int values = _model.columnCount(rowIndex);
 	QVariant value;
 	QModelIndex valueIndex = _model.index(row_index, dataBindingColumnStart() + column_index, _index);
 	value = valueIndex.data();

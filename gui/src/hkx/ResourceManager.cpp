@@ -66,7 +66,7 @@ ResourceManager::~ResourceManager()
 	delete _esp;
 }
 
-size_t ResourceManager::index(const fs::path& file) const {
+int ResourceManager::index(const fs::path& file) const {
 	for (const auto& entry : _files)
 	{
 		if (entry.second == file)
@@ -74,7 +74,7 @@ size_t ResourceManager::index(const fs::path& file) const {
 			return entry.first;
 		}
 	}
-	return (size_t)-1;
+	return -1;
 }
 
 fs::path ResourceManager::path(int file_index) const

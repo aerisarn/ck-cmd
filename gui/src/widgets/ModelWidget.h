@@ -36,7 +36,7 @@ namespace ckcmd {
 	
 		virtual void OnIndexSelected() = 0;
 
-		virtual size_t dataBindingRowStart() const { return 0; }
+		virtual size_t dataBindingRowStart() const { return 1; }
 		virtual size_t dataBindingColumnStart() const { return 1; }
 
 		virtual bool doDataBinding() const { return !bindingTable().empty(); }

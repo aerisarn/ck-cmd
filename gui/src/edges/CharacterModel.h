@@ -3,18 +3,13 @@
 #include <hkbCharacterData_7.h>
 
 #include <src/models/ModelEdge.h>
-#include <set>
+#include <QStringList>
 
 namespace ckcmd {
 	namespace HKX {
 
 		struct  CharacterModel
 		{
-			//static const int DATA_SUPPORTS = 3;
-			//static const int BEHAVIOR_INDEX = DATA_SUPPORTS;
-			//static const int RIG_INDEX = BEHAVIOR_INDEX + 1;
-			//static const int RAGDOLL_INDEX = RIG_INDEX + 1;
-			//static const int SUPPORT_END = RAGDOLL_INDEX + 1;
 
 			static const char* DataListsName(int row)
 			{
@@ -32,12 +27,13 @@ namespace ckcmd {
 			};
 
 			//rows with files to be opened
-			static const std::set<QString> children_rows;
+			static const QStringList children_rows;
 
-			static int childRows(int row, int column, const ModelEdge& edge, ResourceManager& manager);
-			static int childColumns(int row, int column, const ModelEdge& edge, ResourceManager& manager);
+			static int rows(const ModelEdge& edge, ResourceManager& manager);
+			static int columns(int row, const ModelEdge& edge, ResourceManager& manager);
 			static int childCount(const ModelEdge& edge, ResourceManager& manager);
-			static bool hasChild(int row, int column, const ModelEdge& edge, ResourceManager& manager);
+			static std::pair<int, int> child(int index, const ModelEdge& edge, ResourceManager& manager);
+			static int childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager);
 			static ModelEdge child(int row, int column, const ModelEdge& edge, ResourceManager& manager);
 			
 			static QVariant data(int row, int column, const ModelEdge& edge, ResourceManager& manager);

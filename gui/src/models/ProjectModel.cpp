@@ -13,6 +13,18 @@ ProjectModel::ProjectModel(CommandManager& commandManager, ResourceManager& reso
 	_resourceManager(resourceManager),
 	QAbstractItemModel(parent)
 {
+	ModelEdge edge;
+
+	edge._parent = QModelIndex();
+	edge._parentType = NodeType::Invalid;
+	edge._parentItem = nullptr;
+	edge._row = -1;
+	edge._column = -1;
+	edge._child = QModelIndex();
+	edge._childType = NodeType::Invalid;
+	edge._childItem = nullptr;
+
+	createModelEdgeIndex(edge);
 }
 
 qintptr ProjectModel::modelEdgeIndex(const ModelEdge& edge) const
@@ -112,7 +124,6 @@ QModelIndex ProjectModel::index(int row, int column, const QModelIndex& parent) 
 		edge._row = row;
 		edge._column = column;
 		edge._childType = row == 0 ? NodeType::CharactersNode : NodeType::MiscsNode;
-		//edge._childItem = row == 0 ? reinterpret_cast<void*>(&_charactersNode) : (void*)(&_miscsNode);
 
 		if (!hasModelEdgeIndex(edge))
 		{
@@ -122,7 +133,7 @@ QModelIndex ProjectModel::index(int row, int column, const QModelIndex& parent) 
 			return createdChildEdge._child;
 		}
 		
-		edge._child = createIndex(row, column, _reverse_find.at(&edge));
+		edge._child = createIndex(0, 0, _reverse_find.at(&edge));
 
 		return edge._child;
 	}
@@ -136,10 +147,10 @@ QModelIndex ProjectModel::index(int row, int column, const QModelIndex& parent) 
 			childEdge._parent = parent;
 			qintptr id = const_cast<ProjectModel*>(this)->createModelEdgeIndex(childEdge);
 			auto& createdChildEdge = const_cast<ProjectModel*>(this)->_direct_find[id];
-			createdChildEdge._child = createIndex(createdChildEdge._row, createdChildEdge._column, id);
+			createdChildEdge._child = createIndex(0, 0, id);
 			return createdChildEdge._child;
 		}
-		childEdge._child = createIndex(row, column, _reverse_find.at(&childEdge));
+		childEdge._child = createIndex(0, 0, _reverse_find.at(&childEdge));
 			return childEdge._child;
 	}
 	return createIndex(row, column, parent.internalId());
@@ -160,24 +171,35 @@ int ProjectModel::rowCount(const QModelIndex& index) const
 		return 2;
 
 	const auto& edge = modelEdge(index);
-	return edge.childRows(index.row(), index.column(), _resourceManager);
-}
-
-int ProjectModel::rowColumns(const QModelIndex& parent) const
-{
-	if (!parent.isValid())
-		return 2;
-
-	const auto& edge = modelEdge(parent);
-	return edge.childColumns(parent.row(), parent.column(), _resourceManager);
+	return edge.rows(_resourceManager);
 }
 
 int ProjectModel::columnCount(const QModelIndex& index) const
 {
 	if (!index.isValid())
 		return 1;
+
 	const auto& edge = modelEdge(index);
-	return edge.childColumns(index.row(), index.column(), _resourceManager);
+	return edge.columns(index.row(), _resourceManager);
+}
+
+bool ProjectModel::hasIndex(int row, int column, const QModelIndex& parent) const
+{
+	if (!parent.isValid())
+		return row < 2 && column < 1;
+
+	const auto& edge = modelEdge(parent);
+	int rows = edge.rows(_resourceManager);
+	int columns = edge.columns(row, _resourceManager);
+	bool valid = row < rows&& (column < columns || column == 0);
+	return valid;
+}
+
+bool ProjectModel::hasChildren(const QModelIndex& index) const
+{
+	if (!index.isValid())
+		return true;
+	return childCount(index) > 0;
 }
 
 int ProjectModel::childCount(const QModelIndex& index) const
@@ -189,25 +211,40 @@ int ProjectModel::childCount(const QModelIndex& index) const
 	return edge.childCount(_resourceManager);
 }
 
-std::vector<QModelIndex> ProjectModel::children(const QModelIndex& parent = QModelIndex()) const
+QModelIndex ProjectModel::child(int child_index, const QModelIndex& parent) const
 {
 	if (!parent.isValid())
-		return {index(0, 0, QModelIndex()), index(1, 0, QModelIndex()) };
+	{
+		if (child_index == 0)
+			return index(0, 0, QModelIndex());
+		else
+			return index(1, 0, QModelIndex());
+	}
 
 	const auto& edge = modelEdge(parent);
-	auto indices = edge.children(_resourceManager);
-	return edge.children(_resourceManager);
+	auto result = edge.child(child_index, _resourceManager);
+	return this->index(result.first, result.second, parent);
 }
 
-bool ProjectModel::hasChildren(const QModelIndex& parent) const
+int ProjectModel::childIndex(const QModelIndex& child) const
 {
-	return QAbstractItemModel::hasChildren(parent);
+	if (!child.isValid())
+	{
+		return MODELEDGE_INVALID;
+	}
+
+	const auto& edge = modelEdge(child);
+	if (edge._parent == QModelIndex())
+	{
+		return child.internalId() - 1;
+	}
+	const auto& parent_edge = modelEdge(edge._parent);
+	return parent_edge.childIndex(edge.row(), edge.column(), _resourceManager);
 }
 
 QVariant ProjectModel::headerData(int section, Qt::Orientation orientation,
 	int role) const
 {
-
 	return QVariant();
 }
 
@@ -309,19 +346,19 @@ void ProjectModel::activate(const QModelIndex& index)
 	if (edge._childType == NodeType::CharacterNode || edge._childType == NodeType::MiscNode)
 	{
 		ProjectType project_type = edge._childType == NodeType::CharacterNode ? ProjectType::character : ProjectType::misc;
-		if (_resourceManager.isProjectFileOpen(index.row(), project_type))
+		if (_resourceManager.isProjectFileOpen(edge.row(), project_type))
 		{
 			emit beginRemoveRows(index, 0, 0);
-			int project_index = _resourceManager.projectFileIndex(index.row(), project_type);
+			int project_index = _resourceManager.projectFileIndex(edge.row(), project_type);
 			edge._project = -1;
-			_resourceManager.closeProjectFile(index.row(), project_type);
+			_resourceManager.closeProjectFile(edge.row(), project_type);
 			deleteAllModelEdgeIndexesForFile(project_index);
 			emit endRemoveRows();
 		}
 		else {
 			emit beginInsertRows(index, 0, 0);
-			_resourceManager.openProjectFile(index.row(), project_type);
-			edge._project = _resourceManager.projectFileIndex(index.row(), project_type);
+			_resourceManager.openProjectFile(edge.row(), project_type);
+			edge._project = _resourceManager.projectFileIndex(edge.row(), project_type);
 			emit endInsertRows();
 		}
 	}

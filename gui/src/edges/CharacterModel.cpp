@@ -3,7 +3,7 @@
 
 using namespace ckcmd::HKX;
 
-const std::set<QString> CharacterModel::children_rows
+const QStringList CharacterModel::children_rows
 { 
 	"deformableSkinNames",
 	"animationNames",
@@ -32,7 +32,7 @@ int variantChildRowColumns(int file, int row, int column, hkVariant* variant, Re
 	return 0;
 }
 
-int CharacterModel::childRows(int row, int column, const ModelEdge& edge, ResourceManager& manager)
+int CharacterModel::rows(const ModelEdge& edge, ResourceManager& manager)
 {
 	hkVariant* variant = edge.childItem<hkVariant>();
 	auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
@@ -49,21 +49,15 @@ int CharacterModel::childRows(int row, int column, const ModelEdge& edge, Resour
 	{
 	case NodeType::deformableSkinNames:
 	{
-		if (column == 0)
-			return string_data->m_deformableSkinNames.getSize();
-		return 0;
+		return string_data->m_deformableSkinNames.getSize();
 	}
 	case NodeType::animationNames:
 	{
-		if (column == 0)
-			return string_data->m_animationNames.getSize();
-		return 0;
+		return string_data->m_animationNames.getSize();
 	}
 	case NodeType::characterPropertyNames:
 	{
-		if (column == 0)
-			return string_data->m_characterPropertyNames.getSize();
-		return 0;
+		return string_data->m_characterPropertyNames.getSize();
 	}
 	case NodeType::deformableSkinName:
 	case NodeType::animationName:
@@ -77,95 +71,12 @@ int CharacterModel::childRows(int row, int column, const ModelEdge& edge, Resour
 	int string_data_rows = HkxTableVariant(*manager.at(edge.file(), string_data_index)).rows();
 	int mirror_data_index = manager.findIndex(edge.file(), &*mirror_data);
 	int mirror_data_rows = HkxTableVariant(*manager.at(edge.file(), mirror_data_index)).rows();
-	if (edge.childType() == NodeType::HavokNative)
-	{
-		if (row < data_rows && 
-			children_rows.find(HkxTableVariant(*variant).rowName(row)) != children_rows.end())
-		{
-			return 1;
-		}
-		if (row - data_rows < string_data_rows &&
-				children_rows.find(
-					HkxTableVariant(*manager.at(edge.file(), string_data_index)).rowName(row - data_rows)
-				) != children_rows.end()
-			) 
-		{
-			return 1;
-		}
-		if (row - data_rows - string_data_rows < mirror_data_rows &&
-				children_rows.find(
-					HkxTableVariant(*manager.at(edge.file(), mirror_data_index)).rowName(row - data_rows - string_data_rows)
-				) != children_rows.end()
-			)
-		{
-			return 1;
-		}
-		return 0;
-	}
-	return data_rows + string_data_rows + mirror_data_rows;
 
-	//if (edge.childType() == )
-	//{
-	//	if (column == 0)
-	//	{
-	//		return getChildCount(row, project, variant, childType, manager);
-	//	}
-	//	return 0;
-	//}
-	//else if (childType == NodeType::animationNames)
-	//{
-	//	if (column == 0)
-	//	{
-	//		return getChildCount(row, project, variant, childType, manager);
-	//	}
-	//	return 0;
-	//}
-	//else if (childType == NodeType::characterPropertyNames)
-	//{
-	//	if (column == 0)
-	//	{
-	//		return getChildCount(row, project, variant, childType, manager);
-	//	}
-	//	return 0;
-	//}
-	//else if (childType == NodeType::characterProperty)
-	//{
-	//	// 3 x 1
-	//	int rows = 4;
-	//	//name
-	//	//hkbVariableInfo.m_role.m_role
-	//	//hkbVariableInfo.m_role.m_type 
-	//	//hkbVariableInfo.m_type
-
-	//	auto type = data->m_characterPropertyInfos[row].m_type;
-	//	if (isWordVariable(type))
-	//	{
-	//		return rows + 1;
-	//	}
-	//	else if (isQuadVariable(type))
-	//	{
-	//		return rows + 1;
-	//	}
-
-	//	//ref, must be calculated
-	//	int ref_index = data->m_characterPropertyValues->m_wordVariableValues[row].m_value;
-	//	auto* value = data->m_characterPropertyValues->m_variantVariableValues[ref_index];
-	//	int value_index = manager.findIndex(file, &*value);
-	//	auto* value_variant = manager.at(file, value_index);
-	//	return rows + HkxTableVariant(*value_variant).rows();
-	//}
-
-	//int childCount = getChildCount(row, project, variant, childType, manager);
-
-	//int string_data_index = manager.findIndex(file, &*string_data);
-	//int mirror_data_index = manager.findIndex(file, &*mirror_data);
-	//return childCount +
-	//	HkxTableVariant(*variant).rows() +
-	//	HkxTableVariant(*manager.at(file, string_data_index)).rows() +
-	//	HkxTableVariant(*manager.at(file, mirror_data_index)).rows();
+	//(0,0) is the object name name
+	return 1 + data_rows + string_data_rows + mirror_data_rows;
 }
 
-int CharacterModel::childColumns(int row, int column, const ModelEdge& edge, ResourceManager& manager)
+int CharacterModel::columns(int row, const ModelEdge& edge, ResourceManager& manager)
 {
 	hkVariant* variant = edge.childItem<hkVariant>();
 	auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
@@ -191,87 +102,50 @@ int CharacterModel::childColumns(int row, int column, const ModelEdge& edge, Res
 	default:
 		break;
 	}
+	//(0,0) is the object name name
+	if (row == 0)
+		return 1;
+
 	int data_rows = HkxTableVariant(*variant).rows();
 	int string_data_index = manager.findIndex(edge.file(), &*string_data);
 	int string_data_rows = HkxTableVariant(*manager.at(edge.file(), string_data_index)).rows();
 	int mirror_data_index = manager.findIndex(edge.file(), &*mirror_data);
 	int mirror_data_rows = HkxTableVariant(*manager.at(edge.file(), mirror_data_index)).rows();
-	if (edge.childType() == NodeType::HavokNative)
+
+	if (row - 1 < data_rows)
 	{
-		if (row < data_rows &&
-			children_rows.find(HkxTableVariant(*variant).rowName(row)) != children_rows.end())
+		return HkxTableVariant(*variant).columns(row - 1);
+	}
+	if (row - 1 - data_rows < string_data_rows)
+	{
+		int child_index = row - 1 - data_rows;
+		int children_row_index = children_rows.indexOf(HkxTableVariant(*manager.at(edge.file(), string_data_index)).rowName(child_index));
+		if (children_row_index != -1)
 		{
-			return 1;
+			return std::max
+			(
+				1,
+				(int)HkxTableVariant(*manager.at(edge.file(), string_data_index)).columns(row - 1 - data_rows)
+			);
 		}
-		if (row - data_rows < string_data_rows &&
-			children_rows.find(
-				HkxTableVariant(*manager.at(edge.file(), string_data_index)).rowName(row - data_rows)
-			) != children_rows.end()
-			)
-		{
-			return 1;
-		}
-		if (row - data_rows - string_data_rows < mirror_data_rows &&
-			children_rows.find(
-				HkxTableVariant(*manager.at(edge.file(), mirror_data_index)).rowName(row - data_rows - string_data_rows)
-			) != children_rows.end()
-			)
-		{
-			return 1;
-		}
-		//if (row < data_rows)
-		//{
-		//	return variantChildRowColumns(edge.file(), row, column, variant, manager, false);
-		//}
-		//if (row - data_rows < string_data_rows) {
-		//	return variantChildRowColumns(
-		//		edge.file(),
-		//		row - data_rows,
-		//		column,
-		//		manager.at(edge.file(), string_data_index),
-		//		manager,
-		//		false
-		//	);
-		//}
-		//if (row - data_rows - string_data_rows < mirror_data_rows) {
-		//	return variantChildRowColumns(
-		//		edge.file(),
-		//		row - data_rows - string_data_rows,
-		//		column,
-		//		manager.at(edge.file(), mirror_data_index),
-		//		manager,
-		//		false
-		//	);
-		//}
-		//return 0;
+		return HkxTableVariant(*manager.at(edge.file(), string_data_index)).columns(row - 1 - data_rows);
 	}
-	if (row < data_rows) {
-		return HkxTableVariant(*variant).columns(row);
+	if (row - 1 - data_rows - string_data_rows < mirror_data_rows)
+	{
+		return HkxTableVariant(*manager.at(edge.file(), mirror_data_index)).columns(row - 1 - data_rows - string_data_rows);
 	}
-	if (row - data_rows < string_data_rows) {
-		return HkxTableVariant(*manager.at(edge.file(), string_data_index)).columns(row - data_rows);
-	}
-	if (row - data_rows - string_data_rows < mirror_data_rows) {
-		return HkxTableVariant(*manager.at(edge.file(), mirror_data_index)).columns(row - data_rows - string_data_rows);
-	}
+
 	return 0;
 }
 
 int CharacterModel::childCount(const ModelEdge& edge, ResourceManager& manager)
 {
-	hkVariant* variant = edge.childItem<hkVariant>();
-	auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
-	if (data == NULL)
-		return 0;
-	auto string_data = data->m_stringData;
-	if (string_data == NULL)
-		return 0;
 	switch (edge.childType())
 	{
 	case NodeType::deformableSkinNames:
 	case NodeType::animationNames:
 	case NodeType::characterPropertyNames:
-		return childRows(0, 0, edge, manager);
+		return rows(edge, manager);
 	case NodeType::deformableSkinName:
 	case NodeType::animationName:
 	case NodeType::characterProperty:
@@ -279,6 +153,13 @@ int CharacterModel::childCount(const ModelEdge& edge, ResourceManager& manager)
 	default:
 		break;
 	}
+	hkVariant* variant = edge.childItem<hkVariant>();
+	auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+	if (data == NULL)
+		return 0;
+	auto string_data = data->m_stringData;
+	if (string_data == NULL)
+		return 0;
 
 	if (edge.childType() == NodeType::CharacterHkxNode)
 	{
@@ -287,11 +168,56 @@ int CharacterModel::childCount(const ModelEdge& edge, ResourceManager& manager)
 	return 0;
 }
 
-bool CharacterModel::hasChild(int row, int column, const ModelEdge& edge, ResourceManager& manager)
+std::pair<int, int> CharacterModel::child(int index, const ModelEdge& edge, ResourceManager& manager)
 {
-	int rows = variantChildRowColumns(edge.file(), row, column, edge.childItem<hkVariant>(), manager, true);
-	int columns = variantChildRowColumns(edge.file(), row, column, edge.childItem<hkVariant>(), manager, false);
-	return rows > 0 && columns > 0;
+	switch (edge.childType())
+	{
+	case NodeType::deformableSkinNames:
+	case NodeType::animationNames:
+	case NodeType::characterPropertyNames:
+		return {index, 0};
+	case NodeType::deformableSkinName:
+	case NodeType::animationName:
+	case NodeType::characterProperty:
+		return {-1, -1};
+	default:
+		break;
+	}
+	hkVariant* variant = edge.childItem<hkVariant>();
+	auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+	int data_rows = HkxTableVariant(*variant).rows();
+	auto string_data = data->m_stringData;
+	int string_data_index = manager.findIndex(edge.file(), &*string_data);
+	const QString& row_name = children_rows[index];
+	int row_index = HkxTableVariant(*manager.at(edge.file(), string_data_index)).rowNames().indexOf(row_name);
+	if (row_index != -1)
+		return { 1 + data_rows + row_index, 0 };
+	return { -1, -1 };
+}
+
+int CharacterModel::childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager)
+{
+	hkVariant* variant = edge.childItem<hkVariant>();
+	auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
+	int data_rows = HkxTableVariant(*variant).rows();
+	auto string_data = data->m_stringData;
+	int string_data_index = manager.findIndex(edge.file(), &*string_data);
+	hkVariant* string_variant = manager.at(edge.file(), string_data_index);
+	int string_data_rows = HkxTableVariant(*string_variant).rows();
+	switch (edge.childType())
+	{
+	case NodeType::deformableSkinNames:
+	case NodeType::animationNames:
+	case NodeType::characterPropertyNames:
+		return row;
+	default:
+		break;
+	}
+	int child_index = row - 1 - data_rows;
+	if (child_index >= 0 && child_index < string_data_rows) {
+		return children_rows.indexOf(HkxTableVariant(*manager.at(edge.file(), string_data_index)).rowName(child_index));
+	}
+	return -1;
 }
 
 ModelEdge CharacterModel::child(int row, int column, const ModelEdge& edge, ResourceManager& manager)
@@ -306,8 +232,8 @@ ModelEdge CharacterModel::child(int row, int column, const ModelEdge& edge, Reso
 	auto mirror_data = data->m_mirroredSkeletonInfo;
 	if (mirror_data == NULL)
 		return ModelEdge();
-
-	switch (edge.childType())
+	auto type = edge.childType();
+	switch (type)
 	{
 	case NodeType::deformableSkinNames:
 		return ModelEdge(edge, edge.project(), edge.file(), row, 0, edge.subindex(), variant, NodeType::deformableSkinName);
@@ -322,53 +248,42 @@ ModelEdge CharacterModel::child(int row, int column, const ModelEdge& edge, Reso
 	default:
 		break;
 	}
-	int data_rows = HkxTableVariant(*variant).rows();
-	int string_data_index = manager.findIndex(edge.file(), &*string_data);
-	int string_data_rows = HkxTableVariant(*manager.at(edge.file(), string_data_index)).rows();
-	int mirror_data_index = manager.findIndex(edge.file(), &*mirror_data);
-	int mirror_data_rows = HkxTableVariant(*manager.at(edge.file(), mirror_data_index)).rows();
-
-	std::set<QString>::iterator children_it = children_rows.end();
-	if (row < data_rows) {
-		children_it = children_rows.find(HkxTableVariant(*variant).rowName(row));
-	}
-	else if (row - data_rows < string_data_rows) {
-		children_it = children_rows.find(HkxTableVariant(*manager.at(edge.file(), string_data_index)).rowName(row - data_rows));
-	}
-	else if (row - data_rows - string_data_rows < mirror_data_rows) {
-		children_it = children_rows.find(HkxTableVariant(*manager.at(edge.file(), mirror_data_index)).rowName(row - data_rows - string_data_rows));
-	}
-	if (children_it == children_rows.end())
-		return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::HavokNative);
-	if (*children_it == "deformableSkinNames")
+	int child_index = childIndex(row, column, edge, manager);
+	if (child_index != -1)
 	{
-		return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::deformableSkinNames);
-	}
-	if (*children_it == "animationNames")
-	{
-		return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::animationNames);
-	}
-	if (*children_it == "characterPropertyNames")
-	{
-		return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::characterPropertyNames);
-	}
-	if (*children_it == "rigName")
-	{
-		int rig_index = manager.getRigIndex(edge.project(), string_data);
-		auto* rig = manager.getRigRoot(edge.project(), rig_index);
-		return ModelEdge(edge, edge.project(), rig_index, row, column, edge.subindex(), rig, NodeType::SkeletonHkxNode);
-	}
-	if (*children_it == "ragdollName")
-	{
-		int ragdoll_index = manager.getRagdollIndex(edge.project(), string_data->m_ragdollName.cString());
-		auto* ragdoll = manager.getRagdollRoot(edge.project(), ragdoll_index);
-		return ModelEdge(edge, edge.project(), ragdoll_index, row, column, edge.subindex(), ragdoll, NodeType::SkeletonHkxNode);
-	}
-	if (*children_it == "behaviorFilename")
-	{
-		int behavior_index = manager.behaviorFileIndex(edge.project(), variant);
-		auto* behavior = manager.behaviorFileRoot(behavior_index);
-		return ModelEdge(edge, edge.project(), behavior_index, row, column, edge.subindex(), behavior, NodeType::SkeletonHkxNode);
+		switch (child_index)
+		{
+		case 0:
+			return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::deformableSkinNames);
+		case 1:
+			return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::animationNames);
+		case 2:
+			return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::characterPropertyNames);
+		case 3:
+		{
+			int rig_index = manager.getRigIndex(edge.project(), string_data);
+			auto* rig = manager.getRigRoot(edge.project(), rig_index);
+			return ModelEdge(edge, edge.project(), rig_index, row, column, edge.subindex(), rig, NodeType::SkeletonHkxNode);
+		}
+		case 4:
+		{
+			if (NULL != string_data->m_ragdollName)
+			{
+				int ragdoll_index = manager.getRagdollIndex(edge.project(), string_data->m_ragdollName.cString());
+				auto* ragdoll = manager.getRagdollRoot(edge.project(), ragdoll_index);
+				return ModelEdge(edge, edge.project(), ragdoll_index, row, column, edge.subindex(), ragdoll, NodeType::RagdollHkxNode);
+			}
+			return ModelEdge(edge, edge.project(), -1, row, column, edge.subindex(), NULL, NodeType::RagdollHkxNode);
+		}
+		case 5:
+		{
+			int behavior_index = manager.behaviorFileIndex(edge.project(), variant);
+			auto* behavior = manager.behaviorFileRoot(behavior_index);
+			return ModelEdge(edge, edge.project(), behavior_index, row, column, edge.subindex(), behavior, NodeType::BehaviorHkxNode);
+		}
+		default:
+			break;
+		}
 	}
 	return ModelEdge();
 }
@@ -399,14 +314,14 @@ QVariant CharacterModel::data(int row, int column, const ModelEdge& edge, Resour
 			if (row == 0)
 				return string_data->m_name.cString();
 
-			if (row < data_rows) {
-				return HkxTableVariant(*variant).rowName(row);
+			if (row - 1 < data_rows) {
+				return HkxTableVariant(*variant).rowName(row - 1);
 			}
-			if (row - data_rows < string_data_rows) {
-				return HkxTableVariant(*manager.at(edge.file(), string_data_index)).rowName(row - data_rows);
+			if (row - 1 - data_rows < string_data_rows) {
+				return HkxTableVariant(*manager.at(edge.file(), string_data_index)).rowName(row - 1 - data_rows);
 			}
-			if (row - data_rows - string_data_rows < mirror_data_rows) {
-				return HkxTableVariant(*manager.at(edge.file(), mirror_data_index)).rowName(row - data_rows - string_data_rows);
+			if (row - 1 - data_rows - string_data_rows < mirror_data_rows) {
+				return HkxTableVariant(*manager.at(edge.file(), mirror_data_index)).rowName(row - 1 - data_rows - string_data_rows);
 			}
 			return QVariant();
 		}
@@ -418,11 +333,11 @@ QVariant CharacterModel::data(int row, int column, const ModelEdge& edge, Resour
 		}
 		if (edge.childType() == NodeType::deformableSkinName)
 		{
-			return string_data->m_deformableSkinNames[row].cString();
+			return string_data->m_deformableSkinNames[edge.row()].cString();
 		}
 		if (edge.childType() == NodeType::animationName)
 		{
-			return string_data->m_animationNames[row].cString();
+			return string_data->m_animationNames[edge.row()].cString();
 		}
 		if (edge.childType() == NodeType::characterProperty)
 		{
@@ -445,13 +360,13 @@ QVariant CharacterModel::data(int row, int column, const ModelEdge& edge, Resour
 		}
 		return QVariant();
 	}
-	if (row < data_rows) {
+	if (row - 1< data_rows) {
 		return HkxTableVariant(*variant).data(row, column -1);
 	}
-	if (row - data_rows < string_data_rows) {
+	if (row - 1 - data_rows < string_data_rows) {
 		return HkxTableVariant(*manager.at(edge.file(), string_data_index)).data(row - data_rows, column - 1);
 	}
-	if (row - data_rows - string_data_rows < mirror_data_rows) {
+	if (row - 1 - data_rows - string_data_rows < mirror_data_rows) {
 		return HkxTableVariant(*manager.at(edge.file(), mirror_data_index)).data(row - data_rows - string_data_rows, column - 1);
 	}
 	return QVariant();

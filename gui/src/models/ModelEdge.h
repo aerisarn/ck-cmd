@@ -4,6 +4,8 @@
 
 #include <QAbstractItemModel>
 
+#define MODELEDGE_INVALID -1
+
 namespace ckcmd {
     namespace HKX {
 
@@ -160,20 +162,21 @@ namespace ckcmd {
             NodeType childType() const { return _childType; }
             template<typename T>
             T* childItem() const { return static_cast<T*>(_childItem); }
+
+            void addSupport(int support_offset) { _row += support_offset; }
             
-            int childRows(int row, int column, ResourceManager& manager) const;
-            int childColumns(int row, int column, ResourceManager& manager) const;
+            int rows(ResourceManager& manager) const;
+            int columns(int row, ResourceManager& manager) const;
+            
             int childCount(ResourceManager& manager) const;
-            
-            ModelEdge childEdge(int row, int column, ResourceManager& manager) const;
+            std::pair<int, int> child(int index, ResourceManager& manager) const;
+            int childIndex(int row, int column, ResourceManager& manager) const;
+            bool hasChild(int row, int column, ResourceManager& manager) const;
+
             ModelEdge childEdge(int row, int column, ResourceManager& manager) const;
 
             QVariant data(int row, int column, ResourceManager& manager) const;
             bool setData(int row, int column, const QVariant& value, ResourceManager& manager);
-
-            std::vector<std::pair<int,int>> children(ResourceManager& manager);
-
-
 
             bool insertRows(int row_start, int count, ResourceManager& manager);
             bool removeRows(int row_start, int count, ResourceManager& manager);

@@ -7,7 +7,7 @@ namespace ckcmd {
 	namespace HKX {
 
 		//Decorate HkVariant
-		class HkxTableVariant : protected HkxVariant {
+		class HkxTableVariant : public HkxVariant {
 
 		public:
 
@@ -18,6 +18,8 @@ namespace ckcmd {
 
 			size_t columns(int row_index);
 			QString rowName(int row_index);
+
+			std::vector<int> arrayrows();
 
 			QStringList rowNames();
 

@@ -25,7 +25,7 @@ void TopInfoWidget::OnIndexSelected()
 
 void TopInfoWidget::on_nameLineEdit_textChanged(const QString& text)
 {
-    _model.setData(_selected, text, Qt::EditRole);
+    _model.setData(_index, text, Qt::EditRole);
 }
 
 //void TopInfoWidget::resizeNameToContent(const QString& text)

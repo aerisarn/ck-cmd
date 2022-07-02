@@ -8,105 +8,20 @@ QModelIndex ProjectTreeModel::mapToSource(const QModelIndex& proxyIndex) const
 		return QModelIndex();
 
 	auto source_index = sourceModel()->createIndex(0, 0, proxyIndex.internalId());
-	auto source_parent = sourceModel()->parent(source_index);
-	
-	//Optmimization
-	switch (sourceModel()->nodeType(source_parent))
-	{
-	case NodeType::CharactersNode:
-	case NodeType::MiscsNode:
-	case NodeType::animationNames:
-	case NodeType::deformableSkinNames:
-	case NodeType::behaviorEventNames:
-	case NodeType::behaviorVariableNames:
-		return sourceModel()->createIndex(proxyIndex.row(), proxyIndex.column(), proxyIndex.internalId());
-	default:
-		break;
-	}
-
-	int source_rows = 0; 
-	int source_columns = 0;
-	//Optmimization
-	//if (sourceModel()->nodeType(source_parent) == NodeType::CharacterHkxNode)
-	//{
-	//	source_rows = sourceModel()->childCount(source_parent);
-	//	source_columns = 1;
-	//}
-	//else {
-		source_rows = sourceModel()->rowCount(source_parent);
-		source_columns = sourceModel()->columnCount(source_parent);
-	//}
-
-
-	int target_children = proxyIndex.row();
-	int child_index = 0;
-	for (int r = 0; r < source_rows; ++r)
-	{
-		for (int c = 0; c < source_columns; ++c)
-		{
-			if (sourceModel()->hasChildren(r, c, source_parent))
-			{
-				if (child_index == target_children)
-					return sourceModel()->createIndex(r, c, proxyIndex.internalId());
-				child_index++;
-			}
-		}
-	}
-	return QModelIndex();
+	if (proxyIndex.internalId() == 0)
+		source_index = QModelIndex();
+	auto mapped_index = sourceModel()->child(proxyIndex.row(), source_index);
+	return mapped_index;
 }
 
 QModelIndex ProjectTreeModel::mapFromSource(const QModelIndex& sourceIndex) const
 {
 	if (!sourceIndex.isValid())
 		return QModelIndex();
-	auto& source_parent = sourceModel()->parent(sourceIndex);
-	auto type = sourceModel()->nodeType(source_parent);
-	if (type == NodeType::animationName)
-		int debug = 1;
-	switch (type)
-	{
-	case NodeType::CharactersNode:
-	case NodeType::MiscsNode:
-	case NodeType::animationNames:
-	case NodeType::deformableSkinNames:
-	case NodeType::behaviorEventNames:
-	case NodeType::behaviorVariableNames:
-	{
-		QModelIndex index = sourceModel()->index(sourceIndex.row(), sourceIndex.column(), source_parent);
-		return createIndex(sourceIndex.row(), sourceIndex.column(), index.internalId());
-	}
-	default:
-		break;
-	}
-
-	int child_index = 0;
-	int source_rows = 0;
-	int source_columns = 0;
-	//Optmimization
-	//if (sourceModel()->nodeType(source_parent) == NodeType::CharacterHkxNode)
-	//{
-	//	source_rows = sourceModel()->childCount(source_parent);
-	//	source_columns = 1;
-	//}
-	//else {
-		source_rows = sourceModel()->rowCount(source_parent);
-		source_columns = sourceModel()->columnCount(source_parent);
-	//}
-	for (int r = 0; r < source_rows; ++r)
-	{
-		for (int c = 0; c < source_columns; ++c)
-		{
-			if (sourceModel()->hasChildren(r, c, source_parent))
-			{
-				QModelIndex index = sourceModel()->index(r, c, source_parent);
-				if (index == sourceIndex)
-					return createIndex(child_index, 0, index.internalId());
-			}
-			child_index++;
-		}
-	}
-
-	return createIndex(0, 0, sourceModel()->index(0, 0, source_parent).internalId());
+	auto source_parent = sourceModel()->parent(sourceIndex);
+	int row = sourceModel()->childIndex(sourceIndex);
+	auto index = createIndex(row, 0, source_parent.internalId());
+	return index;
 }
 
 int ProjectTreeModel::columnCount(const QModelIndex& parent) const
@@ -138,57 +53,14 @@ QModelIndex ProjectTreeModel::index(int row, int column, const QModelIndex& pare
 	if (!sourceModel()) return {};
 	Q_ASSERT(!parent.isValid() || parent.model() == this);
 	QModelIndex mapped_parent = mapToSource(parent);
-	if (mapped_parent == QModelIndex())
-	{
-		return mapFromSource(sourceModel()->index(row, 0, QModelIndex()));
-	}
-	int source_rows = 0;
-	int source_columns = 0;
-	//Optmimization
-	//if (sourceModel()->nodeType(mapped_parent) == NodeType::CharacterHkxNode)
-	//{
-	//	source_rows = sourceModel()->childCount(mapped_parent);
-	//	source_columns = 1;
-	//}
-	//else {
-		source_rows = sourceModel()->rowCount(mapped_parent);
-		source_columns = sourceModel()->columnCount(mapped_parent);
-	//}
-	QModelIndex mapped_child;
-	QModelIndex source_children;
-	int target_children = row;
-	int child_index = 0;
-	bool found = false;
-	for (int r = 0; r < source_rows; ++r)
-	{
-		source_children = sourceModel()->index(r, 0, mapped_parent);
-		source_columns = sourceModel()->columnCount(source_children);
-		for (int c = 0; c < source_columns; ++c)
-		{
-
-			if (sourceModel()->hasChildren(r, c, mapped_parent))
-			{
-				if (child_index == target_children)
-				{
-					mapped_child = sourceModel()->index(r, c, mapped_parent);
-					found = true;
-					break;
-				}
-				child_index++;
-			}
-		}
-		if (found)
-			break;
-	}
-
-	//QModelIndex mapped_child = sourceModel()->index(row, column, mapped_parent);
+	QModelIndex mapped_child = sourceModel()->child(row, mapped_parent);
 	QModelIndex unmapped_child = mapFromSource(mapped_child);
 	return unmapped_child;
 }
 
 bool ProjectTreeModel::hasChildren(const QModelIndex& parent) const
 {
-	return rowCount(parent) > 0 && columnCount(parent) > 0;
+	return sourceModel()->hasChildren(mapToSource(parent));
 }
 
 QVariant ProjectTreeModel::data(const QModelIndex& proxyIndex, int role) const

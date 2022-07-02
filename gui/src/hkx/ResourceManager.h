@@ -102,7 +102,7 @@ namespace ckcmd {
 
 			//fs::path ResourceManager::open(const std::string& project);
 
-			size_t index(const fs::path& file) const;
+			int index(const fs::path& file) const;
 			fs::path path(int file_index) const;
 			bool is_open(const fs::path& file) const;
 			bool is_open(int file_index) const;

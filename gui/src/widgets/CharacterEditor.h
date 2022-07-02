@@ -16,8 +16,6 @@ class CharacterEditorWidget : public ckcmd::ModelWidget, private Ui::CharacterEd
 
     virtual void OnIndexSelected() override;
 
-    virtual size_t dataBindingRowStart() const override { return 6; } //TODO: HandleCharacterData::SUPPORT_END
-
     StaticBindingTable dataBindingtable = {
     };
 

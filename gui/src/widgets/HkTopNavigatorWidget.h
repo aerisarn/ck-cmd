@@ -31,6 +31,4 @@ private:
     virtual const StaticBindingTable& bindingTable() const override {
         return table;
     }
-
-    QModelIndex _selected;
 };

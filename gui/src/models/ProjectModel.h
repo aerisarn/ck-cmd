@@ -51,9 +51,6 @@ namespace ckcmd {
             int getFileIndex(const QModelIndex& index);
             ResourceManager& getResourceManager() { return _resourceManager; }
 
-
-            int rowColumns(const QModelIndex& parent = QModelIndex()) const;
-
             QAbstractItemModel* editModel(const QModelIndex& index, AssetType type);
 
             /*
@@ -62,11 +59,16 @@ namespace ckcmd {
             QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const override;
             QModelIndex index(int row, int col, const QModelIndex& parent = QModelIndex()) const override;
             QModelIndex parent(const QModelIndex& index) const override;
+
             int rowCount(const QModelIndex& parent = QModelIndex()) const override;
             int columnCount(const QModelIndex& parent = QModelIndex()) const override;
-            int childCount(const QModelIndex& parent = QModelIndex())  const;
-            std::vector<QModelIndex> children(const QModelIndex& parent = QModelIndex()) const;
-            virtual bool hasChildren(const QModelIndex& parent = QModelIndex()) const override;
+
+            bool hasIndex(int row, int column, const QModelIndex& parent = QModelIndex()) const;
+
+            //int childCount(const QModelIndex& parent = QModelIndex())  const;
+            //virtual bool hasChild(int row, int column, const QModelIndex& parent = QModelIndex()) const;
+
+            bool hasChildren(const QModelIndex& parent) const override;
             QVariant headerData(int section, Qt::Orientation orientation,
                 int role = Qt::DisplayRole) const override;
 
@@ -77,6 +79,13 @@ namespace ckcmd {
             virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
             virtual bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
             virtual bool insertColumns(int row, int column, int count, const QModelIndex& parent = QModelIndex());
+
+            /*
+            ** Hierarchical model
+            */
+            int childCount(const QModelIndex& parent = QModelIndex()) const;
+            QModelIndex child(int child_index, const QModelIndex& parent = QModelIndex()) const;
+            int childIndex(const QModelIndex& child) const;
 
         public slots:
             void refreshAssetList(const QModelIndex& parent, AssetType type);

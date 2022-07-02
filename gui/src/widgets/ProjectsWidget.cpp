@@ -122,7 +122,7 @@ void ProjectsWidget::on_treeView_customContextMenuRequested(const QPoint& pos)
 
 void ProjectsWidget::on_treeView_selectionChanged(const QModelIndex& current, const QModelIndex& previous)
 {
-	emit selectionChanged(current, previous);
+	emit selectionChanged(_model->mapToSource(current), _model->mapToSource(previous));
 }
 
 ProjectsWidget::~ProjectsWidget()
