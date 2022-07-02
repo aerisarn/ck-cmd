@@ -1,37 +1,33 @@
 #pragma once
 
-#include <src/models/ModelEdge.h>
+#include <src/edges/SupportEnhancedEdge.h>
 
 #include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
 
 namespace ckcmd {
 	namespace HKX {
 
-		struct  RagdollModel
+		class RagdollModel : public SupportEnhancedEdge
 		{
-			static const size_t DATA_SUPPORTS = 1;
 
-			static const char* DataListsName(NodeType type)
-			{
-				switch (type) {
-				case NodeType::RagdollBones:
-					return "Bones";
-				default:
-					break;
-				}
-				return "Invalid Character Entry";
-			};
+			hkaRagdollInstance* variant(const ModelEdge& edge) const;
+			virtual std::vector<std::function<hkVariant* (const ModelEdge&, ResourceManager& manager, hkVariant*)>> additional_variants() const override { return {}; }
 
-			static int rows(const ModelEdge& edge, ResourceManager& manager);
-			static int columns(int row, const ModelEdge& edge, ResourceManager& manager);
-			static int childCount(const ModelEdge& edge, ResourceManager& manager);
-			static std::pair<int, int> child(int index, const ModelEdge& edge, ResourceManager& manager);
-			static int childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager);
-			static ModelEdge child(int row, int column, const ModelEdge& edge, ResourceManager& manager);
+		protected:
 
-			static QVariant data(int row, int column, const ModelEdge& edge, ResourceManager& manager);
+			virtual int supports() const override;
+			virtual const char* supportName(int support_index) const override;
+			virtual NodeType supportType(int support_index) const override;
+
+		public:
+
+			virtual int rows(const ModelEdge& edge, ResourceManager& manager) const override;
+			virtual int columns(int row, const ModelEdge& edge, ResourceManager& manager) const override;
+			virtual int childCount(const ModelEdge& edge, ResourceManager& manager) const override;
+			virtual std::pair<int, int> child(int index, const ModelEdge& edge, ResourceManager& manager) const override;
+			virtual int childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
+			virtual ModelEdge child(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
+			virtual QVariant data(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
 		};
-
-
 	}
 }

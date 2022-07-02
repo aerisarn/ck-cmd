@@ -13,7 +13,7 @@ namespace ckcmd {
 		{
 
 			hkbStateMachine* variant(const ModelEdge& edge) const;
-			virtual std::vector<std::function<hkVariant* (hkVariant*)>> additional_variants() const override { return {}; }
+			virtual std::vector<std::function<hkVariant* (const ModelEdge&, ResourceManager& manager, hkVariant*)>> additional_variants() const override { return {}; }
 
 		protected:
 

@@ -47,13 +47,6 @@ int StateMachineModel::rows(const ModelEdge& edge, ResourceManager& manager) con
 
 int StateMachineModel::columns(int row, const ModelEdge& edge, ResourceManager& manager) const
 {
-	if (
-		edge.childType() == NodeType::FSMWildcardTransitions ||
-		edge.childType() == NodeType::FSMStateTransitions
-		)
-	{
-		return 1;
-	}
 	return SupportEnhancedEdge::columns(row, edge, manager);
 }
 
@@ -80,7 +73,6 @@ std::pair<int, int> StateMachineModel::child(int index, const ModelEdge& edge, R
 		return { index, 0 };
 	case NodeType::FSMWildcardTransition:
 	case NodeType::FSMStateTransition:
-	case NodeType::behaviorCharacterProperty:
 		return { -1, -1 };
 	default:
 		break;
@@ -141,7 +133,7 @@ QVariant StateMachineModel::data(int row, int column, const ModelEdge& edge, Res
 	{
 		if (column == 0)
 		{
-			auto& transition = FSM->m_wildcardTransitions->m_transitions[row];
+			auto& transition = FSM->m_wildcardTransitions->m_transitions[edge.row()];
 			QString result = "Transition to Invalid State";
 			for (const auto& state : FSM->m_states)
 			{
@@ -158,7 +150,7 @@ QVariant StateMachineModel::data(int row, int column, const ModelEdge& edge, Res
 	{
 		if (column == 0)
 		{
-			int index = row;
+			int index = edge.row();
 			QString result = "Invalid state transition";
 			for (const auto& state : FSM->m_states)
 			{

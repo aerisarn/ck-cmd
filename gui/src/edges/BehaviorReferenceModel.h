@@ -14,7 +14,6 @@ namespace ckcmd {
 			virtual std::pair<int, int> child(int index, const ModelEdge& edge, ResourceManager& manager) const override;
 			virtual int childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
 			virtual ModelEdge child(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
-			//virtual QVariant data(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
 		};
 	}
 }

@@ -7,7 +7,7 @@ namespace ckcmd {
 
 		class MultipleVariantsEdge : public Edge
 		{
-			virtual std::vector<std::function<hkVariant* (hkVariant*)>> additional_variants() const = 0;
+			virtual std::vector<std::function<hkVariant* (const ModelEdge&, ResourceManager& manager, hkVariant*)>> additional_variants() const = 0;
 
 		public:
 

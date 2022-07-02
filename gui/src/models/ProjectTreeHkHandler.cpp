@@ -32,17 +32,17 @@ int ProjectTreeHkHandler::rows(const ModelEdge& edge, ResourceManager& manager)
 	case NodeType::behaviorVariable:
 	case NodeType::behaviorCharacterPropertyNames:
 	case NodeType::behaviorCharacterProperty:
-		return BehaviorModel::rows(edge, manager);
+		return BehaviorModel().rows(edge, manager);
 	case NodeType::SkeletonHkxNode:
 	case NodeType::SkeletonBones:
 	case NodeType::SkeletonBone:
 	case NodeType::SkeletonFloats:
 	case NodeType::SkeletonFloat:
-		return SkeletonModel::rows(edge, manager);
+		return SkeletonModel().rows(edge, manager);
 	case NodeType::RagdollHkxNode:
 	case NodeType::RagdollBones:
 	case NodeType::RagdollBone:
-		return RagdollModel::rows(edge, manager);
+		return RagdollModel().rows(edge, manager);
 	default:
 		break;
 	}
@@ -101,17 +101,17 @@ int ProjectTreeHkHandler::columns(int row, const ModelEdge& edge, ResourceManage
 	case NodeType::behaviorVariable:
 	case NodeType::behaviorCharacterPropertyNames:
 	case NodeType::behaviorCharacterProperty:
-		return BehaviorModel::columns(row, edge, manager);
+		return BehaviorModel().columns(row, edge, manager);
 	case NodeType::SkeletonHkxNode:
 	case NodeType::SkeletonBones:
 	case NodeType::SkeletonBone:
 	case NodeType::SkeletonFloats:
 	case NodeType::SkeletonFloat:
-		return SkeletonModel::columns(row, edge, manager);
+		return SkeletonModel().columns(row, edge, manager);
 	case NodeType::RagdollHkxNode:
 	case NodeType::RagdollBones:
 	case NodeType::RagdollBone:
-		return RagdollModel::columns(row, edge, manager);
+		return RagdollModel().columns(row, edge, manager);
 	default:
 		break;
 	}
@@ -160,17 +160,17 @@ int ProjectTreeHkHandler::childCount(const ModelEdge& edge, ResourceManager& man
 	case NodeType::behaviorVariable:
 	case NodeType::behaviorCharacterPropertyNames:
 	case NodeType::behaviorCharacterProperty:
-		return BehaviorModel::childCount(edge, manager);
+		return BehaviorModel().childCount(edge, manager);
 	case NodeType::SkeletonHkxNode:
 	case NodeType::SkeletonBones:
 	case NodeType::SkeletonBone:
 	case NodeType::SkeletonFloats:
 	case NodeType::SkeletonFloat:
-		return SkeletonModel::childCount(edge, manager);
+		return SkeletonModel().childCount(edge, manager);
 	case NodeType::RagdollHkxNode:
 	case NodeType::RagdollBones:
 	case NodeType::RagdollBone:
-		return RagdollModel::childCount(edge, manager);
+		return RagdollModel().childCount(edge, manager);
 	default:
 		break;
 	}
@@ -210,17 +210,17 @@ ModelEdge ProjectTreeHkHandler::child(int row, int column, const ModelEdge& edge
 	case NodeType::behaviorVariable:
 	case NodeType::behaviorCharacterPropertyNames:
 	case NodeType::behaviorCharacterProperty:
-		return BehaviorModel::child(row, column, edge, manager);
+		return BehaviorModel().child(row, column, edge, manager);
 	case NodeType::SkeletonHkxNode:
 	case NodeType::SkeletonBones:
 	case NodeType::SkeletonBone:
 	case NodeType::SkeletonFloats:
 	case NodeType::SkeletonFloat:
-		return SkeletonModel::child(row, column, edge, manager);
+		return SkeletonModel().child(row, column, edge, manager);
 	case NodeType::RagdollHkxNode:
 	case NodeType::RagdollBones:
 	case NodeType::RagdollBone:
-		return RagdollModel::child(row, column, edge, manager);
+		return RagdollModel().child(row, column, edge, manager);
 	default:
 		break;
 	}
@@ -309,17 +309,17 @@ std::pair<int, int> ProjectTreeHkHandler::child(int index, const ModelEdge& edge
 	case NodeType::behaviorVariable:
 	case NodeType::behaviorCharacterPropertyNames:
 	case NodeType::behaviorCharacterProperty:
-		return BehaviorModel::child(index, edge, manager);
+		return BehaviorModel().child(index, edge, manager);
 	case NodeType::SkeletonHkxNode:
 	case NodeType::SkeletonBones:
 	case NodeType::SkeletonBone:
 	case NodeType::SkeletonFloats:
 	case NodeType::SkeletonFloat:
-		return SkeletonModel::child(index, edge, manager);
+		return SkeletonModel().child(index, edge, manager);
 	case NodeType::RagdollHkxNode:
 	case NodeType::RagdollBones:
 	case NodeType::RagdollBone:
-		return RagdollModel::child(index, edge, manager);
+		return RagdollModel().child(index, edge, manager);
 	default:
 		break;
 	}
@@ -362,17 +362,17 @@ int ProjectTreeHkHandler::childIndex(int row, int column, const ModelEdge& edge,
 	case NodeType::behaviorVariable:
 	case NodeType::behaviorCharacterPropertyNames:
 	case NodeType::behaviorCharacterProperty:
-		return BehaviorModel::childIndex(row, column, edge, manager);
+		return BehaviorModel().childIndex(row, column, edge, manager);
 	case NodeType::SkeletonHkxNode:
 	case NodeType::SkeletonBones:
 	case NodeType::SkeletonBone:
 	case NodeType::SkeletonFloats:
 	case NodeType::SkeletonFloat:
-		return SkeletonModel::childIndex(row, column, edge, manager);
+		return SkeletonModel().childIndex(row, column, edge, manager);
 	case NodeType::RagdollHkxNode:
 	case NodeType::RagdollBones:
 	case NodeType::RagdollBone:
-		return RagdollModel::childIndex(row, column, edge, manager);
+		return RagdollModel().childIndex(row, column, edge, manager);
 	default:
 		break;
 	}
@@ -420,17 +420,17 @@ QVariant ProjectTreeHkHandler::data(int row, int column, const ModelEdge& edge, 
 	case NodeType::behaviorVariable:
 	case NodeType::behaviorCharacterPropertyNames:
 	case NodeType::behaviorCharacterProperty:
-		return BehaviorModel::data(row, column, edge, manager);
+		return BehaviorModel().data(row, column, edge, manager);
 	case NodeType::SkeletonHkxNode:
 	case NodeType::SkeletonBones:
 	case NodeType::SkeletonBone:
 	case NodeType::SkeletonFloats:
 	case NodeType::SkeletonFloat:
-		return SkeletonModel::data(row, column, edge, manager);
+		return SkeletonModel().data(row, column, edge, manager);
 	case NodeType::RagdollHkxNode:
 	case NodeType::RagdollBones:
 	case NodeType::RagdollBone:
-		return RagdollModel::data(row, column, edge, manager);
+		return RagdollModel().data(row, column, edge, manager);
 	default:
 		break;
 	}
