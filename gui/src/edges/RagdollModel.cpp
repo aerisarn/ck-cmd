@@ -56,10 +56,12 @@ int RagdollModel::rows(const ModelEdge& edge, ResourceManager& manager) const
 	{
 		return ragdoll->m_rigidBodies.getSize();
 	}
-	else if (edge.childType() == NodeType::RagdollBone)
+	if (edge.childType() == NodeType::RagdollBone)
 	{
 		return 0;
 	}
+	if (ragdoll == nullptr)
+		return 0;
 	return SupportEnhancedEdge::rows(edge, manager);
 }
 
@@ -77,6 +79,9 @@ int RagdollModel::childCount(const ModelEdge& edge, ResourceManager& manager) co
 	{
 		return rows(edge, manager);
 	}
+	auto* ragdoll = variant(edge);
+	if (ragdoll == nullptr)
+		return 0;
 	return SupportEnhancedEdge::childCount(edge, manager);
 }
 
