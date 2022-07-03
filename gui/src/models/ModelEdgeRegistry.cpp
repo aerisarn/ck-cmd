@@ -36,7 +36,7 @@ void ModelEdgeRegistry::addEdgeHandler(IEdge* edge)
 			_node_handlers[type] = edge;
 		}
 	}
-	if (!edge->handled_types().empty())
+	if (!edge->handled_hkclasses().empty())
 	{
 		for (auto* type : edge->handled_hkclasses())
 		{

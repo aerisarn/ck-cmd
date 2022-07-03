@@ -11,10 +11,22 @@ ModelWidget::ModelWidget(ProjectModel& model, QWidget* parent) :
 	_model(model),
 	_project_index(-1),
 	_file_index(-1),
+	_row_start(1),
+	_column_start(1),
 	_manager(model.getResourceManager()),
 	_delegate(new QItemDelegate(this)),
 	QWidget(parent)
 {
+}
+
+size_t ModelWidget::dataBindingRowStart() const
+{
+	return _row_start;
+}
+
+size_t ModelWidget::dataBindingColumnStart() const
+{
+	return _column_start;
 }
 
 void ModelWidget::buildReflectionTable()
@@ -22,16 +34,20 @@ void ModelWidget::buildReflectionTable()
 	int rows = _model.rowCount(_index);
 	int columns = 0; // _model.columnCount(_index);
 
-	int i = dataBindingRowStart();
-	int j = dataBindingColumnStart();
+	auto start = _model.dataStart(_index);
+	_row_start = start.first;
+	_column_start = start.second;
+	int i = _row_start;
+	int j = _column_start;
 
 	for (i; i < rows; ++i)
 	{
 		auto row_index = _model.index(i, 0, _index);
 		columns = _model.columnCount(row_index);
+		QString rowName = row_index.data().toString();
 		_members.insert(
 			{
-				row_index.data().toString(),
+				rowName,
 				{i, columns}
 			}
 		);

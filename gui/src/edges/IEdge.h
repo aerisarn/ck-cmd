@@ -18,6 +18,7 @@ namespace ckcmd {
 			virtual int childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager) const = 0;
 			virtual ModelEdge child(int row, int column, const ModelEdge& edge, ResourceManager& manager) const = 0;
 			virtual QVariant data(int row, int column, const ModelEdge& edge, ResourceManager& manager) const = 0;
+			virtual std::pair<int, int> dataStart() const = 0;
 
 			virtual bool setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager) = 0;
 			virtual bool addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager) = 0;

@@ -123,3 +123,8 @@ bool ModelEdge::removeColumns(int row, int column_start, int count, ResourceMana
 {
 	return ModelEdgeRegistry::instance().handler(*this)->changeColumns(row, column_start, -count, *this, manager);
 }
+
+std::pair<int, int> ModelEdge::dataStart()
+{
+	return ModelEdgeRegistry::instance().handler(*this)->dataStart();
+}

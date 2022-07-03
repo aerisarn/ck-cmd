@@ -39,15 +39,17 @@ class ValuesWidget : public ::ads::CDockWidget
     void setEditor(const QModelIndex& index);
 
 public:
-    explicit ValuesWidget(ckcmd::HKX::ProjectModel* model, ckcmd::HKX::CommandManager& command_manager, const ckcmd::HKX::ResourceManager& manager, QWidget* parent = 0);
+    explicit ValuesWidget
+    (
+        ckcmd::HKX::ProjectModel* model, 
+        ckcmd::HKX::CommandManager& command_manager, 
+        const ckcmd::HKX::ResourceManager& manager, 
+        QWidget* parent = 0
+    );
     ~ValuesWidget();
 
 public slots:
     void treeSelectionChanged(const QModelIndex& current, const QModelIndex& previous);
-    //void modelHasSetNewHkxItemPointer(ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
-
-//signals:
-//    void HkxItemPointerChanged(QModelIndex index, QModelIndex parent, ckcmd::HKX::HkxItemPointer old_value, ckcmd::HKX::HkxItemPointer new_value, int file, hkVariant* variant);
 };
 
 #endif //VALUESWIDGET_H

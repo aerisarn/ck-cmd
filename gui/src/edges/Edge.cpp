@@ -127,6 +127,11 @@ QVariant Edge::data(int row, int column, const ModelEdge& edge, ResourceManager&
 	return "Invalid data";
 }
 
+std::pair<int, int> Edge::dataStart() const
+{
+	return { 1, 1 };
+}
+
 bool Edge::setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager)
 {
 	hkVariant* variant = edge.childItem<hkVariant>();

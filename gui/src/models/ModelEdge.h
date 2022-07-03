@@ -178,6 +178,7 @@ namespace ckcmd {
 
             QVariant data(int row, int column, ResourceManager& manager) const;
             bool setData(int row, int column, const QVariant& value, ResourceManager& manager);
+            std::pair<int, int> dataStart();
 
             bool insertRows(int row_start, int count, ResourceManager& manager);
             bool removeRows(int row_start, int count, ResourceManager& manager);

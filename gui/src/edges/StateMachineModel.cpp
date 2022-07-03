@@ -9,6 +9,16 @@ std::vector<const hkClass*> StateMachineModel::handled_hkclasses() const
 	return { &hkbStateMachineClass };
 }
 
+std::vector<NodeType> StateMachineModel::handled_types() const
+{
+	return {
+		NodeType::FSMStateTransitions,
+		NodeType::FSMWildcardTransitions,
+		NodeType::FSMStateTransition,
+		NodeType::FSMWildcardTransitions
+	};
+}
+
 hkbStateMachine* StateMachineModel::variant(const ModelEdge& edge) const
 {
 	hkVariant* variant = edge.childItem<hkVariant>();

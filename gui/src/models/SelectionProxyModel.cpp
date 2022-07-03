@@ -25,7 +25,9 @@ QModelIndex SelectionProxyModel::mapFromSource(const QModelIndex& sourceIndex) c
 	if (sourceIndex == _sourceRoot)
 		return QModelIndex();
 
-	return createIndex(sourceIndex.row(), 0, sourceIndex.internalId());
+	int row = sourceModel()->childIndex(sourceIndex);
+
+	return createIndex(row, 0, sourceModel()->parent(sourceIndex).internalId());
 }
 
 int SelectionProxyModel::columnCount(const QModelIndex& parent) const

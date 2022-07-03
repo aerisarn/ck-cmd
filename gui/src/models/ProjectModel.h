@@ -49,9 +49,11 @@ namespace ckcmd {
             bool isAssetsNode(const QModelIndex& index);
             int getProjectIndex(const QModelIndex& index);
             int getFileIndex(const QModelIndex& index);
+            std::pair<int, int> dataStart(const QModelIndex& index);
             ResourceManager& getResourceManager() { return _resourceManager; }
 
             QAbstractItemModel* editModel(const QModelIndex& index, AssetType type);
+
 
             /*
             ** AbstractItemModel(required methods)

@@ -295,6 +295,12 @@ bool ProjectModel::setData(const QModelIndex& index, const QVariant& value,
 	return false;
 }
 
+std::pair<int, int> ProjectModel::dataStart(const QModelIndex& index)
+{
+	auto& edge = modelEdge(index);
+	return edge.dataStart();
+}
+
 //void ProjectModel::importAsset(const QModelIndex& parent, const fs::path& sourcePath, AssetType type)
 //{
 //	auto& edge = modelEdge(parent);

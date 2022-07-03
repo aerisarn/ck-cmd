@@ -36,7 +36,7 @@ int MultipleVariantsEdge::columns(int row, const ModelEdge& edge, ResourceManage
 		{
 			int variant_rows = HkxTableVariant(*v).rows();
 			if (row_index < variant_rows)
-				return HkxTableVariant(*v).columns(row_index);
+				return 1  + HkxTableVariant(*v).columns(row_index);
 			row_index -= variant_rows;
 		}
 	}
@@ -180,7 +180,11 @@ QVariant MultipleVariantsEdge::data(int row, int column, const ModelEdge& edge, 
 			int variant_rows = HkxTableVariant(*v).rows();
 			if (row_index < variant_rows)
 			{
-				return HkxTableVariant(*v).data(row_index, column);
+				if (column == 0)
+				{
+					return HkxTableVariant(*v).rowName(row_index);
+				}
+				return HkxTableVariant(*v).data(row_index, column - 1);
 			}
 			row_index -= variant_rows;
 		}
@@ -206,7 +210,9 @@ bool MultipleVariantsEdge::setData(int row, int column, const ModelEdge& edge, c
 			int variant_rows = HkxTableVariant(*v).rows();
 			if (row_index < variant_rows)
 			{
-				return HkxTableVariant(*v).setData(row_index, column, data);
+				if (column == 0)
+					return false;
+				return HkxTableVariant(*v).setData(row_index, column - 1, data);
 			}
 			row_index -= variant_rows;
 		}
@@ -242,7 +248,7 @@ bool MultipleVariantsEdge::changeColumns(int row, int column_start, int delta, c
 			int variant_rows = HkxTableVariant(*v).rows();
 			if (row_index < variant_rows)
 			{
-				return HkxTableVariant(*v).resizeColumns(row_index, column_start, delta);
+				return HkxTableVariant(*v).resizeColumns(row_index, column_start - 1, delta);
 			}
 			row_index -= variant_rows;
 		}

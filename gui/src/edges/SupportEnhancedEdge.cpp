@@ -4,7 +4,7 @@ using namespace ckcmd::HKX;
 
 int SupportEnhancedEdge::rows(const ModelEdge& edge, ResourceManager& manager) const
 {
-	return 1 + supports() + MultipleVariantsEdge::rows(edge, manager);
+	return supports() + MultipleVariantsEdge::rows(edge, manager);
 }
 
 int SupportEnhancedEdge::columns(int row, const ModelEdge& edge, ResourceManager& manager) const
@@ -34,7 +34,8 @@ int SupportEnhancedEdge::childIndex(int row, int column, const ModelEdge& edge, 
 	{
 		return row - 1;
 	}
-	return supports() + MultipleVariantsEdge::childIndex(row == 0 ? row : row - supports(), column, edge, manager);
+	auto index = MultipleVariantsEdge::childIndex(row == 0 ? row : row - supports(), column, edge, manager);
+	return index == MODELEDGE_INVALID ? MODELEDGE_INVALID : supports() + index;
 }
 
 ModelEdge SupportEnhancedEdge::child(int row, int column, const ModelEdge& edge, ResourceManager& manager) const
@@ -57,13 +58,18 @@ QVariant SupportEnhancedEdge::data(int row, int column, const ModelEdge& edge, R
 	return MultipleVariantsEdge::data(row == 0 ? row : row - supports(), column, edge, manager);
 }
 
+std::pair<int, int> SupportEnhancedEdge::dataStart() const
+{
+	return { 1 + supports(), 1 };
+}
+
 bool SupportEnhancedEdge::setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager)
 {
 	if (row > 0 && row < supports() + 1 && column == 0)
 	{
 		return false;
 	}
-	return Edge::setData(row == 0 ? row : row - supports(), column, edge, data, manager);
+	return MultipleVariantsEdge::setData(row == 0 ? row : row - supports(), column, edge, data, manager);
 }
 
 bool SupportEnhancedEdge::addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)

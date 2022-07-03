@@ -22,9 +22,13 @@ namespace ckcmd {
 		void bind(QWidget* widget, const QByteArray& property_name, size_t row_index, size_t column_index);
 
 		size_t memberModelRow(const QString& memberName);
+		size_t dataBindingRowStart() const;
+		size_t dataBindingColumnStart() const;
 
 		bool bindings_done = false;
 		ModelWidgetSignalMapper _widget_signal_map;
+		size_t _row_start;
+		size_t _column_start;
 
 	protected:
 		HKX::ProjectModel& _model;
@@ -36,8 +40,7 @@ namespace ckcmd {
 	
 		virtual void OnIndexSelected() = 0;
 
-		virtual size_t dataBindingRowStart() const { return 1; }
-		virtual size_t dataBindingColumnStart() const { return 1; }
+
 
 		virtual bool doDataBinding() const { return !bindingTable().empty(); }
 

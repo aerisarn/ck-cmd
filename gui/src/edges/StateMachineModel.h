@@ -23,6 +23,7 @@ namespace ckcmd {
 
 		public:
 			virtual std::vector<const hkClass*> handled_hkclasses() const override;
+			virtual std::vector<NodeType> handled_types() const override;
 
 			virtual int rows(const ModelEdge& edge, ResourceManager& manager) const override;
 			virtual int columns(int row, const ModelEdge& edge, ResourceManager& manager) const override;
