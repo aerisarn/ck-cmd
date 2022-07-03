@@ -24,7 +24,7 @@ int ProjectTreeHkHandler::rows(const ModelEdge& edge, ResourceManager& manager)
 	case NodeType::animationName:
 	case NodeType::characterPropertyNames:
 	case NodeType::characterProperty:
-		return CharacterModel::rows(edge, manager);
+		return CharacterModel().rows(edge, manager);
 	case NodeType::BehaviorHkxNode:
 	case NodeType::behaviorEventNames:
 	case NodeType::behaviorEventName:
@@ -93,7 +93,7 @@ int ProjectTreeHkHandler::columns(int row, const ModelEdge& edge, ResourceManage
 	case NodeType::animationName:
 	case NodeType::characterPropertyNames:
 	case NodeType::characterProperty:
-		return CharacterModel::columns(row, edge, manager);
+		return CharacterModel().columns(row, edge, manager);
 	case NodeType::BehaviorHkxNode:
 	case NodeType::behaviorEventNames:
 	case NodeType::behaviorEventName:
@@ -152,7 +152,7 @@ int ProjectTreeHkHandler::childCount(const ModelEdge& edge, ResourceManager& man
 	case NodeType::animationName:
 	case NodeType::characterPropertyNames:
 	case NodeType::characterProperty:
-		return CharacterModel::childCount(edge, manager);
+		return CharacterModel().childCount(edge, manager);
 	case NodeType::BehaviorHkxNode:
 	case NodeType::behaviorEventNames:
 	case NodeType::behaviorEventName:
@@ -202,7 +202,7 @@ ModelEdge ProjectTreeHkHandler::child(int row, int column, const ModelEdge& edge
 	case NodeType::animationName:
 	case NodeType::characterPropertyNames:
 	case NodeType::characterProperty:
-		return CharacterModel::child(row, column, edge, manager);
+		return CharacterModel().child(row, column, edge, manager);
 	case NodeType::BehaviorHkxNode:
 	case NodeType::behaviorEventNames:
 	case NodeType::behaviorEventName:
@@ -301,7 +301,7 @@ std::pair<int, int> ProjectTreeHkHandler::child(int index, const ModelEdge& edge
 	case NodeType::animationName:
 	case NodeType::characterPropertyNames:
 	case NodeType::characterProperty:
-		return CharacterModel::child(index, edge, manager);
+		return CharacterModel().child(index, edge, manager);
 	case NodeType::BehaviorHkxNode:
 	case NodeType::behaviorEventNames:
 	case NodeType::behaviorEventName:
@@ -354,7 +354,7 @@ int ProjectTreeHkHandler::childIndex(int row, int column, const ModelEdge& edge,
 	case NodeType::animationName:
 	case NodeType::characterPropertyNames:
 	case NodeType::characterProperty:
-		return CharacterModel::childIndex(row, column, edge, manager);
+		return CharacterModel().childIndex(row, column, edge, manager);
 	case NodeType::BehaviorHkxNode:
 	case NodeType::behaviorEventNames:
 	case NodeType::behaviorEventName:
@@ -412,7 +412,7 @@ QVariant ProjectTreeHkHandler::data(int row, int column, const ModelEdge& edge, 
 	case NodeType::animationName:
 	case NodeType::characterPropertyNames:
 	case NodeType::characterProperty:
-		return CharacterModel::data(row, column, edge, manager);
+		return CharacterModel().data(row, column, edge, manager);
 	case NodeType::BehaviorHkxNode:
 	case NodeType::behaviorEventNames:
 	case NodeType::behaviorEventName:
@@ -458,7 +458,7 @@ bool ProjectTreeHkHandler::setData(int row, int column, const ModelEdge& edge, c
 	hkVariant* variant = edge.childItem<hkVariant>();
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return CharacterModel::setData(row, column, edge, data, manager);
+		return CharacterModel().setData(row, column, edge, data, manager);
 	}
 	//if (&hkbBehaviorGraphClass == variant->m_class)
 	//{
@@ -488,7 +488,7 @@ bool ProjectTreeHkHandler::addRows(int row_start, int count, const ModelEdge& ed
 	hkVariant* variant = edge.childItem<hkVariant>();
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return CharacterModel::addRows(row_start, count, edge, manager);
+		return CharacterModel().addRows(row_start, count, edge, manager);
 	}
 	//if (&hkbBehaviorGraphClass == variant->m_class)
 	//{
@@ -518,7 +518,7 @@ bool ProjectTreeHkHandler::removeRows(int row_start, int count, const ModelEdge&
 	hkVariant* variant = edge.childItem<hkVariant>();
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return CharacterModel::removeRows(row_start, count, edge, manager);
+		return CharacterModel().removeRows(row_start, count, edge, manager);
 	}
 	//if (&hkbBehaviorGraphClass == variant->m_class)
 	//{
@@ -547,7 +547,7 @@ bool ProjectTreeHkHandler::changeColumns(int row, int column_start, int delta, c
 	hkVariant* variant = edge.childItem<hkVariant>();
 	if (&hkbCharacterDataClass == variant->m_class)
 	{
-		return CharacterModel::changeColumns(row, column_start, delta, edge, manager);
+		return CharacterModel().changeColumns(row, column_start, delta, edge, manager);
 	}
 	//if (&hkbBehaviorGraphClass == variant->m_class)
 	//{
