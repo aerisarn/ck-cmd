@@ -615,7 +615,7 @@ void CharacterEditorWidget::on_setAnimationsRemoveButton_clicked()
 
 void CharacterEditorWidget::on_setAnimationsTableWidget_itemClicked(QTableWidgetItem* item)
 {
-    if (!setAnimationsTableWidget->children().isEmpty() > 0 && setAnimationsTableWidget->currentIndex().isValid())
+    if (!setAnimationsTableWidget->children().isEmpty() && setAnimationsTableWidget->currentIndex().isValid())
     {
         setAnimationsRemoveButton->setEnabled(true);
     }

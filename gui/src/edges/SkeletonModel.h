@@ -20,6 +20,7 @@ namespace ckcmd {
 			virtual NodeType supportType(int support_index) const override;
 
 		public:
+			virtual std::vector<NodeType> handled_types() const override;
 
 			virtual int rows(const ModelEdge& edge, ResourceManager& manager) const override;
 			virtual int columns(int row, const ModelEdge& edge, ResourceManager& manager) const override;

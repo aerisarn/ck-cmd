@@ -10,6 +10,8 @@ namespace ckcmd {
 		class BehaviorReferenceModel : public Edge
 		{
 		public:
+			virtual std::vector<const hkClass*> handled_hkclasses() const override;
+
 			virtual int childCount(const ModelEdge& edge, ResourceManager& manager) const override;
 			virtual std::pair<int, int> child(int index, const ModelEdge& edge, ResourceManager& manager) const override;
 			virtual int childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;

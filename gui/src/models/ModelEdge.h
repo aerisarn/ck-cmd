@@ -71,6 +71,7 @@ namespace ckcmd {
         {
             friend class ProjectModel;
 
+
             NodeType _parentType = NodeType::Invalid;
             void* _parentItem = nullptr;
             QModelIndex _parent;

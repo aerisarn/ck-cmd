@@ -3,6 +3,19 @@
 
 using namespace ckcmd::HKX;
 
+std::vector<NodeType> CharacterModel::handled_types() const
+{
+	return {
+		NodeType::CharacterHkxNode,
+		NodeType::deformableSkinNames,
+		NodeType::animationNames,
+		NodeType::characterPropertyNames,
+		NodeType::deformableSkinName,
+		NodeType::animationName,
+		NodeType::characterProperty
+	};
+}
+
 hkbCharacterData* CharacterModel::variant(const ModelEdge& edge) const
 {
 	hkVariant* variant = edge.childItem<hkVariant>();
@@ -326,6 +339,10 @@ QVariant CharacterModel::data(int row, int column, const ModelEdge& edge, Resour
 			return string_data->m_characterPropertyNames[edge.row()].cString();
 		}
 		return "InvalidColumn";
+	}
+	if (row == 0 && column == 0)
+	{
+		return string_data->m_name.cString();
 	}
 	return SupportEnhancedEdge::data(row, column, edge, manager);
 }

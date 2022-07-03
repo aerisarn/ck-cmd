@@ -2,6 +2,11 @@
 
 using namespace ckcmd::HKX;
 
+std::vector<const hkClass*> BehaviorReferenceModel::handled_hkclasses() const
+{
+	return { &hkbBehaviorReferenceGeneratorClass };
+}
+
 int BehaviorReferenceModel::childCount(const ModelEdge& edge, ResourceManager& manager) const
 {
 	return 1;

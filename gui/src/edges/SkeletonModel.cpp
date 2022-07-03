@@ -2,6 +2,17 @@
 
 using namespace ckcmd::HKX;
 
+std::vector<NodeType> SkeletonModel::handled_types() const
+{
+	return {
+		NodeType::SkeletonHkxNode,
+		NodeType::SkeletonBones,
+		NodeType::SkeletonBone,
+		NodeType::SkeletonFloats,
+		NodeType::SkeletonFloat
+	};
+}
+
 int SkeletonModel::supports() const
 {
 	return 2;

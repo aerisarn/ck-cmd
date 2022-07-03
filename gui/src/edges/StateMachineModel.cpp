@@ -4,6 +4,11 @@
 
 using namespace ckcmd::HKX;
 
+std::vector<const hkClass*> StateMachineModel::handled_hkclasses() const
+{
+	return { &hkbStateMachineClass };
+}
+
 hkbStateMachine* StateMachineModel::variant(const ModelEdge& edge) const
 {
 	hkVariant* variant = edge.childItem<hkVariant>();

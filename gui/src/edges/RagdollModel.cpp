@@ -2,6 +2,15 @@
 
 using namespace ckcmd::HKX;
 
+std::vector<NodeType> RagdollModel::handled_types() const
+{
+	return {
+		NodeType::RagdollHkxNode,
+		NodeType::RagdollBones,
+		NodeType::RagdollBone
+	};
+}
+
 int RagdollModel::supports() const
 {
 	return 1;

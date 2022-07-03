@@ -5,6 +5,19 @@
 
 using namespace ckcmd::HKX;
 
+std::vector<NodeType> BehaviorModel::handled_types() const
+{
+	return {
+		NodeType::BehaviorHkxNode,
+		NodeType::behaviorEventNames,
+		NodeType::behaviorVariableNames,
+		NodeType::behaviorCharacterPropertyNames,
+		NodeType::behaviorEventName,
+		NodeType::behaviorVariable,
+		NodeType::behaviorCharacterProperty
+	};
+}
+
 hkbBehaviorGraph* BehaviorModel::variant(const ModelEdge& edge) const
 {
 	hkVariant* variant = edge.childItem<hkVariant>();

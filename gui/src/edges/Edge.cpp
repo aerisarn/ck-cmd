@@ -9,6 +9,11 @@ std::vector<NodeType> Edge::handled_types() const
 	return { NodeType::HavokNative };
 }
 
+std::vector<const hkClass*> Edge::handled_hkclasses() const
+{ 
+	return {}; 
+}
+
 int Edge::rows(const ModelEdge& edge, ResourceManager& manager) const
 {
 	hkVariant* variant = edge.childItem<hkVariant>();
