@@ -51,9 +51,7 @@ private slots:
     void on_treeView_selectionChanged(const QModelIndex& current, const QModelIndex& previous);
 
 public slots:
-    //void nodeDoubleClicked(const QModelIndex& index);
-    void nodeClicked(const QModelIndex& index);
-    //void treeMenu(QPoint);
+
     void modelHasSetNewHkxItemPointer(
         const QModelIndex& parent, 
         const QModelIndex& index, 

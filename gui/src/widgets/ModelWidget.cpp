@@ -31,6 +31,7 @@ size_t ModelWidget::dataBindingColumnStart() const
 
 void ModelWidget::buildReflectionTable()
 {
+	_members.clear();
 	int rows = _model.rowCount(_index);
 	int columns = 0; // _model.columnCount(_index);
 

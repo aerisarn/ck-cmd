@@ -156,34 +156,15 @@ void ProjectTreeModel::sourceDataChanged(const QModelIndex& topLeft, const QMode
 		return;
 	}
 
-	const auto& parent = mapFromSource(topLeft.parent());
+	const auto& _topLeft = mapFromSource(topLeft);
+	const auto& _bottomRight = mapFromSource(bottomRight);
 
-	int minRow = std::numeric_limits<int>::max();
-	int maxRow = std::numeric_limits<int>::lowest();
-	int minCol = std::numeric_limits<int>::max();
-	int maxCol = std::numeric_limits<int>::lowest();
-	bool foundValidIndex = false;
-
-	for (int sourceRow = topLeft.row(); sourceRow <= bottomRight.row(); ++sourceRow) {
-		for (int sourceColumn = topLeft.column(); sourceColumn <= bottomRight.column(); ++sourceColumn) {
-			const auto index = mapFromSource(sourceModel()->index(sourceRow, sourceColumn, topLeft.parent()));
-			if (!index.isValid()) {
-				continue;
-			}
-
-			minRow = std::min(minRow, index.row());
-			maxRow = std::max(maxRow, index.row());
-			minCol = std::min(minCol, index.column());
-			maxCol = std::max(maxCol, index.column());
-			foundValidIndex = true;
-		}
-	}
-
-	if (foundValidIndex) {
-		emit dataChanged(index(minRow, minCol, parent),
-			index(maxRow, maxCol, parent),
+	if (_topLeft.isValid() && _bottomRight.isValid())
+		emit dataChanged(_topLeft,
+			_bottomRight,
 			roles);
-	}
+	else
+		__debugbreak();
 }
 
 void ProjectTreeModel::sourceBeginInsertChildren(const QModelIndex& sourceParent, int sourceFirst, int sourceLast)

@@ -223,6 +223,8 @@ QModelIndex ProjectModel::child(int child_index, const QModelIndex& parent) cons
 
 	const auto& edge = modelEdge(parent);
 	auto result = edge.child(child_index, _resourceManager);
+	if (result == std::pair<int, int>{-1, -1})
+		__debugbreak();
 	return this->index(result.first, result.second, parent);
 }
 

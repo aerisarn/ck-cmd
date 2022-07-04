@@ -26,25 +26,17 @@ ProjectsWidget::ProjectsWidget(
 	setWidget(verticalLayoutWidget);
 	workspaceLabel->setText(QCoreApplication::translate("ProjectsWidget", "Workspace:", nullptr) + " " + _manager.workspace().getFolder().string().c_str());
 
-	treeView->setHeaderHidden(true);
 	treeView->setModel(_model);
 	treeView->setContextMenuPolicy(Qt::CustomContextMenu);
+	treeView->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
 
 	connect(treeView->selectionModel(), &QItemSelectionModel::currentChanged, this, &ProjectsWidget::on_treeView_selectionChanged);
 	connect(treeView, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(treeMenu(QPoint)));
 }
 
-//void ProjectsWidget::nodeDoubleClicked(const QModelIndex& index)
 void ProjectsWidget::on_treeView_doubleClicked(const QModelIndex& index)
 {
 	_model->activate(index);
-	//else if (node_clicked->isSkeleton()) {
-	//	
-	//	_simulation->addSkeleton(
-	//		node_clicked->data(1).toString().toUtf8().constData()
-	//	);
-	//}
-
 }
 
 void ProjectsWidget::modelHasSetNewHkxItemPointer(
@@ -99,18 +91,6 @@ void ProjectsWidget::modelHasSetNewHkxItemPointer(
 	//nodeClicked(clicked);
 }
 
-void ProjectsWidget::nodeClicked(const QModelIndex& index)
-{
-	//ProjectNode* node_clicked = _model->getNode(index);
-	//if (node_clicked->isVariant()) {
-	//	emit variantSelected(
-	//		node_clicked->data(3).value<int>(), 
-	//		index
-	//	);
-	//}
-}
-
-//void ProjectsWidget::treeMenu(QPoint p)
 void ProjectsWidget::on_treeView_customContextMenuRequested(const QPoint& pos)
 {
 	const QModelIndex& index = treeView->indexAt(pos);
