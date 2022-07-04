@@ -1,7 +1,11 @@
 #include "GenericWidget.h"
+#include <src/models/ValuesProxyModel.h>
 
 #include <QtWidgets/QLabel>
-#include <QtWidgets/QLineEdit>
+#include <QTableView>
+#include <QLineEdit>
+#include <QHeaderView>
+#include <QScrollBar>
 
 using namespace ckcmd;
 using namespace ckcmd::HKX;
@@ -29,6 +33,33 @@ void clearLayout(QLayout* layout, bool deleteWidgets = true)
 	}
 }
 
+void verticalResizeTableViewToContents(QTableView* tableView)
+{
+	int rowTotalHeight = 0;
+
+	// Rows height
+	int count = tableView->verticalHeader()->count();
+	for (int i = 0; i < count; ++i) {
+		// 2018-03 edit: only account for row if it is visible
+		if (!tableView->verticalHeader()->isSectionHidden(i)) {
+			rowTotalHeight += tableView->verticalHeader()->sectionSize(i);
+		}
+	}
+
+	// Check for scrollbar visibility
+	if (!tableView->horizontalScrollBar()->isHidden())
+	{
+		rowTotalHeight += tableView->horizontalScrollBar()->height();
+	}
+
+	// Check for header visibility
+	if (!tableView->horizontalHeader()->isHidden())
+	{
+		rowTotalHeight += tableView->horizontalHeader()->height();
+	}
+	tableView->setMinimumHeight(rowTotalHeight);
+}
+
 void GenericWidget::OnIndexSelected()
 {
 	buildReflectionTable();
@@ -40,9 +71,29 @@ void GenericWidget::OnIndexSelected()
 
 		verticalLayout->addWidget(label);
 
-		QLineEdit* value = new QLineEdit(this);
-		value->setText(data(std::get<0>(member).toUtf8().constData(), 0).toString());
+		QTableView* editor = new QTableView(this);
+		editor->horizontalHeader()->setVisible(false);
+		editor->horizontalHeader()->setStretchLastSection(true);
+		editor->verticalHeader()->setMinimumSectionSize(20);
+		editor->verticalHeader()->setDefaultSectionSize(20);
+		editor->verticalHeader()->setVisible(false);
+		editor->setShowGrid(false);
+		editor->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
+		QModelIndex data_index = _model.index(member.second.first, 1, _index);
+		QString value = data_index.data().toString();
+		ValuesProxyModel* editModel = new ValuesProxyModel(&_model, member.second.first, 1, _index, this);
+		editor->setModel(editModel);
+		editor->resizeRowsToContents();
+		editor->adjustSize();
 
-		verticalLayout->addWidget(value);
+		//verticalResizeTableViewToContents(editor);
+
+		QString valuecheck = data(std::get<0>(member).toUtf8().constData(), 0).toString();
+
+		if (value != valuecheck)
+			__debugbreak();
+
+		verticalLayout->addWidget(editor);
 	}
+	//this->adjustSize();
 }
