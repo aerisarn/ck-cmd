@@ -85,6 +85,14 @@ if(NOT DEFINED EDGES)
 
     source_group("Models\\Edges\\Headers" FILES ${EDGE_HEADERS})
     source_group("Models\\Edges\\Sources" FILES ${EDGE_SOURCES})
+endif()
+
+if(NOT DEFINED ITEMS)
+    file(GLOB_RECURSE ITEM_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/items/*.h)
+    file(GLOB_RECURSE ITEM_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/items/*.cpp)
+
+    source_group("Havok\\Items\\Headers" FILES ${ITEM_HEADERS})
+    source_group("Havok\\Items\\Sources" FILES ${ITEM_SOURCES})
 endif()   
 
 if(NOT DEFINED ESPS)
@@ -131,6 +139,8 @@ add_library( gui-lib STATIC
     ${EDGE_SOURCES}
     ${HKX_HEADERS}
     ${HKX_SOURCES}
+    ${ITEM_HEADERS}
+    ${ITEM_SOURCES}
     ${ESP_HEADERS}
     ${ESP_SOURCES}
     ${UTILITY_HEADERS}

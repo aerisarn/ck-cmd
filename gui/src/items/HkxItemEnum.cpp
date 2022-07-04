@@ -1,4 +1,4 @@
-#include "HkxItemEnum.h"
+#include <src/items/HkxItemEnum.h>
 
 using namespace ckcmd::HKX;
 

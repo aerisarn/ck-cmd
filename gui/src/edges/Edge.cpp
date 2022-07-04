@@ -181,3 +181,24 @@ bool Edge::changeColumns(int row, int column_start, int delta, const ModelEdge& 
 	}
 	return false;
 }
+
+bool Edge::canAdd(const ModelEdge& this_edge, const ModelEdge& another_edge, ResourceManager& manager) const
+{
+	hkVariant* parent_variant = this_edge.childItem<hkVariant>();
+	hkVariant* child_variant = another_edge.childItem<hkVariant>();
+	if (nullptr != parent_variant && nullptr != child_variant)
+	{
+
+	}
+	return false;
+}
+
+const hkClass* Edge::rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const
+{
+	hkVariant* variant = edge.childItem<hkVariant>();
+	if (nullptr != variant && row > 0)
+	{
+		return HkxTableVariant(*variant).rowClass(row - 1);
+	}
+	return nullptr;
+}

@@ -41,11 +41,15 @@ void ModelWidget::buildReflectionTable()
 	int i = _row_start;
 	int j = _column_start;
 
+	std::vector<std::pair<QString, const hkClass*>> types;
+
 	for (i; i < rows; ++i)
 	{
 		auto row_index = _model.index(i, 0, _index);
 		columns = _model.columnCount(row_index);
 		QString rowName = row_index.data().toString();
+		auto rowClass = _model.rowType(row_index);
+		types.push_back({ rowName, rowClass });
 		_members.insert(
 			{
 				rowName,

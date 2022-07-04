@@ -526,3 +526,32 @@ bool ProjectModel::insertColumns(int row, int column, int count, const QModelInd
 	emit endInsertColumns();
 	return result;
 }
+
+void ProjectModel::SetCopyPointer(const QModelIndex& index)
+{
+	if (index.isValid())
+		_copyPointer = index;
+	else 
+		_copyPointer = QModelIndex();
+}
+
+bool ProjectModel::PasteEnabled(const QModelIndex& index)
+{
+	if (index.isValid() && _copyPointer.isValid())
+	{
+		auto& to_paste = modelEdge(index);
+		auto& paste_into = modelEdge(_copyPointer);
+		return paste_into.canAddRow(to_paste, _resourceManager);
+	}
+	return false;
+}
+
+const hkClass* ProjectModel::rowType(const QModelIndex& index)
+{
+	if (index.isValid())
+	{
+		auto& edge = modelEdge(index);
+		return edge.rowClass(index.row(), _resourceManager);
+	}
+	return nullptr;
+}

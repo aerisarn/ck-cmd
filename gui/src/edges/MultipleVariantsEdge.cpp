@@ -275,3 +275,29 @@ bool MultipleVariantsEdge::changeColumns(int row, int column_start, int delta, c
 	}
 	return false;
 }
+
+const hkClass* MultipleVariantsEdge::rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const
+{
+	int count = Edge::rows(edge, manager);
+	if (row < count)
+		return Edge::rowClass(row, edge, manager);
+
+	hkVariant* variant = edge.childItem<hkVariant>();
+	int row_index = row - count;
+	for (size_t i = 0; i < additional_variants().size(); ++i)
+	{
+		if (row_index < 0)
+			break;
+		hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+		if (v != nullptr)
+		{
+			int variant_rows = HkxTableVariant(*v).rows();
+			if (row_index < variant_rows)
+			{
+				return HkxTableVariant(*v).rowClass(row_index);
+			}
+			row_index -= variant_rows;
+		}
+	}
+	return nullptr;
+}

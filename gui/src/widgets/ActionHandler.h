@@ -25,10 +25,13 @@ namespace ckcmd {
 			QAction* _importFBX;
 			QAction* _removeAnimation;
 
+			QAction* _copy;
+
 			void buildSaveAction();
 			void buildImportFBXAction();
 			void buildRemoveAnimation();
 			void buildCreateProjectAction();
+			void buildCopyAction();
 
 		public slots:
 			void save();
@@ -36,6 +39,7 @@ namespace ckcmd {
 			void createProject();
 			void importFBX();
 			void removeAnimation();
+			void copy();
 
 		public:
 			ActionHandler(ProjectModel& model, QObject* parent = nullptr) :
@@ -46,6 +50,7 @@ namespace ckcmd {
 				buildSaveAction();
 				buildImportFBXAction();
 				buildRemoveAnimation();
+				buildCopyAction();
 			}
 
 
@@ -55,6 +60,7 @@ namespace ckcmd {
 			QAction* importFBXAction() { return _importFBX; };
 			QAction* removeAnimationAction() { return _removeAnimation; }
 			QAction* createProjectAction() { return _createProject; }
+			QAction* copyAction() { return _copy; }
 
 		};
 	}

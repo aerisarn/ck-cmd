@@ -10,7 +10,7 @@
 #include <src/hkx/CommandManager.h>
 #include <src/hkx/ResourceManager.h>
 #include <src/hkx/HkxSimulation.h>
-#include <src/hkx/HkxItemPointer.h>
+#include <src/items/HkxItemPointer.h>
 #include <src/widgets/ActionHandler.h>
 #include <src/widgets/TreeContextMenuBuilder.h>
 

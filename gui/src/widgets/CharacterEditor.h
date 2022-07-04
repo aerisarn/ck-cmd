@@ -6,7 +6,7 @@
 #include <QCompleter>
 
 #include "ui_CharacterEditor.h"
-#include <src/hkx/HkxItemReal.h>
+#include <src/items/HkxItemReal.h>
 
 class CharacterEditorWidget : public ckcmd::ModelWidget, private Ui::CharacterEditor
 {

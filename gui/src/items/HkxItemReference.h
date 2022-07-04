@@ -6,12 +6,10 @@
 namespace ckcmd {
 	namespace HKX {
 
-		template <typename Builder>
 		class HkxItemReference {
 		
 		protected:
-			Builder* _builder;
-			size_t _index;
+			size_t _index = -1;
 
 		public:
 			HkxItemReference() = default;
@@ -19,15 +17,14 @@ namespace ckcmd {
 			HkxItemReference(const HkxItemReference&) = default;
 			HkxItemReference& operator=(const HkxItemReference&) = default;
 
-			HkxItemReference(Builder* builder, size_t index) :
-				_builder(builder),
+			HkxItemReference(size_t index) :
 				_index(index)
 			{}
 
-			virtual operator QVariant() const = 0;
+			virtual QString getValue() const { return ""; }
+			virtual QStringList getValues() const { return {""}; }
 
-			virtual QString getValue() const = 0;
-			virtual QStringList getValues() const = 0;
+			virtual operator QVariant() const = 0;
 
 			virtual size_t index() { return _index; }
 

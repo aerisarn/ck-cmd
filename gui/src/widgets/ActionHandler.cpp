@@ -55,6 +55,15 @@ void ActionHandler::buildCreateProjectAction()
 	connect(_createProject, SIGNAL(triggered()), this, SLOT(createProject()));
 }
 
+void ActionHandler::buildCopyAction()
+{
+	_copy = new QAction(tr("&Copy"), this);
+	_copy->setShortcuts(QKeySequence::New);
+	_copy->setStatusTip(tr("Copy node"));
+	_copy->setEnabled(true);
+	connect(_copy, SIGNAL(triggered()), this, SLOT(copy()));
+}
+
 void ActionHandler::save()
 {
 	QAction* action = static_cast<QAction*>(sender());
@@ -109,6 +118,17 @@ void ActionHandler::importFBX()
 }
 
 void ActionHandler::removeAnimation()
+{
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+	_model.removeRow(index.row(), index.parent());
+}
+
+void ActionHandler::copy()
 {
 	QAction* action = static_cast<QAction*>(sender());
 	if (action == nullptr)

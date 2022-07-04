@@ -186,6 +186,9 @@ namespace ckcmd {
             bool removeColumns(int row, int column_start, int count, ResourceManager& manager);
 
             NodeType type() const;
+            const hkClass* rowClass(int row, ResourceManager& manager) const;
+
+            bool canAddRow(const ModelEdge& other, ResourceManager& manager);
         };
 
         struct ModelEdgeComparator {

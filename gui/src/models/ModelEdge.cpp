@@ -59,6 +59,11 @@ NodeType ModelEdge::type() const
 	return _childType;
 }
 
+const hkClass* ModelEdge::rowClass(int row, ResourceManager& manager) const
+{
+	return ModelEdgeRegistry::instance().handler(*this)->rowClass(row, *this, manager);
+}
+
 int ModelEdge::rows(ResourceManager& manager) const
 {
 	return ModelEdgeRegistry::instance().handler(*this)->rows(*this, manager);
@@ -127,4 +132,9 @@ bool ModelEdge::removeColumns(int row, int column_start, int count, ResourceMana
 std::pair<int, int> ModelEdge::dataStart()
 {
 	return ModelEdgeRegistry::instance().handler(*this)->dataStart();
+}
+
+bool  ModelEdge::canAddRow(const ModelEdge& other, ResourceManager& manager)
+{
+	return ModelEdgeRegistry::instance().handler(*this)->canAdd(*this, other, manager);
 }

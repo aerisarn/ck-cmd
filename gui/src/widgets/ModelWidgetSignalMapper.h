@@ -4,7 +4,7 @@
 #include <QVariant>
 #include <map>
 
-#include <src/hkx/HkxItemReal.h>
+#include <src/items/HkxItemReal.h>
 
 //this could have been an inner class if not a Q_OBJECT
 class ModelWidgetSignalMapper : public QObject {

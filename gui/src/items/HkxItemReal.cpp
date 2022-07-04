@@ -1,4 +1,4 @@
-#include "HkxItemReal.h"
+#include <src/items/HkxItemReal.h>
 #include <QLayout>
 #include <QLabel>
 #include <QCheckBox>

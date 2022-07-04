@@ -32,6 +32,8 @@ namespace ckcmd {
             CommandManager& _commandManager;
             ResourceManager& _resourceManager;
 
+            QModelIndex _copyPointer;
+
         public:
 
             ProjectModel(CommandManager& commandManager, ResourceManager& resourceManager, QObject* parent = 0);
@@ -53,6 +55,9 @@ namespace ckcmd {
             ResourceManager& getResourceManager() { return _resourceManager; }
 
             QAbstractItemModel* editModel(const QModelIndex& index, AssetType type);
+            void SetCopyPointer(const QModelIndex& index);
+            bool PasteEnabled(const QModelIndex& index);
+            const hkClass* rowType(const QModelIndex& index);
 
 
             /*

@@ -1,4 +1,4 @@
-#include "HkxItemFlags.h"
+#include <src/items/HkxItemFlags.h>
 #include <QLayout>
 #include <QCheckBox>
 #include <QPainter>

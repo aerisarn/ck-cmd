@@ -7,6 +7,7 @@
 #include <src\hkx\NameGetter.h>
 #include <src\hkx\RowResizer.h>
 #include <src\hkx\ArrayFinder.h>
+#include <src\hkx\ClassGetter.h>
 
 using namespace ckcmd::HKX;
 
@@ -38,6 +39,13 @@ QString HkxTableVariant::rowName(int row_index)
 	return ng.name();
 }
 
+const hkClass* HkxTableVariant::rowClass(int row_index)
+{
+	ClassGetter cg(row_index);
+	accept(cg);
+	return cg.hkclass();
+}
+
 QVariant HkxTableVariant::data(int row, int column)
 {
 	Getter g(row, column);
@@ -63,6 +71,17 @@ QStringList HkxTableVariant::rowNames()
 		names << n.name();
 	}
 	return names;
+}
+
+std::vector< const hkClass*> HkxTableVariant::rowClasses()
+{
+	std::vector< const hkClass*> classes;
+	size_t _rows = rows();
+	for (size_t r = 0; r < _rows; ++r)
+	{
+		classes.push_back(rowClass(r));
+	}
+	return classes;
 }
 
 std::vector<int>  HkxTableVariant::arrayrows()
