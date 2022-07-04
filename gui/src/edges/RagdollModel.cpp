@@ -52,37 +52,46 @@ hkaRagdollInstance* RagdollModel::variant(const ModelEdge& edge) const
 int RagdollModel::rows(const ModelEdge& edge, ResourceManager& manager) const
 {
 	auto* ragdoll = variant(edge);
-	if (edge.childType() == NodeType::RagdollBones)
+	if (nullptr != ragdoll)
 	{
-		return ragdoll->m_rigidBodies.getSize();
+		if (edge.childType() == NodeType::RagdollBones)
+		{
+			return ragdoll->m_rigidBodies.getSize();
+		}
+		if (edge.childType() == NodeType::RagdollBone)
+		{
+			return 0;
+		}
+		return SupportEnhancedEdge::rows(edge, manager);
 	}
-	if (edge.childType() == NodeType::RagdollBone)
-	{
-		return 0;
-	}
-	if (ragdoll == nullptr)
-		return 0;
-	return SupportEnhancedEdge::rows(edge, manager);
+	return 0;
 }
 
 int RagdollModel::columns(int row, const ModelEdge& edge, ResourceManager& manager) const
 {
-	return SupportEnhancedEdge::columns(row, edge, manager);
+	auto* ragdoll = variant(edge);
+	if (nullptr != ragdoll)
+	{
+		return SupportEnhancedEdge::columns(row, edge, manager);
+	}
+	return 0;
 }
 
 int RagdollModel::childCount(const ModelEdge& edge, ResourceManager& manager) const
 {
-	if (
-		edge.childType() == NodeType::RagdollBones ||
-		edge.childType() == NodeType::RagdollBone
-		)
-	{
-		return rows(edge, manager);
-	}
 	auto* ragdoll = variant(edge);
-	if (ragdoll == nullptr)
-		return 0;
-	return SupportEnhancedEdge::childCount(edge, manager);
+	if (nullptr != ragdoll)
+	{
+		if (
+			edge.childType() == NodeType::RagdollBones ||
+			edge.childType() == NodeType::RagdollBone
+			)
+		{
+			return rows(edge, manager);
+		}
+		return SupportEnhancedEdge::childCount(edge, manager);
+	}
+	return 0;
 }
 
 std::pair<int, int> RagdollModel::child(int index, const ModelEdge& edge, ResourceManager& manager) const
@@ -128,25 +137,29 @@ ModelEdge RagdollModel::child(int row, int column, const ModelEdge& edge, Resour
 QVariant RagdollModel::data(int row, int column, const ModelEdge& edge, ResourceManager& manager) const
 {
 	auto* ragdoll = variant(edge);
-	if (edge.childType() == NodeType::RagdollBones)
+	if (nullptr != ragdoll)
 	{
-		if (column == 0)
+		if (edge.childType() == NodeType::RagdollBones)
 		{
-			return supportName(0);
+			if (column == 0)
+			{
+				return supportName(0);
+			}
+			return "InvalidColumn";
 		}
-		return "InvalidColumn";
-	}
-	if (edge.childType() == NodeType::RagdollBone)
-	{
-		if (column == 0)
+		if (edge.childType() == NodeType::RagdollBone)
 		{
-			return ragdoll->m_skeleton->m_bones[edge.row()].m_name.cString();
+			if (column == 0)
+			{
+				return ragdoll->m_skeleton->m_bones[edge.row()].m_name.cString();
+			}
+			return "InvalidColumn";
 		}
-		return "InvalidColumn";
+		if (row == 0 && column == 0)
+		{
+			return "Ragdoll";
+		}
+		return SupportEnhancedEdge::data(row, column, edge, manager);
 	}
-	if (row == 0 && column == 0)
-	{
-		return "Ragdoll";
-	}
-	return SupportEnhancedEdge::data(row, column, edge, manager);
+	return "No Ragdoll";
 }

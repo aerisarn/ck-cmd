@@ -58,42 +58,56 @@ hkaSkeleton* SkeletonModel::variant(const ModelEdge& edge) const
 int SkeletonModel::rows(const ModelEdge& edge, ResourceManager& manager) const
 {
 	auto* skeleton = variant(edge);
-	if (edge.childType() == NodeType::SkeletonBones)
+	if (nullptr != skeleton)
 	{
-		return skeleton->m_bones.getSize();
+		if (edge.childType() == NodeType::SkeletonBones)
+		{
+			return skeleton->m_bones.getSize();
+		}
+		if (edge.childType() == NodeType::SkeletonFloats)
+		{
+			return skeleton->m_floatSlots.getSize();
+		}
+		if (edge.childType() == NodeType::SkeletonBone)
+		{
+			return 0;
+		}
+		if (edge.childType() == NodeType::SkeletonFloat)
+		{
+			return 0;
+		}
+		return SupportEnhancedEdge::rows(edge, manager);
 	}
-	if (edge.childType() == NodeType::SkeletonFloats)
-	{
-		return skeleton->m_floatSlots.getSize();
-	}
-	if (edge.childType() == NodeType::SkeletonBone)
-	{
-		return 0;
-	}
-	if (edge.childType() == NodeType::SkeletonFloat)
-	{
-		return 0;
-	}
-	return SupportEnhancedEdge::rows(edge, manager);
+	return 0;
 }
 
 int SkeletonModel::columns(int row, const ModelEdge& edge, ResourceManager& manager) const
 {
-	return SupportEnhancedEdge::columns(row, edge, manager);
+	auto* skeleton = variant(edge);
+	if (nullptr != skeleton)
+	{
+		return SupportEnhancedEdge::columns(row, edge, manager);
+	}
+	return 0;
 }
 
 int SkeletonModel::childCount(const ModelEdge& edge, ResourceManager& manager) const
 {
-	if (
-		edge.childType() == NodeType::SkeletonBones ||
-		edge.childType() == NodeType::SkeletonFloats ||
-		edge.childType() == NodeType::SkeletonBone ||
-		edge.childType() == NodeType::SkeletonFloat
-		)
+	auto* skeleton = variant(edge);
+	if (nullptr != skeleton)
 	{
-		return rows(edge, manager);
+		if (
+			edge.childType() == NodeType::SkeletonBones ||
+			edge.childType() == NodeType::SkeletonFloats ||
+			edge.childType() == NodeType::SkeletonBone ||
+			edge.childType() == NodeType::SkeletonFloat
+			)
+		{
+			return rows(edge, manager);
+		}
+		return SupportEnhancedEdge::childCount(edge, manager);
 	}
-	return SupportEnhancedEdge::childCount(edge, manager);
+	return 0;
 }
 
 std::pair<int, int> SkeletonModel::child(int index, const ModelEdge& edge, ResourceManager& manager) const
@@ -142,41 +156,45 @@ ModelEdge SkeletonModel::child(int row, int column, const ModelEdge& edge, Resou
 QVariant SkeletonModel::data(int row, int column, const ModelEdge& edge, ResourceManager& manager) const
 {
 	auto* skeleton = variant(edge);
-	if (edge.childType() == NodeType::SkeletonBones)
+	if (nullptr != skeleton)
 	{
-		if (column == 0)
+		if (edge.childType() == NodeType::SkeletonBones)
 		{
-			return supportName(0);
+			if (column == 0)
+			{
+				return supportName(0);
+			}
+			return "InvalidColumn";
 		}
-		return "InvalidColumn";
-	}
-	if (edge.childType() == NodeType::SkeletonFloats)
-	{
-		if (column == 0)
+		if (edge.childType() == NodeType::SkeletonFloats)
 		{
-			return supportName(1);
+			if (column == 0)
+			{
+				return supportName(1);
+			}
+			return "InvalidColumn";
 		}
-		return "InvalidColumn";
-	}
-	if (edge.childType() == NodeType::SkeletonBone)
-	{
-		if (column == 0)
+		if (edge.childType() == NodeType::SkeletonBone)
 		{
-			return skeleton->m_bones[edge.row()].m_name.cString();
+			if (column == 0)
+			{
+				return skeleton->m_bones[edge.row()].m_name.cString();
+			}
+			return "InvalidColumn";
 		}
-		return "InvalidColumn";
-	}
-	if (edge.childType() == NodeType::SkeletonFloat)
-	{
-		if (column == 0)
+		if (edge.childType() == NodeType::SkeletonFloat)
 		{
-			return skeleton->m_floatSlots[edge.row()].cString();
+			if (column == 0)
+			{
+				return skeleton->m_floatSlots[edge.row()].cString();
+			}
+			return "InvalidColumn";
 		}
-		return "InvalidColumn";
+		if (row == 0 && column == 0)
+		{
+			return "Skeleton";
+		}
+		return SupportEnhancedEdge::data(row, column, edge, manager);
 	}
-	if (row == 0 && column == 0)
-	{
-		return "Skeleton";
-	}
-	return SupportEnhancedEdge::data(row, column, edge, manager);
+	return "No Skeleton";
 }

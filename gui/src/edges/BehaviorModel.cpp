@@ -61,14 +61,17 @@ hkbBehaviorGraphStringData* BehaviorModel::string_variant(const ModelEdge& edge)
 
 hkVariant* BehaviorData(const ModelEdge& edge, ResourceManager& manager, hkVariant* variant)
 {
-	auto* graph = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
-	if (nullptr != graph)
+	if (variant != nullptr)
 	{
-		auto data = graph->m_data;
-		if (data != NULL)
+		auto* graph = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
+		if (nullptr != graph)
 		{
-			int data_index = manager.findIndex(edge.file(), &*data);
-			return manager.at(edge.file(), data_index);
+			auto data = graph->m_data;
+			if (data != NULL)
+			{
+				int data_index = manager.findIndex(edge.file(), &*data);
+				return manager.at(edge.file(), data_index);
+			}
 		}
 	}
 	return nullptr;
@@ -76,17 +79,20 @@ hkVariant* BehaviorData(const ModelEdge& edge, ResourceManager& manager, hkVaria
 
 hkVariant* BehaviorStringData(const ModelEdge& edge, ResourceManager& manager, hkVariant* variant)
 {
-	auto* graph = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
-	if (nullptr != graph)
+	if (variant != nullptr)
 	{
-		auto data = graph->m_data;
-		if (data != NULL)
+		auto* graph = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
+		if (nullptr != graph)
 		{
-			auto string_data = data->m_stringData;
-			if (string_data != NULL)
+			auto data = graph->m_data;
+			if (data != NULL)
 			{
-				int string_data_index = manager.findIndex(edge.file(), &*string_data);
-				return manager.at(edge.file(), string_data_index);
+				auto string_data = data->m_stringData;
+				if (string_data != NULL)
+				{
+					int string_data_index = manager.findIndex(edge.file(), &*string_data);
+					return manager.at(edge.file(), string_data_index);
+				}
 			}
 		}
 	}
@@ -175,35 +181,43 @@ int BehaviorModel::rows(const ModelEdge& edge, ResourceManager& manager) const
 
 int BehaviorModel::columns(int row, const ModelEdge& edge, ResourceManager& manager) const
 {
-	if (edge.childType() == NodeType::behaviorEventName)
+	if (nullptr != variant(edge))
 	{
-		return 0;
+		if (edge.childType() == NodeType::behaviorEventName)
+		{
+			return 0;
+		}
+		else if (edge.childType() == NodeType::behaviorVariable)
+		{
+			return 0;
+		}
+		else if (edge.childType() == NodeType::behaviorCharacterProperty)
+		{
+			return 0;
+		}
+		return SupportEnhancedEdge::columns(row, edge, manager);
 	}
-	else if (edge.childType() == NodeType::behaviorVariable)
-	{
-		return 0;
-	}
-	else if (edge.childType() == NodeType::behaviorCharacterProperty)
-	{
-		return 0;
-	}
-	return SupportEnhancedEdge::columns(row, edge, manager);
+	return 0;
 }
 
 int BehaviorModel::childCount(const ModelEdge& edge, ResourceManager& manager) const
 {
-	if (
-		edge.childType() == NodeType::behaviorEventNames ||
-		edge.childType() == NodeType::behaviorEventName ||
-		edge.childType() == NodeType::behaviorVariableNames ||
-		edge.childType() == NodeType::behaviorVariable ||
-		edge.childType() == NodeType::behaviorCharacterPropertyNames ||
-		edge.childType() == NodeType::behaviorCharacterProperty
-		)
+	if (nullptr != variant(edge))
 	{
-		return rows(edge, manager);
+		if (
+			edge.childType() == NodeType::behaviorEventNames ||
+			edge.childType() == NodeType::behaviorEventName ||
+			edge.childType() == NodeType::behaviorVariableNames ||
+			edge.childType() == NodeType::behaviorVariable ||
+			edge.childType() == NodeType::behaviorCharacterPropertyNames ||
+			edge.childType() == NodeType::behaviorCharacterProperty
+			)
+		{
+			return rows(edge, manager);
+		}
+		return SupportEnhancedEdge::childCount(edge, manager);
 	}
-	return SupportEnhancedEdge::childCount(edge, manager);
+	return 0;
 }
 
 std::pair<int, int> BehaviorModel::child(int index, const ModelEdge& edge, ResourceManager& manager) const
@@ -261,53 +275,57 @@ ModelEdge BehaviorModel::child(int row, int column, const ModelEdge& edge, Resou
 QVariant BehaviorModel::data(int row, int column, const ModelEdge& edge, ResourceManager& manager) const
 {
 	auto* string_data = string_variant(edge);
-	if (edge.childType() == NodeType::behaviorEventNames)
+	if (nullptr != string_data)
 	{
-		if (column == 0)
+		if (edge.childType() == NodeType::behaviorEventNames)
 		{
-			return supportName(0);
+			if (column == 0)
+			{
+				return supportName(0);
+			}
+			return "InvalidColumn";
 		}
-		return "InvalidColumn";
-	}
-	if (edge.childType() == NodeType::behaviorVariableNames)
-	{
-		if (column == 0)
+		if (edge.childType() == NodeType::behaviorVariableNames)
 		{
-			return supportName(1);
+			if (column == 0)
+			{
+				return supportName(1);
+			}
+			return "InvalidColumn";
 		}
-		return "InvalidColumn";
-	}
-	if (edge.childType() == NodeType::behaviorCharacterPropertyNames)
-	{
-		if (column == 0)
+		if (edge.childType() == NodeType::behaviorCharacterPropertyNames)
 		{
-			return supportName(2);
+			if (column == 0)
+			{
+				return supportName(2);
+			}
+			return "InvalidColumn";
 		}
-		return "InvalidColumn";
-	}
-	if (edge.childType() == NodeType::behaviorEventName)
-	{
-		if (column == 0)
+		if (edge.childType() == NodeType::behaviorEventName)
 		{
-			return string_data->m_eventNames[edge.row()].cString();
+			if (column == 0)
+			{
+				return string_data->m_eventNames[edge.row()].cString();
+			}
+			return "InvalidColumn";
 		}
-		return "InvalidColumn";
-	}
-	if (edge.childType() == NodeType::behaviorVariable)
-	{
-		if (column == 0)
+		if (edge.childType() == NodeType::behaviorVariable)
 		{
-			return string_data->m_variableNames[edge.row()].cString();
+			if (column == 0)
+			{
+				return string_data->m_variableNames[edge.row()].cString();
+			}
+			return "InvalidColumn";
 		}
-		return "InvalidColumn";
-	}
-	if (edge.childType() == NodeType::behaviorCharacterProperty)
-	{
-		if (column == 0)
+		if (edge.childType() == NodeType::behaviorCharacterProperty)
 		{
-			return string_data->m_characterPropertyNames[edge.row()].cString();
+			if (column == 0)
+			{
+				return string_data->m_characterPropertyNames[edge.row()].cString();
+			}
+			return "InvalidColumn";
 		}
-		return "InvalidColumn";
+		return SupportEnhancedEdge::data(row, column, edge, manager);
 	}
-	return SupportEnhancedEdge::data(row, column, edge, manager);
+	return "No Behavior";
 }

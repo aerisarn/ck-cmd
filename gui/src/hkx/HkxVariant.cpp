@@ -30,6 +30,7 @@ bool HkxVariant::setName(const QString& name)
 		auto member_ptr = ((char*)_variant.m_object) + member->getOffset();
 		auto c_str_ptr = (hkStringPtr*)(member_ptr);
 		*c_str_ptr = name.toUtf8().constData();
+		return true;
 	}
 	return false;
 }
