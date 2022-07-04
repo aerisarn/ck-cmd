@@ -4,7 +4,7 @@
 #include "HkxVariant.h"
 #include "RowCalculator.h"
 #include "ColumnCalculator.h"
-#include "HkxItemReal.h"
+#include <src/items/HkxItemReal.h>
 
 #include <QVariant>
 #include <vector>

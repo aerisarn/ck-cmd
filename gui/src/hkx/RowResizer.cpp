@@ -1,7 +1,7 @@
 #include "RowResizer.h"
-#include "HkxItemPointer.h"
-#include "HkxItemEnum.h"
-#include "HkxItemFlags.h"
+#include <src/items/HkxItemPointer.h>
+#include <src/items/HkxItemEnum.h>
+#include <src/items/HkxItemFlags.h>
 #include <stdexcept>
 
 using namespace ckcmd::HKX;

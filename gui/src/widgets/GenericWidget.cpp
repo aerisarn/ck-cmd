@@ -38,16 +38,18 @@ void verticalResizeTableViewToContents(QTableView* tableView)
 	int rowTotalHeight = 0;
 
 	// Rows height
-	int count = tableView->verticalHeader()->count();
+	int count = tableView->verticalHeader()->count();	
 	for (int i = 0; i < count; ++i) {
 		// 2018-03 edit: only account for row if it is visible
 		if (!tableView->verticalHeader()->isSectionHidden(i)) {
 			rowTotalHeight += tableView->verticalHeader()->sectionSize(i);
 		}
 	}
+	if (count == 0)
+		rowTotalHeight = 23;
 
 	// Check for scrollbar visibility
-	if (!tableView->horizontalScrollBar()->isHidden())
+	if (tableView->horizontalScrollBar()->isVisible())
 	{
 		rowTotalHeight += tableView->horizontalScrollBar()->height();
 	}
@@ -86,7 +88,7 @@ void GenericWidget::OnIndexSelected()
 		editor->resizeRowsToContents();
 		editor->adjustSize();
 
-		//verticalResizeTableViewToContents(editor);
+		verticalResizeTableViewToContents(editor);
 
 		QString valuecheck = data(std::get<0>(member).toUtf8().constData(), 0).toString();
 
