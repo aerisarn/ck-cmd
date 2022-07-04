@@ -24,6 +24,7 @@ namespace ckcmd {
 
 			virtual const hkClass* rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const = 0;
 			virtual bool canAdd(const ModelEdge& this_edge, const ModelEdge& another_edge, ResourceManager& manager) const = 0;
+			virtual bool isArray(int row, const ModelEdge& edge, ResourceManager& manager) const = 0;
 
 			virtual bool setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager) = 0;
 			virtual bool addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager) = 0;

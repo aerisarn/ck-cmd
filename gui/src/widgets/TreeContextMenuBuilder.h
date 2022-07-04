@@ -18,7 +18,7 @@ namespace ckcmd {
 			void buildProjectNodeMenu(std::vector<QAction*>& actions, const QVariant& action_data);
 			void buildAnimationsMenu(std::vector<QAction*>& actions);
 			void buildAnimationMenu(std::vector<QAction*>& actions);
-			void buildHavokMenu(std::vector<QAction*>& actions);
+			void buildHavokMenu(std::vector<QAction*>& actions, const QVariant& action_data);
 
 		public:
 			TreeContextMenuBuilder(ActionHandler& actionHandler)

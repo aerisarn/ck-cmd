@@ -31,6 +31,33 @@ QAction* ActionHandler::saveAction(const QVariant& action_data)
 	return _save;
 }
 
+std::vector<QAction*> ActionHandler::addActions(const QVariant& action_data)
+{
+	std::vector<QAction*> out;
+	QModelIndex index = action_data.value<QModelIndex>();
+	if (index.isValid())
+	{
+		auto types = _model.rowTypes(index);
+		for (size_t i = 1; i < types.size(); ++i)
+		{
+			if (types[i] != nullptr)
+			{
+				auto row_index = _model.index(i, 0, index);
+				if (_model.isArray(row_index))
+				{
+					QAction* action = new QAction(tr("Add to %1").arg(row_index.data().toString()), this);
+					out.push_back(action);
+				}
+				else {
+					QAction* action = new QAction(tr("Set %1").arg(row_index.data().toString()), this);
+					out.push_back(action);
+				}
+			}
+		}		
+	}
+	return out;
+}
+
 void ActionHandler::buildImportFBXAction()
 {
 	_importFBX = new QAction(tr("&Import FBX"), this);

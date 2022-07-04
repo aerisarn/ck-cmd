@@ -301,3 +301,31 @@ const hkClass* MultipleVariantsEdge::rowClass(int row, const ModelEdge& edge, Re
 	}
 	return nullptr;
 }
+
+bool MultipleVariantsEdge::isArray(int row, const ModelEdge& edge, ResourceManager& manager) const
+{
+
+	int count = Edge::rows(edge, manager);
+	if (row < count)
+		return Edge::isArray(row, edge, manager);
+
+	hkVariant* variant = edge.childItem<hkVariant>();
+	int row_index = row - count;
+	for (size_t i = 0; i < additional_variants().size(); ++i)
+	{
+		if (row_index < 0)
+			break;
+		hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+		if (v != nullptr)
+		{
+			int variant_rows = HkxTableVariant(*v).rows();
+			if (row_index < variant_rows)
+			{
+				auto arrayrows = HkxTableVariant(*v).arrayrows();
+				return std::find(arrayrows.begin(), arrayrows.end(), row - 1) != arrayrows.end();
+			}
+			row_index -= variant_rows;
+		}
+	}
+	return false;
+}

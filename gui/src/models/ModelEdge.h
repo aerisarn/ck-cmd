@@ -187,6 +187,7 @@ namespace ckcmd {
 
             NodeType type() const;
             const hkClass* rowClass(int row, ResourceManager& manager) const;
+            bool isArray(int row, ResourceManager& manager) const;
 
             bool canAddRow(const ModelEdge& other, ResourceManager& manager);
         };

@@ -36,7 +36,7 @@ ValuesWidget::ValuesWidget(ProjectModel* model, CommandManager& command_manager,
 	setWidget(_mainWidget);
 }
 
-ValuesWidget::~ValuesWidget()
+ValuesWidget::~ValuesWidget() 
 {
 }
 

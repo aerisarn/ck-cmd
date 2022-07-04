@@ -555,3 +555,29 @@ const hkClass* ProjectModel::rowType(const QModelIndex& index)
 	}
 	return nullptr;
 }
+
+std::vector<const hkClass*>  ProjectModel::rowTypes(const QModelIndex& index)
+{
+	std::vector<const hkClass*> out;
+	if (index.isValid())
+	{
+		auto rows = rowCount(index);
+		out.resize(rows);
+		auto& edge = modelEdge(index);
+		for (int i = 0; i < rows; ++i)
+		{
+			out[i] = edge.rowClass(i, _resourceManager);
+		}
+	}
+	return out;
+}
+
+bool ProjectModel::isArray(const QModelIndex& index)
+{
+	if (index.isValid())
+	{
+		auto& edge = modelEdge(index);
+		return edge.isArray(index.row(), _resourceManager);
+	}
+	return false;
+}

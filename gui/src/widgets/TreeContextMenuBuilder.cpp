@@ -27,8 +27,11 @@ void TreeContextMenuBuilder::buildAnimationMenu(std::vector<QAction*>& actions)
 	actions.push_back(_actionHandler.removeAnimationAction());
 }
 
-void TreeContextMenuBuilder::buildHavokMenu(std::vector<QAction*>& actions)
+void TreeContextMenuBuilder::buildHavokMenu(std::vector<QAction*>& actions, const QVariant& action_data)
 {
+	auto addActions = _actionHandler.addActions(action_data);
+	for (const auto& action : addActions)
+		actions.push_back(action);
 	actions.push_back(_actionHandler.copyAction());
 }
 
@@ -49,7 +52,7 @@ QMenu* TreeContextMenuBuilder::build(NodeType type, QVariant action_data)
 //here we add more specialized actions for node types. no break!
 //finally build generic havok menu
 		case NodeType::HavokNative:
-			buildHavokMenu(applicable_actions);
+			buildHavokMenu(applicable_actions, action_data);
 			break;
 		default:
 			break;

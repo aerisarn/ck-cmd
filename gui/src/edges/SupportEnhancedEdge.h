@@ -25,6 +25,7 @@ namespace ckcmd {
 			virtual std::pair<int, int> dataStart() const override;
 
 			virtual const hkClass* rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const override;
+			virtual bool isArray(int row, const ModelEdge& edge, ResourceManager& manager) const override;
 
 			virtual bool setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager) override;
 			virtual bool addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager) override;

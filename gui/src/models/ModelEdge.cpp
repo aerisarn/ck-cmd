@@ -134,7 +134,12 @@ std::pair<int, int> ModelEdge::dataStart()
 	return ModelEdgeRegistry::instance().handler(*this)->dataStart();
 }
 
-bool  ModelEdge::canAddRow(const ModelEdge& other, ResourceManager& manager)
+bool ModelEdge::canAddRow(const ModelEdge& other, ResourceManager& manager)
 {
 	return ModelEdgeRegistry::instance().handler(*this)->canAdd(*this, other, manager);
+}
+
+bool ModelEdge::isArray(int row, ResourceManager& manager) const
+{
+	return ModelEdgeRegistry::instance().handler(*this)->isArray(row, *this, manager);
 }

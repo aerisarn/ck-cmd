@@ -1,5 +1,6 @@
 #include "GenericWidget.h"
 #include <src/models/ValuesProxyModel.h>
+#include <src/hkx/ItemsDelegate.h>
 
 #include <QtWidgets/QLabel>
 #include <QTableView>
@@ -84,9 +85,9 @@ void GenericWidget::OnIndexSelected()
 		QModelIndex data_index = _model.index(member.second.first, 1, _index);
 		QString value = data_index.data().toString();
 		ValuesProxyModel* editModel = new ValuesProxyModel(&_model, member.second.first, 1, _index, this);
+		editor->setItemDelegate(new ItemsDelegate(_model.getResourceManager(), this));
 		editor->setModel(editModel);
 		editor->resizeRowsToContents();
-		editor->adjustSize();
 
 		verticalResizeTableViewToContents(editor);
 

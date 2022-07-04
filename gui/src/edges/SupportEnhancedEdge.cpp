@@ -107,3 +107,12 @@ const hkClass* SupportEnhancedEdge::rowClass(int row, const ModelEdge& edge, Res
 	}
 	return MultipleVariantsEdge::rowClass(row == 0 ? row : row - supports(), edge, manager);
 }
+
+bool SupportEnhancedEdge::isArray(int row, const ModelEdge& edge, ResourceManager& manager) const
+{
+	if (row > 0 && row < supports() + 1)
+	{
+		return false;
+	}
+	return MultipleVariantsEdge::isArray(row == 0 ? row : row - supports(), edge, manager);
+}

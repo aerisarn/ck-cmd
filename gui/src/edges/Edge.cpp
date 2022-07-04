@@ -202,3 +202,14 @@ const hkClass* Edge::rowClass(int row, const ModelEdge& edge, ResourceManager& m
 	}
 	return nullptr;
 }
+
+bool Edge::isArray(int row, const ModelEdge& edge, ResourceManager& manager) const
+{
+	hkVariant* variant = edge.childItem<hkVariant>();
+	if (nullptr != variant && row > 0)
+	{
+		auto arrayrows = HkxTableVariant(*variant).arrayrows();
+		return std::find(arrayrows.begin(), arrayrows.end(), row - 1) != arrayrows.end();
+	}
+	return false;
+}

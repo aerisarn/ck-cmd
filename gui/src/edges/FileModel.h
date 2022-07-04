@@ -20,6 +20,8 @@ namespace ckcmd {
 			virtual QVariant data(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
 			virtual std::pair<int, int> dataStart() const override;
 
+			virtual bool isArray(int row, const ModelEdge& edge, ResourceManager& manager) const { return false; }
+
 			virtual const hkClass* rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const override
 			{
 				return nullptr;

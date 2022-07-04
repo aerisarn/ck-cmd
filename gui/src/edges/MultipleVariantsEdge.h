@@ -20,6 +20,7 @@ namespace ckcmd {
 			virtual QVariant data(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
 
 			virtual const hkClass* rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const override;
+			virtual bool isArray(int row, const ModelEdge& edge, ResourceManager& manager) const override;
 
 			virtual bool setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager);
 			virtual bool addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager);

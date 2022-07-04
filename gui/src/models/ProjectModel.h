@@ -58,7 +58,8 @@ namespace ckcmd {
             void SetCopyPointer(const QModelIndex& index);
             bool PasteEnabled(const QModelIndex& index);
             const hkClass* rowType(const QModelIndex& index);
-
+            std::vector<const hkClass*> rowTypes(const QModelIndex& index);
+            bool isArray(const QModelIndex& index);
 
             /*
             ** AbstractItemModel(required methods)
