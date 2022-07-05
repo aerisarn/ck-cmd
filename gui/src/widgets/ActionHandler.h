@@ -38,6 +38,7 @@ namespace ckcmd {
 
 			void createProject();
 			void importFBX();
+			void exportFBX();
 			void removeAnimation();
 			void copy();
 

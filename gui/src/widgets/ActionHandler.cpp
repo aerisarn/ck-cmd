@@ -158,6 +158,11 @@ void ActionHandler::importFBX()
 	}
 }
 
+void ActionHandler::exportFBX()
+{
+
+}
+
 void ActionHandler::removeAnimation()
 {
 	QAction* action = static_cast<QAction*>(sender());
