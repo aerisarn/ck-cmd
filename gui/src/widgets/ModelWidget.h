@@ -48,7 +48,7 @@ namespace ckcmd {
 		typedef std::pair<size_t, size_t> data_info;
 
 		std::map<QString, data_info> _members;
-		void buildReflectionTable();
+		void buildReflectionTable(bool withBindings = false);
 		void doBindings();
 
 		std::multimap<std::pair<size_t, size_t>, std::pair<QWidget*, QByteArray>> _bindings;

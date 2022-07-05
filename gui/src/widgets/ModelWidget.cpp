@@ -29,7 +29,7 @@ size_t ModelWidget::dataBindingColumnStart() const
 	return _column_start;
 }
 
-void ModelWidget::buildReflectionTable()
+void ModelWidget::buildReflectionTable(bool withBindings)
 {
 	_members.clear();
 	int rows = _model.rowCount(_index);
@@ -41,15 +41,17 @@ void ModelWidget::buildReflectionTable()
 	int i = _row_start;
 	int j = _column_start;
 
-	std::vector<std::pair<QString, const hkClass*>> types;
+	//std::vector<std::pair<QString, const hkClass*>> types;
 
 	for (i; i < rows; ++i)
 	{
 		auto row_index = _model.index(i, 0, _index);
 		columns = _model.columnCount(row_index);
 		QString rowName = row_index.data().toString();
-		auto rowClass = _model.rowType(row_index);
-		types.push_back({ rowName, rowClass });
+		//auto rowClass = _model.rowType(row_index);
+		//types.push_back({ rowName, rowClass });
+		if (!withBindings && rowName.startsWith("bindings"))
+			continue;
 		_members.insert(
 			{
 				rowName,

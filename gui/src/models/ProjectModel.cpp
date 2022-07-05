@@ -408,6 +408,25 @@ int ProjectModel::getProjectIndex(const QModelIndex& index)
 	return modelEdge(index)._project;
 }
 
+int ProjectModel::getRigIndex(const QModelIndex& index)
+{
+	if (index.isValid())
+	{
+		auto& edge = modelEdge(index);
+		ModelEdge search_edge;
+		search_edge._project = edge._project;
+		search_edge._file = edge._file;
+		search_edge._childType = NodeType::SkeletonHkxNode;
+		QModelIndex search_index = createIndex(0, 0, modelEdgeIndex(search_edge));
+		if (search_index.isValid())
+		{
+			auto& child_edge = modelEdge(search_index);
+			return child_edge._file;
+		}		
+	}
+	return MODELEDGE_INVALID;
+}
+
 int ProjectModel::getFileIndex(const QModelIndex& index)
 {
 	return modelEdge(index)._file;

@@ -46,7 +46,7 @@ void TopInfoWidget::OnIndexSelected()
 {
     if (_model.isVariant(_index))
     {
-        buildReflectionTable();
+        buildReflectionTable(true);
         nameLineEdit->setText(_model.data(_index, Qt::DisplayRole).toString());
         clearLayout(bindingsVerticalLayout);
         if (_members.find("bindings.variableIndex") != _members.end())

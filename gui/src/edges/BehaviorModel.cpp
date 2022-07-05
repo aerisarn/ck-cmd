@@ -99,12 +99,35 @@ hkVariant* BehaviorStringData(const ModelEdge& edge, ResourceManager& manager, h
 	return nullptr;
 }
 
+hkVariant* VariablesInitialData(const ModelEdge& edge, ResourceManager& manager, hkVariant* variant)
+{
+	if (variant != nullptr)
+	{
+		auto* graph = reinterpret_cast<hkbBehaviorGraph*>(variant->m_object);
+		if (nullptr != graph)
+		{
+			auto data = graph->m_data;
+			if (data != NULL)
+			{
+				auto variablesInitial_data = data->m_variableInitialValues;
+				if (variablesInitial_data != NULL)
+				{
+					int variablesInitial_index = manager.findIndex(edge.file(), &*variablesInitial_data);
+					return manager.at(edge.file(), variablesInitial_index);
+				}
+			}
+		}
+	}
+	return nullptr;
+}
+
 
 std::vector<std::function<hkVariant* (const ModelEdge&, ResourceManager& manager, hkVariant*)>> BehaviorModel::additional_variants() const
 {
 	return {
 		BehaviorData,
-		BehaviorStringData
+		BehaviorStringData,
+		VariablesInitialData
 	};
 }
 

@@ -71,6 +71,7 @@ namespace ckcmd {
         {
             friend class ProjectModel;
 
+            static const int CHARACTER_RIG_ROW = 3;
 
             NodeType _parentType = NodeType::Invalid;
             void* _parentItem = nullptr;
@@ -86,7 +87,7 @@ namespace ckcmd {
 
             auto as_project_index_tuple() const
             {
-                return std::tie(_project, _row, _column, _childType);
+                return std::tie(_project, _childType);
             }
 
             auto as_file_only_tuple() const
@@ -108,9 +109,11 @@ namespace ckcmd {
             bool operator < (const ModelEdge& rhs) const {
                 if (
                         (
-                        _childType == NodeType::SkeletonBones ||
-                        _childType == NodeType::RagdollBones
+                            _childType == NodeType::SkeletonHkxNode ||
+                            _childType == NodeType::SkeletonBones ||
+                            _childType == NodeType::RagdollBones
                         ) || (
+                            rhs._childType == NodeType::SkeletonHkxNode ||
                             rhs._childType == NodeType::SkeletonBones ||
                             rhs._childType == NodeType::RagdollBones
                         )

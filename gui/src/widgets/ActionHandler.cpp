@@ -4,6 +4,8 @@
 #include <src/widgets/FBXImport.h>
 #include <src/utility/Conversion.h>
 
+#include <QMessageBox>
+
 //#include <src/models/ProjectTreeModel.h>
 
 using namespace ckcmd::HKX;
@@ -134,13 +136,25 @@ void ActionHandler::importFBX()
 
 	if (ok && !selection.first.empty() && !selection.second.empty())
 	{
-		fs::path out = Conversion::convertFbxAnimationToHkx(selection.first, selection.second);
-		fs::path base = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::project);
-		fs::path result_path = fs::relative(out, base);
-		int animations = _model.rowCount(index);
-		_model.insertRow(animations, index);
-		QModelIndex new_index = _model.index(animations, 0, index);
-		_model.setData(new_index, result_path.string().c_str());
+		int rig_index = _model.getRigIndex(index);
+		if (rig_index != MODELEDGE_INVALID)
+		{
+			fs::path rig_path = _model.getResourceManager().path(rig_index);
+			auto result = Conversion::convertFbxAnimationToHkx(rig_path, selection.first, selection.second);
+			if (!result.second.empty())
+			{
+				fs::path base = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::project);
+				fs::path result_path = fs::relative(result.second, base);
+				int animations = _model.rowCount(index);
+				_model.insertRow(animations, index);
+				QModelIndex new_index = _model.index(animations, 0, index);
+				_model.setData(new_index, result_path.string().c_str());
+				_model.getResourceManager().setAnimationMovementData(_model.getProjectIndex(index), result_path.string(), result.first);
+			}
+			else {
+				QMessageBox::critical(nullptr, "Import FBX Failed!", QString("Unable to import file %1").arg(selection.first.string().c_str()));
+			}
+		}
 	}
 }
 

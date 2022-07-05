@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Form</class>
- <widget class="QWidget" name="Form">
+ <class>EventEditor</class>
+ <widget class="QWidget" name="EventEditor">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -15,14 +15,14 @@
   </property>
   <layout class="QFormLayout" name="formLayout">
    <item row="0" column="0">
-    <widget class="QCheckBox" name="checkBox">
+    <widget class="QCheckBox" name="SilentCheckBox">
      <property name="text">
       <string>Silent</string>
      </property>
     </widget>
    </item>
    <item row="1" column="0">
-    <widget class="QCheckBox" name="checkBox_2">
+    <widget class="QCheckBox" name="SyncPointCheckBox">
      <property name="text">
       <string>Sync Point</string>
      </property>

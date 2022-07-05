@@ -50,6 +50,7 @@ namespace ckcmd {
             bool isVariant(const QModelIndex& index);
             bool isAssetsNode(const QModelIndex& index);
             int getProjectIndex(const QModelIndex& index);
+            int getRigIndex(const QModelIndex& index);
             int getFileIndex(const QModelIndex& index);
             std::pair<int, int> dataStart(const QModelIndex& index);
             ResourceManager& getResourceManager() { return _resourceManager; }

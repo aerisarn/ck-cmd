@@ -1514,3 +1514,11 @@ void ResourceManager::deleteAnimationSetAttackClip(int project_file, int set_ind
 	}
 }
 
+void ResourceManager::setAnimationMovementData(int project_file, const std::string& animation_row, const AnimData::root_movement_t& movement)
+{
+	auto _animation_row = animation_row;
+	long long path_crc32 = crc_32_ll(_animation_row);
+	std::pair<size_t, long long> ins = { project_file, path_crc32 };
+	_animations_root_movements.insert({ ins, movement });
+}
+
