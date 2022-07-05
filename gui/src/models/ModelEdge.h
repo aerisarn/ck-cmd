@@ -89,6 +89,11 @@ namespace ckcmd {
                 return std::tie(_project, _row, _column, _childType);
             }
 
+            auto as_file_only_tuple() const
+            {
+                return std::tie(_file, _childType);
+            }
+
             auto as_file_index_tuple() const
             {
                 return std::tie(_file, _row, _column, _childType);
@@ -105,7 +110,7 @@ namespace ckcmd {
                         (
                         _childType == NodeType::SkeletonBones ||
                         _childType == NodeType::RagdollBones
-                        ) && (
+                        ) || (
                             rhs._childType == NodeType::SkeletonBones ||
                             rhs._childType == NodeType::RagdollBones
                         )
@@ -115,10 +120,24 @@ namespace ckcmd {
                 }
                 if (
                     (
+                        _childType == NodeType::behaviorEventNames ||
+                        _childType == NodeType::behaviorVariableNames ||
+                        _childType == NodeType::behaviorCharacterPropertyNames
+                        ) || (
+                        rhs._childType == NodeType::behaviorEventNames ||
+                        rhs._childType == NodeType::behaviorVariableNames ||
+                        rhs._childType == NodeType::behaviorCharacterPropertyNames
+                        )
+                    )
+                {
+                    return as_file_only_tuple() < rhs.as_file_only_tuple();
+                }
+                if (
+                    (
                         _childType == NodeType::behaviorEventName ||
                         _childType == NodeType::behaviorVariable ||
                         _childType == NodeType::behaviorCharacterProperty
-                    ) && (
+                    ) || (
                         rhs._childType == NodeType::behaviorEventName ||
                         rhs._childType == NodeType::behaviorVariable ||
                         rhs._childType == NodeType::behaviorCharacterProperty

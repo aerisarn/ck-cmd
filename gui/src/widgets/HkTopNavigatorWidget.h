@@ -26,7 +26,10 @@ public:
 
 private:
 
-    StaticBindingTable table = {};
+    StaticBindingTable table = 
+    {
+
+    };
 
     virtual const StaticBindingTable& bindingTable() const override {
         return table;

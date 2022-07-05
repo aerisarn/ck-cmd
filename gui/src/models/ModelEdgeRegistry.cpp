@@ -19,7 +19,7 @@ ModelEdgeRegistry::ModelEdgeRegistry()
 	addEdgeHandler(new RagdollModel());
 	addEdgeHandler(new StateMachineModel());
 	addEdgeHandler(new FileModel());
-	_default_handler = new Edge();
+	_default_handler = new MultipleVariantsEdge();
 }
 
 ModelEdgeRegistry::~ModelEdgeRegistry()

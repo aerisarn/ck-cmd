@@ -43,6 +43,8 @@ namespace ckcmd {
 			bones,
 			ragdoll_bones,
 			events,
+			variables,
+			behavior_properties,
 			variable_words,
 			attack_events,
 			clips,

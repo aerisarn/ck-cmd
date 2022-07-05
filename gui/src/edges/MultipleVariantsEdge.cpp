@@ -2,15 +2,45 @@
 
 #include <src/hkx/HkxLinkedTableVariant.h>
 
+#include <hkbBindable_0.h>
+
 using namespace ckcmd::HKX;
+
+hkVariant* BindingsData(const ModelEdge& edge, ResourceManager& manager, hkVariant* variant)
+{
+	if (variant != nullptr && hkbBindableClass.isSuperClass(*variant->m_class) )
+	{
+		auto* bindable = reinterpret_cast<hkbBindable*>(variant->m_object);
+		if (nullptr != bindable)
+		{
+			auto bindings = bindable->m_variableBindingSet;
+			if (bindings != NULL)
+			{
+				int data_index = manager.findIndex(edge.file(), &*bindings);
+				return manager.at(edge.file(), data_index);
+			}
+		}
+	}
+	return nullptr;
+}
+
+std::vector<std::function<hkVariant* (const ModelEdge&, ResourceManager& manager, hkVariant*)>> MultipleVariantsEdge::_additional_variants() const
+{
+	std::vector<std::function<hkVariant* (const ModelEdge&, ResourceManager& manager, hkVariant*)>> out;
+	out.push_back(BindingsData);
+	auto& others = additional_variants();
+	for (auto& variant : others)
+		out.push_back(variant);
+	return out;
+}
 
 int MultipleVariantsEdge::rows(const ModelEdge& edge, ResourceManager& manager) const
 {
 	int count = 0;
 	hkVariant* variant = edge.childItem<hkVariant>();
-	for (size_t i = 0; i < additional_variants().size(); ++i)
+	for (size_t i = 0; i < _additional_variants().size(); ++i)
 	{
-		hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+		hkVariant* v = _additional_variants().at(i)(edge, manager, variant);
 		if (v != nullptr)
 		{
 			count += HkxTableVariant(*v).rows();
@@ -27,11 +57,11 @@ int MultipleVariantsEdge::columns(int row, const ModelEdge& edge, ResourceManage
 
 	hkVariant* variant = edge.childItem<hkVariant>();
 	int row_index = row - count;
-	for (size_t i = 0; i < additional_variants().size(); ++i)
+	for (size_t i = 0; i < _additional_variants().size(); ++i)
 	{
 		if (row_index < 0)
 			break;
-		hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+		hkVariant* v = _additional_variants().at(i)(edge, manager, variant);
 		if (v != nullptr)
 		{
 			int variant_rows = HkxTableVariant(*v).rows();
@@ -47,9 +77,9 @@ int MultipleVariantsEdge::childCount(const ModelEdge& edge, ResourceManager& man
 {
 	int count = 0;
 	hkVariant* variant = edge.childItem<hkVariant>();
-	for (size_t i = 0; i < additional_variants().size(); ++i)
+	for (size_t i = 0; i < _additional_variants().size(); ++i)
 	{
-		hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+		hkVariant* v = _additional_variants().at(i)(edge, manager, variant);
 		if (v != nullptr)
 		{
 			count += HkxLinkedTableVariant(*v).links().size();
@@ -67,11 +97,11 @@ std::pair<int, int> MultipleVariantsEdge::child(int index, const ModelEdge& edge
 	int rows = Edge::rows(edge, manager);
 	hkVariant* variant = edge.childItem<hkVariant>();
 	int child_index = index - count;
-	for (size_t i = 0; i < additional_variants().size(); ++i)
+	for (size_t i = 0; i < _additional_variants().size(); ++i)
 	{
 		if (child_index < 0)
 			break;
-		hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+		hkVariant* v = _additional_variants().at(i)(edge, manager, variant);
 		if (v != nullptr)
 		{
 			auto variant_links = HkxLinkedTableVariant(*v).links();
@@ -93,11 +123,11 @@ int MultipleVariantsEdge::childIndex(int row, int column, const ModelEdge& edge,
 	hkVariant* variant = edge.childItem<hkVariant>();
 	int row_index = row - count;
 	int child_index = Edge::childCount(edge, manager);
-	for (size_t i = 0; i < additional_variants().size(); ++i)
+	for (size_t i = 0; i < _additional_variants().size(); ++i)
 	{
 		if (row_index < 0)
 			break;
-		hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+		hkVariant* v = _additional_variants().at(i)(edge, manager, variant);
 		if (v != nullptr)
 		{
 			int variant_rows = HkxTableVariant(*v).rows();
@@ -126,11 +156,11 @@ ModelEdge MultipleVariantsEdge::child(int row, int column, const ModelEdge& edge
 
 	hkVariant* variant = edge.childItem<hkVariant>();
 	int row_index = row - count;
-	for (size_t i = 0; i < additional_variants().size(); ++i)
+	for (size_t i = 0; i < _additional_variants().size(); ++i)
 	{
 		if (row_index < 0)
 			break;
-		hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+		hkVariant* v = _additional_variants().at(i)(edge, manager, variant);
 		if (v != nullptr)
 		{
 			int variant_rows = HkxTableVariant(*v).rows();
@@ -170,11 +200,11 @@ QVariant MultipleVariantsEdge::data(int row, int column, const ModelEdge& edge, 
 
 	hkVariant* variant = edge.childItem<hkVariant>();
 	int row_index = row - count;
-	for (size_t i = 0; i < additional_variants().size(); ++i)
+	for (size_t i = 0; i < _additional_variants().size(); ++i)
 	{
 		if (row_index < 0)
 			break;
-		hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+		hkVariant* v = _additional_variants().at(i)(edge, manager, variant);
 		if (v != nullptr)
 		{
 			int variant_rows = HkxTableVariant(*v).rows();
@@ -200,9 +230,9 @@ bool MultipleVariantsEdge::setData(int row, int column, const ModelEdge& edge, c
 		int result = HkxTableVariant(*variant).setName(data.toString());
 		if (!result)
 		{
-			for (size_t i = 0; i < additional_variants().size(); ++i)
+			for (size_t i = 0; i < _additional_variants().size(); ++i)
 			{
-				hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+				hkVariant* v = _additional_variants().at(i)(edge, manager, variant);
 				if (v != nullptr)
 				{
 					result = HkxTableVariant(*v).setName(data.toString());
@@ -219,11 +249,11 @@ bool MultipleVariantsEdge::setData(int row, int column, const ModelEdge& edge, c
 
 		hkVariant* variant = edge.childItem<hkVariant>();
 		int row_index = row - count;
-		for (size_t i = 0; i < additional_variants().size(); ++i)
+		for (size_t i = 0; i < _additional_variants().size(); ++i)
 		{
 			if (row_index < 0)
 				break;
-			hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+			hkVariant* v = _additional_variants().at(i)(edge, manager, variant);
 			if (v != nullptr)
 			{
 				int variant_rows = HkxTableVariant(*v).rows();
@@ -258,11 +288,11 @@ bool MultipleVariantsEdge::changeColumns(int row, int column_start, int delta, c
 
 	hkVariant* variant = edge.childItem<hkVariant>();
 	int row_index = row - count;
-	for (size_t i = 0; i < additional_variants().size(); ++i)
+	for (size_t i = 0; i < _additional_variants().size(); ++i)
 	{
 		if (row_index < 0)
 			break;
-		hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+		hkVariant* v = _additional_variants().at(i)(edge, manager, variant);
 		if (v != nullptr)
 		{
 			int variant_rows = HkxTableVariant(*v).rows();
@@ -284,11 +314,11 @@ const hkClass* MultipleVariantsEdge::rowClass(int row, const ModelEdge& edge, Re
 
 	hkVariant* variant = edge.childItem<hkVariant>();
 	int row_index = row - count;
-	for (size_t i = 0; i < additional_variants().size(); ++i)
+	for (size_t i = 0; i < _additional_variants().size(); ++i)
 	{
 		if (row_index < 0)
 			break;
-		hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+		hkVariant* v = _additional_variants().at(i)(edge, manager, variant);
 		if (v != nullptr)
 		{
 			int variant_rows = HkxTableVariant(*v).rows();
@@ -311,11 +341,11 @@ bool MultipleVariantsEdge::isArray(int row, const ModelEdge& edge, ResourceManag
 
 	hkVariant* variant = edge.childItem<hkVariant>();
 	int row_index = row - count;
-	for (size_t i = 0; i < additional_variants().size(); ++i)
+	for (size_t i = 0; i < _additional_variants().size(); ++i)
 	{
 		if (row_index < 0)
 			break;
-		hkVariant* v = additional_variants().at(i)(edge, manager, variant);
+		hkVariant* v = _additional_variants().at(i)(edge, manager, variant);
 		if (v != nullptr)
 		{
 			int variant_rows = HkxTableVariant(*v).rows();

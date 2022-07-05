@@ -29,6 +29,8 @@ ProjectModel::ProjectModel(CommandManager& commandManager, ResourceManager& reso
 
 qintptr ProjectModel::modelEdgeIndex(const ModelEdge& edge) const
 {
+	if (_reverse_find.find(const_cast<ModelEdge*>(&edge)) == _reverse_find.end())
+		__debugbreak();
 	return _reverse_find.at(const_cast<ModelEdge*>(&edge));
 }
 
@@ -490,7 +492,29 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 		return new StringListModel(_resourceManager.assetsList(edge._project, type));
 	}
 	default:
+	{
+		ModelEdge search_edge;
+		search_edge._project = edge._project;
+		search_edge._file = edge._file;
+		QModelIndex search_index;
+		switch (type) {
+		case AssetType::events:
+			search_edge._childType = NodeType::behaviorEventNames;
+			search_index = createIndex(0, 0, modelEdgeIndex(search_edge));
+			break;
+		case AssetType::variables:
+			search_edge._childType = NodeType::behaviorVariableNames;
+			search_index = createIndex(1, 0, modelEdgeIndex(search_edge));
+			break;
+		default:
+			return nullptr;
+		}		
+		if (search_index.isValid())
+		{
+			return new SelectionProxyModel(this, search_index);
+		}
 		break;
+	}
 	}
 	return nullptr;
 }
@@ -580,4 +604,21 @@ bool ProjectModel::isArray(const QModelIndex& index)
 		return edge.isArray(index.row(), _resourceManager);
 	}
 	return false;
+} 
+
+QStringList ProjectModel::rowNames(const QModelIndex& index, const QString& prefix_filter)
+{
+	QStringList out;
+	if (index.isValid())
+	{
+		auto rows = rowCount(index);
+		auto& edge = modelEdge(index);
+		for (int i = 1; i < rows; ++i)
+		{
+			auto row_name = this->index(i, 0, index).data().toString();
+			if (!row_name.startsWith(prefix_filter))
+				out << row_name;
+		}
+	}
+	return out;
 }
