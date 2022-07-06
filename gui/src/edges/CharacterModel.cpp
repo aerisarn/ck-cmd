@@ -1,5 +1,6 @@
 #include <src/edges/CharacterModel.h>
 #include <src/hkx/HkxLinkedTableVariant.h>
+#include <src/utility/Containers.h>
 
 using namespace ckcmd::HKX;
 
@@ -347,65 +348,50 @@ QVariant CharacterModel::data(int row, int column, const ModelEdge& edge, Resour
 	return SupportEnhancedEdge::data(row, column, edge, manager);
 }
 
-//bool CharacterModel::setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager)
-//{
-//	//auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
-//	//auto string_data = data->m_stringData;
-//	//auto mirror_data = data->m_mirroredSkeletonInfo;
-//	//if (childType == NodeType::animationName)
-//	//{
-//	//	string_data->m_animationNames[row] = value.toString().toUtf8().constData();
-//	//	return true;
-//	//}
-//
-//	//if (row < SUPPORT_END)
-//	//	return false;
-//	//HkxTableVariant data_variant(*variant);
-//	//int data_rows = data_variant.rows();
-//	//if (row < SUPPORT_END + data_rows)
-//	//	return data_variant.setData(row - SUPPORT_END, column - 1, value);
-//	//int string_data_index = manager.findIndex(file, &*string_data);
-//	//HkxTableVariant stringdata_variant(*manager.at(file, string_data_index));
-//	//int stringdata_rows = stringdata_variant.rows();
-//	//if (row < SUPPORT_END + data_rows + stringdata_rows)
-//	//	return stringdata_variant.setData(row - data_rows - SUPPORT_END, column - 1, value);
-//	//int mirroring_data_index = manager.findIndex(file, &*mirror_data);
-//	//HkxTableVariant mirroring_data_variant(*manager.at(file, mirroring_data_index));
-//	//int mirroring_data_rows = mirroring_data_variant.rows();
-//	//if (row < SUPPORT_END + data_rows + stringdata_rows + mirroring_data_rows)
-//	//	return mirroring_data_variant.setData(row - stringdata_rows - data_rows - SUPPORT_END, column - 1, value);
-//	return false;
-//}
-//
-//bool CharacterModel::addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)
-//{
-//	//auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
-//	//auto string_data = data->m_stringData;
-//	//auto mirror_data = data->m_mirroredSkeletonInfo;
-//
-//	//if (childType == NodeType::animationNames)
-//	//{
-//	//	return addToContainer(row_start, count, string_data->m_animationNames);
-//	//}
-//	return false;
-//}
-//
-//bool CharacterModel::removeRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)
-//{
-//	//auto* data = reinterpret_cast<hkbCharacterData*>(variant->m_object);
-//	//auto string_data = data->m_stringData;
-//	//auto mirror_data = data->m_mirroredSkeletonInfo;
-//
-//	//if (childType == NodeType::animationNames)
-//	//{
-//	//	for (int i = 0; i < count; ++i)
-//	//		string_data->m_animationNames.removeAt(row_start);
-//	//	return true;
-//	//}
-//	return false;
-//}
-//
-//bool CharacterModel::changeColumns(int row, int column_start, int delta, const ModelEdge& edge, ResourceManager& manager)
-//{
-//	return false;
-//}
+bool CharacterModel::setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager)
+{
+	if (edge.childType() == NodeType::animationName)
+	{
+		auto string_data = string_variant(edge);
+		if (nullptr != string_data)
+		{
+			string_data->m_animationNames[edge.row()] = data.toString().toUtf8().constData();
+			return true;
+		}
+		return false;
+	}
+	return SupportEnhancedEdge::setData(row == 0 ? row : row - supports(), column, edge, data, manager);
+}
+
+bool CharacterModel::addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)
+{
+	if (edge.childType() == NodeType::animationNames)
+	{
+		auto string_data = string_variant(edge);
+		if (nullptr != string_data)
+		{
+			return addToContainer(row_start, count, string_data->m_animationNames);
+		}
+		return false;
+	}
+	return SupportEnhancedEdge::addRows(row_start, count, edge, manager);
+}
+
+
+bool CharacterModel::removeRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)
+{
+	if (edge.childType() == NodeType::animationNames)
+	{
+		auto string_data = string_variant(edge);
+		if (nullptr != string_data)
+		{
+			if (row_start + count <= string_data->m_animationNames.getSize())
+			{
+				for (int i = 0; i < count; ++i)
+					string_data->m_animationNames.removeAt(row_start);
+				return true;
+			}
+		}
+	}
+	return false;
+}

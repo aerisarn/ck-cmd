@@ -275,7 +275,8 @@ bool ProjectModel::setData(const QModelIndex& index, const QVariant& value,
 	if (role == Qt::EditRole)
 	{
 		int children = edge.childCount(_resourceManager);
-		if (edge.setData(index.row(), index.column(), value, _resourceManager))
+		bool result = edge.setData(index.row(), index.column(), value, _resourceManager);
+		if (result)
 			emit dataChanged(index, index);
 		int new_children = edge.childCount(_resourceManager);
 		if (children != new_children)
@@ -295,6 +296,7 @@ bool ProjectModel::setData(const QModelIndex& index, const QVariant& value,
 				emit endRemoveChildren();
 			}
 		}
+		return result;
 	}
 	return false;
 }

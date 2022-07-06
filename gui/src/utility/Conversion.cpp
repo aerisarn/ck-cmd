@@ -35,7 +35,7 @@ AnimationInfo Conversion::convertFbxAnimationToHkx(
 		{
 			auto time = std::get<0>(rotation);
 			auto value = std::get<1>(rotation);
-			out.first.rotations.insert({ time, {value(0), value(1), value(2), value(4)} });
+			out.first.rotations.insert({ time, {value(0), value(1), value(2), value(3)} });
 		}
 		out.first.duration = outmovement.duration;
 

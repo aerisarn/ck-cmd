@@ -24,6 +24,7 @@ void TreeContextMenuBuilder::buildAnimationsMenu(std::vector<QAction*>& actions)
 
 void TreeContextMenuBuilder::buildAnimationMenu(std::vector<QAction*>& actions)
 {
+	actions.push_back(_actionHandler.exportFBXAction());
 	actions.push_back(_actionHandler.removeAnimationAction());
 }
 

@@ -1522,3 +1522,13 @@ void ResourceManager::setAnimationMovementData(int project_file, const std::stri
 	_animations_root_movements.insert({ ins, movement });
 }
 
+const AnimData::root_movement_t& ResourceManager::getAnimationMovementData(int project_file, const std::string& animation_name)
+{
+	auto _animation_row = animation_name;
+	long long path_crc32 = crc_32_ll(_animation_row);
+	std::pair<size_t, long long> find = { project_file, path_crc32 };
+	if (_animations_root_movements.find(find) != _animations_root_movements.end())
+		return _animations_root_movements.at(find);
+	return AnimData::root_movement_t();
+}
+

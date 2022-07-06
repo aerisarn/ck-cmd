@@ -5,8 +5,7 @@
 #include <src/utility/Conversion.h>
 
 #include <QMessageBox>
-
-//#include <src/models/ProjectTreeModel.h>
+#include <QFileDialog>
 
 using namespace ckcmd::HKX;
 
@@ -68,6 +67,14 @@ void ActionHandler::buildImportFBXAction()
 	connect(_importFBX, SIGNAL(triggered()), this, SLOT(importFBX()));
 }
 
+void ActionHandler::buildExportFBXAction()
+{
+	_exportFBX = new QAction(tr("&Export FBX"), this);
+	_exportFBX->setShortcuts(QKeySequence::Back);
+	_exportFBX->setStatusTip(tr("Export FBX Asset"));
+	connect(_exportFBX, SIGNAL(triggered()), this, SLOT(exportFBX()));
+}
+
 void ActionHandler::buildRemoveAnimation()
 {
 	_removeAnimation = new QAction(tr("&Remove Animation"), this);
@@ -115,11 +122,6 @@ void ActionHandler::createProject()
 	//}
 }
 
-QAction* ActionHandler::exportAction()
-{
-	return nullptr;
-}
-
 void ActionHandler::importFBX()
 {
 	QAction* action = static_cast<QAction*>(sender());
@@ -146,9 +148,9 @@ void ActionHandler::importFBX()
 				fs::path base = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::project);
 				fs::path result_path = fs::relative(result.second, base);
 				int animations = _model.rowCount(index);
-				_model.insertRow(animations, index);
+				bool insert = _model.insertRow(animations, index);
 				QModelIndex new_index = _model.index(animations, 0, index);
-				_model.setData(new_index, result_path.string().c_str());
+				bool set_data = _model.setData(new_index, result_path.string().c_str());
 				_model.getResourceManager().setAnimationMovementData(_model.getProjectIndex(index), result_path.string(), result.first);
 			}
 			else {
@@ -158,9 +160,46 @@ void ActionHandler::importFBX()
 	}
 }
 
+fs::path export_fbx_output_dir;
+
 void ActionHandler::exportFBX()
 {
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+	bool ok;
+	fs::path animation_path = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::animation);
+	if (export_fbx_output_dir.empty())
+		export_fbx_output_dir = animation_path;
+	QString dir = QFileDialog::getExistingDirectory(nullptr, tr("Select Output directory"),
+		export_fbx_output_dir.string().c_str(),
+		QFileDialog::ShowDirsOnly
+		| QFileDialog::DontResolveSymlinks);
 
+	if (!dir.isEmpty())
+	{
+		export_fbx_output_dir = dir.toUtf8().constData();
+		int rig_index = _model.getRigIndex(index);
+		if (rig_index != MODELEDGE_INVALID)
+		{
+			fs::path rig_path = _model.getResourceManager().path(rig_index);
+			std::string project_animation = index.data().toString().toUtf8().constData();
+			animation_path = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::project) / project_animation;
+
+			auto movements = _model.getResourceManager().getAnimationMovementData(_model.getProjectIndex(index), project_animation);
+
+			bool result = Conversion::convertHkxAnimationToFBX
+			(
+				rig_path,
+				animation_path,
+				dir.toUtf8().constData(),
+				movements
+			);
+		}
+	}
 }
 
 void ActionHandler::removeAnimation()

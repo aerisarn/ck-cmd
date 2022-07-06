@@ -70,3 +70,11 @@ bool ValuesProxyModel::insertRows(int row, int count, const QModelIndex& parent)
 	return sourceModel()->insertRows(row, count, mapToSource(parent));
 }
 
+Qt::ItemFlags ValuesProxyModel::flags(const QModelIndex& index) const
+{
+	if (!index.isValid())
+		return Qt::ItemIsEnabled;
+
+	return QAbstractItemModel::flags(index) | Qt::ItemIsEditable;
+}
+

@@ -41,6 +41,8 @@ namespace ckcmd {
 
             virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
             //virtual bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
+
+            virtual Qt::ItemFlags flags(const QModelIndex& index) const override;
         };
     }
 }

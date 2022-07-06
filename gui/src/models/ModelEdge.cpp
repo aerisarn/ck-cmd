@@ -116,7 +116,7 @@ bool ModelEdge::insertRows(int row_start, int count, ResourceManager& manager)
 
 bool ModelEdge::removeRows(int row_start, int count, ResourceManager& manager)
 {
-	return ModelEdgeRegistry::instance().handler(*this)->addRows(row_start, count, *this, manager);
+	return ModelEdgeRegistry::instance().handler(*this)->removeRows(row_start, count, *this, manager);
 }
 
 bool ModelEdge::insertColumns(int row, int column_start, int count, ResourceManager& manager)

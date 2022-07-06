@@ -23,12 +23,14 @@ namespace ckcmd {
 			QAction* _createProject;
 
 			QAction* _importFBX;
+			QAction* _exportFBX;
 			QAction* _removeAnimation;
 
 			QAction* _copy;
 
 			void buildSaveAction();
 			void buildImportFBXAction();
+			void buildExportFBXAction();
 			void buildRemoveAnimation();
 			void buildCreateProjectAction();
 			void buildCopyAction();
@@ -50,6 +52,7 @@ namespace ckcmd {
 			{
 				buildSaveAction();
 				buildImportFBXAction();
+				buildExportFBXAction();
 				buildRemoveAnimation();
 				buildCopyAction();
 			}
@@ -58,8 +61,8 @@ namespace ckcmd {
 
 			QAction* saveAction(const QVariant& action_data);
 			std::vector<QAction*> addActions(const QVariant& action_data);
-			QAction* exportAction();
-			QAction* importFBXAction() { return _importFBX; };
+			QAction* exportFBXAction() { return _exportFBX; }
+			QAction* importFBXAction() { return _importFBX; }
 			QAction* removeAnimationAction() { return _removeAnimation; }
 			QAction* createProjectAction() { return _createProject; }
 			QAction* copyAction() { return _copy; }

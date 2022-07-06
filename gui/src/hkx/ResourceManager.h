@@ -153,6 +153,7 @@ namespace ckcmd {
 			size_t behaviorFileIndex(int project_file, hkVariant* data);
 			hkVariant* behaviorFileRoot(int behavior_file);
 
+			const AnimData::root_movement_t& getAnimationMovementData(int project_file, const std::string& animation_name);
 			void setAnimationMovementData(int project_file, const std::string& animation_name, const AnimData::root_movement_t& movement);
 
 			/* NODES */

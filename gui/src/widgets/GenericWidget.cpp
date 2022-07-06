@@ -67,8 +67,15 @@ void GenericWidget::OnIndexSelected()
 {
 	buildReflectionTable();
 	clearLayout(verticalLayout);
+	
 	for (const auto& member : _members)
 	{
+		int row = member.second.first;
+		QModelIndex row_index = _model.index(row, 0, _index);
+		auto type = _model.rowType(row_index);
+		if (type != nullptr)
+			continue;
+
 		QLabel* label = new QLabel(this);
 		label->setText(std::get<0>(member));
 
@@ -82,7 +89,7 @@ void GenericWidget::OnIndexSelected()
 		editor->verticalHeader()->setVisible(false);
 		editor->setShowGrid(false);
 		editor->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
-		QModelIndex data_index = _model.index(member.second.first, 1, _index);
+		QModelIndex data_index = _model.index(row, 1, _index);
 		QString value = data_index.data().toString();
 		ValuesProxyModel* editModel = new ValuesProxyModel(&_model, member.second.first, 1, _index, this);
 		editor->setItemDelegate(new ItemsDelegate(_model.getResourceManager(), this));
@@ -98,5 +105,4 @@ void GenericWidget::OnIndexSelected()
 
 		verticalLayout->addWidget(editor);
 	}
-	//this->adjustSize();
 }
