@@ -69,8 +69,9 @@ hkVariant* BehaviorData(const ModelEdge& edge, ResourceManager& manager, hkVaria
 			auto data = graph->m_data;
 			if (data != NULL)
 			{
-				int data_index = manager.findIndex(edge.file(), &*data);
-				return manager.at(edge.file(), data_index);
+				//int data_index = manager.findIndex(edge.file(), &*data);
+				//return manager.at(edge.file(), data_index);
+				return manager.findVariant(edge.file(), &*data);
 			}
 		}
 	}
@@ -90,8 +91,10 @@ hkVariant* BehaviorStringData(const ModelEdge& edge, ResourceManager& manager, h
 				auto string_data = data->m_stringData;
 				if (string_data != NULL)
 				{
-					int string_data_index = manager.findIndex(edge.file(), &*string_data);
-					return manager.at(edge.file(), string_data_index);
+					//int string_data_index = manager.findIndex(edge.file(), &*string_data);
+					//return manager.at(edge.file(), string_data_index);
+
+					return manager.findVariant(edge.file(), &*string_data);
 				}
 			}
 		}
@@ -112,8 +115,7 @@ hkVariant* VariablesInitialData(const ModelEdge& edge, ResourceManager& manager,
 				auto variablesInitial_data = data->m_variableInitialValues;
 				if (variablesInitial_data != NULL)
 				{
-					int variablesInitial_index = manager.findIndex(edge.file(), &*variablesInitial_data);
-					return manager.at(edge.file(), variablesInitial_index);
+					return manager.findVariant(edge.file(), &*variablesInitial_data);
 				}
 			}
 		}

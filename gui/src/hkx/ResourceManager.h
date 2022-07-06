@@ -7,8 +7,9 @@
 #include <core/AnimationCache.h>
 
 #include <map>
+#include <list>
 
-typedef std::pair< hkVariant, std::vector<hkVariant>> hkx_file_t;
+typedef std::pair< hkVariant, std::list<hkVariant>> hkx_file_t;
 
 struct Collection;
 struct hkVariant;
@@ -26,7 +27,7 @@ namespace Sk {
 namespace ckcmd {
 	namespace HKX {
 
-		typedef std::vector<std::pair<int, const hkVariant*>> hk_object_list_t;
+		typedef std::vector<hkVariant*> hk_object_list_t;
 
 		enum class ProjectType {
 			invalid = 0,
@@ -110,16 +111,18 @@ namespace ckcmd {
 			bool is_open(const fs::path& file) const;
 			bool is_open(int file_index) const;
 
-			int findIndex(int file_index, const void* object) const;
-			int findIndex(const fs::path& file, const void* object) const;
+			//int findIndex(int file_index, const void* object) const;
+			//int findIndex(const fs::path& file, const void* object) const;
 
-			hkVariant* at(const fs::path& file, size_t _index);
-			const hkVariant* at(const fs::path& file, size_t _index) const;
-			hkVariant* ResourceManager::at(size_t file_index, size_t _index);
-			const hkVariant* ResourceManager::at(size_t file_index, size_t _index) const;
+			//hkVariant* at(const fs::path& file, size_t _index);
+			//const hkVariant* at(const fs::path& file, size_t _index) const;
+			//hkVariant* ResourceManager::at(size_t file_index, size_t _index);
+			//const hkVariant* ResourceManager::at(size_t file_index, size_t _index) const;
 
-			hk_object_list_t findCompatibleNodes(size_t file_index, const hkClassMember* member_class) const;
-			hk_object_list_t findCompatibleNodes(size_t file_index, const hkClass* hkclass) const;
+			hkVariant* findVariant(int file_index, const void* object);
+
+			hk_object_list_t findCompatibleNodes(size_t file_index, const hkClassMember* member_class);
+			hk_object_list_t findCompatibleNodes(size_t file_index, const hkClass* hkclass);
 			std::vector<const hkClass*> findCompatibleClasses(const hkClass* hkclass) const;
 			
 			void save(size_t file_index);
@@ -169,6 +172,8 @@ namespace ckcmd {
 				_contents[file].second.push_back(v);
 				return t;
 			}
+
+			void* createObject(int file, const hkClass* hkclass, const std::string& name);
 
 			/* ASSETS */
 

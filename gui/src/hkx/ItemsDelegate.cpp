@@ -24,21 +24,21 @@ ItemsDelegate::ItemsDelegate(const ResourceManager& manager, QObject* parent)
 {
 }
 
-QString ItemsDelegate::ObjectText(int object_index, size_t file_index) const {
-    QString label = QString("[%1]").arg(object_index);
-    if (object_index > 0)
-    {
-        auto* variant = _manager.at(file_index, object_index);
-        auto member = variant->m_class->getMemberByName("name");
-        if (HK_NULL != member)
-        {
-            auto member_ptr = ((char*)variant->m_object) + member->getOffset();
-            auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
-            label = QString("[%1] \"%2\"").arg(object_index).arg(c_str_ptr);
-        }
-    }
-    return label;
-}
+//QString ItemsDelegate::ObjectText(int object_index, size_t file_index) const {
+//    QString label = QString("[%1]").arg(object_index);
+//    if (object_index > 0)
+//    {
+//        auto* variant = _manager.at(file_index, object_index);
+//        auto member = variant->m_class->getMemberByName("name");
+//        if (HK_NULL != member)
+//        {
+//            auto member_ptr = ((char*)variant->m_object) + member->getOffset();
+//            auto c_str_ptr = (char*)*(uintptr_t*)(member_ptr);
+//            label = QString("[%1] \"%2\"").arg(object_index).arg(c_str_ptr);
+//        }
+//    }
+//    return label;
+//}
 
 template <typename T>
 void paintReference(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index)

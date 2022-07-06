@@ -19,7 +19,7 @@ SelectNode::SelectNode(ProjectModel& model, const QModelIndex& index, QWidget* p
 	QStringList compatible_nodes_names;
 	for (int i = 0; i < _compatible_nodes.size(); ++i)
 	{
-		compatible_nodes_names << HkxVariant(*_manager.at(_file_index, _compatible_nodes.at(i).first)).name();
+		compatible_nodes_names << HkxVariant(*_compatible_nodes.at(i)).name();
 	}
 	auto compatible_nodes_model = new QStringListModel(compatible_nodes_names, this);
 	_compatible_nodes_proxyModel = new QSortFilterProxyModel(this);
@@ -52,7 +52,7 @@ void SelectNode::referenceExistingTreeViewCurrentChanged(const QModelIndex& sele
 	if (selected.isValid())
 	{
 		int real_row = _compatible_nodes_proxyModel->mapToSource(selected).row();
-		_variant = _manager.at(_file_index, _compatible_nodes.at(real_row).first);
+		_variant = _compatible_nodes.at(real_row);
 		createNewTreeView->selectionModel()->clearSelection();
 	}
 	else {

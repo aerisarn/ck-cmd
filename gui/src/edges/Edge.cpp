@@ -88,8 +88,8 @@ ModelEdge Edge::child(int row, int column, const ModelEdge& edge, ResourceManage
 		{
 			if (links.at(i)._row == row - 1 && links.at(i)._column == column - 1)
 			{
-				auto child_variant_index = manager.findIndex(edge.file(), links.at(i)._ref);
-				if (child_variant_index != -1)
+				auto child_variant = manager.findVariant(edge.file(), links.at(i)._ref);
+				if (child_variant != nullptr)
 					return ModelEdge(
 						edge,
 						edge.project(),
@@ -97,7 +97,7 @@ ModelEdge Edge::child(int row, int column, const ModelEdge& edge, ResourceManage
 						row,
 						column,
 						edge.subindex(),
-						manager.at(edge.file(),	child_variant_index),
+						child_variant,
 						NodeType::HavokNative
 					);
 			}

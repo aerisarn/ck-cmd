@@ -1,6 +1,7 @@
 #include <src/Skyrim/TES5File.h>
 #include <src/Collection.h>
 #include <src/ModFile.h>
+#include <src/hkx/HkxVariant.h>
 
 #include <src/config.h>
 
@@ -16,6 +17,8 @@
 
 #include <QSet>
 #include <atomic>
+
+
 
 using namespace ckcmd::HKX;
 
@@ -110,53 +113,71 @@ bool ResourceManager::is_open(int file_index) const {
 }
 
 
-int ResourceManager::findIndex(int file_index, const void* object) const
+hkVariant* ResourceManager::findVariant(int file_index, const void* object)
 {
 	auto& _objects = _contents.at(file_index).second;
-	for (int i = 0; i < _objects.size(); i++) {
-		if (_objects[i].m_object == object)
-			return i;
+	for (auto& _object : _objects)
+	{
+		if (_object.m_object == object)
+			return &_object;
 	}
-	return HK_INVALID_REF;
+	return nullptr;
 }
 
-int ResourceManager::findIndex(const fs::path& file, const void* object) const
-{
-	return findIndex(index(file), object);
-}
+//int ResourceManager::findIndex(int file_index, const void* object) const
+//{
+//	auto& _objects = _contents.at(file_index).second;
+//	for (int i = 0; i < _objects.size(); i++) {
+//		if (_objects[i].m_object == object)
+//			return i;
+//	}
+//	return HK_INVALID_REF;
+//}
+//
+//int ResourceManager::findIndex(const fs::path& file, const void* object) const
+//{
+//	return findIndex(index(file), object);
+//}
 
-hkVariant* ResourceManager::at(const fs::path& file, size_t _index) {
-	return const_cast<hkVariant*>(static_cast<const ResourceManager&>(*this).at(file, _index));
-}
+//hkVariant* ResourceManager::at(const fs::path& file, size_t _index) {
+//	return const_cast<hkVariant*>(static_cast<const ResourceManager&>(*this).at(file, _index));
+//}
+//
+//const hkVariant* ResourceManager::at(const fs::path& file, size_t _index) const {
+//	return &_contents.at(index(file)).second[_index];
+//}
+//
+//hkVariant* ResourceManager::at(size_t file_index, size_t _index) {
+//	return const_cast<hkVariant*>(static_cast<const ResourceManager&>(*this).at(file_index, _index));
+//}
+//
+//const hkVariant* ResourceManager::at(size_t file_index, size_t _index) const {
+//	return &_contents.at(file_index).second[_index];
+//}
 
-const hkVariant* ResourceManager::at(const fs::path& file, size_t _index) const {
-	return &_contents.at(index(file)).second[_index];
-}
-
-hkVariant* ResourceManager::at(size_t file_index, size_t _index) {
-	return const_cast<hkVariant*>(static_cast<const ResourceManager&>(*this).at(file_index, _index));
-}
-
-const hkVariant* ResourceManager::at(size_t file_index, size_t _index) const {
-	return &_contents.at(file_index).second[_index];
-}
-
-hk_object_list_t ResourceManager::findCompatibleNodes(size_t file_index, const hkClassMember* member_class) const
+hk_object_list_t ResourceManager::findCompatibleNodes(size_t file_index, const hkClassMember* member_class)
 {
 	return findCompatibleNodes(file_index, member_class->getClass());
 }
 
-hk_object_list_t ResourceManager::findCompatibleNodes(size_t file_index, const hkClass* hkclass) const
+hk_object_list_t ResourceManager::findCompatibleNodes(size_t file_index, const hkClass* hkclass)
 {
 	hk_object_list_t result;
 	auto& file_contents = _contents.at(file_index).second;
-	for (int i = 0; i < file_contents.size(); i++) {
-		const auto& object = file_contents[i];
-		if (hkclass == object.m_class ||
-			hkclass->isSuperClass(*object.m_class)) {
-			result.push_back({ i, &object });
+	for (auto& content : file_contents)
+	{
+		if (hkclass == content.m_class ||
+			hkclass->isSuperClass(*content.m_class)) {
+			result.push_back(&content);
 		}
 	}
+	//for (int i = 0; i < file_contents.size(); i++) {
+	//	const auto& object = file_contents[i];
+	//	if (hkclass == object.m_class ||
+	//		hkclass->isSuperClass(*object.m_class)) {
+	//		result.push_back({ i, &object });
+	//	}
+	//}
 	return result;
 }
 std::vector<const hkClass*> ResourceManager::findCompatibleClasses(const hkClass* hkclass) const
@@ -200,15 +221,15 @@ hkx_file_t& ResourceManager::get(const fs::path& file)
 			LOG << "Unable to find: " + file.string() << log_endl;
 			//throw std::runtime_error("Unable to find: " + file.string());
 		}
-		new_file.second.resize(to_read.getSize());
+		//new_file.second.resize(to_read.getSize());
 		for (int i = 0; i < to_read.getSize(); i++) {
-			new_file.second[i] = to_read[i];
+			new_file.second.push_back(to_read[i]);
 		}
 
-		for (int i = 0; i < new_file.second.size(); i++) {
-			if (new_file.second[i].m_object == root)
+		for (int i = 0; i < to_read.getSize(); i++) {
+			if (to_read[i].m_object == root)
 			{
-				new_file.first = new_file.second[i];
+				new_file.first = to_read[i];
 				break;
 			}
 		}	
@@ -954,7 +975,7 @@ hkVariant* ResourceManager::behaviorFileRoot(int behavior_file)
 	return nullptr;
 }
 
-std::pair< hkRefPtr<const hkaSkeleton>, bool> hasRagdoll(const std::vector<hkVariant>& contents)
+std::pair< hkRefPtr<const hkaSkeleton>, bool> hasRagdoll(const std::list<hkVariant>& contents)
 {
 	for (const auto& content : contents)
 	{
@@ -1141,11 +1162,11 @@ QStringList ResourceManager::clipList(int project_index)
 		if (fs::is_regular_file(entry.path()))
 		{
 			auto& contents = get(entry.path());
-			for (int i = 0; i < contents.second.size(); ++i)
+			for (const auto& content : contents.second)
 			{
-				if (contents.second[i].m_class == &hkbClipGeneratorClass)
+				if (content.m_class == &hkbClipGeneratorClass)
 				{
-					out << reinterpret_cast<hkbClipGenerator*>(contents.second[i].m_object)->m_name.cString();
+					out << reinterpret_cast<hkbClipGenerator*>(content.m_object)->m_name.cString();
 				}
 			}
 		}
@@ -1169,11 +1190,11 @@ QStringList ResourceManager::clipAnimationsList(int project_index)
 		if (fs::is_regular_file(entry.path()))
 		{
 			auto& contents = get(entry.path());
-			for (int i = 0; i < contents.second.size(); ++i)
+			for (const auto& content : contents.second)
 			{
-				if (contents.second[i].m_class == &hkbClipGeneratorClass)
+				if (content.m_class == &hkbClipGeneratorClass)
 				{
-					out << reinterpret_cast<hkbClipGenerator*>(contents.second[i].m_object)->m_animationName.cString();
+					out << reinterpret_cast<hkbClipGenerator*>(content.m_object)->m_animationName.cString();
 				}
 			}
 		}
@@ -1197,11 +1218,11 @@ QStringList ResourceManager::attackEventList(int project_index)
 		if (fs::is_regular_file(entry.path()))
 		{
 			auto& contents = get(entry.path());
-			for (int i = 0; i < contents.second.size(); ++i)
+			for (const auto& content : contents.second)
 			{
-				if (contents.second[i].m_class == &hkbBehaviorGraphStringDataClass)
+				if (content.m_class == &hkbBehaviorGraphStringDataClass)
 				{
-					hkbBehaviorGraphStringData* string_data = reinterpret_cast<hkbBehaviorGraphStringData*>(contents.second[i].m_object);
+					hkbBehaviorGraphStringData* string_data = reinterpret_cast<hkbBehaviorGraphStringData*>(content.m_object);
 					for (int e = 0; e < string_data->m_eventNames.getSize(); ++e)
 					{
 						QString eventName = string_data->m_eventNames[e].cString();
@@ -1239,11 +1260,11 @@ QStringList ResourceManager::wordVariableList(int project_index)
 		if (fs::is_regular_file(entry.path()))
 		{
 			auto& contents = get(entry.path());
-			for (int i = 0; i < contents.second.size(); ++i)
+			for (const auto& content : contents.second)
 			{
-				if (contents.second[i].m_class == &hkbBehaviorGraphDataClass)
+				if (content.m_class == &hkbBehaviorGraphDataClass)
 				{
-					hkbBehaviorGraphData* data = reinterpret_cast<hkbBehaviorGraphData*>(contents.second[i].m_object);
+					hkbBehaviorGraphData* data = reinterpret_cast<hkbBehaviorGraphData*>(content.m_object);
 					hkbBehaviorGraphStringData* string_data = data->m_stringData;
 					for (int v = 0; v < data->m_variableInfos.getSize(); ++v)
 					{
@@ -1569,5 +1590,18 @@ const AnimData::root_movement_t& ResourceManager::getAnimationMovementData(int p
 	if (_animations_root_movements.find(find) != _animations_root_movements.end())
 		return _animations_root_movements.at(find);
 	return AnimData::root_movement_t();
+}
+
+//hkTypeInfoRegistry::getInstance()
+void* ResourceManager::createObject(int file, const hkClass* hkclass, const std::string& name)
+{
+	hkVariant v;
+	v.m_object = malloc(hkclass->getObjectSize());
+	memset(v.m_object, 0, hkclass->getObjectSize());
+	v.m_class = hkclass;
+	auto info = hkTypeInfoRegistry::getInstance().finishLoadedObject(v.m_object, hkclass->getName());
+	HkxVariant(v).setName(name.c_str());
+	_contents[file].second.push_back(v);
+	return v.m_object;
 }
 

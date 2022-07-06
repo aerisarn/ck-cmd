@@ -5,6 +5,8 @@
 #include <src/widgets/SelectNode.h>
 #include <src/utility/Conversion.h>
 
+#include <src/items/HkxItemPointer.h>
+
 #include <QMessageBox>
 #include <QFileDialog>
 
@@ -239,5 +241,26 @@ void ActionHandler::addOrSet()
 	//row index to be set or container to be modified;
 	bool ok;
 	auto selection = SelectNode::getNode(_model, index, nullptr, &ok);
-
+	if (ok)
+	{
+		void* to_set_or_add = selection.second == nullptr ? nullptr : selection.second->m_object;
+		if (to_set_or_add == nullptr)
+		{
+			std::string name = selection.first.second.toUtf8().constData();
+			to_set_or_add = _model.getResourceManager().createObject(_model.getFileIndex(index), selection.first.first, name);
+		}
+		HkxItemPointer p(to_set_or_add);
+		QVariant value; value.setValue(p);
+		bool isArray = _model.isArray(index);
+		if (isArray)
+		{
+			int columns = _model.columnCount(index);
+			bool result = _model.insertColumns(index.row(), columns, 1, index);
+			QModelIndex new_index = _model.index(index.row(), columns, index.parent());
+			_model.setData(new_index, value);
+		}
+		else {
+			_model.setData(index, value);
+		}
+	}
 }

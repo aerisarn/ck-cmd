@@ -16,8 +16,10 @@ hkVariant* BindingsData(const ModelEdge& edge, ResourceManager& manager, hkVaria
 			auto bindings = bindable->m_variableBindingSet;
 			if (bindings != NULL)
 			{
-				int data_index = manager.findIndex(edge.file(), &*bindings);
-				return manager.at(edge.file(), data_index);
+				//int data_index = manager.findIndex(edge.file(), &*bindings);
+				//return manager.at(edge.file(), data_index);
+
+				return manager.findVariant(edge.file(), &*bindings);
 			}
 		}
 	}
@@ -171,8 +173,8 @@ ModelEdge MultipleVariantsEdge::child(int row, int column, const ModelEdge& edge
 				{
 					if (links.at(l)._row == row_index && links.at(l)._column == column)
 					{
-						auto child_variant_index = manager.findIndex(edge.file(), links.at(i)._ref);
-						if (child_variant_index != -1)
+						auto child_variant = manager.findVariant(edge.file(), links.at(i)._ref);
+						if (child_variant != nullptr)
 							return ModelEdge(
 								edge,
 								edge.project(),
@@ -180,7 +182,7 @@ ModelEdge MultipleVariantsEdge::child(int row, int column, const ModelEdge& edge
 								row,
 								column,
 								edge.subindex(),
-								manager.at(edge.file(), child_variant_index),
+								child_variant,
 								NodeType::HavokNative
 							);
 					}

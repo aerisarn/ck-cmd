@@ -64,8 +64,10 @@ hkVariant* CharacterStringData(const ModelEdge& edge, ResourceManager& manager, 
 		auto string_data = data->m_stringData;
 		if (data != NULL)
 		{
-			int data_index = manager.findIndex(edge.file(), &*string_data);
-			return manager.at(edge.file(), data_index);
+			//int data_index = manager.findIndex(edge.file(), &*string_data);
+			//return manager.at(edge.file(), data_index);
+
+			return manager.findVariant(edge.file(), &*string_data);
 		}
 	}
 	return nullptr;
@@ -79,8 +81,10 @@ hkVariant* CharacterMirrorInfo(const ModelEdge& edge, ResourceManager& manager, 
 		auto mirror_info = data->m_mirroredSkeletonInfo;
 		if (mirror_info != NULL)
 		{
-			int string_data_index = manager.findIndex(edge.file(), &*mirror_info);
-			return manager.at(edge.file(), string_data_index);
+			//int string_data_index = manager.findIndex(edge.file(), &*mirror_info);
+			//return manager.at(edge.file(), string_data_index);
+
+			return manager.findVariant(edge.file(), &*mirror_info);
 		}
 	}
 	return nullptr;

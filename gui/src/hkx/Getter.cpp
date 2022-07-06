@@ -20,7 +20,7 @@ void Getter::check(void* value) {
 void Getter::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
 	if (_row == 0)
-		_value.setValue(HkxItemPointer((void*)*(uintptr_t*)v, _classmember));
+		_value.setValue(HkxItemPointer((void*)*(uintptr_t*)v));
 	_row -= 1;
 }
 
@@ -69,7 +69,7 @@ void Getter::visit(void* object, const hkClassMember& definition)
 					h.accept(*this);
 				}
 				else {
-					_value.setValue(HkxItemPointer((void*)*(uintptr_t*)element, _classmember));
+					_value.setValue(HkxItemPointer((void*)*(uintptr_t*)element));
 				}
 			}
 			_row -= array_rows;
@@ -139,7 +139,7 @@ void Getter::visit(void* object, const hkClass& object_type, const char* member_
 		}
 	}
 	else {
-		_value.setValue(HkxItemPointer((void*)*(uintptr_t*)object, _classmember));
+		_value.setValue(HkxItemPointer((void*)*(uintptr_t*)object));
 	}
 	_row -= array_rows;
 }
