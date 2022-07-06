@@ -69,7 +69,7 @@ ResourceManager::~ResourceManager()
 int ResourceManager::index(const fs::path& file) const {
 	for (const auto& entry : _files)
 	{
-		if (entry.second == file)
+		if (fs::equivalent(entry.second,file))
 		{
 			return entry.first;
 		}
@@ -83,7 +83,7 @@ fs::path ResourceManager::path(int file_index) const
 }
 
 bool ResourceManager::is_open(const fs::path& file) const {
-	return std::find_if(_files.begin(), _files.end(), [file](const auto& entry) {return file == entry.second; }) != _files.end();
+	return std::find_if(_files.begin(), _files.end(), [file](const auto& entry) {return fs::equivalent(file,entry.second); }) != _files.end();
 }
 
 bool ResourceManager::is_open(int file_index) const {
@@ -175,6 +175,7 @@ hkx_file_t& ResourceManager::get(const fs::path& file)
 			}
 		}	
 		_contents[runtime_file_id] = new_file;
+
 		_files[runtime_file_id++] = file;
 	}
 	return _contents[index(file)];
@@ -1519,7 +1520,7 @@ void ResourceManager::setAnimationMovementData(int project_file, const std::stri
 	auto _animation_row = animation_row;
 	long long path_crc32 = crc_32_ll(_animation_row);
 	std::pair<size_t, long long> ins = { project_file, path_crc32 };
-	_animations_root_movements.insert({ ins, movement });
+	_animations_root_movements[ins] = movement;
 }
 
 const AnimData::root_movement_t& ResourceManager::getAnimationMovementData(int project_file, const std::string& animation_name)
