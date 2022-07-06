@@ -18,6 +18,6 @@ namespace ckcmd {
 
 	public:
 		ModelDialog(HKX::ProjectModel& model, const QModelIndex& index, QWidget* parent = 0);
-
+		virtual ~ModelDialog() {}
 	};
 }

@@ -43,6 +43,7 @@ namespace ckcmd {
 			void exportFBX();
 			void removeAnimation();
 			void copy();
+			void addOrSet();
 
 		public:
 			ActionHandler(ProjectModel& model, QObject* parent = nullptr) :

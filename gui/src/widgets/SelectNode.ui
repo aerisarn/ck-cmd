@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Dialog</class>
- <widget class="QDialog" name="Dialog">
+ <class>SelectNode</class>
+ <widget class="QDialog" name="SelectNode">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -26,7 +26,14 @@
         </widget>
        </item>
        <item>
-        <widget class="QTreeView" name="createNewTreeView"/>
+        <widget class="QTreeView" name="createNewTreeView">
+         <property name="editTriggers">
+          <set>QAbstractItemView::NoEditTriggers</set>
+         </property>
+         <attribute name="headerVisible">
+          <bool>false</bool>
+         </attribute>
+        </widget>
        </item>
       </layout>
      </item>
@@ -40,7 +47,14 @@
         </widget>
        </item>
        <item>
-        <widget class="QTreeView" name="referenceExistingTreeView"/>
+        <widget class="QTreeView" name="referenceExistingTreeView">
+         <property name="editTriggers">
+          <set>QAbstractItemView::NoEditTriggers</set>
+         </property>
+         <attribute name="headerVisible">
+          <bool>false</bool>
+         </attribute>
+        </widget>
        </item>
       </layout>
      </item>
@@ -91,7 +105,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>Dialog</receiver>
+   <receiver>SelectNode</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -107,7 +121,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>Dialog</receiver>
+   <receiver>SelectNode</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

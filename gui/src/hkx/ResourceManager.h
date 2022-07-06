@@ -67,6 +67,7 @@ namespace ckcmd {
 			std::map<std::pair<size_t, long long>, AnimData::root_movement_t> _animations_root_movements;
 			//project_file, crc32(set) -> anim_name inside character data 
 			std::multimap<std::pair<size_t, long long>, std::string> _decoded_loaded_sets;
+			std::vector<const hkClass*> _concreate_classes;
 			
 			//IDLES
 			Collection* _esp;
@@ -118,6 +119,8 @@ namespace ckcmd {
 			const hkVariant* ResourceManager::at(size_t file_index, size_t _index) const;
 
 			hk_object_list_t findCompatibleNodes(size_t file_index, const hkClassMember* member_class) const;
+			hk_object_list_t findCompatibleNodes(size_t file_index, const hkClass* hkclass) const;
+			std::vector<const hkClass*> findCompatibleClasses(const hkClass* hkclass) const;
 			
 			void save(size_t file_index);
 			void save_cache(int project_index);

@@ -63,7 +63,8 @@ QMenu* TreeContextMenuBuilder::build(NodeType type, QVariant action_data)
 		QMenu* menu = new QMenu();
 		for (auto& action : applicable_actions)
 		{
-			action->setData(action_data);
+			if (action->data().isNull())
+				action->setData(action_data);
 			menu->addAction(action);
 		}
 		return menu;

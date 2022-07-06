@@ -95,17 +95,12 @@ void GenericWidget::OnIndexSelected()
 		editor->verticalHeader()->setVisible(false);
 		editor->setShowGrid(false);
 		editor->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
-		QModelIndex data_index = _model.index(row, 1, _index);
-		QString value = data_index.data().toString();
 		ValuesProxyModel* editModel = new ValuesProxyModel(&_model, member.second.first, 1, _index, this);
 		editor->setItemDelegate(new ItemsDelegate(_model.getResourceManager(), this));
 		editor->setModel(editModel);
 		editor->resizeRowsToContents();
 
-		QString valuecheck = data(std::get<0>(member).toUtf8().constData(), 0).toString();
-
-		if (value != valuecheck)
-			__debugbreak();
+		verticalResizeTableViewToContents(editor);
 
 		verticalLayout->addWidget(editor);
 	}

@@ -59,6 +59,25 @@ ResourceManager::ResourceManager(WorkspaceConfig& workspace) :
 	logger.init(4, argvv);
 
 	_esp->Load();
+
+	//find children classes;
+	hkDefaultClassNameRegistry& defaultRegistry = hkDefaultClassNameRegistry::getInstance();
+	hkArray<const hkClass*> classes;
+	defaultRegistry.getClasses(classes);
+	for (int i = 0; i < classes.getSize(); ++i)
+	{
+		bool isParent = false;
+		for (int j = 0; j < classes.getSize(); ++j)
+		{
+			if (classes[j]->getParent() == classes[i])
+			{
+				isParent = true;
+				break;
+			}
+		}
+		if (!isParent)
+			_concreate_classes.push_back(classes[i]);
+	}
 }
 
 ResourceManager::~ResourceManager() 
@@ -124,16 +143,35 @@ const hkVariant* ResourceManager::at(size_t file_index, size_t _index) const {
 
 hk_object_list_t ResourceManager::findCompatibleNodes(size_t file_index, const hkClassMember* member_class) const
 {
+	return findCompatibleNodes(file_index, member_class->getClass());
+}
+
+hk_object_list_t ResourceManager::findCompatibleNodes(size_t file_index, const hkClass* hkclass) const
+{
 	hk_object_list_t result;
 	auto& file_contents = _contents.at(file_index).second;
 	for (int i = 0; i < file_contents.size(); i++) {
 		const auto& object = file_contents[i];
-		if (member_class->getClass() == object.m_class ||
-			member_class->getClass()->isSuperClass(*object.m_class)) {
+		if (hkclass == object.m_class ||
+			hkclass->isSuperClass(*object.m_class)) {
 			result.push_back({ i, &object });
 		}
 	}
 	return result;
+}
+std::vector<const hkClass*> ResourceManager::findCompatibleClasses(const hkClass* hkclass) const
+{
+	std::vector<const hkClass*> out;
+	for (size_t c = 0; c < _concreate_classes.size(); ++c)
+	{
+		auto hclass = _concreate_classes[c];
+		if (hclass->getNumDeclaredMembers() > 0 &&
+			(hkclass == _concreate_classes[c] || hkclass->isSuperClass(*_concreate_classes[c])))
+		{
+			out.push_back(hclass);
+		}
+	}
+	return out;
 }
 
 hkx_file_t& ResourceManager::get(size_t index)

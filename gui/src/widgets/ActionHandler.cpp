@@ -2,6 +2,7 @@
 
 #include <src/hkx/Saver.h>
 #include <src/widgets/FBXImport.h>
+#include <src/widgets/SelectNode.h>
 #include <src/utility/Conversion.h>
 
 #include <QMessageBox>
@@ -47,10 +48,14 @@ std::vector<QAction*> ActionHandler::addActions(const QVariant& action_data)
 				if (_model.isArray(row_index))
 				{
 					QAction* action = new QAction(tr("Add to %1").arg(row_index.data().toString()), this);
+					action->setData(row_index);
+					connect(action, SIGNAL(triggered()), this, SLOT(addOrSet()));
 					out.push_back(action);
 				}
 				else {
 					QAction* action = new QAction(tr("Set %1").arg(row_index.data().toString()), this);
+					action->setData(row_index);
+					connect(action, SIGNAL(triggered()), this, SLOT(addOrSet()));
 					out.push_back(action);
 				}
 			}
@@ -221,4 +226,18 @@ void ActionHandler::copy()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
+}
+
+void ActionHandler::addOrSet()
+{
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+	//row index to be set or container to be modified;
+	bool ok;
+	auto selection = SelectNode::getNode(_model, index, nullptr, &ok);
+
 }
