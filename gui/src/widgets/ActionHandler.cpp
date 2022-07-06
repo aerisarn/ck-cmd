@@ -210,7 +210,7 @@ void ActionHandler::removeAnimation()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
-	_model.removeRow(index.row(), index.parent());
+	_model.remove(index);
 }
 
 void ActionHandler::copy()
@@ -221,5 +221,4 @@ void ActionHandler::copy()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
-	_model.removeRow(index.row(), index.parent());
 }

@@ -88,6 +88,7 @@ namespace ckcmd {
 
             virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
             virtual bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
+            bool ProjectModel::remove(const QModelIndex& index);
             virtual bool insertColumns(int row, int column, int count, const QModelIndex& parent = QModelIndex());
 
             /*

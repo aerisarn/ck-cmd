@@ -256,9 +256,9 @@ void ResourceManager::save_cache(int project_index)
 	CacheEntry* project_entry = findCacheEntry(project);
 	fs::path animationDataPath = "animationdatasinglefile.txt";
 	fs::path animationSetDataPath = "animationsetdatasinglefile.txt";
-	fs::create_directories(_workspace.getFolder() / "test");
+	fs::create_directories(_workspace.getFolder());
 	_cache.save_creature(
-		project, project_entry, animationDataPath, animationSetDataPath, _workspace.getFolder() / "test"
+		project, project_entry, animationDataPath, animationSetDataPath, _workspace.getFolder()
 	);
 }
 

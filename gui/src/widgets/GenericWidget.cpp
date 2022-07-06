@@ -2,6 +2,7 @@
 #include <src/models/ValuesProxyModel.h>
 #include <src/hkx/ItemsDelegate.h>
 
+#include <QSpacerItem>
 #include <QtWidgets/QLabel>
 #include <QTableView>
 #include <QLineEdit>
@@ -16,6 +17,7 @@ GenericWidget::GenericWidget(ckcmd::HKX::ProjectModel& model, QWidget* parent) :
 {
 	this->resize(510, 372);
 	verticalLayout = new QVBoxLayout(this);
+	verticalLayout->setAlignment(Qt::AlignTop);
 }
 
 void clearLayout(QLayout* layout, bool deleteWidgets = true)
@@ -61,13 +63,14 @@ void verticalResizeTableViewToContents(QTableView* tableView)
 		rowTotalHeight += tableView->horizontalHeader()->height();
 	}
 	tableView->setMinimumHeight(rowTotalHeight);
+	tableView->setMaximumHeight(rowTotalHeight);
 }
 
 void GenericWidget::OnIndexSelected()
 {
 	buildReflectionTable();
 	clearLayout(verticalLayout);
-	
+
 	for (const auto& member : _members)
 	{
 		int row = member.second.first;
@@ -75,9 +78,12 @@ void GenericWidget::OnIndexSelected()
 		auto type = _model.rowType(row_index);
 		if (type != nullptr)
 			continue;
+		if (std::get<0>(member) == "name")
+			continue;
 
 		QLabel* label = new QLabel(this);
 		label->setText(std::get<0>(member));
+		label->setMaximumHeight(23);
 
 		verticalLayout->addWidget(label);
 
@@ -95,8 +101,6 @@ void GenericWidget::OnIndexSelected()
 		editor->setItemDelegate(new ItemsDelegate(_model.getResourceManager(), this));
 		editor->setModel(editModel);
 		editor->resizeRowsToContents();
-
-		verticalResizeTableViewToContents(editor);
 
 		QString valuecheck = data(std::get<0>(member).toUtf8().constData(), 0).toString();
 

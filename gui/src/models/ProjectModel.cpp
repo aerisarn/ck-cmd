@@ -563,6 +563,23 @@ bool ProjectModel::removeRows(int row, int count, const QModelIndex& index)
 	return result;
 }
 
+bool ProjectModel::remove(const QModelIndex& index)
+{
+	auto& edge = modelEdge(index);
+	auto& parent_edge = modelEdge(edge._parent);
+	int row = edge.row();
+	emit beginRemoveRows(edge._parent, row, row);
+	emit beginRemoveChildren(edge._parent, row, row);
+	bool result = parent_edge.removeRows(row, 1, _resourceManager);
+	emit endRemoveChildren();
+	emit endRemoveRows();
+	auto id = _reverse_find.at(&edge);
+	_reverse_find.erase(&edge);
+	_direct_find.erase(id);
+	return result;
+}
+
+
 bool ProjectModel::insertColumns(int row, int column, int count, const QModelIndex& index)
 {
 	auto& edge = modelEdge(index);

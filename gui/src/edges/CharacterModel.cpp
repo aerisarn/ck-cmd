@@ -387,8 +387,7 @@ bool CharacterModel::removeRows(int row_start, int count, const ModelEdge& edge,
 		{
 			if (row_start + count <= string_data->m_animationNames.getSize())
 			{
-				for (int i = 0; i < count; ++i)
-					string_data->m_animationNames.removeAt(row_start);
+				string_data->m_animationNames.removeAtAndCopy(row_start, count);
 				return true;
 			}
 		}
