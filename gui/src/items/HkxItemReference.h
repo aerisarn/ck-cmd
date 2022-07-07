@@ -3,6 +3,8 @@
 #include <QString>
 #include <QVariant>
 
+#include <src/hkx/ResourceManager.h>
+
 namespace ckcmd {
 	namespace HKX {
 
@@ -21,14 +23,13 @@ namespace ckcmd {
 				_index(index)
 			{}
 
-			virtual QString getValue() const { return ""; }
-			virtual QStringList getValues() const { return {""}; }
-
 			virtual operator QVariant() const = 0;
 
 			virtual size_t index() { return _index; }
 
 			virtual void setValue(size_t index) { _index = index; }
+
+			virtual AssetType assetType() = 0;
 
 		};
 	}

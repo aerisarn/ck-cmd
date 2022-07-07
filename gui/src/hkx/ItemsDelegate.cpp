@@ -1,5 +1,6 @@
 #include "ItemsDelegate.h"
 
+#include <QCompleter>
 #include <QLabel>
 #include <QComboBox>
 #include <QPainter>
@@ -18,8 +19,9 @@ using namespace ckcmd::HKX;
 
 #define CUSTOM_SIZE_PADDING 3
 
-ItemsDelegate::ItemsDelegate(const ResourceManager& manager, QObject* parent)
-    : _manager(manager),
+ItemsDelegate::ItemsDelegate(ckcmd::HKX::ValuesProxyModel& model, QObject* parent)
+    : _model(model),
+    _manager(_model.getResourceManager()),
     QStyledItemDelegate(parent)
 {
 }
@@ -40,10 +42,14 @@ ItemsDelegate::ItemsDelegate(const ResourceManager& manager, QObject* parent)
 //    return label;
 //}
 
+
 template <typename T>
-void paintReference(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index)
+void paintReference(QPainter* painter, const QStyleOptionViewItem& option, ValuesProxyModel& model, const QModelIndex& index)
 {
-    QString data = index.data().value<T>().getValue();
+    auto value = index.data().value<T>();
+    int data_index = value.index();
+    auto data_model = model.editModel(index, value.assetType(), Qt::EditRole);
+    QString data = data_model->index(data_index + 1, 0).data().toString();
 
     if (option.state & QStyle::State_Selected)
     {
@@ -125,19 +131,19 @@ void ItemsDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option,
         real.paint(painter, option);
     }
     else if (index.data().canConvert<HkxItemEvent>()) {
-        paintReference<HkxItemEvent>(painter, option, index);
+        paintReference<HkxItemEvent>(painter, option, _model, index);
     }
     else if (index.data().canConvert<HkxItemVar>()) {
-        paintReference<HkxItemVar>(painter, option, index);
+        paintReference<HkxItemVar>(painter, option, _model, index);
     }
     else if (index.data().canConvert<HkxItemBone>()) {
-        paintReference<HkxItemBone>(painter, option, index);
+        paintReference<HkxItemBone>(painter, option, _model, index);
     }
     else if (index.data().canConvert<HkxItemRagdollBone>()) {
-        paintReference<HkxItemRagdollBone>(painter, option, index);
+        paintReference<HkxItemRagdollBone>(painter, option, _model, index);
     }
     else if (index.data().canConvert<HkxItemFSMState>()) {
-        paintReference<HkxItemFSMState>(painter, option, index);
+        paintReference<HkxItemFSMState>(painter, option, _model, index);
     }
     else {
         QStyledItemDelegate::paint(painter, option, index);
@@ -152,11 +158,30 @@ QSize ComboBoxSizeHint(const QStyleOptionViewItem& option, const QStringList& op
     comboBoxOption.state |= QStyle::State_Enabled;
     QSize contentsSize = { 0 , 0 };
     qApp->style()->sizeFromContents(QStyle::CT_ComboBox, &comboBoxOption, contentsSize, nullptr);
-    for (const auto& label : options)
+    for (const auto& _option : options)
         contentsSize = contentsSize.expandedTo(qApp->style()->sizeFromContents(
             QStyle::CT_ComboBox,
             &comboBoxOption,
-            option.fontMetrics.boundingRect(label).size(),
+            option.fontMetrics.boundingRect(_option).size(),
+            nullptr
+        ));
+    return contentsSize;
+}
+
+QSize ComboBoxSizeHint(const QStyleOptionViewItem& option, QAbstractItemModel* options)
+{
+    QStyleOptionComboBox comboBoxOption;
+    comboBoxOption.rect = option.rect;
+    comboBoxOption.state = option.state;
+    comboBoxOption.state |= QStyle::State_Enabled;
+    QSize contentsSize = { 0 , 0 };
+    qApp->style()->sizeFromContents(QStyle::CT_ComboBox, &comboBoxOption, contentsSize, nullptr);
+    int rows = options->rowCount();
+    for (int i=0; i<rows; ++i)
+        contentsSize = contentsSize.expandedTo(qApp->style()->sizeFromContents(
+            QStyle::CT_ComboBox,
+            &comboBoxOption,
+            option.fontMetrics.boundingRect(options->index(i,0).data().toString()).size(),
             nullptr
         ));
     return contentsSize;
@@ -164,10 +189,14 @@ QSize ComboBoxSizeHint(const QStyleOptionViewItem& option, const QStringList& op
 
 template <typename T>
 QSize sizeHintReference(const QStyleOptionViewItem& option,
+    ValuesProxyModel& model,
     const QModelIndex& index)
 {
-    QStringList options = index.data().value<T>().getValues();
-    return ComboBoxSizeHint(option, options);
+    auto value = index.data().value<T>();
+    int data_index = value.index();
+    auto data_model = model.editModel(index, value.assetType(), Qt::EditRole);
+
+    return ComboBoxSizeHint(option, data_model);
 }
 
 
@@ -199,19 +228,19 @@ QSize ItemsDelegate::sizeHint(const QStyleOptionViewItem& option,
         return  real.WidgetSizeHint(option.fontMetrics);
     }
     if (index.data().canConvert<HkxItemEvent>()) {
-        return sizeHintReference<HkxItemEvent>(option, index);
+        return sizeHintReference<HkxItemEvent>(option, _model, index);
     }
     if (index.data().canConvert<HkxItemVar>()) {
-        return sizeHintReference<HkxItemVar>(option, index);
+        return sizeHintReference<HkxItemVar>(option, _model, index);
     }
     if (index.data().canConvert<HkxItemBone>()) {
-        return sizeHintReference<HkxItemBone>(option, index);
+        return sizeHintReference<HkxItemBone>(option, _model, index);
     }
     if (index.data().canConvert<HkxItemRagdollBone>()) {
-        return sizeHintReference<HkxItemRagdollBone>(option, index);
+        return sizeHintReference<HkxItemRagdollBone>(option, _model, index);
     }
     if (index.data().canConvert<HkxItemFSMState>()) {
-        return sizeHintReference<HkxItemFSMState>(option, index);
+        return sizeHintReference<HkxItemFSMState>(option, _model, index);
     }
     return QStyledItemDelegate::sizeHint(option, index);
 }
@@ -253,14 +282,31 @@ QWidget* ItemsDelegate::createEditor(QWidget* parent,
 }
 
 template <typename T>
-void setEditorDataReference(QWidget* editor,
+void setEditorDataReference(QWidget* editor, ValuesProxyModel& model,
     const QModelIndex& index)
 {
     QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
-    T data = index.data().value<T>();
-    QStringList options = data.getValues();
-    ptr_editor->addItems(options);
-    ptr_editor->setCurrentIndex(data.index());
+    auto value = index.data().value<T>();
+    int data_index = value.index();
+    auto data_model = model.editModel(index, value.assetType(), Qt::EditRole);
+
+    QStringList options;
+
+    //debug
+    int rows = data_model->rowCount();
+    for (int i = 0; i < rows; i++)
+    {
+        options << data_model->index(i, 0).data().toString();
+    }
+
+    QCompleter* data_completer = new QCompleter(editor);
+    data_completer->setModel(data_model);
+    data_completer->setCompletionMode(QCompleter::PopupCompletion);
+    ptr_editor->setEditable(true);
+    ptr_editor->setInsertPolicy(QComboBox::NoInsert);
+    ptr_editor->setModel(data_model);
+    ptr_editor->setCompleter(data_completer);
+    ptr_editor->setCurrentIndex(data_index + 1);
 }
 
 
@@ -307,23 +353,23 @@ void ItemsDelegate::setEditorData(QWidget* editor,
         return;
     }
     if (index.data().canConvert<HkxItemEvent>()) {
-        setEditorDataReference<HkxItemEvent>(editor, index);
+        setEditorDataReference<HkxItemEvent>(editor, _model, index);
         return;
     }
     if (index.data().canConvert<HkxItemVar>()) {
-        setEditorDataReference<HkxItemVar>(editor, index);
+        setEditorDataReference<HkxItemVar>(editor, _model, index);
         return;
     }
     if (index.data().canConvert<HkxItemBone>()) {
-        setEditorDataReference<HkxItemBone>(editor, index);
+        setEditorDataReference<HkxItemBone>(editor, _model, index);
         return;
     }
     if (index.data().canConvert<HkxItemRagdollBone>()) {
-        setEditorDataReference<HkxItemRagdollBone>(editor, index);
+        setEditorDataReference<HkxItemRagdollBone>(editor, _model, index);
         return;
     }
     if (index.data().canConvert<HkxItemFSMState>()) {
-        setEditorDataReference<HkxItemFSMState>(editor, index);
+        setEditorDataReference<HkxItemFSMState>(editor, _model, index);
         return;
     }
 
@@ -335,7 +381,7 @@ void setModelDataReference(QWidget* editor, QAbstractItemModel* model,
     const QModelIndex& index)
 {
     QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
-    model->setData(index, ptr_editor->currentIndex(), Qt::EditRole);
+    model->setData(index, ptr_editor->currentIndex() - 1, Qt::EditRole);
 }
 
 

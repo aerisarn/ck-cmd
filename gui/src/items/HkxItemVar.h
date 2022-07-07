@@ -15,6 +15,8 @@ namespace ckcmd {
 			HkxItemVar(size_t index) : HkxItemReference(index) {}
 
 			virtual operator QVariant() const override { QVariant v; v.setValue(*this); return v; }
+
+			virtual AssetType assetType() { return AssetType::variables; }
 		};
 	}
 }

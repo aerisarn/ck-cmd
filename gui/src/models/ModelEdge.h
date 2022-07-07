@@ -110,10 +110,12 @@ namespace ckcmd {
                 if (
                         (
                             _childType == NodeType::SkeletonHkxNode ||
+                            _childType == NodeType::RagdollHkxNode ||
                             _childType == NodeType::SkeletonBones ||
                             _childType == NodeType::RagdollBones
                         ) || (
                             rhs._childType == NodeType::SkeletonHkxNode ||
+                            rhs._childType == NodeType::RagdollHkxNode ||
                             rhs._childType == NodeType::SkeletonBones ||
                             rhs._childType == NodeType::RagdollBones
                         )
@@ -150,6 +152,54 @@ namespace ckcmd {
                     return as_file_index_tuple() < rhs.as_file_index_tuple();
                 }             
                 return as_tuple() < rhs.as_tuple();
+            }
+
+            bool operator == (const ModelEdge& rhs) const {
+                if (
+                    (
+                        _childType == NodeType::SkeletonHkxNode ||
+                        _childType == NodeType::RagdollHkxNode ||
+                        _childType == NodeType::SkeletonBones ||
+                        _childType == NodeType::RagdollBones
+                        ) || (
+                            rhs._childType == NodeType::SkeletonHkxNode ||
+                            rhs._childType == NodeType::RagdollHkxNode ||
+                            rhs._childType == NodeType::SkeletonBones ||
+                            rhs._childType == NodeType::RagdollBones
+                            )
+                    )
+                {
+                    return as_project_index_tuple() == rhs.as_project_index_tuple();
+                }
+                if (
+                    (
+                        _childType == NodeType::behaviorEventNames ||
+                        _childType == NodeType::behaviorVariableNames ||
+                        _childType == NodeType::behaviorCharacterPropertyNames
+                        ) || (
+                            rhs._childType == NodeType::behaviorEventNames ||
+                            rhs._childType == NodeType::behaviorVariableNames ||
+                            rhs._childType == NodeType::behaviorCharacterPropertyNames
+                            )
+                    )
+                {
+                    return as_file_only_tuple() == rhs.as_file_only_tuple();
+                }
+                if (
+                    (
+                        _childType == NodeType::behaviorEventName ||
+                        _childType == NodeType::behaviorVariable ||
+                        _childType == NodeType::behaviorCharacterProperty
+                        ) || (
+                            rhs._childType == NodeType::behaviorEventName ||
+                            rhs._childType == NodeType::behaviorVariable ||
+                            rhs._childType == NodeType::behaviorCharacterProperty
+                            )
+                    )
+                {
+                    return as_file_index_tuple() == rhs.as_file_index_tuple();
+                }
+                return as_tuple() == rhs.as_tuple();
             }
 
             ModelEdge() {}
@@ -212,6 +262,78 @@ namespace ckcmd {
             bool isArray(int row, ResourceManager& manager) const;
 
             bool canAddRow(const ModelEdge& other, ResourceManager& manager);
+
+            size_t hash_combine(size_t lhs, size_t rhs) const {
+                lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
+                return lhs;
+            }
+
+
+            size_t hash() const {
+                if (
+                        _childType == NodeType::SkeletonHkxNode ||
+                        _childType == NodeType::RagdollHkxNode ||
+                        _childType == NodeType::SkeletonBones ||
+                        _childType == NodeType::RagdollBones
+                    )
+                {
+                    return std::hash<int>()(_project) ^ 
+                        (( std::hash<int>()((int)_childType) << 1) >> 1);
+                }
+                if (
+                        _childType == NodeType::behaviorEventNames ||
+                        _childType == NodeType::behaviorVariableNames ||
+                        _childType == NodeType::behaviorCharacterPropertyNames
+                    )
+                {
+                    return std::hash<int>()(_project) ^
+                        ((std::hash<int>()((int)_file) << 1) >> 1) ^
+                        ((std::hash<int>()((int)_childType) << 1));
+                }
+                if (
+                        _childType == NodeType::behaviorEventName ||
+                        _childType == NodeType::behaviorVariable ||
+                        _childType == NodeType::behaviorCharacterProperty
+                    )
+                {
+                    return std::hash<int>()(_project) ^
+                        ((std::hash<int>()((int)_file) << 1) >> 1) ^
+                        ((std::hash<int>()((int)_row) << 1) >> 1) ^
+                        ((std::hash<int>()((int)_childType) << 1));
+                }
+                size_t seed = (size_t)_parentType;
+                seed = hash_combine(seed, (size_t)_parent.row());
+                seed = hash_combine(seed, (size_t)_parent.column());
+                seed = hash_combine(seed, (size_t)_parent.internalPointer());
+                seed = hash_combine(seed, (size_t)_project);
+                seed = hash_combine(seed, (size_t)_file);
+                seed = hash_combine(seed, (size_t)_row);
+                seed = hash_combine(seed, (size_t)_column);
+                seed = hash_combine(seed, (size_t)_childItem);
+                seed = hash_combine(seed, (size_t)_child.row());
+                seed = hash_combine(seed, (size_t)_child.column());
+                seed = hash_combine(seed, (size_t)_child.internalPointer());
+                seed = hash_combine(seed, (size_t)_subindex);
+                seed = hash_combine(seed, (size_t)_childType);
+                return seed;
+
+                //return std::hash<int>()((int)_parentType) ^
+                //    ((std::hash<qintptr>()((qintptr)_parentItem) << 1) >> 1) ^
+                //    ((std::hash<int>()((int)_parent.row()) << 1) >> 1) ^
+                //    ((std::hash<int>()((int)_parent.column()) << 1) >> 1) ^
+                //    ((std::hash<qintptr>()((qintptr)_parent.internalPointer()) << 1) >> 1) ^
+                //    ((std::hash<int>()((int)_project) << 1) >> 1) ^
+                //    ((std::hash<int>()((int)_file) << 1) >> 1) ^
+                //    ((std::hash<int>()((int)_row) << 1) >> 1) ^
+                //    ((std::hash<int>()((int)_column) << 1) >> 1) ^
+                //    ((std::hash<int>()((int)_subindex) << 1) >> 1) ^
+                //    ((std::hash<int>()((int)_childType) << 1) >> 1) ^
+                //    ((std::hash<qintptr>()((qintptr)_childItem) << 1) >> 1) ^
+                //    ((std::hash<int>()((int)_child.row()) << 1) >> 1) ^
+                //    ((std::hash<int>()((int)_child.column()) << 1) >> 1) ^
+                //    ((std::hash<qintptr>()((qintptr)_child.internalPointer()) << 1) >> 1) ^
+                //    ((std::hash<int>()((int)_childType) << 1));
+            }
         };
 
         struct ModelEdgeComparator {
@@ -219,5 +341,25 @@ namespace ckcmd {
                 return *a < *b;
             }
         };
+
+        class ModelEdgeHasher
+        {
+        public:
+            size_t operator() (const ModelEdge* a) const
+            {
+                return a->hash();
+            }
+        };
+
+        class ModelEdgeEqualFn
+        {
+        public:
+            bool operator() (const ModelEdge* a, const ModelEdge* b) const
+            {
+                return *a == *b;
+            }
+        };
+
+
     }
 }

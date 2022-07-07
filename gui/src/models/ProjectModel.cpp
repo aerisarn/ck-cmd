@@ -1,8 +1,12 @@
 #include "ProjectModel.h"
 
 #include <src/models/SelectionProxyModel.h>
+#include <src/models/NullableSelectionProxyModel.h>
 #include <src/models/StringListModel.h>
 #include <QBrush>
+
+#include <hkbStateMachineStateInfo_4.h>
+#include <hkbStateMachine_4.h>
 
 using namespace ckcmd::HKX;
 
@@ -29,9 +33,19 @@ ProjectModel::ProjectModel(CommandManager& commandManager, ResourceManager& reso
 
 qintptr ProjectModel::modelEdgeIndex(const ModelEdge& edge) const
 {
-	if (_reverse_find.find(const_cast<ModelEdge*>(&edge)) == _reverse_find.end())
-		__debugbreak();
-	return _reverse_find.at(const_cast<ModelEdge*>(&edge));
+	auto result = std::find_if(
+		_direct_find.begin(),
+		_direct_find.end(),
+		[&edge](const auto& mo) {return mo.second == edge; });
+
+	if (result != _direct_find.end())
+		return result->first;
+	__debugbreak();
+	return -1;
+
+	//if (_reverse_find.find(const_cast<ModelEdge*>(&edge)) == _reverse_find.end())
+	//	__debugbreak();
+	//return _reverse_find.at(const_cast<ModelEdge*>(&edge));
 }
 
 const ModelEdge& ProjectModel::modelEdge(const QModelIndex& index) const
@@ -48,30 +62,37 @@ ModelEdge& ProjectModel::modelEdge(const QModelIndex& index)
 
 bool ProjectModel::hasModelEdgeIndex(const ModelEdge& edge) const
 {
-	return _reverse_find.find(const_cast<ModelEdge*>(&edge)) != _reverse_find.end();
+	auto result = std::find_if(
+		_direct_find.begin(),
+		_direct_find.end(),
+		[&edge](const auto& mo) {return mo.second == edge; });
+
+	return result != _direct_find.end();
+
+	//return _reverse_find.find(const_cast<ModelEdge*>(&edge)) != _reverse_find.end();
 }
 
 qintptr ProjectModel::createModelEdgeIndex(const ModelEdge& edge)
 {
 	qintptr result = runtime_edge_index++;
 	_direct_find.insert({ result, edge });
-	_reverse_find.insert({ &_direct_find[result], result });
+	//_reverse_find.insert({ &_direct_find[result], result });
 	return result;
 }
 
 void  ProjectModel::deleteAllModelEdgeIndexesForFile(int project_file)
 {
-	auto rev_it = _reverse_find.begin();
-	while (rev_it != _reverse_find.end())
-	{
-		if (rev_it->first->_project == project_file)
-		{
-			rev_it = _reverse_find.erase(rev_it);
-		}
-		else {
-			rev_it++;
-		}
-	}
+	//auto rev_it = _reverse_find.begin();
+	//while (rev_it != _reverse_find.end())
+	//{
+	//	if (rev_it->first->_project == project_file)
+	//	{
+	//		rev_it = _reverse_find.erase(rev_it);
+	//	}
+	//	else {
+	//		rev_it++;
+	//	}
+	//}
 	auto dir_it = _direct_find.begin();
 	while (dir_it != _direct_find.end())
 	{
@@ -135,7 +156,7 @@ QModelIndex ProjectModel::index(int row, int column, const QModelIndex& parent) 
 			return createdChildEdge._child;
 		}
 		
-		edge._child = createIndex(0, 0, _reverse_find.at(&edge));
+		edge._child = createIndex(0, 0, modelEdgeIndex(edge));
 
 		return edge._child;
 	}
@@ -154,7 +175,7 @@ QModelIndex ProjectModel::index(int row, int column, const QModelIndex& parent) 
 				createdChildEdge._child = createIndex(0, 0, id);
 				return createdChildEdge._child;
 			}
-			childEdge._child = createIndex(0, 0, _reverse_find.at(&childEdge));
+			childEdge._child = createIndex(0, 0, modelEdgeIndex(childEdge));
 			return childEdge._child;
 		}
 	}
@@ -458,7 +479,7 @@ QModelIndex ProjectModel::getChildAssetProxy(const QModelIndex& index, NodeType 
 	return QModelIndex();
 }
 
-QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType type)
+QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType type, int role)
 {
 	auto& edge = modelEdge(index);
 	switch (edge.type())
@@ -519,23 +540,61 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 	{
 		ModelEdge search_edge;
 		search_edge._project = edge._project;
-		search_edge._file = edge._file;
 		QModelIndex search_index;
 		switch (type) {
 		case AssetType::events:
+			search_edge._file = edge._file;
 			search_edge._childType = NodeType::behaviorEventNames;
 			search_index = createIndex(0, 0, modelEdgeIndex(search_edge));
 			break;
 		case AssetType::variables:
+			search_edge._file = edge._file;
 			search_edge._childType = NodeType::behaviorVariableNames;
 			search_index = createIndex(1, 0, modelEdgeIndex(search_edge));
 			break;
+		case AssetType::bones:
+			search_edge._childType = NodeType::SkeletonHkxNode;
+			search_index = createIndex(2, 0, modelEdgeIndex(search_edge));
+			if (search_index.isValid())
+			{
+				search_index = getChildAssetProxy(search_index, NodeType::SkeletonBones);
+			}
+			break;
+		case AssetType::ragdoll_bones:
+			search_edge._childType = NodeType::RagdollHkxNode;
+			search_index = createIndex(3, 0, modelEdgeIndex(search_edge));
+			if (search_index.isValid())
+			{
+				search_index = getChildAssetProxy(search_index, NodeType::RagdollBones);
+			}
+			break;
+		case AssetType::FSM_states:
+		{
+			QStringList options;
+			if (nullptr != edge.childItem<hkVariant>())
+			{
+				hkVariant* v = edge.childItem<hkVariant>();
+				if (v->m_class == &hkbStateMachineClass)
+				{
+					options = _resourceManager.getStates((hkbStateMachine*)v->m_object);
+				}
+				else if (v->m_class == &hkbStateMachineStateInfoClass)
+				{
+					if (edge.parentItem<hkVariant>() != nullptr)
+						options = _resourceManager.getStates((hkbStateMachine*)edge.parentItem<hkVariant>()->m_object);
+				}
+			}
+			return new QStringListModel(options);
+		}
 		default:
 			return nullptr;
 		}		
 		if (search_index.isValid())
 		{
-			return new SelectionProxyModel(this, search_index);
+			if (role == Qt::DisplayRole)
+				return new SelectionProxyModel(this, search_index);
+			else if (role == Qt::EditRole)
+				return new NullableSelectionProxyModel(this, search_index);
 		}
 		break;
 	}
@@ -576,8 +635,8 @@ bool ProjectModel::remove(const QModelIndex& index)
 	bool result = parent_edge.removeRows(row, 1, _resourceManager);
 	emit endRemoveChildren();
 	emit endRemoveRows();
-	auto id = _reverse_find.at(&edge);
-	_reverse_find.erase(&edge);
+	auto id = modelEdgeIndex(edge);
+	//_reverse_find.erase(&edge);
 	_direct_find.erase(id);
 	return result;
 }

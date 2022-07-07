@@ -45,6 +45,7 @@ void HkxVariant::accept(HkxItemVisitor& visitor) const
 		visitor.setClassMember(&member_declaration);
 		if (member_declaration.getFlags().get() & hkClassMember::SERIALIZE_IGNORED)
 			continue;
+		visitor.setMemberIndex(i);
 		void* object = (void*)((char*)_variant.m_object + member_declaration.getOffset());
 		switch (member_declaration.getType()) {
 			/// No type

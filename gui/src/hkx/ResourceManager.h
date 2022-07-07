@@ -16,6 +16,7 @@ struct hkVariant;
 class hkbCharacterData;
 class hkbCharacterStringData;
 class hkbProjectStringData;
+class hkbStateMachine;
 
 namespace Sk {
 	class AACTRecord;
@@ -49,7 +50,8 @@ namespace ckcmd {
 			variable_words,
 			attack_events,
 			clips,
-			clip_animations
+			clip_animations,
+			FSM_states
 		};
 
 		class ResourceManager {
@@ -223,6 +225,8 @@ namespace ckcmd {
 			QStringList getAnimationSetAnimation(int project_file, int set_index);
 			void addAnimationSetAnimation(int project_file, int set_index, const QString& animation_path);
 			void deleteAnimationSetAnimation(int project_file, int set_index, const QString& animation_path);
+
+			QStringList getStates(hkbStateMachine* fsm);
 
 		};
 	}

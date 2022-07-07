@@ -42,9 +42,9 @@ ModelEdge::ModelEdge(hkVariant* parent, int project, int file, int row, int colu
 
 ModelEdge::ModelEdge(const ModelEdge& parent, int project, int file, int row, int column, int subindex, hkVariant* child, NodeType childType)
 {
-	_parentType = parent._parentType;
-	_parentItem = parent._parentItem;
-	_parent = parent._parent;
+	_parentType = parent._childType;
+	_parentItem = parent._childItem;
+	_parent = parent._child;
 	_project = project;
 	_file = file;
 	_row = row;

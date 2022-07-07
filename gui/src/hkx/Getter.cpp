@@ -1,7 +1,14 @@
-#include "Getter.h"
 #include <src/items/HkxItemPointer.h>
 #include <src/items/HkxItemEnum.h>
 #include <src/items/HkxItemFlags.h>
+#include <src/items/HkxItemBone.h>
+#include <src/items/HkxItemEvent.h>
+#include <src/items/HkxItemFSMState.h>
+#include <src/items/HkxItemRagdollBone.h>
+#include <src/items/HkxItemVar.h>
+
+#include "Getter.h"
+
 #include <stdexcept>
 
 using namespace ckcmd::HKX;
@@ -22,6 +29,33 @@ void Getter::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags fl
 	if (_row == 0)
 		_value.setValue(HkxItemPointer((void*)*(uintptr_t*)v));
 	_row -= 1;
+}
+
+void Getter::specialType(MemberIndexType type, int value)
+{
+	switch (type)
+	{
+	case MemberIndexType::eventIndex:
+		_value.setValue(HkxItemEvent(value));
+		break;
+	case MemberIndexType::variableIndex:
+		_value.setValue(HkxItemVar(value));
+		break;
+	case MemberIndexType::boneIndex:
+		_value.setValue(HkxItemBone(value));
+		break;
+	case MemberIndexType::ragdollBoneIndex:
+		_value.setValue(HkxItemRagdollBone(value));
+		break;
+	case MemberIndexType::stateIndex:
+		_value.setValue(HkxItemFSMState(value));
+		break;
+	case MemberIndexType::generatorIndex:
+	case MemberIndexType::bindingIndex:
+	default:
+		_value = value;
+		break;
+	}
 }
 
 void Getter::visit(void* object, const hkClassMember& definition)

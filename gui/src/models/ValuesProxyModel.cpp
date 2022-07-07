@@ -79,3 +79,8 @@ Qt::ItemFlags ValuesProxyModel::flags(const QModelIndex& index) const
 	return QAbstractItemModel::flags(index) | Qt::ItemIsEditable;
 }
 
+QAbstractItemModel* ValuesProxyModel::editModel(const QModelIndex& index, AssetType type, int role)
+{
+	return sourceModel()->editModel(mapToSource(index), type, role);
+}
+

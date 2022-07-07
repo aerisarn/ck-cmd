@@ -14,11 +14,13 @@
 #include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
 #include <Animation/Animation/hkaAnimationContainer.h>
 #include <hkbClipGenerator_2.h>
+#include <hkbStateMachine_4.h>
 
 #include <QSet>
 #include <atomic>
 
-
+#include <iostream>
+#include <fstream>
 
 using namespace ckcmd::HKX;
 
@@ -81,6 +83,80 @@ ResourceManager::ResourceManager(WorkspaceConfig& workspace) :
 		if (!isParent)
 			_concreate_classes.push_back(classes[i]);
 	}
+
+	//used to generate the Special members map
+	//std::set<std::array<std::string, 3>> interesting_members;
+	//std::set<std::string> interesting_classes;
+	//for (int c = 0; c < _concreate_classes.size(); ++c)
+	//{
+	//	for (size_t i = 0; i < _concreate_classes[c]->getNumMembers(); ++i) {
+	//		const auto& member_declaration = _concreate_classes[c]->getMember(i);
+	//		if (member_declaration.getFlags().get() & hkClassMember::SERIALIZE_IGNORED)
+	//			continue;
+	//		switch (member_declaration.getType()) {
+	//		case hkClassMember::TYPE_INT8:
+	//		case hkClassMember::TYPE_UINT8:
+	//		case hkClassMember::TYPE_INT16:
+	//		case hkClassMember::TYPE_UINT16:
+	//		case hkClassMember::TYPE_INT32:
+	//		case hkClassMember::TYPE_UINT32:
+	//		case hkClassMember::TYPE_INT64:
+	//		case hkClassMember::TYPE_UINT64:
+	//			interesting_classes.insert(std::string(_concreate_classes[c]->getName()) + "Class");
+	//			interesting_members.insert(
+	//				{
+	//				"&" + std::string(_concreate_classes[c]->getName()) + "Class",
+	//				std::to_string(i),
+	//				member_declaration.getName()
+	//				}
+	//			);
+	//		default:
+	//			break;
+	//		}
+	//	}
+	//}
+	//ofstream myfile;
+	//myfile.open("int_class_members.txt");
+	//for (auto& entry : interesting_classes)
+	//{
+	//	myfile << "extern const hkClass " << entry << ";" << std::endl;
+	//}
+	//myfile << std::endl;
+	//for (auto& entry : interesting_members)
+	//{
+	//	std::string guessed_type = "MemberIndexType::Invalid";
+	//	if (
+	//		entry[0].find("ragdoll") != string::npos || entry[0].find("Ragdoll") != string::npos ||
+	//		entry[2].find("ragdoll") != string::npos || entry[2].find("Ragdoll") != string::npos
+	//		)
+	//	{
+	//		guessed_type = "MemberIndexType::ragdollBoneIndex";
+	//	}
+	//	else if (
+	//		entry[0].find("bone") != string::npos || entry[0].find("Bone") != string::npos ||
+	//		entry[2].find("bone") != string::npos || entry[2].find("Bone") != string::npos
+	//		)
+	//	{
+	//		guessed_type = "MemberIndexType::boneIndex";
+	//	}
+	//	else if (
+	//		entry[0].find("event") != string::npos || entry[0].find("Event") != string::npos ||
+	//		entry[2].find("event") != string::npos || entry[2].find("Event") != string::npos
+	//		)
+	//	{
+	//		guessed_type = "MemberIndexType::eventIndex";
+	//	}
+	//	else if (
+	//		entry[0].find("variable") != string::npos || entry[0].find("Variable") != string::npos ||
+	//		entry[2].find("variable") != string::npos || entry[2].find("Variable") != string::npos
+	//		)
+	//	{
+	//		guessed_type = "MemberIndexType::variableIndex";
+	//	}
+	//	myfile << "\t{{" << entry[0] << "," << entry[1] << "}, " << guessed_type <<"}, //" << entry[2] << std::endl;
+	//}
+	//myfile.close();
+
 }
 
 ResourceManager::~ResourceManager() 
@@ -124,37 +200,6 @@ hkVariant* ResourceManager::findVariant(int file_index, const void* object)
 	return nullptr;
 }
 
-//int ResourceManager::findIndex(int file_index, const void* object) const
-//{
-//	auto& _objects = _contents.at(file_index).second;
-//	for (int i = 0; i < _objects.size(); i++) {
-//		if (_objects[i].m_object == object)
-//			return i;
-//	}
-//	return HK_INVALID_REF;
-//}
-//
-//int ResourceManager::findIndex(const fs::path& file, const void* object) const
-//{
-//	return findIndex(index(file), object);
-//}
-
-//hkVariant* ResourceManager::at(const fs::path& file, size_t _index) {
-//	return const_cast<hkVariant*>(static_cast<const ResourceManager&>(*this).at(file, _index));
-//}
-//
-//const hkVariant* ResourceManager::at(const fs::path& file, size_t _index) const {
-//	return &_contents.at(index(file)).second[_index];
-//}
-//
-//hkVariant* ResourceManager::at(size_t file_index, size_t _index) {
-//	return const_cast<hkVariant*>(static_cast<const ResourceManager&>(*this).at(file_index, _index));
-//}
-//
-//const hkVariant* ResourceManager::at(size_t file_index, size_t _index) const {
-//	return &_contents.at(file_index).second[_index];
-//}
-
 hk_object_list_t ResourceManager::findCompatibleNodes(size_t file_index, const hkClassMember* member_class)
 {
 	return findCompatibleNodes(file_index, member_class->getClass());
@@ -171,13 +216,6 @@ hk_object_list_t ResourceManager::findCompatibleNodes(size_t file_index, const h
 			result.push_back(&content);
 		}
 	}
-	//for (int i = 0; i < file_contents.size(); i++) {
-	//	const auto& object = file_contents[i];
-	//	if (hkclass == object.m_class ||
-	//		hkclass->isSuperClass(*object.m_class)) {
-	//		result.push_back({ i, &object });
-	//	}
-	//}
 	return result;
 }
 std::vector<const hkClass*> ResourceManager::findCompatibleClasses(const hkClass* hkclass) const
@@ -221,7 +259,6 @@ hkx_file_t& ResourceManager::get(const fs::path& file)
 			LOG << "Unable to find: " + file.string() << log_endl;
 			//throw std::runtime_error("Unable to find: " + file.string());
 		}
-		//new_file.second.resize(to_read.getSize());
 		for (int i = 0; i < to_read.getSize(); i++) {
 			new_file.second.push_back(to_read[i]);
 		}
@@ -1603,5 +1640,28 @@ void* ResourceManager::createObject(int file, const hkClass* hkclass, const std:
 	HkxVariant(v).setName(name.c_str());
 	_contents[file].second.push_back(v);
 	return v.m_object;
+}
+
+QStringList ResourceManager::getStates(hkbStateMachine* fsm)
+{
+	QStringList out; out << "Invalid";
+	std::map<int, QString> ordered_states;
+	for (int s = 0; s < fsm->m_states.getSize(); ++s)
+	{
+		ordered_states[fsm->m_states[s]->m_stateId] = fsm->m_states[s]->m_name;
+	}
+	int max_states = ordered_states.rbegin()->first + 1;
+	for (int i = 0; i < max_states; i++)
+	{
+		if (ordered_states.find(i) != ordered_states.end())
+		{
+			out << ordered_states.at(i);
+		}
+		else
+		{
+			out << "Invalid State";
+		}
+	}
+	return out;
 }
 

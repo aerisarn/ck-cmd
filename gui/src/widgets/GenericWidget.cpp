@@ -88,6 +88,7 @@ void GenericWidget::OnIndexSelected()
 		verticalLayout->addWidget(label);
 
 		QTableView* editor = new QTableView(this);
+		editor->setSelectionMode(QAbstractItemView::NoSelection);
 		editor->horizontalHeader()->setVisible(false);
 		editor->horizontalHeader()->setStretchLastSection(true);
 		editor->verticalHeader()->setMinimumSectionSize(20);
@@ -96,9 +97,10 @@ void GenericWidget::OnIndexSelected()
 		editor->setShowGrid(false);
 		editor->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
 		ValuesProxyModel* editModel = new ValuesProxyModel(&_model, member.second.first, 1, _index, this);
-		editor->setItemDelegate(new ItemsDelegate(_model.getResourceManager(), this));
+		editor->setItemDelegate(new ItemsDelegate(*editModel, this));
 		editor->setModel(editModel);
 		editor->resizeRowsToContents();
+		//connect(editor->selectionModel, &QItemSelectionModel::currentChanged, this, fieldSelectionChanged)
 
 		verticalResizeTableViewToContents(editor);
 

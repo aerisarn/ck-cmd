@@ -5,6 +5,8 @@
 #include <src/hkx/ResourceManager.h>
 #include <src/models/ModelEdge.h>
 
+#include <src/utility/bimap.h>
+
 struct hkVariant;
 
 namespace ckcmd {
@@ -17,8 +19,9 @@ namespace ckcmd {
 
             Q_OBJECT
 
-            std::map<ModelEdge*, qintptr, ModelEdgeComparator> _reverse_find;
-            std::map<qintptr, ModelEdge> _direct_find;
+            //std::unordered_map<ModelEdge*, qintptr, ModelEdgeHasher, ModelEdgeEqualFn> _reverse_find;
+            std::unordered_map<qintptr, ModelEdge> _direct_find;
+            //stde::bimap<qintptr, ModelEdge> _direct_find;
 
             qintptr modelEdgeIndex(const ModelEdge& edge) const;
             const ModelEdge& modelEdge(const QModelIndex& index) const;
@@ -55,7 +58,7 @@ namespace ckcmd {
             std::pair<int, int> dataStart(const QModelIndex& index);
             ResourceManager& getResourceManager() { return _resourceManager; }
 
-            QAbstractItemModel* editModel(const QModelIndex& index, AssetType type);
+            QAbstractItemModel* editModel(const QModelIndex& index, AssetType type, int role = Qt::DisplayRole);
             void SetCopyPointer(const QModelIndex& index);
             bool PasteEnabled(const QModelIndex& index);
             const hkClass* rowType(const QModelIndex& index);

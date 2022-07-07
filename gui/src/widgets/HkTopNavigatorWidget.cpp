@@ -64,7 +64,7 @@ void TopInfoWidget::OnIndexSelected()
                 auto bindable_rows = _model.rowNames(_index, "bindings");
                 auto bindable_model = new QStringListModel(bindable_rows);
                 auto temp_type_index = _model.index(bindings_type.first, 1, _index);
-                auto available_types = temp_type_index.data().value<HkxItemEnum>().enumValues(;
+                auto available_types = temp_type_index.data().value<HkxItemEnum>().enumValues();
                 auto type_model = new QStringListModel(available_types);
 
                 bindingsTableWidget->setRowCount(bindings_rows);

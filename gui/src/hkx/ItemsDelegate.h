@@ -1,16 +1,17 @@
 #include <QStyledItemDelegate>
+
+#include <src/models/ValuesProxyModel.h>
 #include <src/hkx/ResourceManager.h>
 
 class ItemsDelegate : public QStyledItemDelegate
 {
     Q_OBJECT
 
-    const ckcmd::HKX::ResourceManager& _manager;
-
-    QString ObjectText(int object_index, size_t file_index) const;
+    ckcmd::HKX::ValuesProxyModel& _model;
+    ckcmd::HKX::ResourceManager& _manager;
 
 public:
-    ItemsDelegate(const ckcmd::HKX::ResourceManager& _manager, QObject* parent = 0);
+    ItemsDelegate(ckcmd::HKX::ValuesProxyModel& model, QObject* parent = 0);
 
     void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
     QSize sizeHint(const QStyleOptionViewItem& option,

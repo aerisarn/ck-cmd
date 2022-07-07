@@ -73,6 +73,7 @@ namespace ckcmd {
 			virtual void setClass(const hkClass* hkclass) = 0;
 			virtual void setClassMember(const hkClassMember* hkclassmember) = 0;
 			virtual void setLastVariant(const hkVariant* variant) = 0;
+			virtual void setMemberIndex(int index) = 0;
 		};
 
 		template<typename T>
@@ -82,6 +83,7 @@ namespace ckcmd {
 			const hkClass* _class;
 			const hkClassMember* _classmember;
 			const hkVariant* _lastVariant;
+			int _memberIndex;
 		public:
 			HkxConcreteVisitor(T& handler) : _handler(handler) {}
 
@@ -249,6 +251,10 @@ namespace ckcmd {
 
 			virtual void setLastVariant(const hkVariant* variant) {
 				_lastVariant = variant;
+			}
+
+			virtual void setMemberIndex(int index) {
+				_memberIndex = index;
 			}
 		};
 

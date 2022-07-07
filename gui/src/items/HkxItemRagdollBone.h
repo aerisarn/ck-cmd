@@ -16,6 +16,8 @@ namespace ckcmd {
 
 			virtual operator QVariant() const override { QVariant v; v.setValue(*this); return v; }
 
+			virtual AssetType assetType() { return AssetType::ragdoll_bones; }
+
 		};
 	}
 }

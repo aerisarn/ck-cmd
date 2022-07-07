@@ -6,6 +6,8 @@
 #include "ColumnCalculator.h"
 #include <src/items/HkxItemReal.h>
 
+#include <src/hkx/HkxSpecialMembersMaps.h>
+
 #include <QVariant>
 #include <vector>
 
@@ -20,6 +22,8 @@ namespace ckcmd {
 			template<typename T>
 			void check(T& value);
 			void check(void* value);
+
+			void specialType(MemberIndexType type, int value);
 
 		public:
 
@@ -58,7 +62,13 @@ namespace ckcmd {
 		void Getter::check(T& value) {
 			if (_row == 0)
 			{
-				_value = value;
+				if (Utility::indexedMembersMap.find({ _class, _memberIndex }) != Utility::indexedMembersMap.end())
+				{
+					specialType(Utility::indexedMembersMap.at({ _class, _memberIndex }), (int)value);
+				}
+				else {
+					_value = value;
+				}
 			}
 			_row -= 1;
 		}

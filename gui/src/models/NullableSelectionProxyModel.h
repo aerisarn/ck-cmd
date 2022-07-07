@@ -7,25 +7,17 @@
 namespace ckcmd {
     namespace HKX {
 
-        class ValuesProxyModel : public QAbstractProxyModel {
+        class NullableSelectionProxyModel : public QAbstractProxyModel {
             Q_OBJECT
 
             QModelIndex _sourceRoot; // Persistent?
-            int _row;
-            int _firstColumn;
 
         public:
 
-            ValuesProxyModel(ProjectModel* sourceModel, int row, int firstColumn, const QModelIndex root, QObject* parent = nullptr);
-            ~ValuesProxyModel()
+            NullableSelectionProxyModel(ProjectModel* sourceModel, const QModelIndex root, QObject* parent = nullptr);
+            ~NullableSelectionProxyModel()
             {
             }
-
-            virtual QAbstractItemModel* editModel(const QModelIndex& index, AssetType type, int role = Qt::DisplayRole);
-            ResourceManager& getResourceManager() { return sourceModel()->getResourceManager(); }
-
-            //Proxy
-            //virtual bool hasChildren(const QModelIndex& parent = QModelIndex()) const override;
 
             virtual void setSourceModel(ProjectModel* sourceModel) { QAbstractProxyModel::setSourceModel(sourceModel); }
             ProjectModel* sourceModel() const { return static_cast<ProjectModel*>(QAbstractProxyModel::sourceModel()); }
@@ -40,12 +32,12 @@ namespace ckcmd {
             virtual QModelIndex index(int row, int column, const QModelIndex& parent) const override;
 
             virtual QVariant data(const QModelIndex& proxyIndex, int role) const override;
-            virtual bool setData(const QModelIndex& index, const QVariant& value, int role = Qt::EditRole) override;
 
-            virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
-            //virtual bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
+            bool hasChildren(const QModelIndex& parent = QModelIndex()) const override;
 
-            virtual Qt::ItemFlags flags(const QModelIndex& index) const override;
+            QModelIndex buddy(const QModelIndex& index) const override;
+            Qt::ItemFlags flags(const QModelIndex& index) const override;
+
         };
     }
 }
