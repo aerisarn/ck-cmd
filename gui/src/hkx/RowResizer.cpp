@@ -1,113 +1,121 @@
 #include "RowResizer.h"
-#include <src/items/HkxItemPointer.h>
-#include <src/items/HkxItemEnum.h>
-#include <src/items/HkxItemFlags.h>
-#include <stdexcept>
+
+#include "HkxVariant.h"
+#include "RowCalculator.h"
+#include "ColumnCalculator.h"
 
 using namespace ckcmd::HKX;
 
-
-void RowResizer::visit(char* value) {
-	_row -= 1;
+template<typename T>
+void RowResizer::visit(T& value)
+{
+	_target_row -= 1;
 }
 
-void RowResizer::check(void* value) {
-	_row -= 1;
+void RowResizer::visit(char* value)
+{
+	_target_row -= 1;
 }
 
 void RowResizer::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
-	_row -= 1;
+	_target_row -= 1;
 }
 
 void RowResizer::visit(void* object, const hkClassMember& definition)
 {
-	//array
+	const auto& arrayclass = definition.getStructClass();
 	const auto& arraytype = definition.getArrayType();
 	const auto& arraysubtype = definition.getSubType();
-	const auto& arrayclass = definition.getStructClass();
-	size_t array_rows = 1;
-	if (definition.hasClass() && hkClassMember::TYPE_POINTER != arraysubtype) {
+
+	int resizeByts = 0;
+
+	if (definition.hasClass() &&
+		hkClassMember::TYPE_POINTER != arraysubtype)
+	{
 		hkVariant v;
 		v.m_class = definition.getClass();
 		v.m_object = object;
 		HkxVariant h(v);
+
 		RowCalculator r;
 		h.accept(r);
-		array_rows = r.rows();
-	}
-	size_t elements = definition.getSizeInBytes() / definition.getArrayMemberSize();
-	char* base = (char*)object;
-	if (hkClassMember::TYPE_ARRAY == definition.getType())
-	{
-		base = (char*)*(uintptr_t*)object; //m_data
-		elements = *(int*)((char*)object + sizeof(uintptr_t)) & int(0x3FFFFFFF); // m_size
-	}
-	if (_column < elements)
-	{
-		void* element = (void*)((char*)base + _column * definition.getArrayMemberSize());
-		if (!definition.hasClass()) {
-			if (base != NULL)
-				recurse(element, arraytype);
-			else
-				_row -= 1;
+		int class_rows = r.rows();
+
+
+		if (_target_row >= 0 && _target_row - class_rows <= 0)
+		{
+			//array of classes;
+			resizeByts = definition.getClass()->getObjectSize();
 		}
-		else {
-			int next_rows = _row - array_rows;
-			if (element != NULL && _row >= 0 && next_rows < 0)
-			{
-				if (hkClassMember::TYPE_POINTER != arraysubtype)
-				{
-					hkVariant v;
-					v.m_class = &arrayclass;
-					v.m_object = element;
-					HkxVariant h(v);
-					h.accept(*this);
-				}
-				else {
-					//*(uintptr_t*)element = (uintptr_t)_value.value<HkxItemPointer>().get();
-				}
-			}
-			_row -= array_rows;
-		}
+		_target_row -= class_rows;
 	}
 	else {
-		_row -= array_rows;
+		if (_target_row == 0)
+		{
+			//array of pointers
+			resizeByts = sizeof(uintptr_t);
+		}
+		_target_row -= 1;
+	}
+	if (resizeByts > 0)
+	{
+		char* m_data = (char*)*(uintptr_t*)object; //m_data
+		int* elements_ptr = (int*)((char*)object + sizeof(uintptr_t)); // m_size
+		int* m_capacity_ptr = (int*)((char*)object + 2 * sizeof(uintptr_t)); // m_capacity_flags
+		int elements = *elements_ptr & int(0x3FFFFFFF);
+		int flags = *m_capacity_ptr & int(0xC0000000);
+		int new_size = (elements + _delta) * resizeByts;
+		if (new_size > elements * resizeByts)
+		{
+			auto& allocator = hkContainerHeapAllocator::s_alloc;
+			uintptr_t* new_buffer = (uintptr_t*)allocator.bufRealloc(m_data, elements * resizeByts, new_size);
+			if (nullptr != new_buffer && new_size == ((elements + _delta) * resizeByts))
+			{
+				*(uintptr_t*)object = (uintptr_t)new_buffer;
+				*elements_ptr = (elements + _delta);
+				*m_capacity_ptr = *elements_ptr | flags;
+				_result = true;
+			}
+		}
+		else if (new_size < elements * resizeByts) {
+			//just shrink
+			*elements_ptr = (elements + _delta);
+			_result = true;
+		}
 	}
 }
 
-void RowResizer::visit(void* value, const hkClassEnum& enum_type, hkClassMember::Type type)
+void RowResizer::visit(void*, const hkClassEnum& enum_type, hkClassMember::Type type)
 {
-	_row -= 1;
+	_target_row -= 1;
 }
-
-
 
 void RowResizer::visit(void* object, const hkClass& object_type, const char* member_name)
 {
-	size_t array_rows = 1;
 	if (&object_type != &hkReferencedObjectClass)
-	{ 
+	{
 		hkVariant v;
 		v.m_class = &object_type;
 		v.m_object = object;
 		HkxVariant h(v);
 		RowCalculator r;
 		h.accept(r);
-		array_rows = r.rows();
-		int next_rows = _row - array_rows;
-		if (_row >=0 && next_rows < 0)
+		if (_target_row >= 0 && _target_row < r.rows())
 		{
-			h.accept(*this);
+			RowResizer n(_target_row, _column, _delta);
+			h.accept(n);
+		}
+		else {
+			_target_row -= r.rows();
 		}
 	}
-	//else {
-	//	*(uintptr_t*)object = (uintptr_t)_value.value<HkxItemPointer>().get();
-	//}
-	_row -= array_rows;
+	else {
+		_target_row -= 1;
+	}
 }
 
-void RowResizer::visit(void* value, const hkClassEnum& enum_type, size_t storage)
+void RowResizer::visit(void* v, const hkClassEnum& enum_type, size_t storage)
 {
-	_row -= 1;
+	_target_row -= 1;
 }

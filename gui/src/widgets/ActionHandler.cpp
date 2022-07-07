@@ -256,7 +256,7 @@ void ActionHandler::addOrSet()
 		{
 			int columns = _model.columnCount(index);
 			bool result = _model.insertColumns(index.row(), columns, 1, index);
-			QModelIndex new_index = _model.index(index.row(), columns, index.parent());
+			QModelIndex new_index = _model.index(index.row(), columns, index);
 			_model.setData(new_index, value);
 		}
 		else {

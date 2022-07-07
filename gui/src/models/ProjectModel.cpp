@@ -144,16 +144,19 @@ QModelIndex ProjectModel::index(int row, int column, const QModelIndex& parent) 
 	if (parentEdge.hasChild(row, column, _resourceManager))
 	{
 		auto childEdge = parentEdge.childEdge(row, column, _resourceManager);
-		if (!hasModelEdgeIndex(childEdge))
+		if (childEdge._childType != NodeType::Invalid)
 		{
-			childEdge._parent = parent;
-			qintptr id = const_cast<ProjectModel*>(this)->createModelEdgeIndex(childEdge);
-			auto& createdChildEdge = const_cast<ProjectModel*>(this)->_direct_find[id];
-			createdChildEdge._child = createIndex(0, 0, id);
-			return createdChildEdge._child;
-		}
-		childEdge._child = createIndex(0, 0, _reverse_find.at(&childEdge));
+			if (!hasModelEdgeIndex(childEdge))
+			{
+				childEdge._parent = parent;
+				qintptr id = const_cast<ProjectModel*>(this)->createModelEdgeIndex(childEdge);
+				auto& createdChildEdge = const_cast<ProjectModel*>(this)->_direct_find[id];
+				createdChildEdge._child = createIndex(0, 0, id);
+				return createdChildEdge._child;
+			}
+			childEdge._child = createIndex(0, 0, _reverse_find.at(&childEdge));
 			return childEdge._child;
+		}
 	}
 	return createIndex(row, column, parent.internalId());
 }
