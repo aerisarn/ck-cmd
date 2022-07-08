@@ -13,7 +13,8 @@ class GenericWidget : public ckcmd::ModelWidget
 	(
 		const QString& labelText,
 		const std::vector<size_t>& rows,
-		const std::vector<QString>& columnLabels
+		const std::vector<QString>& columnLabels,
+		bool isArray
 	);
 
 public:

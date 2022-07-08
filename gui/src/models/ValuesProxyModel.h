@@ -13,6 +13,7 @@ namespace ckcmd {
             QModelIndex _sourceRoot; // Persistent?
             std::vector<size_t> _rows;
             int _firstColumn;
+            QStringList _headerData;
 
         public:
 
@@ -46,6 +47,11 @@ namespace ckcmd {
             //virtual bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
 
             virtual Qt::ItemFlags flags(const QModelIndex& index) const override;
+
+            Q_INVOKABLE virtual QVariant headerData(int section, Qt::Orientation orientation,
+                int role = Qt::DisplayRole) const override;
+            virtual bool setHeaderData(int section, Qt::Orientation orientation, const QVariant& value,
+                int role = Qt::EditRole) override;
         };
     }
 }

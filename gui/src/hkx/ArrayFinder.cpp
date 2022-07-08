@@ -1,4 +1,5 @@
 #include <src/hkx/ArrayFinder.h>
+#include <src/hkx/RowCalculator.h>
 
 #include <hkbGenerator_0.h>
 #include <hkbModifier_0.h>
@@ -42,39 +43,29 @@ void ArrayFinder::visit(void* object, const hkClassMember& definition) {
 	const auto& arrayclass = definition.getStructClass();
 	const auto& arraysubtype = definition.getSubType();
 	int elements = definition.getSizeInBytes() / definition.getArrayMemberSize();
-	char* base = (char*)object;
-	if (base != NULL)
+	bool isArray = false;
+	if (hkClassMember::TYPE_ARRAY == definition.getType())
 	{
-		if (hkClassMember::TYPE_ARRAY == definition.getType())
+		isArray = true;
+	}
+	if (definition.hasClass()) {
+		RowCalculator r;
+		hkVariant v;
+		v.m_class = definition.getClass();
+		v.m_object = nullptr;
+		HkxVariant h(v);
+		h.accept(r);
+		for (int i = 0; i < r.rows(); ++i)
 		{
-			base = (char*)*(uintptr_t*)object; //m_data
-			elements = *(int*)((char*)object + sizeof(uintptr_t)); // m_size
-			_arrayrows.push_back(_row);
-		}
-		bool recursion = false;
-		if (base != NULL && elements > 0)
-		{
-			for (int i = 0; i < elements; i++) {
-				void* element = base + i * definition.getArrayMemberSize();
-				if (definition.hasClass()) {
-					if (hkClassMember::TYPE_POINTER != arraysubtype)
-					{
-						hkVariant v;
-						v.m_class = definition.getClass();
-						v.m_object = element;
-						HkxVariant h(v);
-						h.accept(*this);
-						recursion = true;
-					}
-				}
-				else if (hkClassMember::TYPE_POINTER == arraytype) {
-					recurse(element, arraytype);
-					recursion = true;
-				}
-			}
-		}
-		if (!recursion)
+			if (isArray)
+				_arrayrows.push_back(_row);
 			_row += 1;
+		}
+	}
+	else {
+		if (isArray)
+			_arrayrows.push_back(_row);
+		_row += 1;
 	}
 }
 
