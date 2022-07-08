@@ -11,12 +11,12 @@ namespace ckcmd {
             Q_OBJECT
 
             QModelIndex _sourceRoot; // Persistent?
-            int _row;
+            std::vector<size_t> _rows;
             int _firstColumn;
 
         public:
 
-            ValuesProxyModel(ProjectModel* sourceModel, int row, int firstColumn, const QModelIndex root, QObject* parent = nullptr);
+            ValuesProxyModel(ProjectModel* sourceModel, const std::vector<size_t>& rows, int firstColumn, const QModelIndex root, QObject* parent = nullptr);
             ~ValuesProxyModel()
             {
             }

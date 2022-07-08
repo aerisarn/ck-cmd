@@ -2,8 +2,8 @@
 
 using namespace ckcmd::HKX;
 
-ValuesProxyModel::ValuesProxyModel(ProjectModel* sourceModel, int row, int firstColumn, const QModelIndex root, QObject* parent) :
-	_row(row),
+ValuesProxyModel::ValuesProxyModel(ProjectModel* sourceModel, const std::vector<size_t>& rows, int firstColumn, const QModelIndex root, QObject* parent) :
+	_rows(rows),
 	_firstColumn(firstColumn),
 	QAbstractProxyModel(parent)
 {
@@ -16,7 +16,7 @@ QModelIndex ValuesProxyModel::mapToSource(const QModelIndex& proxyIndex) const
 	if (!proxyIndex.isValid())
 		return _sourceRoot;
 
-	return sourceModel()->index(_row, _firstColumn + proxyIndex.row(), _sourceRoot);
+	return sourceModel()->index(_rows.at(proxyIndex.column()), _firstColumn + proxyIndex.row(), _sourceRoot);
 }
 
 QModelIndex ValuesProxyModel::mapFromSource(const QModelIndex& sourceIndex) const
@@ -34,12 +34,12 @@ QModelIndex ValuesProxyModel::mapFromSource(const QModelIndex& sourceIndex) cons
 
 int ValuesProxyModel::columnCount(const QModelIndex& parent) const
 {
-	return 1;
+	return _rows.size();
 }
 
 int ValuesProxyModel::rowCount(const QModelIndex& parent) const
 {
-	auto row_index = sourceModel()->index(_row, 0, _sourceRoot);
+	auto row_index = sourceModel()->index(_rows.at(0), 0, _sourceRoot);
 	int count = sourceModel()->columnCount(row_index) - _firstColumn;
 	return count;
 }

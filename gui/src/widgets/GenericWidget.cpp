@@ -66,10 +66,55 @@ void verticalResizeTableViewToContents(QTableView* tableView)
 	tableView->setMaximumHeight(rowTotalHeight);
 }
 
+QTableView* GenericWidget::makeFieldWidget
+(
+	const QString& labelText, 
+	const std::vector<size_t>& rows, 
+	const std::vector<QString>& columnLabels
+)
+{
+	QLabel* label = new QLabel(this);
+	label->setText(labelText);
+	label->setMaximumHeight(23);
+
+	verticalLayout->addWidget(label);
+
+	QTableView* editor = new QTableView(this);
+	editor->setSelectionMode(QAbstractItemView::NoSelection);
+	editor->horizontalHeader()->setVisible(false);
+	editor->horizontalHeader()->setStretchLastSection(true);
+	editor->verticalHeader()->setMinimumSectionSize(20);
+	editor->verticalHeader()->setDefaultSectionSize(20);
+	editor->verticalHeader()->setVisible(false);
+	editor->setShowGrid(false);
+	editor->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
+	ValuesProxyModel* editModel = new ValuesProxyModel(&_model, rows, 1, _index, this);
+	if (rows.size() > 1)
+	{
+		for (size_t i = 0; i < columnLabels.size(); ++i)
+			editModel->setHeaderData(i, Qt::Horizontal, columnLabels[i]);
+	}
+	editor->setItemDelegate(new ItemsDelegate(*editModel, this));
+	editor->setModel(editModel);
+	editor->resizeRowsToContents();
+	if (rows.size() > 1)
+	{
+		//editor->horizontalHeader()->setVisible(true);
+		editor->resizeColumnsToContents();
+	}
+
+	verticalResizeTableViewToContents(editor);
+	return editor;
+}
+
 void GenericWidget::OnIndexSelected()
 {
 	buildReflectionTable();
 	clearLayout(verticalLayout);
+
+	QString last_group_name;
+	std::vector<size_t> last_group;
+	std::vector<QString> last_group_fields;
 
 	for (const auto& member : _members)
 	{
@@ -81,29 +126,32 @@ void GenericWidget::OnIndexSelected()
 		if (std::get<0>(member) == "name")
 			continue;
 
-		QLabel* label = new QLabel(this);
-		label->setText(std::get<0>(member));
-		label->setMaximumHeight(23);
-
-		verticalLayout->addWidget(label);
-
-		QTableView* editor = new QTableView(this);
-		editor->setSelectionMode(QAbstractItemView::NoSelection);
-		editor->horizontalHeader()->setVisible(false);
-		editor->horizontalHeader()->setStretchLastSection(true);
-		editor->verticalHeader()->setMinimumSectionSize(20);
-		editor->verticalHeader()->setDefaultSectionSize(20);
-		editor->verticalHeader()->setVisible(false);
-		editor->setShowGrid(false);
-		editor->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
-		ValuesProxyModel* editModel = new ValuesProxyModel(&_model, member.second.first, 1, _index, this);
-		editor->setItemDelegate(new ItemsDelegate(*editModel, this));
-		editor->setModel(editModel);
-		editor->resizeRowsToContents();
-		//connect(editor->selectionModel, &QItemSelectionModel::currentChanged, this, fieldSelectionChanged)
-
-		verticalResizeTableViewToContents(editor);
-
+		auto dot_index = std::get<0>(member).indexOf(".");
+		if (dot_index != -1)
+		{
+			//this is an object;
+			last_group.push_back(member.second.first);
+			last_group_name = member.first.left(dot_index);
+			last_group_fields.push_back(member.first.mid(dot_index));
+			continue;
+		}
+		else {
+			if (!last_group.empty())
+			{
+				QTableView* editor = makeFieldWidget(last_group_name, last_group, last_group_fields);
+				verticalLayout->addWidget(editor);
+				last_group.clear();
+				last_group_fields.clear();
+			}
+			QTableView* editor = makeFieldWidget(member.first, { member.second.first }, last_group_fields);
+			verticalLayout->addWidget(editor);
+		}
+	}
+	if (!last_group.empty())
+	{
+		QTableView* editor = makeFieldWidget(last_group_name, last_group, last_group_fields);
 		verticalLayout->addWidget(editor);
+		last_group.clear();
+		last_group_fields.clear();
 	}
 }
