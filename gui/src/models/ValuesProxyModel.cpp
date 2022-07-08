@@ -29,7 +29,14 @@ QModelIndex ValuesProxyModel::mapFromSource(const QModelIndex& sourceIndex) cons
 
 	int row = sourceIndex.column() - _firstColumn;
 
-	return createIndex(row, 0, _sourceRoot.internalId());
+	size_t column = 0;
+	for (column; column < _rows.size(); column++)
+	{
+		if (_rows.at(column) == sourceIndex.row())
+			break;
+	}
+
+	return createIndex(row, column, _sourceRoot.internalId());
 }
 
 int ValuesProxyModel::columnCount(const QModelIndex& parent) const
