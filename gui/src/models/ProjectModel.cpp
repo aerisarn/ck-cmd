@@ -479,6 +479,40 @@ QModelIndex ProjectModel::getChildAssetProxy(const QModelIndex& index, NodeType 
 	return QModelIndex();
 }
 
+bool ProjectModel::isAssetNameValid(const QModelIndex& index, const QString& name, AssetType type)
+{
+	auto& edge = modelEdge(index);
+	ModelEdge search_edge;
+	search_edge._project = edge._project;
+	QModelIndex search_index;
+	switch (type) {
+	case AssetType::events:
+		search_edge._file = edge._file;
+		search_edge._childType = NodeType::behaviorEventNames;
+		search_index = createIndex(0, 0, modelEdgeIndex(search_edge));
+		break;
+	case AssetType::variables:
+		search_edge._file = edge._file;
+		search_edge._childType = NodeType::behaviorVariableNames;
+		search_index = createIndex(1, 0, modelEdgeIndex(search_edge));
+		break;
+	default:
+		return false;
+	}
+	if (search_index.isValid())
+	{
+		int rows = rowCount(search_index);
+		for (int i = 0; i < rows; i++)
+		{
+			auto eventIndex = this->index(i, 0, search_index);
+			if (eventIndex.data() == name)
+				return false;
+		}
+		return true;
+	}
+	return false;
+}
+
 QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType type, int role)
 {
 	auto& edge = modelEdge(index);
@@ -633,6 +667,14 @@ bool ProjectModel::remove(const QModelIndex& index)
 	emit beginRemoveRows(edge._parent, row, row);
 	emit beginRemoveChildren(edge._parent, row, row);
 	bool result = parent_edge.removeRows(row, 1, _resourceManager);
+	if (edge._childType == NodeType::behaviorEventName ||
+		edge._childType == NodeType::behaviorVariable)
+	{
+		AssetType type = edge._childType == NodeType::behaviorEventName ?
+			AssetType::events :
+			AssetType::variables;
+		result = result && _resourceManager.removeAsset(edge._file, type, row);
+	}
 	emit endRemoveChildren();
 	emit endRemoveRows();
 	auto id = modelEdgeIndex(edge);

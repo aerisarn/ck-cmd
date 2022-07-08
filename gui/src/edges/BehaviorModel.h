@@ -32,6 +32,9 @@ namespace ckcmd {
 			virtual int childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
 			virtual ModelEdge child(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
 			virtual QVariant data(int row, int column, const ModelEdge& edge, ResourceManager& manager) const override;
+		
+
+			virtual bool setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager) override;
 		};
 	}
 }

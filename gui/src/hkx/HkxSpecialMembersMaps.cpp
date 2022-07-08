@@ -533,7 +533,7 @@ std::map<std::pair<const hkClass*, int>, MemberIndexType> Utility::indexedMember
 	{{&hkbStateMachineInternalStateClass,8}, MemberIndexType::stateIndex}, //currentStateId
 	{{&hkbStateMachineInternalStateClass,9}, MemberIndexType::stateIndex}, //previousStateId
 	{{&hkbStateMachineProspectiveTransitionInfoClass,2}, MemberIndexType::stateIndex}, //toStateId
-	{{&hkbStateMachineStateInfoClass,11}, MemberIndexType::stateIndex}, //stateId
+	//{{&hkbStateMachineStateInfoClass,11}, MemberIndexType::stateIndex}, //stateId
 	{{&hkbStateMachineTimeIntervalClass,0}, MemberIndexType::eventIndex}, //enterEventId
 	{{&hkbStateMachineTimeIntervalClass,1}, MemberIndexType::eventIndex}, //exitEventId
 	{{&hkbStateMachineTransitionInfoClass,4}, MemberIndexType::eventIndex}, //eventId

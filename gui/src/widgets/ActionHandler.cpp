@@ -9,6 +9,7 @@
 
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QInputDialog>
 
 using namespace ckcmd::HKX;
 
@@ -89,6 +90,55 @@ void ActionHandler::buildRemoveAnimation()
 	_removeAnimation->setStatusTip(tr("Remove Animation"));
 	connect(_removeAnimation, SIGNAL(triggered()), this, SLOT(removeAnimation()));
 }
+
+void ActionHandler::buildAddEvent()
+{
+	_addEvent = new QAction(tr("&Create new Event"), this);
+	_addEvent->setShortcuts(QKeySequence::FindPrevious);
+	_addEvent->setStatusTip(tr("add Event"));
+	connect(_addEvent, SIGNAL(triggered()), this, SLOT(addEvent()));
+}
+
+void ActionHandler::buildRemoveEvent()
+{
+	_removeEvent = new QAction(tr("&Remove Event"), this);
+	_removeEvent->setShortcuts(QKeySequence::DeleteCompleteLine);
+	_removeEvent->setStatusTip(tr("Remove Event"));
+	connect(_removeEvent, SIGNAL(triggered()), this, SLOT(removeEvent()));
+}
+
+void ActionHandler::buildAddVariable()
+{
+	_addVariable = new QAction(tr("&Create new Variable"), this);
+	_addVariable->setShortcuts(QKeySequence::FindPrevious);
+	_addVariable->setStatusTip(tr("add Variable"));
+	connect(_addVariable, SIGNAL(triggered()), this, SLOT(addVariable()));
+}
+
+void ActionHandler::buildRemoveVariable()
+{
+	_removeVariable = new QAction(tr("&Remove Variable"), this);
+	_removeVariable->setShortcuts(QKeySequence::DeleteCompleteLine);
+	_removeVariable->setStatusTip(tr("Remove Variable"));
+	connect(_removeVariable, SIGNAL(triggered()), this, SLOT(removeVariable()));
+}
+
+void ActionHandler::buildAddProperty()
+{
+	_addProperty = new QAction(tr("&Create new Property"), this);
+	_addProperty->setShortcuts(QKeySequence::FindPrevious);
+	_addProperty->setStatusTip(tr("add Property"));
+	connect(_addProperty, SIGNAL(triggered()), this, SLOT(addProperty()));
+}
+
+void ActionHandler::buildRemoveProperty()
+{
+	_removeProperty = new QAction(tr("&Remove Property"), this);
+	_removeProperty->setShortcuts(QKeySequence::DeleteCompleteLine);
+	_removeProperty->setStatusTip(tr("Remove Property"));
+	connect(_removeProperty, SIGNAL(triggered()), this, SLOT(removeProperty()));
+}
+
 void ActionHandler::buildCreateProjectAction()
 {
 	_createProject = new QAction(tr("&New"), this);
@@ -218,6 +268,60 @@ void ActionHandler::removeAnimation()
 	if (!index.isValid())
 		return; //todo error message
 	_model.remove(index);
+}
+
+void ActionHandler::addEvent()
+{
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+	bool ok;
+	// Ask for birth date as a string.
+	QString name = QInputDialog::getText(0, "Choose new Event's name",
+		"Name:", QLineEdit::Normal,
+		"", &ok);
+	if (ok)
+	{
+		if (_model.isAssetNameValid(index, name, AssetType::events))
+		{
+			int events = _model.rowCount(index);
+			bool insert = _model.insertRow(events, index);
+			QModelIndex new_index = _model.index(events, 0, index);
+			bool set_data = _model.setData(new_index, name);
+		}
+	}
+}
+
+void ActionHandler::removeEvent()
+{
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+	_model.remove(index);
+}
+
+void ActionHandler::addVariable()
+{
+
+}
+
+void ActionHandler::removeVariable()
+{
+}
+
+void ActionHandler::addProperty()
+{
+
+}
+
+void ActionHandler::removeProperty()
+{
 }
 
 void ActionHandler::copy()

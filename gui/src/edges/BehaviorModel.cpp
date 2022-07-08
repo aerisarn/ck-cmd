@@ -1,5 +1,6 @@
 #include <src/edges/BehaviorModel.h>
 #include <src/hkx/HkxLinkedTableVariant.h>
+#include <src/items/HkxItemFlags.h>
 
 #include <src/utility/Containers.h>
 
@@ -189,7 +190,7 @@ int BehaviorModel::rows(const ModelEdge& edge, ResourceManager& manager) const
 		}
 		else if (edge.childType() == NodeType::behaviorEventName)
 		{
-			return 0;
+			return 2; // name, hkbEventInfo.flags
 		}
 		else if (edge.childType() == NodeType::behaviorVariable)
 		{
@@ -210,7 +211,7 @@ int BehaviorModel::columns(int row, const ModelEdge& edge, ResourceManager& mana
 	{
 		if (edge.childType() == NodeType::behaviorEventName)
 		{
-			return 0;
+			return 2; // name, hkbEventInfo.flags
 		}
 		else if (edge.childType() == NodeType::behaviorVariable)
 		{
@@ -231,14 +232,19 @@ int BehaviorModel::childCount(const ModelEdge& edge, ResourceManager& manager) c
 	{
 		if (
 			edge.childType() == NodeType::behaviorEventNames ||
-			edge.childType() == NodeType::behaviorEventName ||
 			edge.childType() == NodeType::behaviorVariableNames ||
-			edge.childType() == NodeType::behaviorVariable ||
-			edge.childType() == NodeType::behaviorCharacterPropertyNames ||
-			edge.childType() == NodeType::behaviorCharacterProperty
+			edge.childType() == NodeType::behaviorCharacterPropertyNames
 			)
 		{
 			return rows(edge, manager);
+		}
+		if (
+			edge.childType() == NodeType::behaviorEventName ||
+			edge.childType() == NodeType::behaviorVariable ||
+			edge.childType() == NodeType::behaviorCharacterProperty
+			)
+		{
+			return 0;
 		}
 		return SupportEnhancedEdge::childCount(edge, manager);
 	}
@@ -271,6 +277,10 @@ int BehaviorModel::childIndex(int row, int column, const ModelEdge& edge, Resour
 	case NodeType::behaviorVariableNames:
 	case NodeType::behaviorCharacterPropertyNames:
 		return row;
+	case NodeType::behaviorEventName:
+	case NodeType::behaviorVariable:
+	case NodeType::behaviorCharacterProperty:
+		return MODELEDGE_INVALID;
 	default:
 		break;
 	}
@@ -282,12 +292,13 @@ ModelEdge BehaviorModel::child(int row, int column, const ModelEdge& edge, Resou
 	switch (edge.type())
 	{
 	case NodeType::behaviorEventNames:
-		return ModelEdge(edge, edge.project(), edge.file(), row, 0, edge.subindex(), edge.childItem<hkVariant>(), NodeType::behaviorEventName);
+		return ModelEdge(edge, edge.project(), edge.file(), row, 0, row, edge.childItem<hkVariant>(), NodeType::behaviorEventName);
 	case NodeType::behaviorVariableNames:
 		return ModelEdge(edge, edge.project(), edge.file(), row, 0, edge.subindex(), edge.childItem<hkVariant>(), NodeType::behaviorVariable);
 	case NodeType::behaviorCharacterPropertyNames:
 		return ModelEdge(edge, edge.project(), edge.file(), row, 0, edge.subindex(), edge.childItem<hkVariant>(), NodeType::behaviorCharacterProperty);
 	case NodeType::behaviorEventName:
+		return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), edge.childItem<hkVariant>(), NodeType::behaviorEventName);
 	case NodeType::behaviorVariable:
 	case NodeType::behaviorCharacterProperty:
 		throw std::runtime_error("Child from leaf node requested!");
@@ -328,9 +339,22 @@ QVariant BehaviorModel::data(int row, int column, const ModelEdge& edge, Resourc
 		}
 		if (edge.childType() == NodeType::behaviorEventName)
 		{
-			if (column == 0)
+			if (row == 0 && column == 0)
 			{
 				return string_data->m_eventNames[edge.row()].cString();
+			}
+			if (row == 1 && column == 0)
+			{
+				return "flags";
+			}
+			if (row == 1 && column == 1)
+			{
+				auto data = data_variant(edge);
+				if (data != nullptr)
+				{
+					return data->m_eventInfos[edge.subindex()].m_flags.get();
+				}
+				return "InvalidData";
 			}
 			return "InvalidColumn";
 		}
@@ -353,4 +377,22 @@ QVariant BehaviorModel::data(int row, int column, const ModelEdge& edge, Resourc
 		return SupportEnhancedEdge::data(row, column, edge, manager);
 	}
 	return "No Behavior";
+}
+
+bool BehaviorModel::setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager)
+{
+	auto variant_data = data_variant(edge);
+	if (variant_data != nullptr)
+	{
+		if (edge.childType() == NodeType::behaviorEventName)
+		{
+			if (row == 1 && column == 1)
+			{
+				variant_data->m_eventInfos[edge.subindex()].m_flags.setAll(data.value<int>());
+				return true;
+			}
+			return false;
+		}
+	}
+	return SupportEnhancedEdge::setData(row, column, edge, data, manager);
 }

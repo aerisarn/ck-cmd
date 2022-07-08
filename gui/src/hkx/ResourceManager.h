@@ -184,6 +184,7 @@ namespace ckcmd {
 			fs::path assetFolder(int project_file, AssetType type);
 			void clearAssetList(int project_file, AssetType type);
 			void refreshAssetList(int project_file, AssetType type);
+			bool removeAsset(int file_index, AssetType type, int asset_index);
 
 			QStringList assetsList(int project_index, AssetType type);
 			QStringList clipList(int project_index);

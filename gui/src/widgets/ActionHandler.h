@@ -25,6 +25,12 @@ namespace ckcmd {
 			QAction* _importFBX;
 			QAction* _exportFBX;
 			QAction* _removeAnimation;
+			QAction* _addEvent;
+			QAction* _removeEvent;
+			QAction* _addVariable;
+			QAction* _removeVariable;
+			QAction* _addProperty;
+			QAction* _removeProperty;
 
 			QAction* _copy;
 
@@ -32,7 +38,14 @@ namespace ckcmd {
 			void buildImportFBXAction();
 			void buildExportFBXAction();
 			void buildRemoveAnimation();
+			void buildAddEvent();
+			void buildRemoveEvent();
+			void buildAddVariable();
+			void buildRemoveVariable();
+			void buildAddProperty();
+			void buildRemoveProperty();
 			void buildCreateProjectAction();
+
 			void buildCopyAction();
 
 		public slots:
@@ -42,6 +55,12 @@ namespace ckcmd {
 			void importFBX();
 			void exportFBX();
 			void removeAnimation();
+			void addEvent();
+			void removeEvent();
+			void addVariable();
+			void removeVariable();
+			void addProperty();
+			void removeProperty();
 			void copy();
 			void addOrSet();
 
@@ -56,6 +75,12 @@ namespace ckcmd {
 				buildExportFBXAction();
 				buildRemoveAnimation();
 				buildCopyAction();
+				buildAddEvent();
+				buildRemoveEvent();
+				buildAddVariable();
+				buildRemoveVariable();
+				buildAddProperty();
+				buildRemoveProperty();
 			}
 
 
@@ -65,6 +90,12 @@ namespace ckcmd {
 			QAction* exportFBXAction() { return _exportFBX; }
 			QAction* importFBXAction() { return _importFBX; }
 			QAction* removeAnimationAction() { return _removeAnimation; }
+			QAction* addEventAction() { return _addEvent; }
+			QAction* removeEventAction() { return _removeEvent; }
+			QAction* addVariableAction() { return _addEvent; }
+			QAction* removeVariableAction() { return _removeEvent; }
+			QAction* addPropertyAction() { return _addEvent; }
+			QAction* removePropertyAction() { return _removeEvent; }
 			QAction* createProjectAction() { return _createProject; }
 			QAction* copyAction() { return _copy; }
 

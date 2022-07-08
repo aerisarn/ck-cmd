@@ -19,8 +19,10 @@
 #include <QSet>
 #include <atomic>
 
-#include <iostream>
-#include <fstream>
+//#include <iostream>
+//#include <fstream>
+
+#include <src/hkx/HkxSpecialMembersMaps.h>
 
 using namespace ckcmd::HKX;
 
@@ -1663,5 +1665,100 @@ QStringList ResourceManager::getStates(hkbStateMachine* fsm)
 		}
 	}
 	return out;
+}
+
+int getValue(const hkVariant& _variant, const hkClassMember& member_declaration)
+{
+
+	void* object = (void*)((char*)_variant.m_object + member_declaration.getOffset());
+	int value = -1;
+	switch (member_declaration.getType()) 
+	{
+	case hkClassMember::TYPE_CHAR:
+		value = (int)*(hkChar*)object; break;
+	case hkClassMember::TYPE_INT8:
+		value = (int)*(hkInt8*)object; break;
+	case hkClassMember::TYPE_UINT8:
+		value = (int)*(hkUint8*)object; break;
+	case hkClassMember::TYPE_INT16:
+		value = (int)*(hkInt16*)object; break;
+	case hkClassMember::TYPE_UINT16:
+		value = (int)*(hkUint16*)object; break;
+	case hkClassMember::TYPE_INT32:
+		value = (int)*(hkInt32*)object; break;
+	case hkClassMember::TYPE_UINT32:
+		value = (int)*(hkUint32*)object; break;
+	default:
+		break;
+	}
+	return value;
+}
+
+bool setValue(const hkVariant& _variant, const hkClassMember& member_declaration, int new_value)
+{
+
+	void* object = (void*)((char*)_variant.m_object + member_declaration.getOffset());
+	switch (member_declaration.getType())
+	{
+	case hkClassMember::TYPE_CHAR:
+		*(hkChar*)object = (hkChar)new_value;
+		return true;
+	case hkClassMember::TYPE_INT8:
+		*(hkInt8*)object = (hkInt8)new_value;
+		return true;
+	case hkClassMember::TYPE_UINT8:
+		*(hkUint8*)object = (hkUint8)new_value;
+		return true;
+	case hkClassMember::TYPE_INT16:
+		*(hkInt16*)object = (hkInt16)new_value;
+		return true;
+	case hkClassMember::TYPE_UINT16:
+		*(hkUint16*)object = (hkUint16)new_value;
+		return true;
+	case hkClassMember::TYPE_INT32:
+		*(hkInt32*)object = (hkInt32)new_value;
+		return true;
+	case hkClassMember::TYPE_UINT32:
+		*(hkUint32*)object = (hkUint32)new_value;
+		return true;
+	default:
+		break;
+	}
+	return false;
+}
+
+
+
+bool ResourceManager::removeAsset(int file_index, AssetType type, int asset_index)
+{
+	MemberIndexType indexType;
+	if (type == AssetType::events)
+	{
+		indexType = MemberIndexType::eventIndex;
+	}
+	else if (type == AssetType::variables)
+	{
+		indexType = MemberIndexType::variableIndex;
+	}
+	else {
+		return false;
+	}
+	auto& contents = get(file_index);
+	for (auto& object : contents.second)
+	{
+		for (int i = 0; i < object.m_class->getNumMembers(); i++)
+		{
+			const auto& member_declaration = object.m_class->getMember(i);
+			if (member_declaration.getFlags().get() & hkClassMember::SERIALIZE_IGNORED)
+				continue;
+			auto it = Utility::indexedMembersMap.find({ object.m_class, i });
+			if (it != Utility::indexedMembersMap.end() && 
+				it->second == indexType &&
+				getValue(object, member_declaration) == asset_index)
+			{
+				setValue(object, member_declaration, -1);
+			}
+		}
+	}
 }
 

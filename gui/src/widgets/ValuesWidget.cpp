@@ -67,6 +67,9 @@ void ValuesWidget::setEditor(const QModelIndex& index)
 	case NodeType::HavokNative:
 		type = widgetType::GenericWidget;
 		break;
+	case NodeType::behaviorEventName:
+		type = widgetType::EventEditor;
+		break;
 	default:
 		break;
 	}

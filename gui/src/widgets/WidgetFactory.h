@@ -14,6 +14,7 @@ namespace ckcmd
 		invalid = 0,
 		CharacterEditor,
 		GenericWidget,
+		EventEditor,
 		allEditors
 	};
 

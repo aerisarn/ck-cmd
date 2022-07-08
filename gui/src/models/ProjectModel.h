@@ -52,6 +52,7 @@ namespace ckcmd {
             hkVariant* variant(const QModelIndex& index);
             bool isVariant(const QModelIndex& index);
             bool isAssetsNode(const QModelIndex& index);
+            bool isAssetNameValid(const QModelIndex& index, const QString& name, AssetType type);
             int getProjectIndex(const QModelIndex& index);
             int getRigIndex(const QModelIndex& index);
             int getFileIndex(const QModelIndex& index);
