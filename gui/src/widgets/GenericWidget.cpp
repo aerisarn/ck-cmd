@@ -62,7 +62,7 @@ void verticalResizeTableViewToContents(QTableView* tableView, bool min_row_value
 	// Check for header visibility
 	if (!tableView->horizontalHeader()->isHidden())
 	{
-		rowTotalHeight += tableView->horizontalHeader()->height() + 3;
+		rowTotalHeight += 23 + 3;//tableView->horizontalHeader()->height() + 3;
 	}
 	tableView->setMinimumHeight(rowTotalHeight);
 	tableView->setMaximumHeight(rowTotalHeight);
@@ -77,6 +77,8 @@ QTableView* GenericWidget::makeFieldWidget
 )
 {
 	QLabel* label = new QLabel(this);
+	ValuesProxyModel* editModel = new ValuesProxyModel(&_model, rows, 1, _index, this);
+	QTableView* editor = new QTableView(this);
 	label->setText(labelText);
 	label->setMaximumHeight(23);
 	if (isArray)
@@ -89,10 +91,47 @@ QTableView* GenericWidget::makeFieldWidget
 		setAddButton = new QToolButton(this);
 		setAddButton->setObjectName(QString::fromUtf8("setAddButton"));
 		setAddButton->setText("+");
+
+		int first_row = rows.at(0);
+
 		QToolButton* setRemoveButton;
 		setRemoveButton = new QToolButton(this);
 		setRemoveButton->setObjectName(QString::fromUtf8("setRemoveButton"));
 		setRemoveButton->setText("-");
+
+		int actual_values = editModel->rowCount();
+		if (actual_values <= 0)
+			setRemoveButton->setEnabled(false);
+
+		connect(setAddButton, &QToolButton::clicked, [editor, editModel, first_row, setRemoveButton]()
+		{
+			int new_row = editModel->rowCount();
+			editModel->insertRow(new_row);
+			editor->resizeRowsToContents();
+			editor->resizeColumnsToContents();
+			int check = editModel->rowCount();
+			verticalResizeTableViewToContents(editor, false);
+			setRemoveButton->setEnabled(true);
+		});
+
+		connect(setRemoveButton, &QToolButton::clicked, [editor, editModel, first_row, setRemoveButton]()
+		{
+			auto index = editor->selectionModel()->currentIndex();
+			int row = editModel->rowCount() - 1;
+			if (index.isValid())
+			{
+				row = index.row();
+			}
+			int new_row = editModel->rowCount();
+			editModel->removeRow(row);
+			editor->resizeRowsToContents();
+			editor->resizeColumnsToContents();
+			int check = editModel->rowCount();
+			verticalResizeTableViewToContents(editor, false);
+			if (check <= 0)
+				setRemoveButton->setEnabled(false);
+		});
+
 
 		hlayout->addWidget(setAddButton);
 		hlayout->addWidget(setRemoveButton);
@@ -103,7 +142,7 @@ QTableView* GenericWidget::makeFieldWidget
 		verticalLayout->addWidget(label);
 	}
 
-	QTableView* editor = new QTableView(this);
+
 	editor->horizontalHeader()->setVisible(false);
 	editor->horizontalHeader()->setStretchLastSection(true);
 	editor->verticalHeader()->setMinimumSectionSize(20);
@@ -111,8 +150,7 @@ QTableView* GenericWidget::makeFieldWidget
 	editor->verticalHeader()->setVisible(false);
 	editor->setShowGrid(false);
 	editor->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
-	ValuesProxyModel* editModel = new ValuesProxyModel(&_model, rows, 1, _index, this);
-	if (rows.size() > 1)
+	if (isArray)
 	{
 		for (size_t i = 0; i < columnLabels.size(); ++i)
 			editModel->setHeaderData(i, Qt::Horizontal, columnLabels[i]);
@@ -120,7 +158,7 @@ QTableView* GenericWidget::makeFieldWidget
 	editor->setItemDelegate(new ItemsDelegate(*editModel, this));
 	editor->setModel(editModel);
 	editor->resizeRowsToContents();
-	if (rows.size() > 1)
+	if (isArray)
 	{
 		editor->setSelectionMode(QAbstractItemView::SingleSelection);
 		editor->horizontalHeader()->setVisible(true);

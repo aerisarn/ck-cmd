@@ -645,11 +645,43 @@ bool ProjectModel::remove(const QModelIndex& index)
 bool ProjectModel::insertColumns(int row, int column, int count, const QModelIndex& index)
 {
 	auto& edge = modelEdge(index);
-	emit beginInsertColumns(index, column, column + count - 1);
+	QModelIndex columnIndex = this->index(row, 0, index);
+	int columns = columnCount(columnIndex);
+	emit beginInsertColumns(columnIndex, column, column + count - 1);
 	bool result = edge.insertColumns(row, column, count, _resourceManager);
 	emit endInsertColumns();
 	return result;
 }
+
+bool ProjectModel::removeColumns(int row, int column, int count, const QModelIndex& index)
+{
+	auto& edge = modelEdge(index);
+	QModelIndex columnIndex = this->index(row, 0, index);
+	int columns = columnCount(columnIndex);
+	emit beginRemoveColumns(columnIndex, column, column + count - 1);
+	bool result = edge.removeColumns(row, column, count, _resourceManager);
+	emit endRemoveColumns();
+	return result;
+}
+
+//bool ProjectModel::insertColumns(int column, int count, const QModelIndex& index)
+//{
+//	auto& edge = modelEdge(index);
+//	auto& parent_edge = modelEdge(edge._parent);
+//	emit beginInsertColumns(edge._parent, column, column + count - 1);
+//	bool result = edge.insertColumns(edge.row(), column, count, _resourceManager);
+//	emit endInsertColumns();
+//	return result;
+//}
+//
+//bool ProjectModel::removeColumns(int column, int count, const QModelIndex& index)
+//{
+//	auto& edge = modelEdge(index);
+//	emit beginRemoveColumns(edge._parent, column, column + count - 1);
+//	bool result = edge.removeColumns(index.row(), column, count, _resourceManager);
+//	emit endRemoveColumns();
+//	return result;
+//}
 
 void ProjectModel::SetCopyPointer(const QModelIndex& index)
 {

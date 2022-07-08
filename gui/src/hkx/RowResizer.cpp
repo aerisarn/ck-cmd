@@ -29,6 +29,7 @@ void RowResizer::visit(void* object, const hkClassMember& definition)
 	const auto& arraysubtype = definition.getSubType();
 
 	int resizeByts = 0;
+	bool isClass = false;
 
 	if (definition.hasClass() &&
 		hkClassMember::TYPE_POINTER != arraysubtype)
@@ -47,6 +48,7 @@ void RowResizer::visit(void* object, const hkClassMember& definition)
 		{
 			//array of classes;
 			resizeByts = definition.getClass()->getObjectSize();
+			isClass = true;
 		}
 		_target_row -= class_rows;
 	}
@@ -70,6 +72,15 @@ void RowResizer::visit(void* object, const hkClassMember& definition)
 		{
 			auto& allocator = hkContainerHeapAllocator::s_alloc;
 			uintptr_t* new_buffer = (uintptr_t*)allocator.bufRealloc(m_data, elements * resizeByts, new_size);
+			if (isClass)
+			{
+				for (int i = elements; i < (elements + _delta); ++i)
+				{
+					char* object = (char*)new_buffer + i * resizeByts;
+					memset(object, 0, resizeByts);
+					auto info = hkTypeInfoRegistry::getInstance().finishLoadedObject(object, definition.getClass()->getName());
+				}
+			}
 			if (nullptr != new_buffer && new_size == ((elements + _delta) * resizeByts))
 			{
 				*(uintptr_t*)object = (uintptr_t)new_buffer;
@@ -79,6 +90,14 @@ void RowResizer::visit(void* object, const hkClassMember& definition)
 			}
 		}
 		else if (new_size < elements * resizeByts) {
+			//move elements
+			if (_column < elements - 1)
+			{
+				char* destination = m_data + _column * resizeByts;
+				char* source = m_data + (_column + 1) * resizeByts;
+				int size = ((elements - 1) - (_column));
+				memcpy(destination, source, size + resizeByts);
+			}
 			//just shrink
 			*elements_ptr = (elements + _delta);
 			_result = true;

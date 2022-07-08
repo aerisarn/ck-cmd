@@ -29,7 +29,12 @@ void ColumnCalculator::visit(void* object, const hkClassMember& definition)
 		ColumnCalculator r;
 		h.accept(r);
 		for (int i = 0; i < r.rows(); i++)
-			fit(r.column(i) > num_elements ? r.column(i) : num_elements);
+		{
+			if (num_elements > 0)
+				fit(r.column(i) > num_elements ? r.column(i) : num_elements);
+			else
+				fit(num_elements);
+		}
 	}
 	else {
 		fit(num_elements);

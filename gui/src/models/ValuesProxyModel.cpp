@@ -75,7 +75,18 @@ bool ValuesProxyModel::setData(const QModelIndex& proxyIndex, const QVariant& va
 
 bool ValuesProxyModel::insertRows(int row, int count, const QModelIndex& parent)
 {
-	return sourceModel()->insertRows(row, count, mapToSource(parent));
+	beginInsertRows(parent, row, row + count - 1);
+	bool result = sourceModel()->insertColumns(_rows.at(0), _firstColumn + row, count, mapToSource(parent));
+	endInsertRows();
+	return result;
+}
+
+bool ValuesProxyModel::removeRows(int row, int count, const QModelIndex& parent)
+{
+	beginRemoveRows(parent, row, row + count - 1);
+	bool result = sourceModel()->removeColumns(_rows.at(0), _firstColumn + row, count, mapToSource(parent));
+	endRemoveRows();
+	return result;
 }
 
 Qt::ItemFlags ValuesProxyModel::flags(const QModelIndex& index) const
