@@ -9,7 +9,7 @@ class GenericWidget : public ckcmd::ModelWidget
 {
 	QVBoxLayout* verticalLayout;
 
-	QTableView* makeFieldWidget
+	void makeFieldWidget
 	(
 		const QString& labelText,
 		const std::vector<size_t>& rows,

@@ -38,7 +38,7 @@ void clearLayout(QLayout* layout, bool deleteWidgets = true)
 	}
 }
 
-void verticalResizeTableViewToContents(QTableView* tableView, bool min_row_value)
+void verticalResizeTableViewToContents(QTableView* tableView, bool min_row_value, bool forceScroll)
 {
 	int rowTotalHeight = 0;
 
@@ -54,9 +54,14 @@ void verticalResizeTableViewToContents(QTableView* tableView, bool min_row_value
 		rowTotalHeight = 23;
 
 	// Check for scrollbar visibility
-	if (tableView->horizontalScrollBar()->isVisible())
+
+
+	if (tableView->horizontalScrollBar()->isVisible() || forceScroll)
 	{
-		rowTotalHeight += tableView->horizontalScrollBar()->height();
+		if (forceScroll)
+			rowTotalHeight += 23;
+		else
+			rowTotalHeight += tableView->horizontalScrollBar()->height();
 	}
 
 	// Check for header visibility
@@ -68,7 +73,7 @@ void verticalResizeTableViewToContents(QTableView* tableView, bool min_row_value
 	tableView->setMaximumHeight(rowTotalHeight);
 }
 
-QTableView* GenericWidget::makeFieldWidget
+void GenericWidget::makeFieldWidget
 (
 	const QString& labelText, 
 	const std::vector<size_t>& rows, 
@@ -110,7 +115,7 @@ QTableView* GenericWidget::makeFieldWidget
 			editor->resizeRowsToContents();
 			editor->resizeColumnsToContents();
 			int check = editModel->rowCount();
-			verticalResizeTableViewToContents(editor, false);
+			verticalResizeTableViewToContents(editor, false, false);
 			setRemoveButton->setEnabled(true);
 		});
 
@@ -127,7 +132,7 @@ QTableView* GenericWidget::makeFieldWidget
 			editor->resizeRowsToContents();
 			editor->resizeColumnsToContents();
 			int check = editModel->rowCount();
-			verticalResizeTableViewToContents(editor, false);
+			verticalResizeTableViewToContents(editor, false, false);
 			if (check <= 0)
 				setRemoveButton->setEnabled(false);
 		});
@@ -150,7 +155,7 @@ QTableView* GenericWidget::makeFieldWidget
 	editor->verticalHeader()->setVisible(false);
 	editor->setShowGrid(false);
 	editor->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
-	if (isArray)
+	if (rows.size() > 1)
 	{
 		for (size_t i = 0; i < columnLabels.size(); ++i)
 			editModel->setHeaderData(i, Qt::Horizontal, columnLabels[i]);
@@ -158,19 +163,26 @@ QTableView* GenericWidget::makeFieldWidget
 	editor->setItemDelegate(new ItemsDelegate(*editModel, this));
 	editor->setModel(editModel);
 	editor->resizeRowsToContents();
-	if (isArray)
+	if (rows.size() > 1)
 	{
 		editor->setSelectionMode(QAbstractItemView::SingleSelection);
 		editor->horizontalHeader()->setVisible(true);
 		editor->resizeColumnsToContents();
-		verticalResizeTableViewToContents(editor, false);
+
 	}
 	else {
 		editor->setSelectionMode(QAbstractItemView::NoSelection);
 		editor->horizontalHeader()->setVisible(false);
-		verticalResizeTableViewToContents(editor, true);
+
 	}
-	return editor;
+	verticalLayout->addWidget(editor);
+
+	bool forceScroll = columnLabels.size() > 5;
+
+	if (rows.size() > 1)
+		verticalResizeTableViewToContents(editor, !isArray, forceScroll);
+	else
+		verticalResizeTableViewToContents(editor, true, forceScroll);
 }
 
 void GenericWidget::OnIndexSelected()
@@ -181,7 +193,7 @@ void GenericWidget::OnIndexSelected()
 	QString last_group_name;
 	std::vector<size_t> last_group;
 	std::vector<QString> last_group_fields;
-	bool last_group_isArray;
+	bool last_group_isArray = false;
 
 	bool isArray = false;
 	for (const auto& member : _members)
@@ -209,20 +221,17 @@ void GenericWidget::OnIndexSelected()
 		else {
 			if (!last_group.empty())
 			{
-				QTableView* editor = makeFieldWidget(last_group_name, last_group, last_group_fields, last_group_isArray);
-				verticalLayout->addWidget(editor);
+				makeFieldWidget(last_group_name, last_group, last_group_fields, last_group_isArray);
 				last_group.clear();
 				last_group_fields.clear();
 				last_group_isArray = false;
 			}
-			QTableView* editor = makeFieldWidget(member.first, { member.second.first }, last_group_fields, isArray);
-			verticalLayout->addWidget(editor);
+			makeFieldWidget(member.first, { member.second.first }, last_group_fields, isArray);
 		}
 	}
 	if (!last_group.empty())
 	{
-		QTableView* editor = makeFieldWidget(last_group_name, last_group, last_group_fields, last_group_isArray);
-		verticalLayout->addWidget(editor);
+		makeFieldWidget(last_group_name, last_group, last_group_fields, last_group_isArray);
 		last_group.clear();
 		last_group_fields.clear();
 	}
