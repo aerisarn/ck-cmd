@@ -3,6 +3,7 @@
 #include <src/hkx/Saver.h>
 #include <src/widgets/FBXImport.h>
 #include <src/widgets/SelectNode.h>
+#include <src/widgets/VariableCreator.h>
 #include <src/utility/Conversion.h>
 
 #include <src/items/HkxItemPointer.h>
@@ -316,11 +317,38 @@ void ActionHandler::removeEvent()
 
 void ActionHandler::addVariable()
 {
-
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+	action->setData(QVariant());
+	bool ok;
+	auto new_variable_info = VariableCreator::getNewVariable(nullptr, &ok);
+	if (ok && !new_variable_info.first.isEmpty(), new_variable_info.second != VariableCreator::VariableType::type_invalid)
+	{
+		if (_model.isAssetNameValid(index, new_variable_info.first, AssetType::variables))
+		{
+			int events = _model.rowCount(index);
+			bool insert = _model.insertRow(events, index);
+			QModelIndex new_index = _model.index(events, 0, index);
+			bool set_data = _model.setData(new_index, new_variable_info.first);
+		}
+	}
 }
 
 void ActionHandler::removeVariable()
 {
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+	action->setData(QVariant());
+	_model.remove(index);
+	action->setData(QVariant());
 }
 
 void ActionHandler::addProperty()

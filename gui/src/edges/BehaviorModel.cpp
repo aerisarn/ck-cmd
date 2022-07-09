@@ -1,10 +1,32 @@
 #include <src/edges/BehaviorModel.h>
 #include <src/hkx/HkxLinkedTableVariant.h>
 #include <src/items/HkxItemFlags.h>
+#include <src/items/HkxItemPointer.h>
+#include <src/items/HkxItemReal.h>
+
+#include <hkbBehaviorGraphData_2.h>
 
 #include <src/utility/Containers.h>
 
 using namespace ckcmd::HKX;
+
+// name
+// { "role",&hkbRoleAttributeClass,HK_NULL,hkClassMember::TYPE_STRUCT,hkClassMember::TYPE_VOID,0,hkClassMember::FLAGS_NONE,HK_OFFSET_OF(hkbVariableInfo,m_role) /*0*/,HK_NULL},
+//		{ "role",HK_NULL,RoleEnum,hkClassMember::TYPE_ENUM,hkClassMember::TYPE_INT16,0,hkClassMember::FLAGS_NONE,HK_OFFSET_OF(hkbRoleAttribute,m_role) /*0*/,HK_NULL},
+//		{ "flags", HK_NULL, RoleFlagsEnum, hkClassMember::TYPE_FLAGS, hkClassMember::TYPE_INT16, 0, hkClassMember::FLAGS_NONE, HK_OFFSET_OF(hkbRoleAttribute, m_flags) /*2*/, HK_NULL},
+// { "type", HK_NULL, VariableTypeEnum, hkClassMember::TYPE_ENUM, hkClassMember::TYPE_INT8, 0, hkClassMember::FLAGS_NONE, HK_OFFSET_OF(hkbVariableInfo, m_type) /*4*/, HK_NULL},
+// hkArray<hkbVariableValue> m_wordMinVariableValues;
+// hkArray<hkbVariableValue> m_wordMaxVariableValues;
+//hkRefPtr<hkbVariableValueSet> m_variableInitialValues;
+
+#define VARIABLE_ROLE_INDEX 1
+#define VARIABLE_FLAGS_INDEX 2
+#define VARIABLE_TYPE_INDEX 3
+//#define VARIABLE_MIN_INDEX 4
+//#define VARIABLE_MAX_INDEX 5
+#define VARIABLE_VALUE_INDEX 4
+
+#define VARIABLE_ROWS 5
 
 std::vector<NodeType> BehaviorModel::handled_types() const
 {
@@ -70,8 +92,6 @@ hkVariant* BehaviorData(const ModelEdge& edge, ResourceManager& manager, hkVaria
 			auto data = graph->m_data;
 			if (data != NULL)
 			{
-				//int data_index = manager.findIndex(edge.file(), &*data);
-				//return manager.at(edge.file(), data_index);
 				return manager.findVariant(edge.file(), &*data);
 			}
 		}
@@ -92,9 +112,6 @@ hkVariant* BehaviorStringData(const ModelEdge& edge, ResourceManager& manager, h
 				auto string_data = data->m_stringData;
 				if (string_data != NULL)
 				{
-					//int string_data_index = manager.findIndex(edge.file(), &*string_data);
-					//return manager.at(edge.file(), string_data_index);
-
 					return manager.findVariant(edge.file(), &*string_data);
 				}
 			}
@@ -194,7 +211,7 @@ int BehaviorModel::rows(const ModelEdge& edge, ResourceManager& manager) const
 		}
 		else if (edge.childType() == NodeType::behaviorVariable)
 		{
-			return 0;
+			return VARIABLE_ROWS;
 		}
 		else if (edge.childType() == NodeType::behaviorCharacterProperty)
 		{
@@ -207,7 +224,8 @@ int BehaviorModel::rows(const ModelEdge& edge, ResourceManager& manager) const
 
 int BehaviorModel::columns(int row, const ModelEdge& edge, ResourceManager& manager) const
 {
-	if (nullptr != variant(edge))
+	auto data = data_variant(edge);
+	if (nullptr != variant(edge) && nullptr != data)
 	{
 		if (edge.childType() == NodeType::behaviorEventName)
 		{
@@ -215,10 +233,52 @@ int BehaviorModel::columns(int row, const ModelEdge& edge, ResourceManager& mana
 		}
 		else if (edge.childType() == NodeType::behaviorVariable)
 		{
-			return 0;
+			return 2;
 		}
 		else if (edge.childType() == NodeType::behaviorCharacterProperty)
 		{
+			switch (row)
+			{
+			case 0:
+				return 1;
+			case VARIABLE_ROLE_INDEX:
+				return 2;
+			case VARIABLE_FLAGS_INDEX:
+				return 2;
+			case VARIABLE_TYPE_INDEX:
+				return 2;
+			//case VARIABLE_MIN_INDEX:
+			//	return 2;
+			//case VARIABLE_MAX_INDEX:
+			//	return 2;
+			case VARIABLE_VALUE_INDEX:
+				switch (data->m_variableInfos[edge.subindex()].m_type)
+				{
+				case hkbVariableInfo::VARIABLE_TYPE_BOOL:
+					return 2;
+				case hkbVariableInfo::VARIABLE_TYPE_INT8:
+					return 2;
+				case hkbVariableInfo::VARIABLE_TYPE_INT16:
+					return 2;
+				case hkbVariableInfo::VARIABLE_TYPE_INT32:
+					return 2;
+				case hkbVariableInfo::VARIABLE_TYPE_REAL:
+					return 2;
+				case hkbVariableInfo::VARIABLE_TYPE_POINTER:
+					return 2;
+				case hkbVariableInfo::VARIABLE_TYPE_VECTOR3:
+					return 4;
+				case hkbVariableInfo::VARIABLE_TYPE_VECTOR4:
+					return 5;
+				case hkbVariableInfo::VARIABLE_TYPE_QUATERNION:
+					return 5;
+				default:
+					break;
+				}
+				break;
+			default:
+				break;
+			}
 			return 0;
 		}
 		return SupportEnhancedEdge::columns(row, edge, manager);
@@ -294,12 +354,13 @@ ModelEdge BehaviorModel::child(int row, int column, const ModelEdge& edge, Resou
 	case NodeType::behaviorEventNames:
 		return ModelEdge(edge, edge.project(), edge.file(), row, 0, row, edge.childItem<hkVariant>(), NodeType::behaviorEventName);
 	case NodeType::behaviorVariableNames:
-		return ModelEdge(edge, edge.project(), edge.file(), row, 0, edge.subindex(), edge.childItem<hkVariant>(), NodeType::behaviorVariable);
+		return ModelEdge(edge, edge.project(), edge.file(), row, 0, row, edge.childItem<hkVariant>(), NodeType::behaviorVariable);
 	case NodeType::behaviorCharacterPropertyNames:
 		return ModelEdge(edge, edge.project(), edge.file(), row, 0, edge.subindex(), edge.childItem<hkVariant>(), NodeType::behaviorCharacterProperty);
 	case NodeType::behaviorEventName:
 		return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), edge.childItem<hkVariant>(), NodeType::behaviorEventName);
 	case NodeType::behaviorVariable:
+		return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), edge.childItem<hkVariant>(), NodeType::behaviorVariable);
 	case NodeType::behaviorCharacterProperty:
 		throw std::runtime_error("Child from leaf node requested!");
 	default:
@@ -310,6 +371,7 @@ ModelEdge BehaviorModel::child(int row, int column, const ModelEdge& edge, Resou
 
 QVariant BehaviorModel::data(int row, int column, const ModelEdge& edge, ResourceManager& manager) const
 {
+	auto* data = data_variant(edge);
 	auto* string_data = string_variant(edge);
 	if (nullptr != string_data)
 	{
@@ -360,9 +422,74 @@ QVariant BehaviorModel::data(int row, int column, const ModelEdge& edge, Resourc
 		}
 		if (edge.childType() == NodeType::behaviorVariable)
 		{
-			if (column == 0)
+			if (row == 0 && column == 0)
 			{
 				return string_data->m_variableNames[edge.row()].cString();
+			}
+			if (column == 1)
+			{
+				switch (row)
+				{
+				case VARIABLE_ROLE_INDEX:
+					return (int)data->m_variableInfos[edge.subindex()].m_role.m_role;
+				case VARIABLE_FLAGS_INDEX:
+					return data->m_variableInfos[edge.subindex()].m_role.m_flags.get();
+				case VARIABLE_TYPE_INDEX:
+					return (hkInt8)data->m_variableInfos[edge.subindex()].m_type;
+				//case VARIABLE_MIN_INDEX:
+				//	return data->m_wordMinVariableValues[edge.subindex()].m_value;
+				//case VARIABLE_MAX_INDEX:
+				//	return data->m_wordMaxVariableValues[edge.subindex()].m_value;
+				case VARIABLE_VALUE_INDEX:
+					switch (data->m_variableInfos[edge.subindex()].m_type)
+					{
+					case hkbVariableInfo::VARIABLE_TYPE_BOOL:
+					case hkbVariableInfo::VARIABLE_TYPE_INT8:
+					case hkbVariableInfo::VARIABLE_TYPE_INT16:
+					case hkbVariableInfo::VARIABLE_TYPE_INT32:
+						return data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value;
+					case hkbVariableInfo::VARIABLE_TYPE_REAL:
+					{
+						return *(float*)&data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value;
+					}
+					case hkbVariableInfo::VARIABLE_TYPE_POINTER:
+					{
+						int value_index = data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value;
+						if (value_index == -1)
+						{
+							value_index = data->m_variableInitialValues->m_variantVariableValues.getSize();
+							data->m_variableInitialValues->m_variantVariableValues.expandOne();
+							data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value = value_index;
+						}
+						QVariant value;
+						value.setValue(HkxItemPointer((void*)data->m_variableInitialValues->m_variantVariableValues[value_index]));
+						return value;
+					}
+					case hkbVariableInfo::VARIABLE_TYPE_VECTOR3:
+					case hkbVariableInfo::VARIABLE_TYPE_VECTOR4:
+					case hkbVariableInfo::VARIABLE_TYPE_QUATERNION:
+					{
+						int value_index = data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value;
+						if (value_index == -1)
+						{
+							value_index = data->m_variableInitialValues->m_quadVariableValues.getSize();
+							data->m_variableInitialValues->m_quadVariableValues.expandOne();
+							data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value = value_index;
+						}
+						hkVector4 realValue = data->m_variableInitialValues->m_quadVariableValues[value_index];
+						HkxItemReal real_value({ {realValue(0), realValue(1), realValue(2), realValue(3)} });
+						QVariant value;
+						value.setValue(real_value);
+						return value;
+					}
+					default:
+						break;
+					}
+					break;
+				default:
+					break;
+				}
+				return "InvalidRow";
 			}
 			return "InvalidColumn";
 		}
@@ -379,28 +506,91 @@ QVariant BehaviorModel::data(int row, int column, const ModelEdge& edge, Resourc
 	return "No Behavior";
 }
 
-bool BehaviorModel::setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager)
+bool BehaviorModel::setData(int row, int column, const ModelEdge& edge, const QVariant& value, ResourceManager& manager)
 {
-	auto variant_data = data_variant(edge);
+	auto data = data_variant(edge);
 	auto string_data = string_variant(edge);
-	if (nullptr != string_data && nullptr != variant_data)
+	if (nullptr != string_data && nullptr != data)
 	{
 		if (edge.childType() == NodeType::behaviorEventName)
 		{
 			if (row == 0 && column == 0)
 			{
-				string_data->m_eventNames[edge.subindex()] = data.toString().toUtf8().constData();
+				string_data->m_eventNames[edge.subindex()] = value.toString().toUtf8().constData();
 				return true;
 			}
 			if (row == 1 && column == 1)
 			{
-				variant_data->m_eventInfos[edge.subindex()].m_flags.setAll(data.value<int>());
+				data->m_eventInfos[edge.subindex()].m_flags.setAll(value.value<int>());
 				return true;
 			}
 			return false;
 		}
+		if (edge.childType() == NodeType::behaviorVariable)
+		{
+			if (row == 0 && column == 0)
+			{
+				string_data->m_variableNames[edge.subindex()] = value.toString().toUtf8().constData();
+				return true;
+			}
+			if (column == 1)
+			{
+				switch (row)
+				{
+				case VARIABLE_ROLE_INDEX:
+					data->m_variableInfos[edge.subindex()].m_role.m_role = static_cast<hkbRoleAttribute::Role>(value.toInt());
+					return true;
+				case VARIABLE_FLAGS_INDEX:
+					data->m_variableInfos[edge.subindex()].m_role.m_flags.setAll(value.toInt());
+					return true;
+				case VARIABLE_TYPE_INDEX:
+					data->m_variableInfos[edge.subindex()].m_type = static_cast<hkbVariableInfo::VariableType>(value.toInt());
+					return true;
+				//case VARIABLE_MIN_INDEX:
+				//	data->m_wordMinVariableValues[edge.subindex()].m_value = value.toInt();
+				//	return true;
+				//case VARIABLE_MAX_INDEX:
+				//	data->m_wordMaxVariableValues[edge.subindex()].m_value = value.toInt();
+				//	return true;
+				case VARIABLE_VALUE_INDEX:
+					switch (data->m_variableInfos[edge.subindex()].m_type)
+					{
+					case hkbVariableInfo::VARIABLE_TYPE_BOOL:
+					case hkbVariableInfo::VARIABLE_TYPE_INT8:
+					case hkbVariableInfo::VARIABLE_TYPE_INT16:
+					case hkbVariableInfo::VARIABLE_TYPE_INT32:
+						data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value = value.toInt();
+					case hkbVariableInfo::VARIABLE_TYPE_REAL:
+						data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value = (int)value.value<float>();
+						return true;
+					case hkbVariableInfo::VARIABLE_TYPE_POINTER:
+					{
+						int value_index = data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value;
+						auto ptr = value.value<HkxItemPointer>();
+						data->m_variableInitialValues->m_variantVariableValues[value_index] = static_cast<hkReferencedObject*>(ptr.get());
+						return true;
+					}
+					case hkbVariableInfo::VARIABLE_TYPE_VECTOR3:
+					case hkbVariableInfo::VARIABLE_TYPE_VECTOR4:
+					case hkbVariableInfo::VARIABLE_TYPE_QUATERNION:
+					{
+						int value_index = data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value;
+						auto vector_value = value.value<HkxItemReal>();
+						data->m_variableInitialValues->m_quadVariableValues[value_index](column - 1) = vector_value.value(0, column - 1);
+						return true;
+					}
+					default:
+						break;
+					}
+					break;
+				default:
+					break;
+				}			
+			}
+			return false;
+		}
 	}
-	return SupportEnhancedEdge::setData(row, column, edge, data, manager);
+	return SupportEnhancedEdge::setData(row, column, edge, value, manager);
 }
 
 bool BehaviorModel::addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)
@@ -413,6 +603,21 @@ bool BehaviorModel::addRows(int row_start, int count, const ModelEdge& edge, Res
 		{
 			bool result = addToContainer(row_start, count, string_data->m_eventNames);
 			result = result && addToContainer(row_start, count, variant_data->m_eventInfos);
+			return result;
+		}
+		if (edge.childType() == NodeType::behaviorVariableNames)
+		{
+			bool result = addToContainer(row_start, count, string_data->m_variableNames);
+			result = result && addToContainer(row_start, count, variant_data->m_variableInfos);
+			if (variant_data->m_variableInitialValues == nullptr)
+			{
+				variant_data->m_variableInitialValues = manager.createObject<hkbVariableValueSet>(edge.file(), &hkbVariableValueSetClass);
+			}
+			result = result && addToContainer(row_start, count, variant_data->m_variableInitialValues->m_wordVariableValues);
+			for (int i = 0; i < count; ++i)
+			{
+				variant_data->m_variableInitialValues->m_wordVariableValues[row_start + i].m_value = -1;
+			}
 			return result;
 		}
 		return false;
@@ -430,6 +635,40 @@ bool BehaviorModel::removeRows(int row_start, int count, const ModelEdge& edge, 
 		{
 			bool result = removeFromContainer(row_start, count, string_data->m_eventNames);
 			result = result && removeFromContainer(row_start, count, variant_data->m_eventInfos);
+			return result;
+		}
+		if (edge.childType() == NodeType::behaviorVariableNames)
+		{
+			bool result = removeFromContainer(row_start, count, string_data->m_variableNames);
+			switch (variant_data->m_variableInfos[edge.subindex()].m_type)
+			{
+			case hkbVariableInfo::VARIABLE_TYPE_BOOL:
+			case hkbVariableInfo::VARIABLE_TYPE_INT8:
+			case hkbVariableInfo::VARIABLE_TYPE_INT16:
+			case hkbVariableInfo::VARIABLE_TYPE_INT32:
+			case hkbVariableInfo::VARIABLE_TYPE_REAL:
+				result = result && removeFromContainer(row_start, count, variant_data->m_variableInitialValues->m_wordVariableValues);
+				break;
+			case hkbVariableInfo::VARIABLE_TYPE_POINTER:
+			{
+				int value_index = variant_data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value;
+				result = result && removeFromContainer(value_index, count, variant_data->m_variableInitialValues->m_variantVariableValues);
+				result = result && removeFromContainer(row_start, count, variant_data->m_variableInitialValues->m_wordVariableValues);
+				break;
+			}
+			case hkbVariableInfo::VARIABLE_TYPE_VECTOR3:
+			case hkbVariableInfo::VARIABLE_TYPE_VECTOR4:
+			case hkbVariableInfo::VARIABLE_TYPE_QUATERNION:
+			{
+				int value_index = variant_data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value;
+				result = result && removeFromContainer(value_index, count, variant_data->m_variableInitialValues->m_quadVariableValues);
+				result = result && removeFromContainer(row_start, count, variant_data->m_variableInitialValues->m_wordVariableValues);
+				break;
+			}
+			default:
+				break;
+			}
+			result = result && removeFromContainer(row_start, count, variant_data->m_variableInfos);
 			return result;
 		}
 		return false;

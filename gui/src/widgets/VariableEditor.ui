@@ -6,189 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>526</width>
-    <height>185</height>
+    <width>637</width>
+    <height>303</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Variable Editor</string>
   </property>
-  <layout class="QHBoxLayout" name="horizontalLayout_4">
-   <item>
-    <layout class="QVBoxLayout" name="verticalLayout_2">
-     <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_2">
-       <item>
-        <widget class="QLabel" name="label_2">
-         <property name="text">
-          <string>Type:</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QComboBox" name="comboBox_2">
-         <item>
-          <property name="text">
-           <string>INVALID</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>BOOL</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>INT8</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>INT16</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>INT32</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>REAL</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>POINTER</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>VECTOR3</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>VECTOR4</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>QUATERNION</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QHBoxLayout" name="horizontalLayout">
-       <item>
-        <widget class="QLabel" name="label">
-         <property name="text">
-          <string>Role:</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QComboBox" name="comboBox">
-         <item>
-          <property name="text">
-           <string>DEFAULT</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>FILE_NAME</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>BONE_INDEX</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>BONE_INDEX_MAP</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>EVENT_ID</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>VARIABLE_INDEX</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>ATTRIBUTE_INDEX</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>TIME</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <widget class="QLabel" name="label_7">
-       <property name="text">
-        <string>Value:</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_3">
-       <item>
-        <widget class="QLabel" name="label_3">
-         <property name="text">
-          <string>X</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QDoubleSpinBox" name="doubleSpinBox"/>
-       </item>
-       <item>
-        <widget class="QLabel" name="label_4">
-         <property name="text">
-          <string>X</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QDoubleSpinBox" name="doubleSpinBox_2"/>
-       </item>
-       <item>
-        <widget class="QLabel" name="label_6">
-         <property name="text">
-          <string>X</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QDoubleSpinBox" name="doubleSpinBox_3"/>
-       </item>
-       <item>
-        <widget class="QLabel" name="label_5">
-         <property name="text">
-          <string>X</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QDoubleSpinBox" name="doubleSpinBox_4"/>
-       </item>
-      </layout>
-     </item>
-    </layout>
-   </item>
+  <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
@@ -198,42 +23,42 @@
       <item>
        <layout class="QVBoxLayout" name="verticalLayout">
         <item>
-         <widget class="QCheckBox" name="checkBox_2">
+         <widget class="QCheckBox" name="ragdollCheckBox">
           <property name="text">
            <string>Ragdoll</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QCheckBox" name="checkBox_3">
+         <widget class="QCheckBox" name="normalizedCheckBox">
           <property name="text">
            <string>Normalized</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QCheckBox" name="checkBox_4">
+         <widget class="QCheckBox" name="notVariableCheckBox">
           <property name="text">
            <string>Not Variable</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QCheckBox" name="checkBox_5">
+         <widget class="QCheckBox" name="hiddenCheckBox">
           <property name="text">
            <string>Hidden</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QCheckBox" name="checkBox_6">
+         <widget class="QCheckBox" name="outputCheckBox">
           <property name="text">
            <string>Output</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QCheckBox" name="checkBox_7">
+         <widget class="QCheckBox" name="notCharacterPropertyCheckBox">
           <property name="text">
            <string>Not Character Property</string>
           </property>
@@ -242,6 +67,81 @@
        </layout>
       </item>
      </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_2">
+     <property name="text">
+      <string>Type:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLineEdit" name="typeLineEdit">
+     <property name="acceptDrops">
+      <bool>false</bool>
+     </property>
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>Role:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QComboBox" name="roleComboBox">
+     <item>
+      <property name="text">
+       <string>DEFAULT</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>FILE_NAME</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>BONE_INDEX</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>BONE_INDEX_MAP</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>EVENT_ID</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>VARIABLE_INDEX</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>ATTRIBUTE_INDEX</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>TIME</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_7">
+     <property name="text">
+      <string>Default Value:</string>
+     </property>
     </widget>
    </item>
   </layout>

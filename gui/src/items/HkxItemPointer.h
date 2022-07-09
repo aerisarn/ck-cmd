@@ -15,6 +15,7 @@ namespace ckcmd {
 
 			HkxItemPointer(const void* pointer) : _pointer(pointer) {}
 			const void* get() const { return _pointer; }
+			void* get() { return const_cast<void*>(_pointer); }
 		};
 	}
 }

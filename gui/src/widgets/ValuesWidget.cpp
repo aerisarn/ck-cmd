@@ -70,6 +70,9 @@ void ValuesWidget::setEditor(const QModelIndex& index)
 	case NodeType::behaviorEventName:
 		type = widgetType::EventEditor;
 		break;
+	case NodeType::behaviorVariable:
+		type = widgetType::VariableEditor;
+		break;
 	default:
 		break;
 	}

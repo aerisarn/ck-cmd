@@ -3,6 +3,7 @@
 #include "CharacterEditor.h"
 #include "GenericWidget.h"
 #include "EventEditor.h"
+#include "VariableEditor.h"
 
 using namespace ckcmd;
 using namespace ckcmd::HKX;
@@ -17,6 +18,8 @@ QWidget* WidgetFactory::getWidget(widgetType type, HKX::ProjectModel& model, QWi
 		return new GenericWidget(model, parent);
 	case widgetType::EventEditor:
 		return new EventEditor(model, parent);
+	case widgetType::VariableEditor:
+		return new VariableEditor(model, parent);
 	default:
 		break;
 	}

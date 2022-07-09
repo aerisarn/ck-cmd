@@ -15,6 +15,7 @@ namespace ckcmd
 		CharacterEditor,
 		GenericWidget,
 		EventEditor,
+		VariableEditor,
 		allEditors
 	};
 
