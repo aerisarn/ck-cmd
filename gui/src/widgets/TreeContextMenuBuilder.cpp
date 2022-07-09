@@ -12,7 +12,7 @@ void TreeContextMenuBuilder::buildMiscsNodeMenu(std::vector<QAction*>& actions)
 	actions.push_back(_actionHandler.createProjectAction());
 }
 
-void TreeContextMenuBuilder::buildProjectNodeMenu(std::vector<QAction*>& actions, const QVariant& action_data)
+void TreeContextMenuBuilder::buildProjectNodeMenu(std::vector<QAction*>& actions, const QModelIndex& action_data)
 {
 	actions.push_back(_actionHandler.saveAction(action_data));
 }
@@ -28,7 +28,17 @@ void TreeContextMenuBuilder::buildAnimationMenu(std::vector<QAction*>& actions)
 	actions.push_back(_actionHandler.removeAnimationAction());
 }
 
-void TreeContextMenuBuilder::buildHavokMenu(std::vector<QAction*>& actions, const QVariant& action_data)
+void TreeContextMenuBuilder::buildEventsMenu(std::vector<QAction*>& actions)
+{
+	actions.push_back(_actionHandler.addEventAction());
+}
+
+void TreeContextMenuBuilder::buildEventMenu(std::vector<QAction*>& actions)
+{
+	actions.push_back(_actionHandler.removeEventAction());
+}
+
+void TreeContextMenuBuilder::buildHavokMenu(std::vector<QAction*>& actions, const QModelIndex& action_data)
 {
 	auto addActions = _actionHandler.addActions(action_data);
 	for (const auto& action : addActions)
@@ -36,7 +46,7 @@ void TreeContextMenuBuilder::buildHavokMenu(std::vector<QAction*>& actions, cons
 	actions.push_back(_actionHandler.copyAction());
 }
 
-QMenu* TreeContextMenuBuilder::build(NodeType type, QVariant action_data)
+QMenu* TreeContextMenuBuilder::build(NodeType type, const QModelIndex& action_data)
 {
 	std::vector<QAction*> applicable_actions;
 	switch (type) {
@@ -45,6 +55,12 @@ QMenu* TreeContextMenuBuilder::build(NodeType type, QVariant action_data)
 			break;
 		case NodeType::animationName:
 			buildAnimationMenu(applicable_actions);
+			break;
+		case NodeType::behaviorEventNames:
+			buildEventsMenu(applicable_actions);
+			break;
+		case NodeType::behaviorEventName:
+			buildEventMenu(applicable_actions);
 			break;
 		case NodeType::CharacterNode:
 		case NodeType::MiscNode:

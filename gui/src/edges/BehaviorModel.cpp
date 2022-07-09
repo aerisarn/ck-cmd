@@ -382,10 +382,16 @@ QVariant BehaviorModel::data(int row, int column, const ModelEdge& edge, Resourc
 bool BehaviorModel::setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager)
 {
 	auto variant_data = data_variant(edge);
-	if (variant_data != nullptr)
+	auto string_data = string_variant(edge);
+	if (nullptr != string_data && nullptr != variant_data)
 	{
 		if (edge.childType() == NodeType::behaviorEventName)
 		{
+			if (row == 0 && column == 0)
+			{
+				string_data->m_eventNames[edge.subindex()] = data.toString().toUtf8().constData();
+				return true;
+			}
 			if (row == 1 && column == 1)
 			{
 				variant_data->m_eventInfos[edge.subindex()].m_flags.setAll(data.value<int>());
@@ -395,4 +401,38 @@ bool BehaviorModel::setData(int row, int column, const ModelEdge& edge, const QV
 		}
 	}
 	return SupportEnhancedEdge::setData(row, column, edge, data, manager);
+}
+
+bool BehaviorModel::addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)
+{
+	auto string_data = string_variant(edge);
+	auto variant_data = data_variant(edge);
+	if (nullptr != string_data && nullptr != variant_data)
+	{
+		if (edge.childType() == NodeType::behaviorEventNames)
+		{
+			bool result = addToContainer(row_start, count, string_data->m_eventNames);
+			result = result && addToContainer(row_start, count, variant_data->m_eventInfos);
+			return result;
+		}
+		return false;
+	}
+	return SupportEnhancedEdge::addRows(row_start, count, edge, manager);
+}
+
+bool BehaviorModel::removeRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)
+{
+	auto string_data = string_variant(edge);
+	auto variant_data = data_variant(edge);
+	if (nullptr != string_data && nullptr != variant_data)
+	{
+		if (edge.childType() == NodeType::behaviorEventNames)
+		{
+			bool result = removeFromContainer(row_start, count, string_data->m_eventNames);
+			result = result && removeFromContainer(row_start, count, variant_data->m_eventInfos);
+			return result;
+		}
+		return false;
+	}
+	return SupportEnhancedEdge::removeRows(row_start, count, edge, manager);
 }

@@ -35,6 +35,8 @@ namespace ckcmd {
 		
 
 			virtual bool setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager) override;
+			virtual bool addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager) override;
+			virtual bool removeRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager) override;
 		};
 	}
 }

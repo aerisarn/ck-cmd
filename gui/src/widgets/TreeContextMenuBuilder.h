@@ -2,6 +2,7 @@
 
 #include <src/widgets/ActionHandler.h>
 
+#include <QAbstractItemModel>
 #include <QObject>
 #include <QMenu>
 
@@ -15,17 +16,19 @@ namespace ckcmd {
 
 			void buildCharactersNodeMenu(std::vector<QAction*>& actions);
 			void buildMiscsNodeMenu(std::vector<QAction*>& actions);
-			void buildProjectNodeMenu(std::vector<QAction*>& actions, const QVariant& action_data);
+			void buildProjectNodeMenu(std::vector<QAction*>& actions, const QModelIndex& action_data);
 			void buildAnimationsMenu(std::vector<QAction*>& actions);
 			void buildAnimationMenu(std::vector<QAction*>& actions);
-			void buildHavokMenu(std::vector<QAction*>& actions, const QVariant& action_data);
+			void buildEventsMenu(std::vector<QAction*>& actions);
+			void buildEventMenu(std::vector<QAction*>& actions);
+			void buildHavokMenu(std::vector<QAction*>& actions, const QModelIndex& action_data);
 
 		public:
 			TreeContextMenuBuilder(ActionHandler& actionHandler)
 				: _actionHandler(actionHandler)
 			{}
 
-			QMenu* build(NodeType type, QVariant action_data);
+			QMenu* build(NodeType type, const QModelIndex& action_data);
 		};
 	}
 }

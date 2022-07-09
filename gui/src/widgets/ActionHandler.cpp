@@ -165,6 +165,7 @@ void ActionHandler::save()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
+	action->setData(QVariant());
 	int project_index = _model.getProjectIndex(index);
 	_model.getResourceManager().saveProject(project_index);
 }
@@ -187,6 +188,7 @@ void ActionHandler::importFBX()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
+	action->setData(QVariant());
 	bool ok;
 	auto selection = FBXImport::getPath(
 		_model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::animation),
@@ -227,6 +229,7 @@ void ActionHandler::exportFBX()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
+	action->setData(QVariant());
 	bool ok;
 	fs::path animation_path = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::animation);
 	if (export_fbx_output_dir.empty())
@@ -267,7 +270,9 @@ void ActionHandler::removeAnimation()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
+	action->setData(QVariant());
 	_model.remove(index);
+	action->setData(QVariant());
 }
 
 void ActionHandler::addEvent()
@@ -278,6 +283,7 @@ void ActionHandler::addEvent()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
+	action->setData(QVariant());
 	bool ok;
 	// Ask for birth date as a string.
 	QString name = QInputDialog::getText(0, "Choose new Event's name",
@@ -303,7 +309,9 @@ void ActionHandler::removeEvent()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
+	action->setData(QVariant());
 	_model.remove(index);
+	action->setData(QVariant());
 }
 
 void ActionHandler::addVariable()
@@ -332,6 +340,7 @@ void ActionHandler::copy()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
+	action->setData(QVariant());
 }
 
 void ActionHandler::addOrSet()
@@ -342,6 +351,7 @@ void ActionHandler::addOrSet()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
+	action->setData(QVariant());
 	//row index to be set or container to be modified;
 	bool ok;
 	auto selection = SelectNode::getNode(_model, index, nullptr, &ok);

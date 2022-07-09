@@ -56,7 +56,7 @@ const ModelEdge& ProjectModel::modelEdge(const QModelIndex& index) const
 ModelEdge& ProjectModel::modelEdge(const QModelIndex& index)
 {
 	if (_direct_find.find(index.internalId()) == _direct_find.end())
-		int debug = 1;
+		__debugbreak();
 	return _direct_find[index.internalId()];
 }
 
@@ -662,6 +662,8 @@ bool ProjectModel::removeRows(int row, int count, const QModelIndex& index)
 bool ProjectModel::remove(const QModelIndex& index)
 {
 	auto& edge = modelEdge(index);
+	if (edge._parentType == NodeType::Invalid)
+		__debugbreak();
 	auto& parent_edge = modelEdge(edge._parent);
 	int row = edge.row();
 	emit beginRemoveRows(edge._parent, row, row);

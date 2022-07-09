@@ -27,7 +27,21 @@ namespace ckcmd {
 				return true;
 			}
 			for (int i = 0; i < count; i++)
+			{
 				container.insertAt(row_start, T());
+				return true;
+			}
+			return false;
+		}
+
+		template <typename T>
+		static bool removeFromContainer(int row_start, int count, hkArray<T>& container)
+		{
+			if (row_start + count <= container.getSize())
+			{
+				container.removeAtAndCopy(row_start, count);
+				return true;
+			}
 			return false;
 		}
 

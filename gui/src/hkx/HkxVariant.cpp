@@ -124,7 +124,11 @@ void HkxVariant::accept(HkxItemVisitor& visitor) const
 			visitor.visit(object, member_declaration.getEnumClass(), member_declaration.getSubType()); break;
 			/// Object
 		case hkClassMember::TYPE_STRUCT:
-			visitor.visit(object, *member_declaration.getClass(), member_declaration.getName()); break;
+			visitor.visit(object, *member_declaration.getClass(), member_declaration.getName()); 
+			//restore class
+			visitor.setClass(_variant.m_class);
+			visitor.setLastVariant(&_variant);
+			break;
 			/// Simple array (ptr(typed) and size only)
 		case hkClassMember::TYPE_SIMPLEARRAY:
 			visitor.visit(object, member_declaration); break;
