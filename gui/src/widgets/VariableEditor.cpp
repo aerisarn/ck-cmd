@@ -18,27 +18,77 @@ VariableEditor::VariableEditor(ckcmd::HKX::ProjectModel& model, QWidget* parent)
 	setupUi(this);
 }
 
-//void VariableEditor::on_SilentCheckBox_stateChanged(int state)
-//{
-//	auto index = _model.index(1, 1, _index);
-//	auto value = _model.data(index).value<int>();
-//	if (state == Qt::Checked)
-//		value |= hkbEventInfo::FLAG_SILENT;
-//	else
-//		value &= ~hkbEventInfo::FLAG_SILENT;
-//	_model.setData(index, value);
-//}
-//
-//void VariableEditor::on_SyncPointCheckBox_stateChanged(int state)
-//{
-//	auto index = _model.index(1, 1, _index);
-//	auto value = _model.data(index).value<int>();
-//	if (state == Qt::Checked)
-//		value |= hkbEventInfo::FLAG_SYNC_POINT;
-//	else
-//		value &= ~hkbEventInfo::FLAG_SYNC_POINT;
-//	_model.setData(index, value);
-//}
+void VariableEditor::on_ragdollCheckBox_stateChanged(int state)
+{
+	auto index = _model.index(2, 1, _index);
+	auto value = _model.data(index).value<int>();
+	if (state == Qt::Checked)
+		value |= hkbRoleAttribute::FLAG_RAGDOLL;
+	else
+		value &= ~hkbRoleAttribute::FLAG_RAGDOLL;
+	_model.setData(index, value);
+}
+
+void VariableEditor::on_normalizedCheckBox_stateChanged(int state)
+{
+	auto index = _model.index(2, 1, _index);
+	auto value = _model.data(index).value<int>();
+	if (state == Qt::Checked)
+		value |= hkbRoleAttribute::FLAG_NORMALIZED;
+	else
+		value &= ~hkbRoleAttribute::FLAG_NORMALIZED;
+	_model.setData(index, value);
+}
+
+void VariableEditor::on_notVariableCheckBox_stateChanged(int state)
+{
+	auto index = _model.index(2, 1, _index);
+	auto value = _model.data(index).value<int>();
+	if (state == Qt::Checked)
+		value |= hkbRoleAttribute::FLAG_NOT_VARIABLE;
+	else
+		value &= ~hkbRoleAttribute::FLAG_NOT_VARIABLE;
+	_model.setData(index, value);
+}
+
+void VariableEditor::on_hiddenCheckBox_stateChanged(int state)
+{
+	auto index = _model.index(2, 1, _index);
+	auto value = _model.data(index).value<int>();
+	if (state == Qt::Checked)
+		value |= hkbRoleAttribute::FLAG_HIDDEN;
+	else
+		value &= ~hkbRoleAttribute::FLAG_HIDDEN;
+	_model.setData(index, value);
+}
+
+void VariableEditor::on_outputCheckBox_stateChanged(int state)
+{
+	auto index = _model.index(2, 1, _index);
+	auto value = _model.data(index).value<int>();
+	if (state == Qt::Checked)
+		value |= hkbRoleAttribute::FLAG_OUTPUT;
+	else
+		value &= ~hkbRoleAttribute::FLAG_OUTPUT;
+	_model.setData(index, value);
+}
+
+void VariableEditor::on_roleComboBox_currentIndexChanged(int index)
+{
+	auto model_index = _model.index(1, 1, _index);
+	_model.setData(model_index, index);
+}
+
+void VariableEditor::on_notCharacterPropertyCheckBox_stateChanged(int state)
+{
+	auto index = _model.index(2, 1, _index);
+	auto value = _model.data(index).value<int>();
+	if (state == Qt::Checked)
+		value |= hkbRoleAttribute::FLAG_NOT_CHARACTER_PROPERTY;
+	else
+		value &= ~hkbRoleAttribute::FLAG_NOT_CHARACTER_PROPERTY;
+	_model.setData(index, value);
+}
 
 const char* typeString(int type)
 {
@@ -77,6 +127,10 @@ QWidget* VariableEditor::defaultValueEditor(int type, const QVariant& value)
 		QComboBox* trueFalseEditor = new QComboBox(this);
 		trueFalseEditor->addItems({ "False", "True" });
 		trueFalseEditor->setCurrentIndex(value.toInt() > 0 ? 1 : 0);
+		connect(trueFalseEditor, qOverload<int>(&QComboBox::currentIndexChanged), [trueFalseEditor, this](int index)
+		{
+			_model.setData(_model.index(4, 1, _index), index);
+		});
 		return trueFalseEditor;
 	}
 	case hkbVariableInfo::VARIABLE_TYPE_INT8:
@@ -85,12 +139,20 @@ QWidget* VariableEditor::defaultValueEditor(int type, const QVariant& value)
 	{
 		QSpinBox* valueEditor = new QSpinBox(this);
 		valueEditor->setValue(value.toInt());
+		connect(valueEditor, qOverload<int>(&QSpinBox::valueChanged), [valueEditor, this](int value)
+			{
+				_model.setData(_model.index(4, 1, _index), value);
+			});
 		return valueEditor;
 	}
 	case hkbVariableInfo::VARIABLE_TYPE_REAL:
 	{
 		QDoubleSpinBox* valueEditor = new QDoubleSpinBox(this);
 		valueEditor->setValue(value.value<float>());
+		connect(valueEditor, qOverload<double>(&QDoubleSpinBox::valueChanged), [valueEditor, this](double value)
+			{
+				_model.setData(_model.index(4, 1, _index), (float)value);
+			});
 		return valueEditor;
 	}
 	case hkbVariableInfo::VARIABLE_TYPE_POINTER:
@@ -126,6 +188,27 @@ QWidget* VariableEditor::defaultValueEditor(int type, const QVariant& value)
 		z_field->setValue(real_value.value(0, 2));
 		layout->addWidget(z_label);
 		layout->addWidget(z_field);
+
+		connect(x_field, qOverload<double>(&QDoubleSpinBox::valueChanged), [y_field, z_field, this](double value)
+			{
+				HkxItemReal val({ {(float)value, (float)y_field->value(), (float)z_field->value(), (float)0. } });
+				QVariant set_value; set_value.setValue(val);
+				_model.setData(_model.index(4, 1, _index), set_value);
+			});
+
+		connect(y_field, qOverload<double>(&QDoubleSpinBox::valueChanged), [x_field, z_field, this](double value)
+			{
+				HkxItemReal val({ {(float)x_field->value(), (float)value, (float)z_field->value(), (float)0. } });
+				QVariant set_value; set_value.setValue(val);
+				_model.setData(_model.index(4, 1, _index), set_value);
+			});
+
+		connect(z_field, qOverload<double>(&QDoubleSpinBox::valueChanged), [x_field, y_field, this](double value)
+			{
+				HkxItemReal val({ {(float)x_field->value(), (float)y_field->value(), (float)value, (float)0. } });
+				QVariant set_value; set_value.setValue(val);
+				_model.setData(_model.index(4, 1, _index), set_value);
+			});
 
 		return container;
 	}
@@ -165,13 +248,39 @@ QWidget* VariableEditor::defaultValueEditor(int type, const QVariant& value)
 		layout->addWidget(w_label);
 		layout->addWidget(w_field);
 
+		connect(x_field, qOverload<double>(&QDoubleSpinBox::valueChanged), [y_field, z_field, w_field, this](double value)
+			{
+				HkxItemReal val({ {(float)value, (float)y_field->value(), (float)z_field->value(), (float)w_field->value() } });
+				QVariant set_value; set_value.setValue(val);
+				_model.setData(_model.index(4, 1, _index), set_value);
+			});
+
+		connect(y_field, qOverload<double>(&QDoubleSpinBox::valueChanged), [x_field, z_field, w_field, this](double value)
+			{
+				HkxItemReal val({ {(float)x_field->value(), (float)value, (float)z_field->value(), (float)w_field->value() } });
+				QVariant set_value; set_value.setValue(val);
+				_model.setData(_model.index(4, 1, _index), set_value);
+			});
+
+		connect(z_field, qOverload<double>(&QDoubleSpinBox::valueChanged), [x_field, y_field, w_field, this](double value)
+			{
+				HkxItemReal val({ {(float)x_field->value(), (float)y_field->value(), (float)value, (float)w_field->value() } });
+				QVariant set_value; set_value.setValue(val);
+				_model.setData(_model.index(4, 1, _index), set_value);
+			});
+
+		connect(w_field, qOverload<double>(&QDoubleSpinBox::valueChanged), [x_field, y_field, z_field, this](double value)
+			{
+				HkxItemReal val({ {(float)x_field->value(), (float)y_field->value(), (float)z_field->value(), (float)value } });
+				QVariant set_value; set_value.setValue(val);
+				_model.setData(_model.index(4, 1, _index), set_value);
+			});
+
 		return container;
 	}
 	}
 	return nullptr;
 }
-
-
 
 
 void VariableEditor::OnIndexSelected()

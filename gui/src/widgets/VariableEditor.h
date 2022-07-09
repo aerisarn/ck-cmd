@@ -19,8 +19,14 @@ public:
     explicit VariableEditor(ckcmd::HKX::ProjectModel& model, QWidget* parent = 0);
 
 private slots:
-    //void on_SilentCheckBox_stateChanged(int state);
-    //void on_SyncPointCheckBox_stateChanged(int state);
+    void on_ragdollCheckBox_stateChanged(int state);
+    void on_normalizedCheckBox_stateChanged(int state);
+	void on_notVariableCheckBox_stateChanged(int state);
+	void on_hiddenCheckBox_stateChanged(int state);
+    void on_outputCheckBox_stateChanged(int state);
+    void on_notCharacterPropertyCheckBox_stateChanged(int state);
+
+    void on_roleComboBox_currentIndexChanged(int index);
 
 private:
 

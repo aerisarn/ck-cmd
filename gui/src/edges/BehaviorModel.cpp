@@ -560,6 +560,7 @@ bool BehaviorModel::setData(int row, int column, const ModelEdge& edge, const QV
 					case hkbVariableInfo::VARIABLE_TYPE_INT16:
 					case hkbVariableInfo::VARIABLE_TYPE_INT32:
 						data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value = value.toInt();
+						return true;
 					case hkbVariableInfo::VARIABLE_TYPE_REAL:
 						data->m_variableInitialValues->m_wordVariableValues[edge.subindex()].m_value = (int)value.value<float>();
 						return true;
