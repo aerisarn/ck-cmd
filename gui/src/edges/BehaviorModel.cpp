@@ -641,7 +641,7 @@ bool BehaviorModel::removeRows(int row_start, int count, const ModelEdge& edge, 
 		if (edge.childType() == NodeType::behaviorVariableNames)
 		{
 			bool result = removeFromContainer(row_start, count, string_data->m_variableNames);
-			switch (variant_data->m_variableInfos[edge.subindex()].m_type)
+			switch (variant_data->m_variableInfos[row_start].m_type)
 			{
 			case hkbVariableInfo::VARIABLE_TYPE_BOOL:
 			case hkbVariableInfo::VARIABLE_TYPE_INT8:

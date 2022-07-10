@@ -21,6 +21,8 @@ namespace ckcmd {
 			void buildAnimationMenu(std::vector<QAction*>& actions);
 			void buildEventsMenu(std::vector<QAction*>& actions);
 			void buildEventMenu(std::vector<QAction*>& actions);
+			void buildVariablesMenu(std::vector<QAction*>& actions);
+			void buildVariableMenu(std::vector<QAction*>& actions);
 			void buildHavokMenu(std::vector<QAction*>& actions, const QModelIndex& action_data);
 
 		public:

@@ -7,10 +7,13 @@
 #include <src/utility/Conversion.h>
 
 #include <src/items/HkxItemPointer.h>
+#include <src/items/HkxItemReal.h>
 
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QInputDialog>
+
+#include <hkbVariableInfo_1.h>
 
 using namespace ckcmd::HKX;
 
@@ -315,6 +318,36 @@ void ActionHandler::removeEvent()
 	action->setData(QVariant());
 }
 
+hkbVariableInfo::VariableType havokVariableType(VariableCreator::VariableType type)
+{
+	switch (type)
+	{
+	case VariableCreator::VariableType::type_invalid:
+		break;
+	case VariableCreator::VariableType::type_bool:
+		return hkbVariableInfo::VARIABLE_TYPE_BOOL;
+	case VariableCreator::VariableType::type_int8:
+		return hkbVariableInfo::VARIABLE_TYPE_INT8;
+	case VariableCreator::VariableType::type_int16:
+		return hkbVariableInfo::VARIABLE_TYPE_INT16;
+	case VariableCreator::VariableType::type_int32:
+		return hkbVariableInfo::VARIABLE_TYPE_INT32;
+	case VariableCreator::VariableType::type_real:
+		return hkbVariableInfo::VARIABLE_TYPE_REAL;
+	case VariableCreator::VariableType::type_pointer:
+		return hkbVariableInfo::VARIABLE_TYPE_POINTER;
+	case VariableCreator::VariableType::type_vector3:
+		return hkbVariableInfo::VARIABLE_TYPE_VECTOR3;
+	case VariableCreator::VariableType::type_vector4:
+		return hkbVariableInfo::VARIABLE_TYPE_VECTOR4;
+	case VariableCreator::VariableType::type_quaternion:
+		return hkbVariableInfo::VARIABLE_TYPE_QUATERNION;
+	default:
+		break;
+	}
+	return hkbVariableInfo::VARIABLE_TYPE_INVALID;
+}
+
 void ActionHandler::addVariable()
 {
 	QAction* action = static_cast<QAction*>(sender());
@@ -330,10 +363,50 @@ void ActionHandler::addVariable()
 	{
 		if (_model.isAssetNameValid(index, new_variable_info.first, AssetType::variables))
 		{
-			int events = _model.rowCount(index);
-			bool insert = _model.insertRow(events, index);
-			QModelIndex new_index = _model.index(events, 0, index);
+			int variables = _model.rowCount(index);
+			bool insert = _model.insertRow(variables, index);
+			QModelIndex new_index = _model.index(variables, 0, index);
 			bool set_data = _model.setData(new_index, new_variable_info.first);
+			QModelIndex role_index = _model.index(1, 1, new_index);
+			bool set_role = _model.setData(role_index, 0);
+			QModelIndex flags_index = _model.index(2, 1, new_index);
+			bool set_flags = _model.setData(flags_index, 0);
+			QModelIndex type_index = _model.index(3, 1, new_index);
+			bool set_type = _model.setData(type_index, havokVariableType(new_variable_info.second));
+			QModelIndex value_index = _model.index(4, 1, new_index);
+			bool set_value;
+			switch (havokVariableType(new_variable_info.second))
+			{
+			case hkbVariableInfo::VARIABLE_TYPE_BOOL:
+			case hkbVariableInfo::VARIABLE_TYPE_INT8:
+			case hkbVariableInfo::VARIABLE_TYPE_INT16:
+			case hkbVariableInfo::VARIABLE_TYPE_INT32:
+				set_value = _model.setData(value_index, 0);
+				break;
+			case hkbVariableInfo::VARIABLE_TYPE_REAL:
+				set_value = _model.setData(value_index, 0.);
+				break;
+			case hkbVariableInfo::VARIABLE_TYPE_POINTER:
+			{
+				QVariant value;
+				HkxItemPointer p(nullptr);
+				value.setValue(p);
+				set_value = _model.setData(value_index, value);
+				break;
+			}
+			case hkbVariableInfo::VARIABLE_TYPE_VECTOR3:
+			case hkbVariableInfo::VARIABLE_TYPE_VECTOR4:
+			case hkbVariableInfo::VARIABLE_TYPE_QUATERNION:
+			{
+				QVariant value;
+				HkxItemReal p({ {0., 0., 0., 0.} });
+				value.setValue(p);
+				set_value = _model.setData(value_index, value);
+				break;
+			}
+			default:
+				break;
+			}
 		}
 	}
 }

@@ -92,10 +92,10 @@ namespace ckcmd {
 			QAction* removeAnimationAction() { return _removeAnimation; }
 			QAction* addEventAction() { return _addEvent; }
 			QAction* removeEventAction() { return _removeEvent; }
-			QAction* addVariableAction() { return _addEvent; }
-			QAction* removeVariableAction() { return _removeEvent; }
-			QAction* addPropertyAction() { return _addEvent; }
-			QAction* removePropertyAction() { return _removeEvent; }
+			QAction* addVariableAction() { return _addVariable; }
+			QAction* removeVariableAction() { return _removeVariable; }
+			QAction* addPropertyAction() { return _addProperty; }
+			QAction* removePropertyAction() { return _removeProperty; }
 			QAction* createProjectAction() { return _createProject; }
 			QAction* copyAction() { return _copy; }
 

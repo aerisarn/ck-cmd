@@ -38,6 +38,16 @@ void TreeContextMenuBuilder::buildEventMenu(std::vector<QAction*>& actions)
 	actions.push_back(_actionHandler.removeEventAction());
 }
 
+void TreeContextMenuBuilder::buildVariablesMenu(std::vector<QAction*>& actions)
+{
+	actions.push_back(_actionHandler.addVariableAction());
+}
+
+void TreeContextMenuBuilder::buildVariableMenu(std::vector<QAction*>& actions)
+{
+	actions.push_back(_actionHandler.removeVariableAction());
+}
+
 void TreeContextMenuBuilder::buildHavokMenu(std::vector<QAction*>& actions, const QModelIndex& action_data)
 {
 	auto addActions = _actionHandler.addActions(action_data);
@@ -61,6 +71,12 @@ QMenu* TreeContextMenuBuilder::build(NodeType type, const QModelIndex& action_da
 			break;
 		case NodeType::behaviorEventName:
 			buildEventMenu(applicable_actions);
+			break;
+		case NodeType::behaviorVariableNames:
+			buildVariablesMenu(applicable_actions);
+			break;
+		case NodeType::behaviorVariable:
+			buildVariableMenu(applicable_actions);
 			break;
 		case NodeType::CharacterNode:
 		case NodeType::MiscNode:
