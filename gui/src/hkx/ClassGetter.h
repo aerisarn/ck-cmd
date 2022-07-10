@@ -1,3 +1,4 @@
+#include "HkxTypeInfo.h"
 #include "HkxItemVisitor.h"
 #include <QString>
 
@@ -6,21 +7,20 @@ namespace ckcmd {
 
 		class ClassGetter : public HkxConcreteVisitor<ClassGetter> {
 			
-			const hkClass* _class;
+			//const hkClass* _class;
+			TypeInfo _type;
 			int _rows = 0;
 			int _target_row;
-
-			const hkClassMember& getSerializedMember(size_t row);
 
 		public:
 
 			ClassGetter(const int row) : 
 				HkxConcreteVisitor(*this), 
-				_class(nullptr),
+				_type({ hkClassMember::Type::TYPE_VOID, nullptr }),
 				_target_row(row)
 			{}
 
-			const hkClass* hkclass() { return _class; }
+			TypeInfo hkclass() { return _type; }
 
 			template<typename T> void visit(T& value);
 

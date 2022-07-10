@@ -10,8 +10,12 @@ class TopInfoWidget : public ckcmd::ModelWidget, private Ui::HkTopNavigator
 {
     Q_OBJECT
 
+    void refreshBindings();
+
 private slots:
     void on_nameLineEdit_textChanged(const QString& text);
+    void on_addBindingToolButton_clicked();
+    void on_removeBindingToolButton_clicked();
 //    void resizeNameToContent(const QString& text);
 //    void on_treeView_doubleClicked(const QModelIndex& index);
 //    void on_treeView_customContextMenuRequested(const QPoint& pos);

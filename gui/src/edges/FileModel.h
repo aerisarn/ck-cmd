@@ -22,9 +22,9 @@ namespace ckcmd {
 
 			virtual bool isArray(int row, const ModelEdge& edge, ResourceManager& manager) const { return false; }
 
-			virtual const hkClass* rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const override
+			virtual TypeInfo rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const override
 			{
-				return nullptr;
+				return { hkClassMember::Type::TYPE_VOID, nullptr };
 			}
 
 			virtual bool canAdd(const ModelEdge& this_edge, const ModelEdge& another_edge, ResourceManager& manager) const {

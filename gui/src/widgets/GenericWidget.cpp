@@ -201,7 +201,7 @@ void GenericWidget::OnIndexSelected()
 		int row = member.second.first;
 		QModelIndex row_index = _model.index(row, 0, _index);
 		auto type = _model.rowType(row_index);
-		if (type != nullptr)
+		if (type._class != nullptr)
 			continue;
 		if (std::get<0>(member) == "name")
 			continue;

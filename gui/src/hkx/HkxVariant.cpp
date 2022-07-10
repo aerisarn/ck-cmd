@@ -47,6 +47,7 @@ void HkxVariant::accept(HkxItemVisitor& visitor) const
 			continue;
 		visitor.setMemberIndex(i);
 		void* object = (void*)((char*)_variant.m_object + member_declaration.getOffset());
+		visitor.setType(member_declaration.getType());
 		switch (member_declaration.getType()) {
 			/// No type
 		case hkClassMember::TYPE_VOID:

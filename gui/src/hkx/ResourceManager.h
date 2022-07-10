@@ -51,7 +51,7 @@ namespace ckcmd {
 			attack_events,
 			clips,
 			clip_animations,
-			FSM_states
+			FSM_states,
 		};
 
 		class ResourceManager {

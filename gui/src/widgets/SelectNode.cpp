@@ -15,7 +15,7 @@ SelectNode::SelectNode(ProjectModel& model, const QModelIndex& index, QWidget* p
 	auto desidered_superclass = _model.rowType(index);
 	_file_index = _model.getFileIndex(index);
 	
-	_compatible_nodes = _manager.findCompatibleNodes(_file_index, desidered_superclass);
+	_compatible_nodes = _manager.findCompatibleNodes(_file_index, desidered_superclass._class);
 	QStringList compatible_nodes_names;
 	for (int i = 0; i < _compatible_nodes.size(); ++i)
 	{
@@ -28,7 +28,7 @@ SelectNode::SelectNode(ProjectModel& model, const QModelIndex& index, QWidget* p
 	_compatible_nodes_proxyModel->sort(0);
 
 	QStringList compatible_classes;
-	_compatible_classes = _manager.findCompatibleClasses(desidered_superclass);
+	_compatible_classes = _manager.findCompatibleClasses(desidered_superclass._class);
 	for (int i = 0; i < _compatible_classes.size(); ++i)
 	{
 		compatible_classes << _compatible_classes.at(i)->getName();

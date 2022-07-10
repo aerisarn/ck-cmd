@@ -193,14 +193,14 @@ bool Edge::canAdd(const ModelEdge& this_edge, const ModelEdge& another_edge, Res
 	return false;
 }
 
-const hkClass* Edge::rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const
+TypeInfo Edge::rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const
 {
 	hkVariant* variant = edge.childItem<hkVariant>();
 	if (nullptr != variant && row > 0)
 	{
 		return HkxTableVariant(*variant).rowClass(row - 1);
 	}
-	return nullptr;
+	return { hkClassMember::Type::TYPE_VOID, nullptr };
 }
 
 bool Edge::isArray(int row, const ModelEdge& edge, ResourceManager& manager) const

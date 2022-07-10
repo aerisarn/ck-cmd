@@ -1,5 +1,6 @@
 #pragma once
 
+#include <src/hkx/HkxTypeInfo.h>
 #include <src/models/ModelEdge.h>
 
 class hkClass;
@@ -22,7 +23,7 @@ namespace ckcmd {
 			virtual QVariant data(int row, int column, const ModelEdge& edge, ResourceManager& manager) const = 0;
 			virtual std::pair<int, int> dataStart() const = 0;
 
-			virtual const hkClass* rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const = 0;
+			virtual TypeInfo rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const = 0;
 			virtual bool canAdd(const ModelEdge& this_edge, const ModelEdge& another_edge, ResourceManager& manager) const = 0;
 			virtual bool isArray(int row, const ModelEdge& edge, ResourceManager& manager) const = 0;
 

@@ -39,7 +39,7 @@ QString HkxTableVariant::rowName(int row_index)
 	return ng.name();
 }
 
-const hkClass* HkxTableVariant::rowClass(int row_index)
+TypeInfo HkxTableVariant::rowClass(int row_index)
 {
 	ClassGetter cg(row_index);
 	accept(cg);
@@ -73,9 +73,9 @@ QStringList HkxTableVariant::rowNames()
 	return names;
 }
 
-std::vector< const hkClass*> HkxTableVariant::rowClasses()
+std::vector<TypeInfo> HkxTableVariant::rowClasses()
 {
-	std::vector< const hkClass*> classes;
+	std::vector<TypeInfo> classes;
 	size_t _rows = rows();
 	for (size_t r = 0; r < _rows; ++r)
 	{

@@ -308,7 +308,7 @@ bool MultipleVariantsEdge::changeColumns(int row, int column_start, int delta, c
 	return false;
 }
 
-const hkClass* MultipleVariantsEdge::rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const
+TypeInfo MultipleVariantsEdge::rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const
 {
 	int count = Edge::rows(edge, manager);
 	if (row < count)
@@ -331,7 +331,7 @@ const hkClass* MultipleVariantsEdge::rowClass(int row, const ModelEdge& edge, Re
 			row_index -= variant_rows;
 		}
 	}
-	return nullptr;
+	return { hkClassMember::Type::TYPE_VOID, nullptr };
 }
 
 bool MultipleVariantsEdge::isArray(int row, const ModelEdge& edge, ResourceManager& manager) const

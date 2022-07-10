@@ -2,6 +2,13 @@
 
 #include <src/items/HkxItemReference.h>
 
+#define VARIABLE_ROLE_INDEX 1
+#define VARIABLE_FLAGS_INDEX 2
+#define VARIABLE_TYPE_INDEX 3
+//#define VARIABLE_MIN_INDEX 4
+//#define VARIABLE_MAX_INDEX 5
+#define VARIABLE_VALUE_INDEX 4
+
 namespace ckcmd {
 	namespace HKX {
 

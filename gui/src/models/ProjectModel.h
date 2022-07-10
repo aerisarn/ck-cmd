@@ -59,11 +59,12 @@ namespace ckcmd {
             std::pair<int, int> dataStart(const QModelIndex& index);
             ResourceManager& getResourceManager() { return _resourceManager; }
 
+            QModelIndex variablesIndex(const QModelIndex& index);
             QAbstractItemModel* editModel(const QModelIndex& index, AssetType type, int role = Qt::DisplayRole);
             void SetCopyPointer(const QModelIndex& index);
             bool PasteEnabled(const QModelIndex& index);
-            const hkClass* rowType(const QModelIndex& index);
-            std::vector<const hkClass*> rowTypes(const QModelIndex& index);
+            TypeInfo rowType(const QModelIndex& index);
+            std::vector<TypeInfo> rowTypes(const QModelIndex& index);
             bool isArray(const QModelIndex& index);
             QStringList rowNames(const QModelIndex& index, const QString& prefix_filter = QString(""));
 

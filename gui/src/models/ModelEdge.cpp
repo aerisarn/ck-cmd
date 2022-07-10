@@ -59,7 +59,7 @@ NodeType ModelEdge::type() const
 	return _childType;
 }
 
-const hkClass* ModelEdge::rowClass(int row, ResourceManager& manager) const
+TypeInfo ModelEdge::rowClass(int row, ResourceManager& manager) const
 {
 	return ModelEdgeRegistry::instance().handler(*this)->rowClass(row, *this, manager);
 }

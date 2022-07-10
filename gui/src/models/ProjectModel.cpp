@@ -308,15 +308,15 @@ bool ProjectModel::setData(const QModelIndex& index, const QVariant& value,
 			int difference = new_children - children;
 			if (difference > 0)
 			{
-				emit beginInsertRows(index, children - 1, children - 1 + difference);
+				emit beginInsertRows(index, children, children + difference - 1);
 				emit endInsertRows();
-				emit beginInsertChildren(index, children - 1, children - 1 + difference);
+				emit beginInsertChildren(index, children, children + difference - 1);
 				emit endInsertChildren();
 			}
 			else {
-				emit beginRemoveRows(index, children - 1 + difference, children - 1);
+				emit beginRemoveRows(index, children, children + abs(difference) - 1);
 				emit endRemoveRows();
-				emit beginRemoveChildren(index, children - 1 + difference, children - 1);
+				emit beginRemoveChildren(index, children, children + abs(difference) - 1);
 				emit endRemoveChildren();
 			}
 		}
@@ -511,6 +511,18 @@ bool ProjectModel::isAssetNameValid(const QModelIndex& index, const QString& nam
 		return true;
 	}
 	return false;
+}
+
+QModelIndex ProjectModel::variablesIndex(const QModelIndex& index)
+{
+	auto& edge = modelEdge(index);
+	ModelEdge search_edge;
+	search_edge._project = edge._project;
+	QModelIndex search_index;
+	search_edge._file = edge._file;
+	search_edge._childType = NodeType::behaviorVariableNames;
+	search_index = createIndex(1, 0, modelEdgeIndex(search_edge));
+	return search_index;
 }
 
 QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType type, int role)
@@ -746,19 +758,19 @@ bool ProjectModel::PasteEnabled(const QModelIndex& index)
 	return false;
 }
 
-const hkClass* ProjectModel::rowType(const QModelIndex& index)
+TypeInfo ProjectModel::rowType(const QModelIndex& index)
 {
 	if (index.isValid())
 	{
 		auto& edge = modelEdge(index);
 		return edge.rowClass(index.row(), _resourceManager);
 	}
-	return nullptr;
+	return {hkClassMember::Type::TYPE_VOID, nullptr };
 }
 
-std::vector<const hkClass*>  ProjectModel::rowTypes(const QModelIndex& index)
+std::vector<TypeInfo>  ProjectModel::rowTypes(const QModelIndex& index)
 {
-	std::vector<const hkClass*> out;
+	std::vector<TypeInfo> out;
 	if (index.isValid())
 	{
 		auto rows = rowCount(index);

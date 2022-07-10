@@ -71,6 +71,7 @@ namespace ckcmd {
 			virtual void visit(hkStringPtr&) = 0;
 
 			virtual void setClass(const hkClass* hkclass) = 0;
+			virtual void setType(hkClassMember::Type) = 0;
 			virtual void setClassMember(const hkClassMember* hkclassmember) = 0;
 			virtual void setLastVariant(const hkVariant* variant) = 0;
 			virtual void setMemberIndex(int index) = 0;
@@ -84,6 +85,7 @@ namespace ckcmd {
 			const hkClassMember* _classmember;
 			const hkVariant* _lastVariant;
 			int _memberIndex;
+			hkClassMember::Type _lastType;
 		public:
 			HkxConcreteVisitor(T& handler) : _handler(handler) {}
 
@@ -239,6 +241,11 @@ namespace ckcmd {
 				default:
 					return;
 				}
+			}
+
+			virtual void setType(hkClassMember::Type type)
+			{
+				_lastType = type;
 			}
 
 			virtual void setClass(const hkClass* hkclass) {

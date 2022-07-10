@@ -99,11 +99,11 @@ bool SupportEnhancedEdge::changeColumns(int row, int column_start, int delta, co
 	return MultipleVariantsEdge::changeColumns(row == 0 ? row : row - supports(), column_start, delta, edge, manager);
 }
 
-const hkClass* SupportEnhancedEdge::rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const
+TypeInfo SupportEnhancedEdge::rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const
 {
 	if (row > 0 && row < supports() + 1)
 	{
-		return nullptr;
+		return { hkClassMember::Type::TYPE_VOID, nullptr };
 	}
 	return MultipleVariantsEdge::rowClass(row == 0 ? row : row - supports(), edge, manager);
 }

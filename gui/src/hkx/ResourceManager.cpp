@@ -1653,16 +1653,19 @@ QStringList ResourceManager::getStates(hkbStateMachine* fsm)
 	{
 		ordered_states[fsm->m_states[s]->m_stateId] = fsm->m_states[s]->m_name;
 	}
-	int max_states = ordered_states.rbegin()->first + 1;
-	for (int i = 0; i < max_states; i++)
+	if (!ordered_states.empty())
 	{
-		if (ordered_states.find(i) != ordered_states.end())
+		int max_states = ordered_states.rbegin()->first + 1;
+		for (int i = 0; i < max_states; i++)
 		{
-			out << ordered_states.at(i);
-		}
-		else
-		{
-			out << "Invalid State";
+			if (ordered_states.find(i) != ordered_states.end())
+			{
+				out << ordered_states.at(i);
+			}
+			else
+			{
+				out << "Invalid State";
+			}
 		}
 	}
 	return out;

@@ -49,7 +49,7 @@ std::vector<QAction*> ActionHandler::addActions(const QVariant& action_data)
 		auto types = _model.rowTypes(index);
 		for (size_t i = 1; i < types.size(); ++i)
 		{
-			if (types[i] != nullptr)
+			if (types[i]._class != nullptr)
 			{
 				auto row_index = _model.index(i, 0, index);
 				if (_model.isArray(row_index))
@@ -475,7 +475,8 @@ void ActionHandler::addOrSet()
 			_model.setData(new_index, value);
 		}
 		else {
-			_model.setData(index, value);
+			QModelIndex new_index = _model.index(index.row(), 1, index);
+			_model.setData(new_index, value);
 		}
 	}
 }

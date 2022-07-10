@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HkxVariant.h"
+#include <src/hkx/HkxTypeInfo.h>
 #include <QVariant>
 
 namespace ckcmd {
@@ -18,12 +19,12 @@ namespace ckcmd {
 
 			size_t columns(int row_index);
 			QString rowName(int row_index);
-			const hkClass* rowClass(int row_index);
+			TypeInfo rowClass(int row_index);
 
 			std::vector<int> arrayrows();
 
 			QStringList rowNames();
-			std::vector< const hkClass*> rowClasses();
+			std::vector<TypeInfo> rowClasses();
 
 			QVariant data(int row, int column);
 			bool setData(int row, int column, const QVariant& variant);
