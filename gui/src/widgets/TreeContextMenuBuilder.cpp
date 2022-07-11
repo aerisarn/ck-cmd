@@ -53,7 +53,9 @@ void TreeContextMenuBuilder::buildHavokMenu(std::vector<QAction*>& actions, cons
 	auto addActions = _actionHandler.addActions(action_data);
 	for (const auto& action : addActions)
 		actions.push_back(action);
+	actions.push_back(nullptr);
 	actions.push_back(_actionHandler.copyAction());
+	actions.push_back(_actionHandler.removeAction());
 }
 
 QMenu* TreeContextMenuBuilder::build(NodeType type, const QModelIndex& action_data)
@@ -95,6 +97,11 @@ QMenu* TreeContextMenuBuilder::build(NodeType type, const QModelIndex& action_da
 		QMenu* menu = new QMenu();
 		for (auto& action : applicable_actions)
 		{
+			if (action == nullptr)
+			{
+				menu->addSeparator();
+				continue;
+			}
 			if (action->data().isNull())
 				action->setData(action_data);
 			menu->addAction(action);

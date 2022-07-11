@@ -5,6 +5,7 @@
 #include <src/models/StringListModel.h>
 #include <QBrush>
 
+#include <src/items/HkxItemPointer.h>
 #include <hkbStateMachineStateInfo_4.h>
 #include <hkbStateMachine_4.h>
 
@@ -678,19 +679,41 @@ bool ProjectModel::remove(const QModelIndex& index)
 		__debugbreak();
 	auto& parent_edge = modelEdge(edge._parent);
 	int row = edge.row();
-	emit beginRemoveRows(edge._parent, row, row);
-	emit beginRemoveChildren(edge._parent, row, row);
-	bool result = parent_edge.removeRows(row, 1, _resourceManager);
-	if (edge._childType == NodeType::behaviorEventName ||
-		edge._childType == NodeType::behaviorVariable)
+	bool result = false;
+	int child_index = parent_edge.childIndex(edge.row(), edge.column(), _resourceManager);
+	if (parent_edge.isArray(row, _resourceManager))
 	{
-		AssetType type = edge._childType == NodeType::behaviorEventName ?
-			AssetType::events :
-			AssetType::variables;
-		result = result && _resourceManager.removeAsset(edge._file, type, row);
+		if (edge.column() == 0)
+		{
+			emit beginRemoveRows(edge._parent, row, row);
+			emit beginRemoveChildren(edge._parent, child_index, child_index);
+			result = parent_edge.removeRows(row, 1, _resourceManager);
+			if (edge._childType == NodeType::behaviorEventName ||
+				edge._childType == NodeType::behaviorVariable)
+			{
+				AssetType type = edge._childType == NodeType::behaviorEventName ?
+					AssetType::events :
+					AssetType::variables;
+				result = result && _resourceManager.removeAsset(edge._file, type, row);
+			}
+			emit endRemoveChildren();
+			emit endRemoveRows();
+		}
+		else {
+			auto rowIndex = this->index(row, 0, edge._parent);
+			emit beginRemoveColumns(rowIndex, edge.column(), edge.column());
+			emit beginRemoveChildren(edge._parent, child_index, child_index);
+			result = parent_edge.removeColumns(row, edge.column(), 1, _resourceManager);
+			emit endRemoveChildren();
+			emit endRemoveRows();
+		}
 	}
-	emit endRemoveChildren();
-	emit endRemoveRows();
+	else {
+		emit beginRemoveChildren(edge._parent, child_index, child_index);
+		HkxItemPointer ptr(nullptr); QVariant value; value.setValue(ptr);
+		result = parent_edge.setData(edge.row(), edge.column(), value, _resourceManager);
+		emit endRemoveChildren();
+	}
 	auto id = modelEdgeIndex(edge);
 	//_reverse_find.erase(&edge);
 	_direct_find.erase(id);

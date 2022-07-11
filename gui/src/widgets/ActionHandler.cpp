@@ -14,6 +14,7 @@
 #include <QInputDialog>
 
 #include <hkbVariableInfo_1.h>
+#include <hkbVariableBindingSet_2.h>
 
 using namespace ckcmd::HKX;
 
@@ -51,6 +52,8 @@ std::vector<QAction*> ActionHandler::addActions(const QVariant& action_data)
 		{
 			if (types[i]._class != nullptr)
 			{
+				if (types[i]._class == &hkbVariableBindingSetClass)
+					continue;
 				auto row_index = _model.index(i, 0, index);
 				if (_model.isArray(row_index))
 				{
@@ -141,6 +144,14 @@ void ActionHandler::buildRemoveProperty()
 	_removeProperty->setShortcuts(QKeySequence::DeleteCompleteLine);
 	_removeProperty->setStatusTip(tr("Remove Property"));
 	connect(_removeProperty, SIGNAL(triggered()), this, SLOT(removeProperty()));
+}
+
+void ActionHandler::buildRemoveNode()
+{
+	_removeNode = new QAction(tr("&Remove"), this);
+	_removeNode->setShortcuts(QKeySequence::DeleteCompleteLine);
+	_removeNode->setStatusTip(tr("Remove"));
+	connect(_removeNode, SIGNAL(triggered()), this, SLOT(remove()));
 }
 
 void ActionHandler::buildCreateProjectAction()
@@ -479,4 +490,17 @@ void ActionHandler::addOrSet()
 			_model.setData(new_index, value);
 		}
 	}
+}
+
+void ActionHandler::remove()
+{
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+	action->setData(QVariant());
+	_model.remove(index);
+	action->setData(QVariant());
 }
