@@ -124,3 +124,7 @@ bool ValuesProxyModel::setHeaderData(int section, Qt::Orientation orientation, c
 	return false;
 }
 
+int ValuesProxyModel::getFileIndex(const QModelIndex& index)
+{
+	return sourceModel()->getFileIndex(mapToSource(index));
+}

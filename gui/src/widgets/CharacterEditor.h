@@ -77,7 +77,6 @@ Q_SIGNALS:
 
 private:
 
-    QModelIndex _selected;
     QStringListModel* _behavior_file_options;
     QCompleter* _behavior_completer;
     QStringListModel* _rig_file_options;

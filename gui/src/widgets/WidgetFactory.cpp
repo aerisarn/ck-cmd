@@ -4,6 +4,7 @@
 #include "GenericWidget.h"
 #include "EventEditor.h"
 #include "VariableEditor.h"
+#include "TransitionEditor.h"
 
 using namespace ckcmd;
 using namespace ckcmd::HKX;
@@ -20,6 +21,8 @@ QWidget* WidgetFactory::getWidget(widgetType type, HKX::ProjectModel& model, QWi
 		return new EventEditor(model, parent);
 	case widgetType::VariableEditor:
 		return new VariableEditor(model, parent);
+	case widgetType::TransitionEditor:
+		return new TransitionEditorWidget(model, parent);
 	default:
 		break;
 	}

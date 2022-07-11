@@ -16,6 +16,7 @@ namespace ckcmd
 		GenericWidget,
 		EventEditor,
 		VariableEditor,
+		TransitionEditor,
 		allEditors
 	};
 

@@ -25,6 +25,8 @@ namespace ckcmd {
             virtual QAbstractItemModel* editModel(const QModelIndex& index, AssetType type, int role = Qt::DisplayRole);
             ResourceManager& getResourceManager() { return sourceModel()->getResourceManager(); }
 
+            int getFileIndex(const QModelIndex& index);
+
             //Proxy
             //virtual bool hasChildren(const QModelIndex& parent = QModelIndex()) const override;
 

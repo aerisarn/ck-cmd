@@ -48,6 +48,16 @@ void TreeContextMenuBuilder::buildVariableMenu(std::vector<QAction*>& actions)
 	actions.push_back(_actionHandler.removeVariableAction());
 }
 
+void TreeContextMenuBuilder::buildTransitionsMenu(std::vector<QAction*>& actions)
+{
+	actions.push_back(_actionHandler.addTransitionAction());
+}
+
+void TreeContextMenuBuilder::buildTransitionMenu(std::vector<QAction*>& actions)
+{
+	actions.push_back(_actionHandler.removeTransitionAction());
+}
+
 void TreeContextMenuBuilder::buildHavokMenu(std::vector<QAction*>& actions, const QModelIndex& action_data)
 {
 	auto addActions = _actionHandler.addActions(action_data);
@@ -79,6 +89,14 @@ QMenu* TreeContextMenuBuilder::build(NodeType type, const QModelIndex& action_da
 			break;
 		case NodeType::behaviorVariable:
 			buildVariableMenu(applicable_actions);
+			break;
+		case NodeType::FSMStateTransitions:
+		case NodeType::FSMWildcardTransitions:
+			buildTransitionsMenu(applicable_actions);
+			break;
+		case NodeType::FSMStateTransition:
+		case NodeType::FSMWildcardTransition:
+			buildTransitionMenu(applicable_actions);
 			break;
 		case NodeType::CharacterNode:
 		case NodeType::MiscNode:

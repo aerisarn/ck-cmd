@@ -154,6 +154,22 @@ void ActionHandler::buildRemoveNode()
 	connect(_removeNode, SIGNAL(triggered()), this, SLOT(remove()));
 }
 
+void ActionHandler::buildAddTransition()
+{
+	_addTransition = new QAction(tr("&Add Transition"), this);
+	_addTransition->setShortcuts(QKeySequence::DeleteCompleteLine);
+	_addTransition->setStatusTip(tr("Add Transition"));
+	connect(_addTransition, SIGNAL(triggered()), this, SLOT(addTransition()));
+}
+
+void ActionHandler::buildRemoveTransition()
+{
+	_removeTransition = new QAction(tr("&Remove Transition"), this);
+	_removeTransition->setShortcuts(QKeySequence::DeleteCompleteLine);
+	_removeTransition->setStatusTip(tr("Remove Transition"));
+	connect(_removeTransition, SIGNAL(triggered()), this, SLOT(removeTransition()));
+}
+
 void ActionHandler::buildCreateProjectAction()
 {
 	_createProject = new QAction(tr("&New"), this);
@@ -500,7 +516,30 @@ void ActionHandler::remove()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
-	action->setData(QVariant());
 	_model.remove(index);
+	action->setData(QVariant());
+}
+
+void ActionHandler::addTransition()
+{
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+
+	action->setData(QVariant());
+}
+
+void ActionHandler::removeTransition()
+{
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+
 	action->setData(QVariant());
 }

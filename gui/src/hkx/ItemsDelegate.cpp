@@ -15,6 +15,8 @@
 #include <src/items/HkxItemRagdollBone.h>
 #include <src/items/HkxItemFSMState.h>
 
+#include <src/hkx/HkxVariant.h>
+
 using namespace ckcmd::HKX;
 
 #define CUSTOM_SIZE_PADDING 3
@@ -69,10 +71,10 @@ void ItemsDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option,
     if (index.data().canConvert<HkxItemPointer>()) {
 
         HkxItemPointer data = index.data().value<HkxItemPointer>();
-        //auto file_index_ = data.file_index();
-        //auto* object_address_ = data.get();
-        //auto object_index = _manager.findIndex(data.file_index(), data.get());
-        QString label = QString("[%1]").arg((unsigned long long)data.get());//ObjectText(object_index, file_index_);
+        auto file_index_ = _model.getFileIndex(index);
+        auto* object_address_ = data.get();
+        auto variant = _manager.findVariant(file_index_, object_address_);
+        QString label = HkxVariant(*variant).name();
 
         if (option.state & QStyle::State_Selected)
         {
@@ -440,7 +442,7 @@ void ItemsDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
     else if (index.data().canConvert<HkxItemFSMState>()) {
         QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
         auto value = index.data().value<HkxItemFSMState>();
-        model->setData(index, value.getStateId(ptr_editor->currentIndex()), Qt::EditRole);
+        model->setData(index, ptr_editor->currentIndex() - 1, Qt::EditRole);
     }
     else {
         QStyledItemDelegate::setModelData(editor, model, index);

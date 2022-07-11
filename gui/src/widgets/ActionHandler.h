@@ -32,6 +32,8 @@ namespace ckcmd {
 			QAction* _addProperty;
 			QAction* _removeProperty;
 			QAction* _removeNode;
+			QAction* _addTransition;
+			QAction* _removeTransition;
 
 			QAction* _copy;
 
@@ -46,7 +48,10 @@ namespace ckcmd {
 			void buildAddProperty();
 			void buildRemoveProperty();
 			void buildRemoveNode();
+			void buildAddTransition();
+			void buildRemoveTransition();
 			void buildCreateProjectAction();
+
 
 			void buildCopyAction();
 
@@ -66,6 +71,8 @@ namespace ckcmd {
 			void copy();
 			void addOrSet();
 			void remove();
+			void addTransition();
+			void removeTransition();
 
 		public:
 			ActionHandler(ProjectModel& model, QObject* parent = nullptr) :
@@ -85,6 +92,8 @@ namespace ckcmd {
 				buildAddProperty();
 				buildRemoveProperty();
 				buildRemoveNode();
+				buildAddTransition();
+				buildRemoveTransition();
 			}
 
 
@@ -101,6 +110,8 @@ namespace ckcmd {
 			QAction* addPropertyAction() { return _addProperty; }
 			QAction* removePropertyAction() { return _removeProperty; }
 			QAction* createProjectAction() { return _createProject; }
+			QAction* addTransitionAction() { return _addTransition; }
+			QAction* removeTransitionAction() { return _removeTransition; }
 			QAction* removeAction() { return _removeNode; }
 			QAction* copyAction() { return _copy; }
 

@@ -67,6 +67,9 @@ void ValuesWidget::setEditor(const QModelIndex& index)
 	case NodeType::HavokNative:
 		type = widgetType::GenericWidget;
 		break;
+	case NodeType::FSMWildcardTransition:
+		type = widgetType::TransitionEditor;
+		break;
 	case NodeType::behaviorEventName:
 		type = widgetType::EventEditor;
 		break;
