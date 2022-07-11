@@ -8,27 +8,19 @@
 using namespace ckcmd;
 using namespace ckcmd::HKX;
 
-/*
-case hkbVariableInfo::VARIABLE_TYPE_BOOL:
-	return 2;
-case hkbVariableInfo::VARIABLE_TYPE_INT8:
-	return 2;
-case hkbVariableInfo::VARIABLE_TYPE_INT16:
-	return 2;
-case hkbVariableInfo::VARIABLE_TYPE_INT32:
-	return 2;
-case hkbVariableInfo::VARIABLE_TYPE_REAL:
-	return 2;
-case hkbVariableInfo::VARIABLE_TYPE_POINTER:
-	return 2;
-case hkbVariableInfo::VARIABLE_TYPE_VECTOR3:
-	return 4;
-case hkbVariableInfo::VARIABLE_TYPE_VECTOR4:
-	return 5;
-case hkbVariableInfo::VARIABLE_TYPE_QUATERNION:
-	return 5;
 
-*/
+VariableBinder::VariableBinder(ProjectModel& model, const QModelIndex& index, QWidget* parent) :
+	_variablesModel(nullptr),
+	_variablesProxyModel(nullptr),
+	_variable_index(-1),
+	_binding_path(""),
+	ModelDialog(model, index, parent)
+{
+	setupUi(this);
+	_index = index;
+	buildVariablesByTypeList();
+	buildBindablesList();
+}
 
 int QVariantTypeToVariantType(const TypeInfo& value)
 {
@@ -86,12 +78,9 @@ int QVariantTypeToVariantType(const TypeInfo& value)
 	return -1;
 }
 
-
-VariableBinder::VariableBinder(ProjectModel& model, const QModelIndex& index, QWidget* parent) : 
-	ModelDialog(model, index, parent)
+void VariableBinder::buildVariablesByTypeList()
 {
-	_index = index;
-	auto variables_index = _model.variablesIndex(index);
+	auto variables_index = _model.variablesIndex(_index);
 	auto variables_count = _model.rowCount(variables_index);
 	for (int r = 0; r < variables_count; r++)
 	{
@@ -100,12 +89,16 @@ VariableBinder::VariableBinder(ProjectModel& model, const QModelIndex& index, QW
 		_variables_by_type[variable_type] << variable_index.data().toString();
 		_variables_by_type_indices[variable_type].push_back(r);
 	}
-	auto start = _model.dataStart(index);
-	auto class_rows = _model.rowCount(index);
+}
+
+void VariableBinder::buildBindablesList()
+{
+	auto start = _model.dataStart(_index);
+	auto class_rows = _model.rowCount(_index);
 	QStringList bindables;
 	for (int r = start.first; r < class_rows; r++)
 	{
-		auto row_index = _model.index(r, 0, index);
+		auto row_index = _model.index(r, 0, _index);
 		auto row_name = row_index.data().toString();
 		if (row_name.startsWith("bindings"))
 			continue;
@@ -141,23 +134,61 @@ VariableBinder::VariableBinder(ProjectModel& model, const QModelIndex& index, QW
 			_binding_path_types[row_name] = binding_type;
 		}
 	}
+	StringListModel* bindables_model = new StringListModel(bindables, this);
+	QSortFilterProxyModel* proxyModel = new QSortFilterProxyModel(this);
+	bindables_model->setHeaderData(0, Qt::Horizontal, "Name", Qt::DisplayRole);
+	proxyModel->setSourceModel(bindables_model);
+	proxyModel->setHeaderData(0, Qt::Horizontal, "Name", Qt::DisplayRole);
+	fieldTableView->setModel(proxyModel);
+	proxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+	connect(fieldTableView->selectionModel(), &QItemSelectionModel::currentChanged, this, &VariableBinder::on_fieldTableView_selectionChanged);
+	_variablesModel = new StringListModel({},this);
+	variableTableView->setModel(_variablesModel);
 }
+
+void VariableBinder::on_fieldTableView_selectionChanged(const QModelIndex& current, const QModelIndex& previous)
+{
+	if (current.isValid())
+	{
+		_binding_path = current.data().toString();
+		int type = _binding_path_types[_binding_path];
+		auto& variables_list = _variables_by_type[type];
+		delete _variablesProxyModel;
+		delete _variablesModel;
+		_variablesModel = new StringListModel(variables_list);
+		_variablesProxyModel = new QSortFilterProxyModel(this);
+		_variablesModel->setHeaderData(0, Qt::Horizontal, "Name", Qt::DisplayRole);
+		_variablesProxyModel->setSourceModel(_variablesModel);
+		_variablesProxyModel->setHeaderData(0, Qt::Horizontal, "Name", Qt::DisplayRole);
+		variableTableView->setModel(_variablesProxyModel);
+		_variablesProxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+		connect(variableTableView->selectionModel(), &QItemSelectionModel::currentChanged, this, &VariableBinder::on_variableTableView_selectionChanged);
+	}
+	else {
+		_binding_path = "";
+	}
+}
+
+void VariableBinder::on_variableTableView_selectionChanged(const QModelIndex& current, const QModelIndex& previous)
+{
+	if (current.isValid() && !_binding_path.isEmpty())
+	{
+		auto fieldType = _binding_path_types[_binding_path];
+		int selected = current.row();
+		_variable_index = _variables_by_type_indices[fieldType][selected];
+	}
+	else {
+		_variable_index = -1;
+	}
+}
+
 
 void VariableBinder::accept()
 {
-	//if (attackEventsListView->currentIndex().isValid() &&
-	//	clipListView->currentIndex().isValid())
-	//{
-	//	_choosen_clip.clear();
-	//	_choosen_attack_event = attackEventsListView->currentIndex().data().toString();
-	//	auto& clipIndexList = clipListView->selectionModel()->selectedIndexes();
-	//	for (auto& index : clipIndexList)
-	//		_choosen_clip << index.data().toString();
-	//}
 	QDialog::accept();
 }
 
-std::pair<size_t, QString> VariableBinder::getResult(
+std::pair<int, QString> VariableBinder::getResult(
 	ProjectModel& model,
 	const QModelIndex& index,
 	QWidget* parent,
