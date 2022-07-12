@@ -97,9 +97,9 @@ Qt::ItemFlags ValuesProxyModel::flags(const QModelIndex& index) const
 	return QAbstractItemModel::flags(index) | Qt::ItemIsEditable;
 }
 
-QAbstractItemModel* ValuesProxyModel::editModel(const QModelIndex& index, AssetType type, int role)
+QAbstractItemModel* ValuesProxyModel::editModel(const QModelIndex& index, AssetType type, const QString& nullValue, int role)
 {
-	return sourceModel()->editModel(mapToSource(index), type, role);
+	return sourceModel()->editModel(mapToSource(index), type, nullValue, role);
 }
 
 QVariant ValuesProxyModel::headerData(int section, Qt::Orientation orientation, int role) const

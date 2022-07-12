@@ -60,7 +60,7 @@ namespace ckcmd {
             ResourceManager& getResourceManager() { return _resourceManager; }
 
             QModelIndex variablesIndex(const QModelIndex& index);
-            QAbstractItemModel* editModel(const QModelIndex& index, AssetType type, int role = Qt::DisplayRole);
+            QAbstractItemModel* editModel(const QModelIndex& index, AssetType type, const QString& nullValue = "<Not Set>", int role = Qt::DisplayRole);
             void SetCopyPointer(const QModelIndex& index);
             bool PasteEnabled(const QModelIndex& index);
             TypeInfo rowType(const QModelIndex& index);

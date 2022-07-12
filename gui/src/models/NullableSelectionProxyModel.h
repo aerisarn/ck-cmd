@@ -10,11 +10,12 @@ namespace ckcmd {
         class NullableSelectionProxyModel : public QAbstractProxyModel {
             Q_OBJECT
 
-            QModelIndex _sourceRoot; // Persistent?
+            QModelIndex _sourceRoot;
+            QString _nullValue;
 
         public:
 
-            NullableSelectionProxyModel(ProjectModel* sourceModel, const QModelIndex root, QObject* parent = nullptr);
+            NullableSelectionProxyModel(ProjectModel* sourceModel, const QModelIndex root, const QString& nullValue, QObject* parent = nullptr);
             ~NullableSelectionProxyModel()
             {
             }

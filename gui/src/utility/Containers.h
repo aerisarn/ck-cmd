@@ -22,13 +22,17 @@ namespace ckcmd {
 				return false;
 			if (row_start == container.getSize())
 			{
+				T t;
+				memset(&t, 0, sizeof(T));
 				for (int i = 0; i < count; i++)
-					container.pushBack(T());
+					container.pushBack(t);
 				return true;
 			}
 			for (int i = 0; i < count; i++)
 			{
-				container.insertAt(row_start, T());
+				T t;
+				memset(&t, 0, sizeof(T));
+				container.insertAt(row_start, t);
 				return true;
 			}
 			return false;

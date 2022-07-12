@@ -22,7 +22,7 @@ namespace ckcmd {
             {
             }
 
-            virtual QAbstractItemModel* editModel(const QModelIndex& index, AssetType type, int role = Qt::DisplayRole);
+            virtual QAbstractItemModel* editModel(const QModelIndex& index, AssetType type, const QString& nullValue = "<Not Set>", int role = Qt::DisplayRole);
             ResourceManager& getResourceManager() { return sourceModel()->getResourceManager(); }
 
             int getFileIndex(const QModelIndex& index);

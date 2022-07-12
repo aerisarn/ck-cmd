@@ -50,7 +50,7 @@ void paintReference(QPainter* painter, const QStyleOptionViewItem& option, Value
 {
     auto value = index.data().value<T>();
     int data_index = value.index();
-    auto data_model = model.editModel(index, value.assetType(), Qt::EditRole);
+    auto data_model = model.editModel(index, value.assetType(), "<Not Set>", Qt::EditRole);
     QString data = data_model->index(data_index + 1, 0).data().toString();
 
     if (option.state & QStyle::State_Selected)
@@ -70,11 +70,13 @@ void ItemsDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option,
 {
     if (index.data().canConvert<HkxItemPointer>()) {
 
+        QString label = "";
         HkxItemPointer data = index.data().value<HkxItemPointer>();
         auto file_index_ = _model.getFileIndex(index);
         auto* object_address_ = data.get();
         auto variant = _manager.findVariant(file_index_, object_address_);
-        QString label = HkxVariant(*variant).name();
+        if (variant != nullptr)
+            label = HkxVariant(*variant).name();
 
         if (option.state & QStyle::State_Selected)
         {
@@ -196,7 +198,7 @@ QSize sizeHintReference(const QStyleOptionViewItem& option,
 {
     auto value = index.data().value<T>();
     int data_index = value.index();
-    auto data_model = model.editModel(index, value.assetType(), Qt::EditRole);
+    auto data_model = model.editModel(index, value.assetType(), "<Not Set>", Qt::EditRole);
 
     return ComboBoxSizeHint(option, data_model);
 }
@@ -290,7 +292,7 @@ void setEditorDataReference(QWidget* editor, ValuesProxyModel& model,
     QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
     auto value = index.data().value<T>();
     int data_index = value.index();
-    auto data_model = model.editModel(index, value.assetType(), Qt::EditRole);
+    auto data_model = model.editModel(index, value.assetType(), "<Not Set>", Qt::EditRole);
 
     QStringList options;
 
@@ -308,7 +310,10 @@ void setEditorDataReference(QWidget* editor, ValuesProxyModel& model,
     ptr_editor->setInsertPolicy(QComboBox::NoInsert);
     ptr_editor->setModel(data_model);
     ptr_editor->setCompleter(data_completer);
-    ptr_editor->setCurrentIndex(data_index + 1);
+    if (typeid(T) == typeid(HkxItemFSMState))
+        ptr_editor->setCurrentIndex(data_index);
+    else
+        ptr_editor->setCurrentIndex(data_index + 1);
 }
 
 
@@ -442,7 +447,7 @@ void ItemsDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
     else if (index.data().canConvert<HkxItemFSMState>()) {
         QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
         auto value = index.data().value<HkxItemFSMState>();
-        model->setData(index, ptr_editor->currentIndex() - 1, Qt::EditRole);
+        model->setData(index, ptr_editor->currentIndex(), Qt::EditRole);
     }
     else {
         QStyledItemDelegate::setModelData(editor, model, index);

@@ -1637,17 +1637,20 @@ void* ResourceManager::createObject(int file, const hkClass* hkclass, const std:
 {
 	hkVariant v;
 	v.m_object = malloc(hkclass->getObjectSize());
-	memset(v.m_object, 0, hkclass->getObjectSize());
-	v.m_class = hkclass;
-	auto info = hkTypeInfoRegistry::getInstance().finishLoadedObject(v.m_object, hkclass->getName());
-	HkxVariant(v).setName(name.c_str());
-	_contents[file].second.push_back(v);
+	if (v.m_object != nullptr)
+	{
+		memset(v.m_object, 0, hkclass->getObjectSize());
+		v.m_class = hkclass;
+		auto info = hkTypeInfoRegistry::getInstance().finishLoadedObject(v.m_object, hkclass->getName());
+		HkxVariant(v).setName(name.c_str());
+		_contents[file].second.push_back(v);
+	}
 	return v.m_object;
 }
 
 QStringList ResourceManager::getStates(hkbStateMachine* fsm)
 {
-	QStringList out; out << "Invalid";
+	QStringList out;
 	std::map<int, QString> ordered_states;
 	for (int s = 0; s < fsm->m_states.getSize(); ++s)
 	{

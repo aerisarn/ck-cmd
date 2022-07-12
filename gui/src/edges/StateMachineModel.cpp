@@ -4,7 +4,10 @@
 #include <src/hkx/HkxTableVariant.h>
 #include <src/edges/TransitionModel.h>
 
+#include <src/utility/Containers.h>
+
 #include <hkbStateMachineTransitionInfo_1.h>
+#include <hkbStateMachineTransitionInfoArray_0.h>
 
 using namespace ckcmd::HKX;
 
@@ -387,8 +390,33 @@ bool StateMachineModel::setData(int row, int column, const ModelEdge& edge, cons
 			ModelEdge transitionEdge(edge, edge.project(), edge.file(), edge.row(), edge.subindex(), edge.column(), &v, NodeType::FSMWildcardTransition);
 			return TransitionModel().setData(row, column, transitionEdge, data, manager);
 		}
-		if (edge.childType() == NodeType::FSMStateTransition)
+		if (edge.childType() == NodeType::FSMStateTransitions)
 		{
+			if (data.canConvert<QVector<int>>())
+			{
+				//special case from addactionhandler
+				auto payload = data.value<QVector<int>>();
+				int from_state_id = payload[0];
+				int to_state_id = payload[1];
+				int event_index = payload[2];
+				for (const auto& state : FSM->m_states)
+				{
+					if (state->m_stateId == from_state_id)
+					{
+						if (state->m_transitions != nullptr && state->m_transitions->m_transitions.getSize() > 0)
+						{
+							auto& transition = state->m_transitions->m_transitions[state->m_transitions->m_transitions.getSize() - 1];
+							transition.m_toStateId = to_state_id;
+							transition.m_eventId = event_index;
+							return true;
+						}
+					}
+				}
+			}
+			return false;
+		}
+		if (edge.childType() == NodeType::FSMStateTransition)
+		{		
 			hkVariant v;
 			v.m_class = &hkbStateMachineTransitionInfoClass;
 			v.m_object = getStateTransitionFromRow(FSM, edge.subindex());
@@ -469,6 +497,31 @@ bool StateMachineModel::isArray(int row, const ModelEdge& edge, ResourceManager&
 
 bool StateMachineModel::addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)
 {
+	auto* FSM = variant(edge);
+	if (nullptr != FSM && nullptr != FSM->m_wildcardTransitions)
+	{
+		if (edge.childType() == NodeType::FSMWildcardTransitions)
+		{
+			return addToContainer(row_start, count, FSM->m_wildcardTransitions->m_transitions);
+		}
+		if (edge.childType() == NodeType::FSMStateTransitions)
+		{
+			int state_id = row_start;
+			for (const auto& state : FSM->m_states)
+			{
+				if (state->m_stateId == row_start)
+				{
+					if (nullptr == state->m_transitions)
+					{
+						state->m_transitions = manager.createObject<hkbStateMachineTransitionInfoArray>(
+							edge.file(), &hkbStateMachineTransitionInfoArrayClass);
+					}
+					return addToContainer(row_start, count, state->m_transitions->m_transitions);
+				}
+			}
+			return false;
+		}
+	}
 	return SupportEnhancedEdge::addRows(row_start, count, edge, manager);
 }
 

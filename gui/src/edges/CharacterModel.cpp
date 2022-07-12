@@ -398,3 +398,13 @@ bool CharacterModel::removeRows(int row_start, int count, const ModelEdge& edge,
 	}
 	return false;
 }
+
+bool CharacterModel::isArray(int row, const ModelEdge& edge, ResourceManager& manager) const
+{
+	if (edge.childType() == NodeType::animationNames ||
+		edge.childType() == NodeType::characterPropertyNames)
+	{
+		return true;
+	}
+	return SupportEnhancedEdge::isArray(row, edge, manager);
+}

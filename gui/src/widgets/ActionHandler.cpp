@@ -5,6 +5,7 @@
 #include <src/widgets/SelectNode.h>
 #include <src/widgets/VariableCreator.h>
 #include <src/utility/Conversion.h>
+#include <src/widgets/TransitionCreator.h>
 
 #include <src/items/HkxItemPointer.h>
 #include <src/items/HkxItemReal.h>
@@ -528,6 +529,27 @@ void ActionHandler::addTransition()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
+
+	bool ok = false;
+	auto new_transition = TransitionCreator::getTransition(_model, index, nullptr, &ok);
+	if (ok && new_transition.eventIndex != -1 && new_transition.toStateId != -1)
+	{
+		int rows = _model.rowCount(index);
+		if (new_transition.fromStateId != -1)
+		{
+			_model.insertRow(new_transition.fromStateId, index);
+			QVariant data; data.setValue(QVector<int>({ new_transition.fromStateId, new_transition.toStateId, new_transition.eventIndex }));
+			_model.setData(index, data);
+		}
+		else {
+			_model.insertRow(rows, index);
+			auto new_index = _model.index(rows, 0, index);
+			auto event_index = _model.index(11, 1, new_index);
+			_model.setData(event_index, new_transition.eventIndex);
+			auto toState_index = _model.index(12, 1, new_index);
+			_model.setData(toState_index, new_transition.toStateId);
+		}
+	}
 
 	action->setData(QVariant());
 }

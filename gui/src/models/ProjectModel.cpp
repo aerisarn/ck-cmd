@@ -526,7 +526,7 @@ QModelIndex ProjectModel::variablesIndex(const QModelIndex& index)
 	return search_index;
 }
 
-QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType type, int role)
+QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType type, const QString& nullValue, int role)
 {
 	auto& edge = modelEdge(index);
 	switch (edge.type())
@@ -631,6 +631,8 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 						options = _resourceManager.getStates((hkbStateMachine*)edge.parentItem<hkVariant>()->m_object);
 				}
 			}
+			if (!nullValue.isEmpty())
+				options.insert(0, nullValue);
 			return new QStringListModel(options);
 		}
 		default:
@@ -641,7 +643,7 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 			if (role == Qt::DisplayRole)
 				return new SelectionProxyModel(this, search_index);
 			else if (role == Qt::EditRole)
-				return new NullableSelectionProxyModel(this, search_index);
+				return new NullableSelectionProxyModel(this,search_index, nullValue);
 		}
 		break;
 	}

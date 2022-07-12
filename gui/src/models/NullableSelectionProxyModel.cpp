@@ -2,7 +2,8 @@
 
 using namespace ckcmd::HKX;
 
-NullableSelectionProxyModel::NullableSelectionProxyModel(ProjectModel* sourceModel, const QModelIndex root, QObject* parent) :
+NullableSelectionProxyModel::NullableSelectionProxyModel(ProjectModel* sourceModel, const QModelIndex root, const QString& nullValue, QObject* parent) :
+	_nullValue(nullValue),
 	QAbstractProxyModel(parent) 
 {
 	setSourceModel(sourceModel);
@@ -69,7 +70,7 @@ QModelIndex NullableSelectionProxyModel::index(int row, int column, const QModel
 QVariant NullableSelectionProxyModel::data(const QModelIndex& proxyIndex, int role) const
 {
 	if (proxyIndex.row() == 0 && (role == Qt::DisplayRole|| role == Qt::EditRole))
-		return "<Not Set>";
+		return _nullValue;
 	return sourceModel()->data(mapToSource(proxyIndex), role);
 }
 

@@ -167,12 +167,15 @@ namespace ckcmd {
 			/* NODES */
 			template <typename T>
 			T* createObject(int file, const hkClass* hkclass) {
-				hkVariant v;
-				T* t = new T();
-				v.m_class = hkclass;
-				v.m_object = t;
-				_contents[file].second.push_back(v);
-				return t;
+				return static_cast<T*>(createObject(file, hkclass, ""));
+				//hkVariant v;
+				//T* t = new T();
+				//memset(t, 0, sizeof(T));
+				//hkTypeInfoRegistry::getInstance().finishLoadedObject(t, hkclass->getName());
+				//v.m_class = hkclass;
+				//v.m_object = t;
+				//_contents[file].second.push_back(v);
+				//return t;
 			}
 
 			void* createObject(int file, const hkClass* hkclass, const std::string& name);

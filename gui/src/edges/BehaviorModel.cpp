@@ -676,3 +676,14 @@ bool BehaviorModel::removeRows(int row_start, int count, const ModelEdge& edge, 
 	}
 	return SupportEnhancedEdge::removeRows(row_start, count, edge, manager);
 }
+
+bool BehaviorModel::isArray(int row, const ModelEdge& edge, ResourceManager& manager) const
+{
+	if (edge.childType() == NodeType::behaviorEventNames ||
+		edge.childType() == NodeType::behaviorVariableNames ||
+		edge.childType() == NodeType::behaviorCharacterPropertyNames)
+	{
+		return true;
+	}
+	return SupportEnhancedEdge::isArray(row, edge, manager);
+}
