@@ -73,19 +73,28 @@ int StateMachineModel::rows(const ModelEdge& edge, ResourceManager& manager) con
 		}
 		else if (edge.childType() == NodeType::FSMStateTransition)
 		{
+			
 			hkVariant v;
 			v.m_class = &hkbStateMachineTransitionInfoClass;
 			v.m_object = getStateTransitionFromRow(FSM, edge.row());
-			ModelEdge transitionEdge(edge, edge.project(), edge.file(), edge.row(), edge.subindex(), edge.row(), &v, NodeType::FSMWildcardTransition);
-			return TransitionModel().rows(transitionEdge, manager);
+			if (v.m_object != nullptr)
+			{
+				ModelEdge transitionEdge(edge, edge.project(), edge.file(), edge.row(), edge.subindex(), edge.row(), &v, NodeType::FSMWildcardTransition);
+				return TransitionModel().rows(transitionEdge, manager);
+			}
+			return 0;
 		}
 		else if (edge.childType() == NodeType::FSMWildcardTransition)
 		{
-			hkVariant v;
-			v.m_class = &hkbStateMachineTransitionInfoClass;
-			v.m_object = &FSM->m_wildcardTransitions->m_transitions[edge.row()];
-			ModelEdge transitionEdge(edge, edge.project(), edge.file(), edge.row(), edge.subindex(), edge.row(), &v, NodeType::FSMWildcardTransition);
-			return TransitionModel().rows(transitionEdge, manager);
+			if (edge.row() < FSM->m_wildcardTransitions->m_transitions.getSize())
+			{
+				hkVariant v;
+				v.m_class = &hkbStateMachineTransitionInfoClass;
+				v.m_object = &FSM->m_wildcardTransitions->m_transitions[edge.row()];
+				ModelEdge transitionEdge(edge, edge.project(), edge.file(), edge.row(), edge.subindex(), edge.row(), &v, NodeType::FSMWildcardTransition);
+				return TransitionModel().rows(transitionEdge, manager);
+			}
+			return 0;
 		}
 		return SupportEnhancedEdge::rows(edge, manager);
 	}
@@ -99,11 +108,15 @@ int StateMachineModel::columns(int row, const ModelEdge& edge, ResourceManager& 
 	{
 		if (edge.childType() == NodeType::FSMWildcardTransition)
 		{
-			hkVariant v;
-			v.m_class = &hkbStateMachineTransitionInfoClass;
-			v.m_object = &FSM->m_wildcardTransitions->m_transitions[edge.row()];
-			ModelEdge transitionEdge(edge, edge.project(), edge.file(), edge.row(), edge.subindex(), edge.column(), &v, NodeType::FSMWildcardTransition);
-			return TransitionModel().columns(row, transitionEdge, manager);
+			if (edge.row() < FSM->m_wildcardTransitions->m_transitions.getSize())
+			{
+				hkVariant v;
+				v.m_class = &hkbStateMachineTransitionInfoClass;
+				v.m_object = &FSM->m_wildcardTransitions->m_transitions[edge.row()];
+				ModelEdge transitionEdge(edge, edge.project(), edge.file(), edge.row(), edge.subindex(), edge.column(), &v, NodeType::FSMWildcardTransition);
+				return TransitionModel().columns(row, transitionEdge, manager);
+			}
+			return 0;
 		}
 		if (edge.childType() == NodeType::FSMStateTransition)
 		{
@@ -114,8 +127,12 @@ int StateMachineModel::columns(int row, const ModelEdge& edge, ResourceManager& 
 			hkVariant v;
 			v.m_class = &hkbStateMachineTransitionInfoClass;
 			v.m_object = getStateTransitionFromRow(FSM, edge.row());
-			ModelEdge transitionEdge(edge, edge.project(), edge.file(), edge.row(), edge.subindex(), edge.column(), &v, NodeType::FSMWildcardTransition);
-			return TransitionModel().columns(row, transitionEdge, manager);
+			if (v.m_object != nullptr)
+			{
+				ModelEdge transitionEdge(edge, edge.project(), edge.file(), edge.row(), edge.subindex(), edge.column(), &v, NodeType::FSMWildcardTransition);
+				return TransitionModel().columns(row, transitionEdge, manager);
+			}
+			return 0;
 		}
 		return SupportEnhancedEdge::columns(row, edge, manager);
 	}
@@ -437,5 +454,55 @@ TypeInfo StateMachineModel::rowClass(int row, const ModelEdge& edge, ResourceMan
 			return TransitionModel().rowClass(row, transitionEdge, manager);
 		}
 	}
-	return SupportEnhancedEdge::rowClass(row == 0 ? row : row - supports(), edge, manager);
+	return SupportEnhancedEdge::rowClass(row, edge, manager);
+}
+
+bool StateMachineModel::isArray(int row, const ModelEdge& edge, ResourceManager& manager) const
+{
+	if (edge.childType() == NodeType::FSMWildcardTransitions ||
+		edge.childType() == NodeType::FSMStateTransitions)
+	{
+		return true;
+	}
+	return SupportEnhancedEdge::isArray(row, edge, manager);
+}
+
+bool StateMachineModel::addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)
+{
+	return SupportEnhancedEdge::addRows(row_start, count, edge, manager);
+}
+
+bool StateMachineModel::removeRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)
+{
+	auto* FSM = variant(edge);
+	if (nullptr != FSM && nullptr != FSM->m_wildcardTransitions)
+	{
+		if (edge.childType() == NodeType::FSMWildcardTransitions)
+		{
+			if (row_start < FSM->m_wildcardTransitions->m_transitions.getSize())
+			{
+				FSM->m_wildcardTransitions->m_transitions.removeAtAndCopy(row_start);
+				return true;
+			}
+			return false;
+		}
+		if (edge.childType() == NodeType::FSMStateTransitions)
+		{
+			int index = row_start;
+			for (const auto& state : FSM->m_states)
+			{
+				if (NULL != state->m_transitions)
+				{
+					if (index < state->m_transitions->m_transitions.getSize())
+					{
+						state->m_transitions->m_transitions.removeAtAndCopy(index);
+						return true;
+					}
+					index -= state->m_transitions->m_transitions.getSize();
+				}
+			}
+			return false;
+		}
+	}
+	return SupportEnhancedEdge::removeRows(row_start, count, edge, manager);
 }

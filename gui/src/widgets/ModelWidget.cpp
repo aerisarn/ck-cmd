@@ -152,24 +152,27 @@ void ModelWidget::populate()
 }
 
 void ModelWidget::setIndex(const QModelIndex& index) 
-{ 
-	_index = index;
-	_project_index = _model.getProjectIndex(index);
-	_file_index = _model.getFileIndex(index);
-	if (doDataBinding())
+{
+	if (index.isValid())
 	{
-		if (!bindings_done)
+		_index = index;
+		_project_index = _model.getProjectIndex(index);
+		_file_index = _model.getFileIndex(index);
+		if (doDataBinding())
 		{
-			buildReflectionTable();
-			doBindings();
-			bindings_done = true;
-			bool ok = connect(&_widget_signal_map, &ModelWidgetSignalMapper::sendValue, this, &ModelWidget::doPropertyChange);
-			if (!ok)
-				__debugbreak();
+			if (!bindings_done)
+			{
+				buildReflectionTable();
+				doBindings();
+				bindings_done = true;
+				bool ok = connect(&_widget_signal_map, &ModelWidgetSignalMapper::sendValue, this, &ModelWidget::doPropertyChange);
+				if (!ok)
+					__debugbreak();
+			}
+			populate();
 		}
-		populate();
+		OnIndexSelected();
 	}
-	OnIndexSelected(); 
 }
 
 size_t ModelWidget::memberModelRow(const QString& memberName)

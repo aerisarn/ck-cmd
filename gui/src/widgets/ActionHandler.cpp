@@ -541,5 +541,7 @@ void ActionHandler::removeTransition()
 	if (!index.isValid())
 		return; //todo error message
 
+	_model.remove(index);
+
 	action->setData(QVariant());
 }
