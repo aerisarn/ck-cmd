@@ -22,14 +22,13 @@ class TransitionEditorWidget : public ckcmd::ModelWidget, private Ui::Transition
         return dataBindingtable;
     }
 
-
-
 private slots:
-
+    void on_effectToolButton_clicked();
+    void on_conditionToolButton_clicked();
 
 public:
     explicit TransitionEditorWidget(ckcmd::HKX::ProjectModel& model, QWidget* parent = 0);
 
 private:
-
+    void addOrSet(const char* member_name);
 };

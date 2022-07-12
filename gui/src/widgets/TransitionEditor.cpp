@@ -3,6 +3,7 @@
 #include <src/models/ValuesProxyModel.h>
 #include <src/hkx/ItemsDelegate.h>
 #include <src/items/HkxItemPointer.h>
+#include <src/widgets/SelectNode.h>
 
 #include <hkbStateMachineTransitionInfo_1.h>
 
@@ -21,16 +22,19 @@ TransitionEditorWidget::TransitionEditorWidget(ckcmd::HKX::ProjectModel& model, 
 
 void TransitionEditorWidget::OnIndexSelected()
 {
-	if (_members.find("fromStateId") != _members.end())
+	auto row_name_index = _model.index(0, 0, _index);
+	int columns = _model.columnCount(row_name_index);
+	if (columns == 2)
 	{
-		fromStateTableView->setEnabled(true);
+		fromStateLineEdit->setEnabled(true);
 		fromNestedStateTableView->setEnabled(true);
-		ValuesProxyModel* editModel = new ValuesProxyModel(&_model, { _members["fromStateId"].first }, 1, _index, this);
-		fromStateTableView->setModel(editModel);
-		fromStateTableView->setItemDelegate(new ItemsDelegate(*editModel, this));
+		fromStateLineEdit->setText(_model.index(0, 1, _index).data().toString());
+		//ValuesProxyModel* editModel = new ValuesProxyModel(&_model, { _members["fromStateId"].first }, 1, _index, this);
+		//fromStateTableView->setModel(editModel);
+		//fromStateTableView->setItemDelegate(new ItemsDelegate(*editModel, this));
 	}
 	else {
-		fromStateTableView->setEnabled(false);
+		fromStateLineEdit->setEnabled(false);
 		fromNestedStateTableView->setEnabled(false);
 	}
 	if (fromNestedStateTableView->isEnabled() && _members.find("fromNestedStateId") != _members.end())
@@ -106,6 +110,9 @@ void TransitionEditorWidget::OnIndexSelected()
 			effectTableView->setModel(editModel);
 			effectTableView->setItemDelegate(new ItemsDelegate(*editModel, this));
 		}
+		else {
+			effectTableView->setModel(nullptr);
+		}
 	}
 	if (_members.find("flags") != _members.end())
 	{
@@ -114,4 +121,46 @@ void TransitionEditorWidget::OnIndexSelected()
 		flagsTableView->setItemDelegate(new ItemsDelegate(*editModel, this));
 		flagsTableView->resizeRowsToContents();
 	}
+}
+
+void TransitionEditorWidget::addOrSet(const char* member_name)
+{
+	auto binding = _members.at(member_name);
+	auto index = _model.index(binding.first, 0, _index);
+	//row index to be set or container to be modified;
+	bool ok;
+	auto selection = SelectNode::getNode(_model, index, nullptr, &ok);
+	if (ok)
+	{
+		void* to_set_or_add = selection.second == nullptr ? nullptr : selection.second->m_object;
+		if (to_set_or_add == nullptr)
+		{
+			std::string name = selection.first.second.toUtf8().constData();
+			to_set_or_add = _model.getResourceManager().createObject(_model.getFileIndex(index), selection.first.first, name);
+		}
+		HkxItemPointer p(to_set_or_add);
+		QVariant value; value.setValue(p);
+		bool isArray = _model.isArray(index);
+		if (isArray)
+		{
+			int columns = _model.columnCount(index);
+			bool result = _model.insertColumns(index.row(), columns, 1, index);
+			QModelIndex new_index = _model.index(index.row(), columns, index);
+			_model.setData(new_index, value);
+		}
+		else {
+			QModelIndex new_index = _model.index(index.row(), 1, index);
+			_model.setData(new_index, value);
+		}
+	}
+}
+
+void TransitionEditorWidget::on_effectToolButton_clicked()
+{
+	addOrSet("transition");
+}
+
+void TransitionEditorWidget::on_conditionToolButton_clicked()
+{
+	addOrSet("condition");
 }
