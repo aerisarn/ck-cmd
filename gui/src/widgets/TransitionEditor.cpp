@@ -85,6 +85,9 @@ void TransitionEditorWidget::OnIndexSelected()
 			conditionTableView->setModel(editModel);
 			conditionTableView->setItemDelegate(new ItemsDelegate(*editModel, this));
 		}
+		else {
+			conditionTableView->setModel(nullptr);
+		}
 	}
 	if (_members.find("transition") != _members.end())
 	{

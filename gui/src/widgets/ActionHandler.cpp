@@ -16,6 +16,7 @@
 
 #include <hkbVariableInfo_1.h>
 #include <hkbVariableBindingSet_2.h>
+#include <hkbStateMachineTransitionInfoArray_0.h>
 
 using namespace ckcmd::HKX;
 
@@ -54,6 +55,8 @@ std::vector<QAction*> ActionHandler::addActions(const QVariant& action_data)
 			if (types[i]._class != nullptr)
 			{
 				if (types[i]._class == &hkbVariableBindingSetClass)
+					continue;
+				if (types[i]._class == &hkbStateMachineTransitionInfoArrayClass)
 					continue;
 				auto row_index = _model.index(i, 0, index);
 				if (_model.isArray(row_index))

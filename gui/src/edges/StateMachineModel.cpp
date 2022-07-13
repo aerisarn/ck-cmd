@@ -190,9 +190,9 @@ std::pair<int, int> StateMachineModel::child(int index, const ModelEdge& edge, R
 		switch (index)
 		{
 		case 0:
-			return { 3, 1 };
+			return { 9, 1 };
 		case 1:
-			return { 4, 1 };
+			return { 10, 1 };
 		default:
 			break;
 		}
@@ -211,12 +211,30 @@ int StateMachineModel::childIndex(int row, int column, const ModelEdge& edge, Re
 	case NodeType::FSMStateTransitions:
 		return row;
 	case NodeType::FSMWildcardTransition:
-	case NodeType::FSMStateTransition:
-		if (row == 3 && column == 1)
+	{
+		auto* FSM = variant(edge);
+		if (row == 9 && column == 1 && FSM != nullptr && FSM->m_wildcardTransitions != nullptr && FSM->m_wildcardTransitions->m_transitions[edge.subindex()].m_transition != nullptr)
 			return 0;
-		if (row == 4 && column == 1)
+		if (row == 9 && column == 1 && FSM != nullptr && FSM->m_wildcardTransitions != nullptr && FSM->m_wildcardTransitions->m_transitions[edge.subindex()].m_condition != nullptr)
 			return 1;
 		return MODELEDGE_INVALID;
+	}
+	case NodeType::FSMStateTransition:
+	{
+		auto* FSM = variant(edge);
+		if (nullptr != FSM)
+		{
+			auto transition = getStateTransitionFromRow(FSM, edge.row());
+			if (nullptr != transition)
+			{
+				if (row == 9 && column == 1 && FSM != nullptr && FSM->m_wildcardTransitions != nullptr && transition->m_transition != nullptr)
+					return 0;
+				if (row == 10 && column == 1 && FSM != nullptr && FSM->m_wildcardTransitions != nullptr && transition->m_condition != nullptr)
+					return 1;
+			}
+		}
+		return MODELEDGE_INVALID;
+	}
 	default:
 		break;
 	}
@@ -236,12 +254,12 @@ ModelEdge StateMachineModel::child(int row, int column, const ModelEdge& edge, R
 		auto* FSM = variant(edge);
 		if (nullptr != FSM)
 		{
-			if (row == 3 && column == 1)
+			if (row == 9 && column == 1)
 			{
 				auto variant = manager.findVariant(edge.file(), &*FSM->m_wildcardTransitions->m_transitions[edge.subindex()].m_transition);
 				return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::HavokNative);
 			}
-			if (row == 4 && column == 1)
+			if (row == 10 && column == 1)
 			{
 				auto variant = manager.findVariant(edge.file(), &*FSM->m_wildcardTransitions->m_transitions[edge.subindex()].m_condition);
 				return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::HavokNative);
@@ -257,12 +275,12 @@ ModelEdge StateMachineModel::child(int row, int column, const ModelEdge& edge, R
 			auto transition = getStateTransitionFromRow(FSM, edge.subindex());
 			if (nullptr != transition)
 			{
-				if (row == 3 && column == 1)
+				if (row == 9 && column == 1)
 				{
 					auto variant = manager.findVariant(edge.file(), transition->m_transition);
 					return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::HavokNative);
 				}
-				if (row == 4 && column == 1)
+				if (row == 10 && column == 1)
 				{
 					auto variant = manager.findVariant(edge.file(), transition->m_condition);
 					return ModelEdge(edge, edge.project(), edge.file(), row, column, edge.subindex(), variant, NodeType::HavokNative);
@@ -313,7 +331,11 @@ QVariant StateMachineModel::data(int row, int column, const ModelEdge& edge, Res
 				}
 				return result;
 			}
-			if (row == 4 && column == 1)
+			if (row == 9 && column == 1)
+			{
+				return "Transition effect not set";
+			}
+			if (row == 10 && column == 1)
 			{
 				return "Condition not set";
 			}
@@ -365,6 +387,14 @@ QVariant StateMachineModel::data(int row, int column, const ModelEdge& edge, Res
 						index -= state->m_transitions->m_transitions.getSize();
 					}
 				}
+			}
+			if (row == 9 && column == 1)
+			{
+				return "Transition effect not set";
+			}
+			if (row == 10 && column == 1)
+			{
+				return "Condition not set";
 			}
 			hkVariant v;
 			v.m_class = &hkbStateMachineTransitionInfoClass;
