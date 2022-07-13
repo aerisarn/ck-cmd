@@ -225,7 +225,8 @@ void FBXWrangler::NewScene() {
 		CloseScene();
 
 	scene = FbxScene::Create(sdkManager, "ckcmd");
-	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
+	//eMax,				/*!< UpVector = ZAxis, FrontVector = -ParityOdd, CoordSystem = RightHanded */
+	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector)FbxAxisSystem::eParityOdd, FbxAxisSystem::ECoordSystem::eRightHanded);
 	scene->GetGlobalSettings().SetAxisSystem(maxSystem);
 	scene->GetRootNode()->LclScaling.Set(FbxDouble3(1.0, 1.0, 1.0));
 	scene->GetGlobalSettings().SetSystemUnit(FbxSystemUnit::cm);
@@ -2534,7 +2535,7 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 
 	bool status = iImporter->Import(scene);
 
-	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector) - 2, FbxAxisSystem::ECoordSystem::eRightHanded);
+	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, FbxAxisSystem::EFrontVector::eParityOdd, FbxAxisSystem::ECoordSystem::eRightHanded);
 	maxSystem.ConvertScene(scene);
 
 	auto units = scene->GetGlobalSettings().GetSystemUnit();

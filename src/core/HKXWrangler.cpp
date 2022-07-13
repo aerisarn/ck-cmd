@@ -420,7 +420,7 @@ hkQsTransform getBoneTransform(FbxNode* pNode, FbxTime time) {
 	return hk_trans;
 }
 
-hkQsTransform getWorldTransform(FbxNode* pNode, FbxTime time) {
+FbxAMatrix getWorldTransform(FbxNode* pNode, FbxTime time) {
 	FbxAMatrix matrixGeo;
 	matrixGeo.SetIdentity();
 	if (pNode->GetNodeAttribute())
@@ -435,17 +435,12 @@ hkQsTransform getWorldTransform(FbxNode* pNode, FbxTime time) {
 	FbxAMatrix localMatrix = pNode->EvaluateGlobalTransform(time);
 
 	matrixGeo = localMatrix * matrixGeo;
-	hkQsTransform hk_trans;
+	return matrixGeo;
+	//hkQsTransform hk_trans;
 
-	const FbxVector4 lT = matrixGeo.GetT();
-	const FbxQuaternion lR = matrixGeo.GetQ();
-	const FbxVector4 lS = matrixGeo.GetS();
 
-	hk_trans.setTranslation(hkVector4(lT[0], lT[1], lT[2]));
-	hk_trans.setRotation(::hkQuaternion(lR[0], lR[1], lR[2], lR[3]));
-	hk_trans.setScale(hkVector4(lS[0], lS[1], lS[2], 0.000000));
 
-	return hk_trans;
+	//return hk_trans;
 }
 
 hkTransform getTransform(const FbxVector4& lT, const FbxQuaternion& lR) {
@@ -1061,22 +1056,23 @@ set<string> HKXWrapper::create_animations(
 				if (bone == skeleton[1]) //evaluate pelvis position instead of relying on root bone
 				{
 					auto pelvis_world_transform = getWorldTransform(bone, fbx_time);
-					auto root_transform = hkQsTransform(
-						hkVector4(
-							pelvis_world_transform.getTranslation()(0),
-							pelvis_world_transform.getTranslation()(1),
-							0.
-						),
-						::hkQuaternion(0.0, 0.0, 0.0, 1.0)
-					);
-					auto pelvis_transform = hkQsTransform(
-						hkVector4(
-							0,
-							0,
-							pelvis_world_transform.getTranslation()(2)
-						),
-						pelvis_world_transform.getRotation()
-					);
+					auto angles = pelvis_world_transform.GetQ().DecomposeSphericalXYZ();
+					FbxQuaternion z_rotation(FbxVector4( 0., 0., 1. ), angles[2]);
+					FbxQuaternion residual({ 0., 0., 0. }); 
+					residual.ComposeSphericalXYZ(FbxVector4( angles[0], angles[1], 0. ));
+
+					hkQsTransform root_transform;
+					root_transform.setTranslation(hkVector4(pelvis_world_transform.GetT()[0], pelvis_world_transform.GetT()[1], 0.));
+					root_transform.setRotation(::hkQuaternion(z_rotation[0], z_rotation[1], z_rotation[2], z_rotation[3]));
+					root_transform.setScale(hkVector4(1., 1., 1., 0.000000));
+					root_transform.fastRenormalize();
+
+					hkQsTransform pelvis_transform;
+					pelvis_transform.setTranslation(hkVector4(0., 0., pelvis_world_transform.GetT()[2]));
+					pelvis_transform.setRotation(::hkQuaternion(residual[0], residual[1], residual[2], residual[3]));
+					pelvis_transform.setScale(hkVector4(1., 1., 1., 0.000000));
+					pelvis_transform.fastRenormalize();
+					
 					root_track.pushBack(root_transform);
 					Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
 						(float)time,
