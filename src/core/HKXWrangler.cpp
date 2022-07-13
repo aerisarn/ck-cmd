@@ -420,6 +420,34 @@ hkQsTransform getBoneTransform(FbxNode* pNode, FbxTime time) {
 	return hk_trans;
 }
 
+hkQsTransform getWorldTransform(FbxNode* pNode, FbxTime time) {
+	FbxAMatrix matrixGeo;
+	matrixGeo.SetIdentity();
+	if (pNode->GetNodeAttribute())
+	{
+		const FbxVector4 lT = pNode->GetGeometricTranslation(FbxNode::eSourcePivot);
+		const FbxVector4 lR = pNode->GetGeometricRotation(FbxNode::eSourcePivot);
+		const FbxVector4 lS = pNode->GetGeometricScaling(FbxNode::eSourcePivot);
+		matrixGeo.SetT(lT);
+		matrixGeo.SetR(lR);
+		matrixGeo.SetS(lS);
+	}
+	FbxAMatrix localMatrix = pNode->EvaluateGlobalTransform(time);
+
+	matrixGeo = localMatrix * matrixGeo;
+	hkQsTransform hk_trans;
+
+	const FbxVector4 lT = matrixGeo.GetT();
+	const FbxQuaternion lR = matrixGeo.GetQ();
+	const FbxVector4 lS = matrixGeo.GetS();
+
+	hk_trans.setTranslation(hkVector4(lT[0], lT[1], lT[2]));
+	hk_trans.setRotation(::hkQuaternion(lR[0], lR[1], lR[2], lR[3]));
+	hk_trans.setScale(hkVector4(lS[0], lS[1], lS[2], 0.000000));
+
+	return hk_trans;
+}
+
 hkTransform getTransform(const FbxVector4& lT, const FbxQuaternion& lR) {
 	hkQsTransform hk_trans;
 
@@ -1015,10 +1043,44 @@ set<string> HKXWrapper::create_animations(
 			{
 				if (bone == skeleton[0])
 				{
-					root_track.pushBack(getBoneTransform(bone, fbx_time));
+					//root_track.pushBack(getBoneTransform(bone, fbx_time));
+					//Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
+					//	(float)time,
+					//	(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(0),
+					//	(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(1),
+					//	(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(2),
+					//	(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(3),
+					//	(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(0),
+					//	(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(1),
+					//	(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(2),
+					//	(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(3)
+					//);
+					//root_track_times.pushBack((hkReal)time);
+					continue;
+				}
+				if (bone == skeleton[1]) //evaluate pelvis position instead of relying on root bone
+				{
+					auto pelvis_world_transform = getWorldTransform(bone, fbx_time);
+					auto root_transform = hkQsTransform(
+						hkVector4(
+							pelvis_world_transform.getTranslation()(0),
+							pelvis_world_transform.getTranslation()(1),
+							0.
+						),
+						::hkQuaternion(0.0, 0.0, 0.0, 1.0)
+					);
+					auto pelvis_transform = hkQsTransform(
+						hkVector4(
+							0,
+							0,
+							pelvis_world_transform.getTranslation()(2)
+						),
+						pelvis_world_transform.getRotation()
+					);
+					root_track.pushBack(root_transform);
 					Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
 						(float)time,
-						(float)root_track[root_track.getSize()-1].getTranslation().getSimdAt(0),
+						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(0),
 						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(1),
 						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(2),
 						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(3),
@@ -1028,8 +1090,13 @@ set<string> HKXWrapper::create_animations(
 						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(3)
 					);
 					root_track_times.pushBack((hkReal)time);
+
+					tempAnim->m_transforms.pushBack(root_transform);
+					tempAnim->m_transforms.pushBack(pelvis_transform);
 				}
-				tempAnim->m_transforms.pushBack(getBoneTransform(bone, fbx_time));
+				else {
+					tempAnim->m_transforms.pushBack(getBoneTransform(bone, fbx_time));
+				}
 			}
 			for (FbxProperty& float_track : floats)
 			{
@@ -1121,16 +1188,15 @@ set<string> HKXWrapper::create_animations(
 					});
 				}
 
-				if (i == 0)
-				{
-					base_translation = tempAnim->m_transforms[i * skeleton.size()].getTranslation();
-					base_rotation = tempAnim->m_transforms[i * skeleton.size()].getRotation();
-				}
-				else
-				{
-					tempAnim->m_transforms[i * skeleton.size()].setTranslation(base_translation);
-					tempAnim->m_transforms[i * skeleton.size()].setRotation(base_rotation);
-				}
+				tempAnim->m_transforms[i * skeleton.size()].setTranslation
+				(
+					{
+					0.0,
+					0.0,
+					tempAnim->m_transforms[i * skeleton.size()].getTranslation().getSimdAt(2),
+					tempAnim->m_transforms[i * skeleton.size()].getTranslation().getSimdAt(3)
+					}
+				);
 			}
 
 			//TODO: linear analysis
