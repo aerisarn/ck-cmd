@@ -263,9 +263,14 @@ void ActionHandler::exportFBX()
 		return; //todo error message
 	action->setData(QVariant());
 	bool ok;
-	fs::path animation_path = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::animation);
+	auto type = _model.nodeType(index);
+	fs::path assets_path;
+	if (NodeType::animationNames == type)
+		assets_path = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::animation);
+	else if (NodeType::SkeletonHkxNode == type)
+		assets_path = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::character_assets);
 	if (export_fbx_output_dir.empty())
-		export_fbx_output_dir = animation_path;
+		export_fbx_output_dir = assets_path;
 	QString dir = QFileDialog::getExistingDirectory(nullptr, tr("Select Output directory"),
 		export_fbx_output_dir.string().c_str(),
 		QFileDialog::ShowDirsOnly
@@ -278,18 +283,28 @@ void ActionHandler::exportFBX()
 		if (rig_index != MODELEDGE_INVALID)
 		{
 			fs::path rig_path = _model.getResourceManager().path(rig_index);
-			std::string project_animation = index.data().toString().toUtf8().constData();
-			animation_path = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::project) / project_animation;
+			if (NodeType::animationNames == type)
+			{
+				std::string project_animation = index.data().toString().toUtf8().constData();
+				assets_path = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::project) / project_animation;
 
-			auto movements = _model.getResourceManager().getAnimationMovementData(_model.getProjectIndex(index), project_animation);
+				auto movements = _model.getResourceManager().getAnimationMovementData(_model.getProjectIndex(index), project_animation);
 
-			bool result = Conversion::convertHkxAnimationToFBX
-			(
-				rig_path,
-				animation_path,
-				dir.toUtf8().constData(),
-				movements
-			);
+				bool result = Conversion::convertHkxAnimationToFBX
+				(
+					rig_path,
+					assets_path,
+					dir.toUtf8().constData(),
+					movements
+				);
+			}
+			else if (NodeType::SkeletonHkxNode == type) {
+				bool result = Conversion::convertHkxSkeletonToFbx
+				(
+					rig_path,
+					dir.toUtf8().constData()
+				);
+			}
 		}
 	}
 }

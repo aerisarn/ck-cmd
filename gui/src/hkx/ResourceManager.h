@@ -52,6 +52,7 @@ namespace ckcmd {
 			clips,
 			clip_animations,
 			FSM_states,
+			character_assets
 		};
 
 		class ResourceManager {

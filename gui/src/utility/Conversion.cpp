@@ -76,3 +76,29 @@ bool Conversion::convertHkxAnimationToFBX
 
 	return wrangler.ExportScene(out_path.string().c_str());
 }
+
+bool Conversion::convertHkxSkeletonToFbx(
+	const fs::path& skeleton_file,
+	const fs::path& output_directory
+)
+{
+	if (fs::exists(skeleton_file) && fs::is_regular_file(skeleton_file))
+	{
+		FBXWrangler wrangler;
+		wrangler.NewScene();
+		vector<FbxProperty> floats;
+		wrangler.setExportRig(true);
+		vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(skeleton_file.string(), "", floats);
+		fs::path skeleton_nif = skeleton_file; skeleton_nif.replace_extension(".nif");
+		//if (fs::exists(skeleton_nif) && fs::is_regular_file(skeleton_nif))
+		//{
+		//	NifFile mesh(skeleton_nif.string().c_str());
+		//	wrangler.AddNif(mesh);
+		//}
+		fs::create_directories(output_directory);
+		fs::path out_path = output_directory / fs::path(skeleton_file).filename().replace_extension(".fbx");
+		wrangler.ExportScene(out_path.string().c_str());
+		return true;
+	}
+	return false;
+}

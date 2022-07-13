@@ -71,13 +71,14 @@ void RowResizer::visit(void* object, const hkClassMember& definition)
 		if (new_size > elements * resizeByts)
 		{
 			auto& allocator = hkContainerHeapAllocator::s_alloc;
-			uintptr_t* new_buffer = (uintptr_t*)allocator.bufRealloc(m_data, elements * resizeByts, new_size);
-			if (isClass)
+			uintptr_t* new_buffer = (uintptr_t*)allocator.bufAlloc(/*m_data, elements * resizeByts,*/ new_size);
+			memcpy(new_buffer, m_data, elements * resizeByts);
+			for (int i = elements; i < (elements + _delta); ++i)
 			{
-				for (int i = elements; i < (elements + _delta); ++i)
+				char* object = (char*)new_buffer + i * resizeByts;
+				memset(object, 0, resizeByts);
+				if (isClass)
 				{
-					char* object = (char*)new_buffer + i * resizeByts;
-					memset(object, 0, resizeByts);
 					auto info = hkTypeInfoRegistry::getInstance().finishLoadedObject(object, definition.getClass()->getName());
 				}
 			}

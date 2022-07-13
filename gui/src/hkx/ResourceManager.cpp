@@ -1145,6 +1145,8 @@ fs::path ResourceManager::assetFolder(int project_index, AssetType type)
 		return project_path / "Behaviors";
 	case AssetType::animation:
 		return project_path / "Animations";
+	case AssetType::character_assets:
+		return project_path / "Character Assets";
 	default:
 		break;
 	}
@@ -1654,7 +1656,8 @@ QStringList ResourceManager::getStates(hkbStateMachine* fsm)
 	std::map<int, QString> ordered_states;
 	for (int s = 0; s < fsm->m_states.getSize(); ++s)
 	{
-		ordered_states[fsm->m_states[s]->m_stateId] = fsm->m_states[s]->m_name;
+		auto state = fsm->m_states[s];
+		ordered_states[fsm->m_states[s]->m_stateId] = fsm->m_states[s]->m_name.cString();
 	}
 	if (!ordered_states.empty())
 	{

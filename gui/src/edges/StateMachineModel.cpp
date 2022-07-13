@@ -360,7 +360,7 @@ QVariant StateMachineModel::data(int row, int column, const ModelEdge& edge, Res
 					{
 						if (index < state->m_transitions->m_transitions.getSize())
 						{
-							return state->m_name;
+							return state->m_name.cString();
 						}
 						index -= state->m_transitions->m_transitions.getSize();
 					}
@@ -423,7 +423,6 @@ bool StateMachineModel::setData(int row, int column, const ModelEdge& edge, cons
 			ModelEdge transitionEdge(edge, edge.project(), edge.file(), edge.row(), edge.subindex(), edge.column(), &v, NodeType::FSMWildcardTransition);
 			return TransitionModel().setData(row, column, transitionEdge, data, manager);
 		}
-		return false;
 	}
 	return SupportEnhancedEdge::setData(row, column, edge, data, manager);
 }
@@ -516,7 +515,9 @@ bool StateMachineModel::addRows(int row_start, int count, const ModelEdge& edge,
 						state->m_transitions = manager.createObject<hkbStateMachineTransitionInfoArray>(
 							edge.file(), &hkbStateMachineTransitionInfoArrayClass);
 					}
-					return addToContainer(row_start, count, state->m_transitions->m_transitions);
+					auto& new_transition =  state->m_transitions->m_transitions.expandOne();
+					memset(&new_transition, 0, sizeof(hkbStateMachineTransitionInfo));
+					return true;
 				}
 			}
 			return false;

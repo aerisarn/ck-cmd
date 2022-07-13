@@ -309,14 +309,14 @@ bool ProjectModel::setData(const QModelIndex& index, const QVariant& value,
 			int difference = new_children - children;
 			if (difference > 0)
 			{
-				emit beginInsertRows(index, children, children + difference - 1);
-				emit endInsertRows();
+				//emit beginInsertRows(index, children, children + difference - 1);
+				//emit endInsertRows();
 				emit beginInsertChildren(index, children, children + difference - 1);
 				emit endInsertChildren();
 			}
 			else {
-				emit beginRemoveRows(index, children, children + abs(difference) - 1);
-				emit endRemoveRows();
+				//emit beginRemoveRows(index, children, children + abs(difference) - 1);
+				//emit endRemoveRows();
 				emit beginRemoveChildren(index, children, children + abs(difference) - 1);
 				emit endRemoveChildren();
 			}
@@ -464,8 +464,8 @@ QModelIndex ProjectModel::getChildAssetProxy(const QModelIndex& index, NodeType 
 	auto& edge = modelEdge(index);
 	int children = edge.childCount(_resourceManager);
 	for (int i = 0; i < children; ++i)
-	{
-		auto child_index = this->index(i, 0, index);
+	{		
+		auto child_index = this->child(i, index);;
 		auto& child_edge = modelEdge(child_index);
 		if (modelEdge(child_index).type() == proxy_type)
 		{

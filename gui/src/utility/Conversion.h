@@ -31,6 +31,11 @@ namespace ckcmd
 				const AnimData::root_movement_t& movements
 			);
 
+			static bool convertHkxSkeletonToFbx(
+				const fs::path& skeleton_file,
+				const fs::path& output_directory
+			);
+
 		};
 	}
 }
