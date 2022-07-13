@@ -2,6 +2,8 @@
 
 #include <src/widgets/ModelDialog.h>
 
+#include <QSortFilterProxyModel>
+
 #include "ui_TransitionCreator.h"
 
 struct NewTransition {
@@ -13,6 +15,7 @@ struct NewTransition {
 class TransitionCreator : public ckcmd::ModelDialog, private Ui::TransitionCreator
 {
 	NewTransition _result;
+	QSortFilterProxyModel* event_proxy_model;
 
 public Q_SLOTS:
 	virtual void accept() override;

@@ -283,7 +283,7 @@ void ActionHandler::exportFBX()
 		if (rig_index != MODELEDGE_INVALID)
 		{
 			fs::path rig_path = _model.getResourceManager().path(rig_index);
-			if (NodeType::animationNames == type)
+			if (NodeType::animationName == type)
 			{
 				std::string project_animation = index.data().toString().toUtf8().constData();
 				assets_path = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::project) / project_animation;

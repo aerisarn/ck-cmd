@@ -50,7 +50,14 @@ void paintReference(QPainter* painter, const QStyleOptionViewItem& option, Value
 {
     auto value = index.data().value<T>();
     int data_index = value.index();
-    auto data_model = model.editModel(index, value.assetType(), "<Not Set>", Qt::EditRole);
+    QAbstractItemModel* data_model;
+    if (typeid(T) == typeid(HkxItemFSMState))
+    {
+        data_model = model.editModel(index, value.assetType());
+    }
+    else {
+        data_model = model.editModel(index, value.assetType(), "<Not Set>", Qt::EditRole);
+    }
     QString data = data_model->index(data_index + 1, 0).data().toString();
 
     if (option.state & QStyle::State_Selected)
@@ -198,7 +205,14 @@ QSize sizeHintReference(const QStyleOptionViewItem& option,
 {
     auto value = index.data().value<T>();
     int data_index = value.index();
-    auto data_model = model.editModel(index, value.assetType(), "<Not Set>", Qt::EditRole);
+    QAbstractItemModel* data_model;
+    if (typeid(T) == typeid(HkxItemFSMState))
+    {
+        data_model = model.editModel(index, value.assetType());
+    }
+    else {
+        data_model = model.editModel(index, value.assetType(), "<Not Set>", Qt::EditRole);
+    }
 
     return ComboBoxSizeHint(option, data_model);
 }
@@ -292,7 +306,14 @@ void setEditorDataReference(QWidget* editor, ValuesProxyModel& model,
     QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
     auto value = index.data().value<T>();
     int data_index = value.index();
-    auto data_model = model.editModel(index, value.assetType(), "<Not Set>", Qt::EditRole);
+    QAbstractItemModel* data_model;
+    if (typeid(T) == typeid(HkxItemFSMState))
+    {
+        data_model = model.editModel(index, value.assetType());
+    }
+    else {
+        data_model = model.editModel(index, value.assetType(), "<Not Set>", Qt::EditRole);
+    }
 
     QStringList options;
 

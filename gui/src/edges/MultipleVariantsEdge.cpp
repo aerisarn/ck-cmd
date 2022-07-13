@@ -354,7 +354,7 @@ bool MultipleVariantsEdge::isArray(int row, const ModelEdge& edge, ResourceManag
 			if (row_index < variant_rows)
 			{
 				auto arrayrows = HkxTableVariant(*v).arrayrows();
-				return std::find(arrayrows.begin(), arrayrows.end(), row - 1) != arrayrows.end();
+				return std::find(arrayrows.begin(), arrayrows.end(), row_index) != arrayrows.end();
 			}
 			row_index -= variant_rows;
 		}

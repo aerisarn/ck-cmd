@@ -7,6 +7,7 @@
 #include <src/edges/RagdollModel.h>
 #include <src/edges/StateMachineModel.h>
 #include <src/edges/FileModel.h>
+#include <src/edges/ClipModel.h>
 
 using namespace ckcmd::HKX;
 
@@ -19,6 +20,7 @@ ModelEdgeRegistry::ModelEdgeRegistry()
 	addEdgeHandler(new RagdollModel());
 	addEdgeHandler(new StateMachineModel());
 	addEdgeHandler(new FileModel());
+	addEdgeHandler(new ClipModel());
 	_default_handler = new MultipleVariantsEdge();
 }
 
