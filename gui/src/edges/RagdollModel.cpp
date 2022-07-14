@@ -70,6 +70,14 @@ int RagdollModel::rows(const ModelEdge& edge, ResourceManager& manager) const
 int RagdollModel::columns(int row, const ModelEdge& edge, ResourceManager& manager) const
 {
 	auto* ragdoll = variant(edge);
+	if (edge.childType() == NodeType::RagdollBones)
+	{
+		return ragdoll->m_rigidBodies.isEmpty() ? 0 : 1;
+	}
+	if (edge.childType() == NodeType::RagdollBone)
+	{
+		return 0;
+	}
 	if (nullptr != ragdoll)
 	{
 		return SupportEnhancedEdge::columns(row, edge, manager);

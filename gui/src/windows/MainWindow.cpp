@@ -67,6 +67,7 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 
 	_handler = new ckcmd::HKX::ActionHandler(_model, this);
 	_projectTreeView = new ProjectsWidget(&_model, _command_manager, _resource_manager, *_handler, _simulation, this);
+	_handler->setView(_projectTreeView);
 	_valuesTableView = new ValuesWidget(&_model,_command_manager, _resource_manager, this);
 
 	ads::CDockWidget*  GLWidget = new ads::CDockWidget("Havok Preview", this);
@@ -77,11 +78,16 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	//File
 	//ui->menuFile->addAction(_handler->saveAction());
 
+	connect(_handler, &ckcmd::HKX::ActionHandler::found, _projectTreeView, &ProjectsWidget::on_search_found);
+
 	//Edit
 	ui->menuEdit->addAction(_command_manager.createUndoAction(this));
 	ui->menuEdit->addAction(_command_manager.createRedoAction(this));
 
 	//View
+	ui->menuView->addAction(_handler->findAction());
+	ui->menuView->addAction(_handler->findNextAction());
+	ui->menuView->addSeparator();
 	ui->menuView->addAction(LogWidget->toggleViewAction());
 	ui->menuView->addAction(_projectTreeView->toggleViewAction());
 	ui->menuView->addAction(_valuesTableView->toggleViewAction());

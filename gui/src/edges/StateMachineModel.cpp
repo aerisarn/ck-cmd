@@ -137,6 +137,12 @@ int StateMachineModel::columns(int row, const ModelEdge& edge, ResourceManager& 
 			}
 			return 0;
 		}
+		
+		if (edge.childType() == NodeType::FSMWildcardTransitions)
+			return rows(edge, manager) > 0 ? 1 : 0;
+		if (edge.childType() == NodeType::FSMStateTransitions)
+			return rows(edge, manager) > 0 ? 1 : 0;
+		
 		return SupportEnhancedEdge::columns(row, edge, manager);
 	}
 	return 0;

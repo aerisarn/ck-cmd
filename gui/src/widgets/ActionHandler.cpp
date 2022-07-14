@@ -10,6 +10,8 @@
 #include <src/items/HkxItemPointer.h>
 #include <src/items/HkxItemReal.h>
 
+#include <src/widgets/ProjectsWidget.h>
+
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QInputDialog>
@@ -192,6 +194,24 @@ void ActionHandler::buildCopyAction()
 	connect(_copy, SIGNAL(triggered()), this, SLOT(copy()));
 }
 
+void ActionHandler::buildFindAction()
+{
+	_find = new QAction(tr("&Find"), this);
+	_find->setShortcuts(QKeySequence::Find);
+	_find->setStatusTip(tr("Find Node"));
+	_find->setEnabled(true);
+	connect(_find, SIGNAL(triggered()), this, SLOT(find()));
+}
+
+void ActionHandler::buildFindNextAction()
+{
+	_findNext = new QAction(tr("&Find Next"), this);
+	_findNext->setShortcuts(QKeySequence::FindNext);
+	_findNext->setStatusTip(tr("Find Next Node"));
+	_findNext->setEnabled(true);
+	connect(_findNext, SIGNAL(triggered()), this, SLOT(findNext()));
+}
+
 void ActionHandler::save()
 {
 	QAction* action = static_cast<QAction*>(sender());
@@ -335,7 +355,6 @@ void ActionHandler::addEvent()
 		return; //todo error message
 	action->setData(QVariant());
 	bool ok;
-	// Ask for birth date as a string.
 	QString name = QInputDialog::getText(0, "Choose new Event's name",
 		"Name:", QLineEdit::Normal,
 		"", &ok);
@@ -584,4 +603,55 @@ void ActionHandler::removeTransition()
 	_model.remove(index);
 
 	action->setData(QVariant());
+}
+
+QString _last_search = "";
+QModelIndex _last_result = QModelIndex();
+
+void ActionHandler::find()
+{
+	bool ok;
+	QString search_string = QInputDialog::getText(0, "Enter search string",
+		"String:", QLineEdit::Normal,
+		"", &ok);
+	if (ok && !search_string.isEmpty())
+	{
+		QModelIndex start = QModelIndex();
+		if (nullptr != _view)
+			start = _view->currentIndex();
+		if (!start.isValid())
+			start = _model.index(0, 0);
+
+		_last_search = search_string;
+		auto result = _model.match(start, Qt::DisplayRole, _last_search, 1, Qt::MatchContains | Qt::MatchRecursive);
+		if (!result.isEmpty() && result.begin()->isValid())
+		{
+			_last_result = *result.begin();
+			emit found(_last_result);
+			return;
+		}
+	}
+	_last_result = _model.index(0, 0);
+}
+
+void ActionHandler::findNext()
+{
+	if (!_last_search.isEmpty())
+	{
+		if (_last_result == QModelIndex())
+			_last_result = _model.index(0, 0);
+		else
+			_last_result = _model.next(_last_result);
+		auto result = _model.match(_last_result, Qt::DisplayRole, _last_search, 1, Qt::MatchContains | Qt::MatchRecursive);
+		if (!result.isEmpty() && result.begin()->isValid())
+		{
+			_last_result = *result.begin();
+			emit found(_last_result);
+		}
+	}
+}
+
+void ActionHandler::setView(ProjectsWidget* view)
+{
+	_view = view;
 }

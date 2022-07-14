@@ -114,3 +114,13 @@ QTreeView& ProjectsWidget::view()
 	return *treeView;
 }
 
+void ProjectsWidget::on_search_found(const QModelIndex& index)
+{
+	auto view_index = _model->mapFromSource(index);
+	if (view_index.isValid())
+	{
+		treeView->selectionModel()->select(view_index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+		treeView->setCurrentIndex(view_index);
+	}
+}
+

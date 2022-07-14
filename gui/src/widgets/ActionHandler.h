@@ -8,6 +8,7 @@
 #include <QTreeView>
 
 class FBXImport;
+class ProjectsWidget;
 
 namespace ckcmd {
 	namespace HKX {
@@ -17,6 +18,7 @@ namespace ckcmd {
 			Q_OBJECT
 
 			ProjectModel& _model;
+			ProjectsWidget* _view = nullptr;
 
 			QAction* _save;
 
@@ -34,6 +36,8 @@ namespace ckcmd {
 			QAction* _removeNode;
 			QAction* _addTransition;
 			QAction* _removeTransition;
+			QAction* _find;
+			QAction* _findNext;
 
 			QAction* _copy;
 
@@ -51,6 +55,8 @@ namespace ckcmd {
 			void buildAddTransition();
 			void buildRemoveTransition();
 			void buildCreateProjectAction();
+			void buildFindAction();
+			void buildFindNextAction();
 
 
 			void buildCopyAction();
@@ -73,12 +79,17 @@ namespace ckcmd {
 			void remove();
 			void addTransition();
 			void removeTransition();
+			void find();
+			void findNext();
+
+		signals:
+			void found(const QModelIndex& index);
 
 		public:
 			ActionHandler(ProjectModel& model, QObject* parent = nullptr) :
-				QObject(parent),
 				_save(nullptr),
-				_model(model)
+				_model(model),
+				QObject(parent)
 			{
 				buildSaveAction();
 				buildImportFBXAction();
@@ -94,9 +105,11 @@ namespace ckcmd {
 				buildRemoveNode();
 				buildAddTransition();
 				buildRemoveTransition();
+				buildFindAction();
+				buildFindNextAction();
 			}
 
-
+			void setView(ProjectsWidget* view);
 
 			QAction* saveAction(const QVariant& action_data);
 			std::vector<QAction*> addActions(const QVariant& action_data);
@@ -114,7 +127,8 @@ namespace ckcmd {
 			QAction* removeTransitionAction() { return _removeTransition; }
 			QAction* removeAction() { return _removeNode; }
 			QAction* copyAction() { return _copy; }
-
+			QAction* findAction() { return _find; }
+			QAction* findNextAction() { return _findNext; }
 		};
 	}
 }

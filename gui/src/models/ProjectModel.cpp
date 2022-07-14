@@ -831,3 +831,119 @@ QStringList ProjectModel::rowNames(const QModelIndex& index, const QString& pref
 	}
 	return out;
 }
+
+QModelIndex ProjectModel::next(const QModelIndex& start) const
+{
+	QModelIndex current = start;
+	bool end = false;
+	int next_row = start.row();
+	int next_column = start.column();
+	auto& edge = modelEdge(current);
+	if (edge.hasChild(next_row, next_column, _resourceManager))
+	{
+		auto child_index = index(next_row, next_column, current);
+		if (child_index.isValid())
+			return child_index;
+	}
+	next_column += 1;
+	while (!end)
+	{
+		auto& edge = modelEdge(current);
+		int columns = edge.columns(next_row, _resourceManager);
+		if (next_column < columns)
+		{
+			auto child_index = index(next_row, next_column, current);
+			if (child_index.isValid())
+				return child_index;
+		}
+		int rows = edge.rows(_resourceManager);
+		if (next_row + 1 < rows)
+			return index(next_row + 1, 0, current);
+		current = edge._parent;
+		next_row = edge.row();
+		next_column = edge.column() + 1;
+		if (edge.childType() == NodeType::Invalid)
+			end = true;
+	}
+	return QModelIndex();
+}
+
+QModelIndexList ProjectModel::match(const QModelIndex& start, int role,
+	const QVariant& value, int hits,
+	Qt::MatchFlags flags) const
+{
+	std::set<QModelIndex> visited;
+	std::vector<QString> visited_data;
+	QModelIndexList result;
+	uint matchType = flags & 0x0F;
+	Qt::CaseSensitivity cs = flags & Qt::MatchCaseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive;
+	bool recurse = flags & Qt::MatchRecursive;
+	bool wrap = flags & Qt::MatchWrap;
+	bool allHits = (hits == -1);
+	QString text; // only convert to a string if it is needed
+	QModelIndex idx = start;
+	while (idx.isValid() && (allHits || result.count() < hits))
+	{
+		QVariant v = data(idx, role);
+		visited_data.push_back(v.toString());
+		for (int i = 0; (wrap && i < 2) || (!wrap && i < 1); ++i) {
+
+
+			// QVariant based matching
+			if (matchType == Qt::MatchExactly) {
+				if (value == v)
+					result.append(idx);
+			}
+			else { // QString based matching
+				if (text.isEmpty()) // lazy conversion
+					text = value.toString();
+				QString t = v.toString();
+				switch (matchType) {
+				case Qt::MatchRegExp:
+					if (QRegExp(text, cs).exactMatch(t))
+						result.append(idx);
+					break;
+				case Qt::MatchWildcard:
+					if (QRegExp(text, cs, QRegExp::Wildcard).exactMatch(t))
+						result.append(idx);
+					break;
+				case Qt::MatchStartsWith:
+					if (t.startsWith(text, cs))
+						result.append(idx);
+					break;
+				case Qt::MatchEndsWith:
+					if (t.endsWith(text, cs))
+						result.append(idx);
+					break;
+				case Qt::MatchFixedString:
+					if (t.compare(text, cs) == 0)
+						result.append(idx);
+					break;
+				case Qt::MatchContains:
+				default:
+					if (t.contains(text, cs))
+						result.append(idx);
+				}
+			}
+		}
+
+		visited.insert(idx);
+
+		QModelIndex next_idx = next(idx);
+
+		if (visited.find(next_idx) != visited.end())
+			__debugbreak();
+
+		if (next_idx == idx)
+			__debugbreak();
+		if (!recurse)
+		{
+			while (next_idx.internalPointer() > idx.internalPointer())
+				next_idx = next(idx);
+			if (!next_idx.isValid() || next_idx.internalPointer() < idx.internalPointer())
+				break;
+		}
+		idx = next_idx;
+	}
+	return result;
+}

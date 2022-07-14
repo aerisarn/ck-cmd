@@ -43,6 +43,8 @@ public:
         QWidget* parent = 0);
     ~ProjectsWidget();
 
+    QModelIndex currentIndex() { return _model->mapToSource(treeView->selectionModel()->currentIndex()); }
+
     QTreeView& view();
 
 private slots:
@@ -51,6 +53,8 @@ private slots:
     void on_treeView_selectionChanged(const QModelIndex& current, const QModelIndex& previous);
 
 public slots:
+
+    void on_search_found(const QModelIndex& index);
 
     void modelHasSetNewHkxItemPointer(
         const QModelIndex& parent, 

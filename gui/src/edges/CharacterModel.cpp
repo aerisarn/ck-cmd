@@ -195,6 +195,18 @@ int CharacterModel::columns(int row, const ModelEdge& edge, ResourceManager& man
 	{
 		return 0;
 	}
+	if (edge.childType() == NodeType::deformableSkinNames)
+	{
+		return 1;
+	}
+	if (edge.childType() == NodeType::animationNames)
+	{
+		return 1;
+	}
+	if (edge.childType() == NodeType::characterPropertyNames)
+	{
+		return 1;
+	}
 	return SupportEnhancedEdge::columns(row, edge, manager);
 }
 

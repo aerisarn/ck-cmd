@@ -225,7 +225,8 @@ int BehaviorModel::rows(const ModelEdge& edge, ResourceManager& manager) const
 int BehaviorModel::columns(int row, const ModelEdge& edge, ResourceManager& manager) const
 {
 	auto data = data_variant(edge);
-	if (nullptr != variant(edge) && nullptr != data)
+	auto string_data = string_variant(edge);
+	if (nullptr != variant(edge) && nullptr != data && nullptr != string_data)
 	{
 		if (edge.childType() == NodeType::behaviorEventName)
 		{
@@ -281,6 +282,14 @@ int BehaviorModel::columns(int row, const ModelEdge& edge, ResourceManager& mana
 			}
 			return 0;
 		}
+		
+		if (edge.childType() == NodeType::behaviorEventNames)
+			return string_data->m_eventNames.isEmpty() ? 0 : 1;
+		if (edge.childType() == NodeType::behaviorVariableNames)
+			return string_data->m_variableNames.isEmpty() ? 0 : 1;
+		if (edge.childType() == NodeType::behaviorCharacterPropertyNames)
+			return string_data->m_characterPropertyNames.isEmpty() ? 0 : 1;
+		
 		return SupportEnhancedEdge::columns(row, edge, manager);
 	}
 	return 0;

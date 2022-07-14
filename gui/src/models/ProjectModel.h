@@ -58,6 +58,8 @@ namespace ckcmd {
             std::pair<int, int> dataStart(const QModelIndex& index);
             ResourceManager& getResourceManager() { return _resourceManager; }
 
+            QModelIndex next(const QModelIndex& start) const;
+
             QModelIndex variablesIndex(const QModelIndex& index);
             QAbstractItemModel* editModel(const QModelIndex& index, AssetType type, const QString& nullValue = "<Not Set>", int role = Qt::DisplayRole);
             void SetCopyPointer(const QModelIndex& index);
@@ -95,8 +97,9 @@ namespace ckcmd {
             bool ProjectModel::remove(const QModelIndex& index);
             virtual bool insertColumns(int row, int column, int count, const QModelIndex& parent = QModelIndex());
             virtual bool removeColumns(int row, int column, int count, const QModelIndex& parent = QModelIndex());
-            //virtual bool insertColumns(int column, int count, const QModelIndex& parent = QModelIndex()) override;
-            //virtual bool removeColumns(int column, int count, const QModelIndex& parent = QModelIndex()) override;
+            virtual QModelIndexList match(const QModelIndex& start, int role,
+                const QVariant& value, int hits,
+                Qt::MatchFlags flags) const override;
 
             /*
             ** Hierarchical model

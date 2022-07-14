@@ -84,6 +84,22 @@ int SkeletonModel::rows(const ModelEdge& edge, ResourceManager& manager) const
 int SkeletonModel::columns(int row, const ModelEdge& edge, ResourceManager& manager) const
 {
 	auto* skeleton = variant(edge);
+	if (edge.childType() == NodeType::SkeletonBones)
+	{
+		return skeleton->m_bones.isEmpty() ? 0 : 1;
+	}
+	if (edge.childType() == NodeType::SkeletonFloats)
+	{
+		return skeleton->m_floatSlots.isEmpty() ? 0 : 1;
+	}
+	if (edge.childType() == NodeType::SkeletonBone)
+	{
+		return 0;
+	}
+	if (edge.childType() == NodeType::SkeletonFloat)
+	{
+		return 0;
+	}
 	if (nullptr != skeleton)
 	{
 		return SupportEnhancedEdge::columns(row, edge, manager);
