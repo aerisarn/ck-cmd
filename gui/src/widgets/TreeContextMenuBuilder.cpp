@@ -15,6 +15,7 @@ void TreeContextMenuBuilder::buildMiscsNodeMenu(std::vector<QAction*>& actions)
 void TreeContextMenuBuilder::buildProjectNodeMenu(std::vector<QAction*>& actions, const QModelIndex& action_data)
 {
 	actions.push_back(_actionHandler.saveAction(action_data));
+	actions.push_back(_actionHandler.exportLEAction(action_data));
 }
 
 void TreeContextMenuBuilder::buildAnimationsMenu(std::vector<QAction*>& actions)

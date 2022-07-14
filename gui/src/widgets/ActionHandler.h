@@ -38,6 +38,7 @@ namespace ckcmd {
 			QAction* _removeTransition;
 			QAction* _find;
 			QAction* _findNext;
+			QAction* _exportLE;
 
 			QAction* _copy;
 
@@ -57,7 +58,7 @@ namespace ckcmd {
 			void buildCreateProjectAction();
 			void buildFindAction();
 			void buildFindNextAction();
-
+			void buildExportLEAction();
 
 			void buildCopyAction();
 
@@ -81,6 +82,7 @@ namespace ckcmd {
 			void removeTransition();
 			void find();
 			void findNext();
+			void exportLE();
 
 		signals:
 			void found(const QModelIndex& index);
@@ -107,6 +109,7 @@ namespace ckcmd {
 				buildRemoveTransition();
 				buildFindAction();
 				buildFindNextAction();
+				buildExportLEAction();
 			}
 
 			void setView(ProjectsWidget* view);
@@ -129,6 +132,7 @@ namespace ckcmd {
 			QAction* copyAction() { return _copy; }
 			QAction* findAction() { return _find; }
 			QAction* findNextAction() { return _findNext; }
+			QAction* exportLEAction(const QVariant& action_data);
 		};
 	}
 }

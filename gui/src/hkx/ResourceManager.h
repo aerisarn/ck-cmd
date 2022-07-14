@@ -114,14 +114,6 @@ namespace ckcmd {
 			bool is_open(const fs::path& file) const;
 			bool is_open(int file_index) const;
 
-			//int findIndex(int file_index, const void* object) const;
-			//int findIndex(const fs::path& file, const void* object) const;
-
-			//hkVariant* at(const fs::path& file, size_t _index);
-			//const hkVariant* at(const fs::path& file, size_t _index) const;
-			//hkVariant* ResourceManager::at(size_t file_index, size_t _index);
-			//const hkVariant* ResourceManager::at(size_t file_index, size_t _index) const;
-
 			hkVariant* findVariant(int file_index, const void* object);
 
 			hk_object_list_t findCompatibleNodes(size_t file_index, const hkClassMember* member_class);
@@ -139,11 +131,15 @@ namespace ckcmd {
 
 			void close(int file_index);
 
+			fs::path makeExportPath(const fs::path& absolute_file, const fs::path& export_folder);
+
 			bool isProjectFileOpen(int row, ProjectType type);
 			void openProjectFile(int row, ProjectType type);
 			void closeProjectFile(int row, ProjectType type);
 			void saveProject(int row, ProjectType type);
 			void saveProject(int project_index);
+			void exportProject(int row, ProjectType type);
+			void exportProject(int project_index);
 			size_t projectCharacters(int project_index);
 			size_t projectFileIndex(int row, ProjectType type);
 
@@ -169,14 +165,6 @@ namespace ckcmd {
 			template <typename T>
 			T* createObject(int file, const hkClass* hkclass) {
 				return static_cast<T*>(createObject(file, hkclass, ""));
-				//hkVariant v;
-				//T* t = new T();
-				//memset(t, 0, sizeof(T));
-				//hkTypeInfoRegistry::getInstance().finishLoadedObject(t, hkclass->getName());
-				//v.m_class = hkclass;
-				//v.m_object = t;
-				//_contents[file].second.push_back(v);
-				//return t;
 			}
 
 			void* createObject(int file, const hkClass* hkclass, const std::string& name);
