@@ -182,7 +182,6 @@ void Getter::visit(void* value, const hkClassEnum& enum_type, size_t storage)
 {
 	if (_row == 0)
 	{
-		//char* name = new char(256);
 		int enum_value = 0;
 		switch (storage)
 		{

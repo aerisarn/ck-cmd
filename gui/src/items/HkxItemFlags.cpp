@@ -30,13 +30,35 @@ void HkxItemFlags::fillTemplate() const
 	QWidget* template_ = getTemplate();
 	for (int i = 0; i < _storage * 8; i++) {
 		QCheckBox* checkbox = template_->findChild<QCheckBox*>(QString("%1").arg(i));
-		if (i < _enum_class->getNumItems()) {
-			QString name = _enum_class->getItem(i).getName();
-			checkbox->setText(name);
+		//if (i < _enum_class->getNumItems()) {
+		//	QString name = _enum_class->getItem(i).getName();
+		//	checkbox->setText(name);
+		//}
+		//else {
+		//	checkbox->setText(QString("Unknown %1").arg(i));
+		//}
+		int flag = 1 << i;
+
+		int enum_value = _value;
+		switch (_storage)
+		{
+		case 1:
+			flag = (unsigned char)flag;
+			break;
+		case 2:
+			flag = _byteswap_ushort((unsigned short)flag);
+			break;
+		default:
+			flag = _byteswap_ulong((unsigned int)flag);
+			break;
 		}
-		else {
-			checkbox->setText(QString("Unknown %1").arg(i));
-		}
+
+		const char* temp = nullptr;
+		auto result = _enum_class->getNameOfValue(flag, &temp);
+		QString name = temp;
+		if (name.isEmpty())
+			checkbox->setVisible(false);
+		checkbox->setText(name);
 		if (_value & (1 << i))
 		{
 			checkbox->setChecked(true);
