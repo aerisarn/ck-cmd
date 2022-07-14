@@ -72,8 +72,8 @@ ModelEdge FileModel::child(int row, int column, const ModelEdge& edge, ResourceM
 	{
 		ProjectType res_type = edge.childType() == NodeType::CharactersNode ? ProjectType::character : ProjectType::misc;
 		NodeType index_type = edge.childType() == NodeType::CharactersNode ? NodeType::CharacterNode : NodeType::MiscNode;
-		int project_file = -1;
-		return ModelEdge(edge, edge.project(), -1, row, 0, -1, nullptr, index_type);
+		int project_file = manager.projectFileIndex(row, res_type);
+		return ModelEdge(edge, project_file, -1, row, 0, -1, nullptr, index_type);
 	}
 	case NodeType::CharacterNode:
 	case NodeType::MiscNode:

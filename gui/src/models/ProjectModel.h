@@ -19,9 +19,8 @@ namespace ckcmd {
 
             Q_OBJECT
 
-            //std::unordered_map<ModelEdge*, qintptr, ModelEdgeHasher, ModelEdgeEqualFn> _reverse_find;
+            std::unordered_map<ModelEdge*, qintptr, ModelEdgeHasher, ModelEdgeEqualFn> _reverse_find;
             std::unordered_map<qintptr, ModelEdge> _direct_find;
-            //stde::bimap<qintptr, ModelEdge> _direct_find;
 
             qintptr modelEdgeIndex(const ModelEdge& edge) const;
             const ModelEdge& modelEdge(const QModelIndex& index) const;

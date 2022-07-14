@@ -34,19 +34,19 @@ ProjectModel::ProjectModel(CommandManager& commandManager, ResourceManager& reso
 
 qintptr ProjectModel::modelEdgeIndex(const ModelEdge& edge) const
 {
-	auto result = std::find_if(
-		_direct_find.begin(),
-		_direct_find.end(),
-		[&edge](const auto& mo) {return mo.second == edge; });
+	//auto result = std::find_if(
+	//	_direct_find.begin(),
+	//	_direct_find.end(),
+	//	[&edge](const auto& mo) {return mo.second == edge; });
 
-	if (result != _direct_find.end())
-		return result->first;
-	__debugbreak();
-	return -1;
+	//if (result != _direct_find.end())
+	//	return result->first;
+	//__debugbreak();
+	//return -1;
 
-	//if (_reverse_find.find(const_cast<ModelEdge*>(&edge)) == _reverse_find.end())
-	//	__debugbreak();
-	//return _reverse_find.at(const_cast<ModelEdge*>(&edge));
+	if (_reverse_find.find(const_cast<ModelEdge*>(&edge)) == _reverse_find.end())
+		__debugbreak();
+	return _reverse_find.at(const_cast<ModelEdge*>(&edge));
 }
 
 const ModelEdge& ProjectModel::modelEdge(const QModelIndex& index) const
@@ -63,37 +63,37 @@ ModelEdge& ProjectModel::modelEdge(const QModelIndex& index)
 
 bool ProjectModel::hasModelEdgeIndex(const ModelEdge& edge) const
 {
-	auto result = std::find_if(
-		_direct_find.begin(),
-		_direct_find.end(),
-		[&edge](const auto& mo) {return mo.second == edge; });
+	//auto result = std::find_if(
+	//	_direct_find.begin(),
+	//	_direct_find.end(),
+	//	[&edge](const auto& mo) {return mo.second == edge; });
 
-	return result != _direct_find.end();
-
-	//return _reverse_find.find(const_cast<ModelEdge*>(&edge)) != _reverse_find.end();
+	//return result != _direct_find.end();
+	auto result = _reverse_find.find(const_cast<ModelEdge*>(&edge));
+	return result != _reverse_find.end();
 }
 
 qintptr ProjectModel::createModelEdgeIndex(const ModelEdge& edge)
 {
 	qintptr result = runtime_edge_index++;
 	_direct_find.insert({ result, edge });
-	//_reverse_find.insert({ &_direct_find[result], result });
+	_reverse_find.insert({ &_direct_find[result], result });
 	return result;
 }
 
 void  ProjectModel::deleteAllModelEdgeIndexesForFile(int project_file)
 {
-	//auto rev_it = _reverse_find.begin();
-	//while (rev_it != _reverse_find.end())
-	//{
-	//	if (rev_it->first->_project == project_file)
-	//	{
-	//		rev_it = _reverse_find.erase(rev_it);
-	//	}
-	//	else {
-	//		rev_it++;
-	//	}
-	//}
+	auto rev_it = _reverse_find.begin();
+	while (rev_it != _reverse_find.end())
+	{
+		if (rev_it->first->_project == project_file)
+		{
+			rev_it = _reverse_find.erase(rev_it);
+		}
+		else {
+			rev_it++;
+		}
+	}
 	auto dir_it = _direct_find.begin();
 	while (dir_it != _direct_find.end())
 	{
@@ -309,14 +309,10 @@ bool ProjectModel::setData(const QModelIndex& index, const QVariant& value,
 			int difference = new_children - children;
 			if (difference > 0)
 			{
-				//emit beginInsertRows(index, children, children + difference - 1);
-				//emit endInsertRows();
 				emit beginInsertChildren(index, children, children + difference - 1);
 				emit endInsertChildren();
 			}
 			else {
-				//emit beginRemoveRows(index, children, children + abs(difference) - 1);
-				//emit endRemoveRows();
 				emit beginRemoveChildren(index, children, children + abs(difference) - 1);
 				emit endRemoveChildren();
 			}
@@ -717,7 +713,7 @@ bool ProjectModel::remove(const QModelIndex& index)
 		emit endRemoveChildren();
 	}
 	auto id = modelEdgeIndex(edge);
-	//_reverse_find.erase(&edge);
+	_reverse_find.erase(&edge);
 	_direct_find.erase(id);
 	return result;
 }
