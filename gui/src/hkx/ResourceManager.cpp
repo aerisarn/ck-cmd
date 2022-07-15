@@ -695,7 +695,11 @@ size_t ResourceManager::characterFileIndex(int row, int project_index, ProjectTy
 						for (const auto& obj : objects) {
 							if (obj.m_class == &hkbClipGeneratorClass) {
 								hkbClipGenerator* clip = (hkbClipGenerator*)obj.m_object;
+								if (clip->m_name == nullptr)
+									continue;
 								auto movement = entry->findMovement(clip->m_name.cString());
+								if (clip->m_animationName == nullptr)
+									continue;
 								auto it = index_map.find(clip->m_animationName.cString());
 								if (it != index_map.end())
 									_animations_root_movements[{project_index, it->second}] = movement;
@@ -799,6 +803,8 @@ void ResourceManager::saveProject(int project_index)
 									AnimData::ClipGeneratorBlock clip_block;
 									hkbClipGenerator* clip = (hkbClipGenerator*)content.m_object;
 									clip_block.setName(clip->m_name.cString());
+									if (clip->m_animationName == nullptr)
+										continue;
 									std::string row = clip->m_animationName.cString();
 
 									auto it = crc32_map.find(row);

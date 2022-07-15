@@ -234,11 +234,11 @@
 //	virtual void visit(bhkSphereShape& shape, hkpRigidBodyCinfo& parent) = 0;
 //	virtual void visit(bhkCapsuleShape& shape, hkpRigidBodyCinfo& parent) = 0;
 //
-//	virtual void visitShape(Ref<bhkShape> shape, hkpRigidBodyCinfo& parent) {
+//	virtual void visitShape(bhkShapeRef shape, hkpRigidBodyCinfo& parent) {
 //		if (shape->IsSameType(bhkSphereShape::TYPE))
-//			visit(*((bhkSphereShapeRef)shape), parent);
+//			visit(*Niflib::DynamicCast<bhkSphereShape>(shape), parent);
 //		else if (shape->IsSameType(bhkCapsuleShape::TYPE))
-//			visit(*((bhkCapsuleShapeRef)shape), parent);
+//			visit(*Niflib::DynamicCast<bhkCapsuleShape>(shape), parent);
 //		else
 //			throw new runtime_error("Unimplemented shape type!");
 //	}
@@ -282,15 +282,15 @@
 //	virtual hkpConstraintInstance* visitConstraint(Ref<bhkConstraint> constraint) {
 //		hkpConstraintData* data = NULL;
 //		if (constraint->IsSameType(bhkRagdollConstraint::TYPE))
-//			data = visit(((bhkRagdollConstraintRef)constraint)->GetRagdoll());
+//			data = visit(Niflib::DynamicCast<bhkRagdollConstraint>(constraint)->GetRagdoll());
 //		else if (constraint->IsSameType(bhkPrismaticConstraint::TYPE))
-//			data = visit(((bhkPrismaticConstraintRef)constraint)->GetPrismatic());
+//			data = visit(Niflib::DynamicCast<bhkPrismaticConstraint>(constraint)->GetPrismatic());
 //		else if (constraint->IsSameType(bhkMalleableConstraint::TYPE))
-//			data = visit(((bhkMalleableConstraintRef)constraint)->GetMalleable());
+//			data = visit(Niflib::DynamicCast<bhkMalleableConstraint>(constraint)->GetMalleable());
 //		else if (constraint->IsSameType(bhkHingeConstraint::TYPE))
-//			data = visit(((bhkHingeConstraintRef)constraint)->GetHinge());
+//			data = visit(Niflib::DynamicCast<bhkHingeConstraint>(constraint)->GetHinge());
 //		else if (constraint->IsSameType(bhkLimitedHingeConstraint::TYPE))
-//			data = visit(((bhkLimitedHingeConstraintRef)constraint)->GetLimitedHinge());
+//			data = visit(Niflib::DynamicCast<bhkLimitedHingeConstraint>(constraint)->GetLimitedHinge());
 //		else
 //			throw new runtime_error("Unimplemented constraint type!");
 //		return new hkpConstraintInstance(getEntity(constraint->GetEntities()[0]), getEntity(constraint->GetEntities()[1]), data);

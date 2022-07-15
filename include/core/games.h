@@ -90,19 +90,17 @@ namespace ckcmd {
 			}
 
 			Game from_string(const TCHAR* keyName) {
-				if (!_tcscmp(keyName, _T("Fallout3")))
+				if (!_tcsicmp(keyName, _T("Fallout3")))
 					return FO3;
-				if (!_tcscmp(keyName, _T("Fallout4")))
+				if (!_tcsicmp(keyName, _T("Fallout4")))
 					return FO4;
-				if (!_tcscmp(keyName, _T("falloutnv")))
+				if (!_tcsicmp(keyName, _T("falloutnv")))
 					return FONV;
-				if (!_tcscmp(keyName, _T("oblivion")))
+				if (!_tcsicmp(keyName, _T("Oblivion")))
 					return TES4;
-				if (!_tcscmp(keyName, _T("Oblivion")))
-					return TES4;
-				if (!_tcscmp(keyName, _T("skyrim")))
+				if (!_tcsicmp(keyName, _T("skyrim")))
 					return TES5;
-				if (!_tcscmp(keyName, _T("Skyrim Special Edition")))
+				if (!_tcsicmp(keyName, _T("Skyrim Special Edition")))
 					return TES5SE;
 				return INVALID;
 			}
