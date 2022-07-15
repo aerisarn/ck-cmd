@@ -168,10 +168,7 @@ target_link_libraries(${PROJECT}
     FSM-lib
     QTADS
     Qt5::Widgets
-    Qt5::3DCore
-    Qt5::3DExtras
-    Qt5::3DRender
-    Qt5::3DInput
+    Qt5::OpenGL
     ${OPENGL_LIBRARIES}
 	${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib
     OpenMP::OpenMP_CXX

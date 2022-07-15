@@ -107,6 +107,8 @@ HkxSimulation::HkxSimulation(hkMemoryRouter* router, ckcmd::HKX::ResourceManager
 
 void HkxSimulation::worldStep()
 {
+
+
 	//// Do a simulation step
 	_world->stepDeltaTime(_timeStep);
 	//// Step the debugger

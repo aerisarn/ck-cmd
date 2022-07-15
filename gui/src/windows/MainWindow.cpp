@@ -31,18 +31,18 @@ BOOL CALLBACK FindWindowBySubstr(HWND hwnd, LPARAM substring)
 	return true; // Need to continue enumerating windows
 }
 
-static QWidget* createHDBWidget() {
-	const TCHAR substring[] = TEXT("HavokVisualDebugger");
-
-
-	QProcess::startDetached("hkVisualDebugger.exe");
-	Sleep(1000);
-	EnumWindows(FindWindowBySubstr, (LPARAM)substring);
-
-	QWindow* window = QWindow::fromWinId((WId)g_vdb_handle);
-	window->setFlags(Qt::FramelessWindowHint);
-	return QWidget::createWindowContainer(window);
-}
+//static QWidget* createHDBWidget() {
+//	const TCHAR substring[] = TEXT("HavokVisualDebugger");
+//
+//
+//	QProcess::startDetached("hkVisualDebugger.exe");
+//	Sleep(1000);
+//	EnumWindows(FindWindowBySubstr, (LPARAM)substring);
+//
+//	QWindow* window = QWindow::fromWinId((WId)g_vdb_handle);
+//	window->setFlags(Qt::FramelessWindowHint);
+//	return QWidget::createWindowContainer(window);
+//}
 
 MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	QMainWindow(parent),
@@ -70,8 +70,9 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	_handler->setView(_projectTreeView);
 	_valuesTableView = new ValuesWidget(&_model,_command_manager, _resource_manager, this);
 
+	_preview = new HavokWidget(this);
 	ads::CDockWidget*  GLWidget = new ads::CDockWidget("Havok Preview", this);
-	GLWidget->setWidget(createHDBWidget());
+	GLWidget->setWidget(_preview);
 
 	connect(_projectTreeView, &ProjectsWidget::selectionChanged, _valuesTableView, &ValuesWidget::treeSelectionChanged);
 

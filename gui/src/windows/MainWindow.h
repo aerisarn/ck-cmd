@@ -12,6 +12,7 @@
 #include <src/widgets/ProjectsWidget.h>
 #include <src/widgets/ValuesWidget.h>
 #include <src/widgets/ActionHandler.h>
+#include <src/widgets/HavokWidget.h>
 
 #include <src/hkx/HkxSimulation.h>
 #include <src/hkx/CommandManager.h>
@@ -63,6 +64,7 @@ private:
     ProjectsWidget* _projectTreeView;
     ValuesWidget* _valuesTableView;
     HkxSimulation* _simulation;
+    HavokWidget* _preview;
 
     //Data
     WorkspaceConfig _workspace;

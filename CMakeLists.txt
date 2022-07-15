@@ -647,7 +647,7 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src)
 
 #QT
 IF (PROJECT_GUI)
-	find_package(Qt5 COMPONENTS Widgets Qml Quick 3DCore 3DExtras 3DRender 3DInput REQUIRED)
+	find_package(Qt5 COMPONENTS Widgets OpenGL REQUIRED)
 
 	if(Qt5_FOUND AND WIN32 AND TARGET Qt5::qmake AND NOT TARGET Qt5::windeployqt)
     get_target_property(_qt5_qmake_location Qt5::qmake IMPORTED_LOCATION)
