@@ -8,6 +8,8 @@
 #include <Common/Base/Memory/Allocator/Malloc/hkMallocAllocator.h>
 #include <cstdio>
 
+#include <Common\Visualize\hkDebugDisplay.h>
+
 // Physics
 #include <Physics/Collide/Dispatch/hkpAgentRegisterUtil.h>
 #include <Physics/Utilities/CharacterControl/CharacterProxy/hkpCharacterProxy.h>
@@ -23,10 +25,6 @@
 #include <Animation/Animation/hkaAnimationContainer.h>
 #include <Animation/Animation/Playback/Control/Default/hkaDefaultAnimationControl.h>
 #include <Animation/Animation/Playback/hkaAnimatedSkeleton.h>
-
-// Visual Debugger includes
-#include <Common/Visualize/hkVisualDebugger.h>
-#include <Physics/Utilities/VisualDebugger/hkpPhysicsContext.h>
 
 class CallBackTimer
 {
@@ -78,28 +76,78 @@ private:
     std::thread _thd;
 };
 
+hkpRigidBody* createBox(const hkVector4& size, const hkReal mass, const hkVector4& position, hkReal radius = 0.f)
+{
+	hkVector4 halfExtents(size(0) * 0.5f, size(1) * 0.5f, size(2) * 0.5f);
+	hkpBoxShape* cube = new hkpBoxShape(halfExtents, radius);	// Note: We use HALF-extents for boxes
+
+	//
+	// Create a rigid body construction template
+	//
+	hkpRigidBodyCinfo boxInfo;
+
+	if (mass != 0.0f)
+	{
+		boxInfo.m_mass = mass;
+		hkpMassProperties massProperties;
+		hkpInertiaTensorComputer::computeBoxVolumeMassProperties(halfExtents, mass, massProperties);
+		boxInfo.m_inertiaTensor = massProperties.m_inertiaTensor;
+		boxInfo.m_motionType = hkpMotion::MOTION_BOX_INERTIA;
+	}
+	else
+	{
+		boxInfo.m_motionType = hkpMotion::MOTION_FIXED;
+	}
+	boxInfo.m_rotation.setIdentity();
+	boxInfo.m_shape = cube;
+	boxInfo.m_position = position;
+
+	//
+	// create a rigid body (using the template above)
+	//
+
+	hkpRigidBody* boxRigidBody = new hkpRigidBody(boxInfo);
+
+	cube->removeReference();
+
+	return boxRigidBody;
+}
+
 
 HkxSimulation::HkxSimulation(hkMemoryRouter* router, ckcmd::HKX::ResourceManager& manager) :
 	_timeStep(1.0f / 60.f), // 60 fps
 	_manager(manager)
 {
-	_world = new hkpWorld(hkpWorldCinfo());
+
+	hkpWorldCinfo info;
+	info.setupSolverInfo(hkpWorldCinfo::SOLVER_TYPE_4ITERS_MEDIUM);
+	info.setBroadPhaseWorldSize(350.0f);
+	_world = new hkpWorld(info);
+
+	//create ground
+	{
+		hkVector4 halfSize(150.0f, 1.0f, 150.0f);
+		hkVector4 position(0.0f, 0.0f, 0.0f);
+		hkReal mass = 0.0f;
+		hkpRigidBody* ground = createBox(halfSize, mass, position);
+		_world->addEntity(ground);
+	}
 
 	// Register all collision agents
 	hkpAgentRegisterUtil::registerAllAgents(_world->getCollisionDispatcher());
 
-	// Register all the physics viewers
-	hkpPhysicsContext::registerAllPhysicsProcesses();
+	//// Register all the physics viewers
+	//hkpPhysicsContext::registerAllPhysicsProcesses();
 
-	// Set up a physics context containing the world for the use in the visual debugger
-	_context = new hkpPhysicsContext;
-	_context->addWorld(_world);
+	//// Set up a physics context containing the world for the use in the visual debugger
+	//_context = new hkpPhysicsContext;
+	//_context->addWorld(_world);
 
-	hkArray<hkProcessContext*> contexts;
-	contexts.pushBack(_context);
+	//hkArray<hkProcessContext*> contexts;
+	//contexts.pushBack(_context);
 
-	_visualDebugger = new hkVisualDebugger(contexts);
-	_visualDebugger->serve();
+	//_visualDebugger = new hkVisualDebugger(contexts);
+	//_visualDebugger->serve();
 
 	_worldTimer = new CallBackTimer(router);
     //_worldTimer->start((int)round(_timeStep * 1000.), std::bind(&HkxSimulation::worldStep, this));
@@ -111,8 +159,8 @@ void HkxSimulation::worldStep()
 
 	//// Do a simulation step
 	_world->stepDeltaTime(_timeStep);
-	//// Step the debugger
-	_visualDebugger->step();
+	////// Step the debugger
+	//_visualDebugger->step();
 
 	QCoreApplication::processEvents();
 }
@@ -201,7 +249,7 @@ void HkxSimulation::addSkeleton(const std::string& skeleton)
 	}
 	character._animatedSkeleton = new hkaAnimatedSkeleton(ac->m_skeletons[0]);
 
-	_visualDebugger->step();
+	//_visualDebugger->step();
 
 }
 

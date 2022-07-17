@@ -233,6 +233,15 @@ void FBXWrangler::NewScene() {
 
 }
 
+void FBXWrangler::ConvertScene()
+{
+	if (scene)
+	{
+		/*!< UpVector = YAxis, FrontVector =  ParityOdd, CoordSystem = RightHanded */
+		FbxAxisSystem::MayaYUp.ConvertScene(scene);
+	}
+}
+
 void FBXWrangler::CloseScene() {
 	if (scene)
 		scene->Destroy();

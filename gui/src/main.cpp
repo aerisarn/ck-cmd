@@ -378,7 +378,6 @@ static void CloseHavok()
 int main(int argc, char *argv[])
 {
 	QApplication a(argc, argv);
-
 	std::string workspace_path = Settings.get<std::string>("/general/workspace_folder");
 	if (workspace_path.empty() || !fs::exists(workspace_path))
 	{

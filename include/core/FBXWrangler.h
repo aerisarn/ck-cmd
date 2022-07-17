@@ -109,6 +109,7 @@ namespace FBX {
 
 
 		void NewScene();
+		void ConvertScene();
 		void CloseScene();
 
 		void setExportRig(bool _export_rig = true) { export_rig = _export_rig; }

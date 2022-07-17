@@ -18,6 +18,21 @@ constexpr int MS_PER_FRAME = (int)((1.0f / FPS_LIMIT) * 1000.0f);
 
 #include <Common/Base/Memory/System/hkMemorySystem.h>
 
+#include <Common/SceneData/Scene/hkxScene.h>
+#include <Common/Serialize/Util/hkLoader.h>
+#include <Common/Serialize/Util/hkRootLevelContainer.h>
+
+// We need to create bodies
+#include <Physics/Dynamics/Entity/hkpRigidBody.h>
+#include <Physics/Collide/Shape/Convex/Box/hkpBoxShape.h>
+#include <Common\GeometryUtilities\Inertia\hkInertiaTensorComputer.h>
+#include <Physics\Utilities\Dynamics\Inertia\hkpInertiaTensorComputer.h>
+
+#include <QApplication>
+
+#include <filesystem>
+namespace fs = std::filesystem;
+
 HavokWidget::HavokWidget(QWidget* parent) : ads::CDockWidget("Preview", parent)
 {
 	QPalette pal = palette();
@@ -34,9 +49,27 @@ HavokWidget::HavokWidget(QWidget* parent) : ads::CDockWidget("Preview", parent)
 	setAttribute(Qt::WA_NoSystemBackground);
 
 	initialize();
-
 	connect(&m_qTimer, &QTimer::timeout, this, &HavokWidget::paint);
 	m_qTimer.start(MS_PER_FRAME);
+}
+
+
+
+void HavokWidget::setupScene()
+{
+	//m_loader = new hkLoader();
+	//// Get and convert the scene - this is just a ground grid plane and a camera
+	//fs::path scene_path = fs::path(qApp->applicationDirPath().toUtf8().constData()) / "hkScene.hkx";
+	//hkRootLevelContainer* container = m_loader->load(scene_path.string().c_str());
+	//HK_ASSERT2(0x27343437, container != HK_NULL , "Could not load asset");
+	//hkxScene* scene = reinterpret_cast<hkxScene*>(container->findObjectByType(hkxSceneClass.getName()));
+
+	//HK_ASSERT2(0x27343635, scene, "No scene loaded");
+	////removeLights(m_env); // assume we have some in the file
+	//m_sceneConverter->convert(scene);
+
+
+
 }
 
 void HavokWidget::setupFixedShadowFrustum(const hkgLight& light, const hkgAabb& areaOfInterest, float extraNear, float extraFar, int numSplits, int preferedUpAxis)
@@ -187,19 +220,22 @@ void HavokWidget::setupLights()
 
 void HavokWidget::initialize()
 {
-	hkgSystem::init("ogl");
+	hkgSystem::init("d3d9s");
 	m_window = hkgWindow::create();
 	m_window->setShadowMapSize(0); // 0 == use default platform size
 	HKG_WINDOW_CREATE_FLAG windowFlags = HKG_WINDOW_WINDOWED;
 
 	m_window->initialize(windowFlags,
 		HKG_WINDOW_BUF_COLOR | HKG_WINDOW_BUF_DEPTH32, size().width(), size().height(),
-		"Preview");
+		"Preview", (void*)QWidget::winId());
 	m_window->getContext()->lock();
 
 	// don't allow viewport resizing
 	m_window->setWantViewportBorders(false);
 	m_window->setWantViewportResizeByMouse(false);
+
+	m_window->getViewport(0)->setNavigationMode(HKG_CAMERA_NAV_TRACKBALL);
+	m_window->getViewport(0)->setMouseConvention(HKG_MC_MAYA);
 
 	for (int i = 0; i < 2; ++i)
 	{
@@ -219,10 +255,10 @@ void HavokWidget::initialize()
 	m_window->getContext()->unlock();
 }
 
-void HavokWidget::resize(int w, int h)
+void HavokWidget::resizeEvent(QResizeEvent* event)
 {
 	m_window->getContext()->lock();
-	m_window->updateSize(w, h);
+	m_window->updateSize(event->size().width(), event->size().height());
 	m_window->getContext()->unlock();
 }
 
@@ -291,118 +327,34 @@ void HavokWidget::renderFrame()
 	ctx->lock();
 
 	hkgViewport* masterView = window->getCurrentViewport();
-	//if (env.m_shareCameraBetweenViewports)
-	//{
-	//	const hkgCamera* fromC = masterView->getCamera();
-	//	for (int viewportIndex = 0; viewportIndex < window->getNumViewports(); ++viewportIndex)
-	//	{
-	//		// only reason there won't be a displayWorld is if the demo is doing the rendering itself.
-	//		hkgViewport* v = window->getViewport(viewportIndex);
-	//		if (v != masterView)
-	//		{
-	//			hkgCamera* toC = v->getCamera();
-	//			// Don't copy to different modes as doesn't make sense
-	//			if ((toC->getProjectionMode() == HKG_CAMERA_PERSPECTIVE) && (fromC->getProjectionMode() == HKG_CAMERA_PERSPECTIVE))
-	//			{
-	//				float aspect = toC->getAspect();
-	//				toC->copy(*fromC);
-	//				toC->setAspect(aspect);
-	//				toC->computeProjection();
-	//				toC->computeFrustumPlanes();
-	//			}
-	//		}
-	//	}
-	//}
 
-	//for (int viewportIndex = 0; viewportIndex < window->getNumViewports(); ++viewportIndex)
-	//{
-		// only reason there won't be a displayWorld is if the demo is doing the rendering itself.
-		hkgViewport* v = window->getViewport(0);
-		//hkDemoEnvironment::ViewportData* viewportData = env.getViewportData(viewportIndex);
+	HKG_TIMER_SPLIT_LIST("SetViewport");
 
-		HKG_TIMER_SPLIT_LIST("SetViewport");
-
-		v->setAsCurrent(ctx);
-
-		//_sendVdbCamera(v, viewportIndex);
-
-		if (v->getSkyBox())
-		{
-			HKG_TIMER_SPLIT_LIST("SkyBox");
-			v->getSkyBox()->render(ctx, v->getCamera());
-		}
-
-		hkgDisplayWorld* dw = m_displayWorld;
-		//if (dw)
-		//{
-		//	dw->setFrameTime(env.m_frameTimer.getLastFrameTime());
-		//}
-
-		HKG_TIMER_SPLIT_LIST("DisplayWorld");
-		if (dw)
-		{
-			// can't alter the world in the middle of a render pass, so it will lock itself
-			dw->render(ctx, true, true); // culled with shadows (if any setup)
-
-			//if (env.m_options->m_edgedFaces)
-			//{
-			//	HKG_COLOR_MODE origColorMode = ctx->getColorMode();
-			//	HKG_BLEND_MODE origBlendMode = ctx->getBlendMode();
-			//	HKG_ENABLED_STATE origEnabledState = ctx->getEnabledState();
-
-			//	ctx->setWireframeState(true);
-			//	ctx->setDepthReadState(true);
-			//	ctx->setDepthWriteState(false);
-			//	ctx->setLightingState(false);
-			//	ctx->setTexture2DState(false);
-			//	ctx->setBlendState(true);
-
-			//	// Most assets will be loaded using the ShaderLib
-			//	// Currently that lib only supports lit senarios
-			//	// wheras here we want the wireframe to be unlit etc.
-			//	// So we will enforce no per material shader (not required as default shaders will be ok for most things, except particles etc)
-
-			//	// Render white wireframe with low alpha
-			//	hkgMaterial* globalWireMaterial = hkgMaterial::create();
-			//	globalWireMaterial->setDiffuseColor(1, 1, 1, 0.1f);
-			//	ctx->setCurrentMaterial(globalWireMaterial, HKG_MATERIAL_VERTEX_HINT_NONE); // Global mat
-			//	globalWireMaterial->removeReference();
-
-			//	ctx->setColorMode(HKG_COLOR_GLOBAL | HKG_COLOR_GLOBAL_SHADER_COLLECTION);
-
-			//	hkgCamera* curCamera = v->getCamera();
-			//	float origFrom[3];
-			//	curCamera->getFrom(origFrom);
-			//	float* currentTo = curCamera->getToPtr();
-
-			//	float newFrom[3];
-			//	hkgVec3Sub(newFrom, currentTo, origFrom);
-			//	hkgVec3Scale(newFrom, 1.0e-3f);
-			//	hkgVec3Add(newFrom, origFrom);
-			//	curCamera->setFrom(newFrom);
-			//	curCamera->computeModelView(false);
-			//	curCamera->setAsCurrent(ctx);
-
-			//	// Render from this shifted POV
-			//	dw->render(ctx, true, false);
-
-			//	// Reset context mode
-			//	ctx->setColorMode(origColorMode);
-			//	ctx->matchState(origEnabledState, ctx->getCullfaceMode(), origBlendMode, ctx->getAlphaSampleMode());
-			//	curCamera->setFrom(origFrom);
-			//	curCamera->computeModelView(false);
-			//	curCamera->setAsCurrent(ctx);
-			//}
-		}
+	masterView->setAsCurrent(ctx);
 
 
-		HKG_TIMER_SPLIT_LIST("DrawImmediate");
-		hkgDisplayHandler* dh = m_displayHandler;
-		if (dh)
-		{
-			dh->drawImmediate();
-		}
-	//}
+	if (masterView->getSkyBox())
+	{
+		HKG_TIMER_SPLIT_LIST("SkyBox");
+		masterView->getSkyBox()->render(ctx, masterView->getCamera());
+	}
+
+	hkgDisplayWorld* dw = m_displayWorld;
+
+	HKG_TIMER_SPLIT_LIST("DisplayWorld");
+	if (dw)
+	{
+		// can't alter the world in the middle of a render pass, so it will lock itself
+		dw->render(ctx, true, true); // culled with shadows (if any setup)
+	}
+
+
+	HKG_TIMER_SPLIT_LIST("DrawImmediate");
+	hkgDisplayHandler* dh = m_displayHandler;
+	if (dh)
+	{
+		dh->drawImmediate();
+	}
 
 	HKG_TIMER_SPLIT_LIST("PostEffects");
 
@@ -410,71 +362,8 @@ void HavokWidget::renderFrame()
 
 	HKG_TIMER_SPLIT_LIST("Final Pass Objects");
 	{
-		//for (int viewportIndex = 0; viewportIndex < window->getNumViewports(); ++viewportIndex)
-		//{
-			// only reason there won't be a displayWorld is if the demo is doing the rendering itself.
-			//hkDemoEnvironment::ViewportData* viewportData = env.getViewportData(viewportIndex);
-			hkgDisplayWorld* dw = m_displayWorld;
-			if (dw)
-			{
-				window->getViewport(0)->setAsCurrent(ctx);
-				dw->finalRender(ctx, true /* frustum cull */);
-			}
-		//}
+		dw->finalRender(ctx, true /* frustum cull */);
 	}
-
-	masterView->setAsCurrent(ctx);
-
-	//HKG_TIMER_SPLIT_LIST("DemoPostRenderWindow");
-	//if (demo)
-	//{
-	//	demo->postRenderWindow(window);
-	//}
-
-	// Draw text after all post effects etc
-	//HKG_TIMER_SPLIT_LIST("Display3DText");
-	//{
-	//	for (int viewportIndex = 0; viewportIndex < window->getNumViewports(); ++viewportIndex)
-	//	{
-	//		// only reason there won't be a displayWorld is if the demo is doing the rendering itself.
-	//		hkDemoEnvironment::ViewportData* viewportData = env.getViewportData(viewportIndex);
-	//		hkTextDisplay* td = viewportData && viewportData->m_textDisplay ? viewportData->m_textDisplay : env.m_textDisplay;
-	//		if (td)
-	//		{
-	//			hkgViewport* v = window->getViewport(viewportIndex);
-	//			td->displayJust3DText(window, v);
-	//		}
-	//	}
-	//}
-
-	// Text after post render window (as it displays the stats bar etc)
-	//env.m_textDisplay->displayJust2DText(window);
-
-
-	// We commonly use 'swap discard' (better for SLi/CrossFire etc) as the swap effect, so 
-	// that means you neeed tyo save the RT before Swap or its contents may be erased
-	// A side effect of this is that the image will not have the Havok logo on the lower corner
-
-	//if (env.m_virtualFrameBufferServer)
-	//{
-	//	sendCurrentFrameOverNetwork(env);
-	//}
-
-
-	//if (env.m_options->m_saveFrames)
-	//{
-	//	HKG_TIMER_SPLIT_LIST("SaveBMP");
-
-	//	char filename[128];
-	//	hkString::sprintf(filename, "frame%05i.bmp", env.m_options->m_numSaveFrames);
-	//	window->saveCurrentRenderTargetToBmp(filename);
-	//	env.m_options->m_numSaveFrames++;
-	//}
-
-	//if (env.m_options->m_recordMovie)
-	//{
-	//	env.m_movieRecorder->addFrame();
-	//}
 
 	HKG_TIMER_SPLIT_LIST("SwapBuffers");
 
@@ -494,14 +383,11 @@ void HavokWidget::paint()
 
 	hkMemorySystem::getInstance().advanceFrame();
 
-
-
-
 	showAxis();
 
 	renderFrame();
 
-	//tick
+	////tick
 	tickFrame(false);
 
 

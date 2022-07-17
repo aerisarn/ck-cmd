@@ -11,7 +11,7 @@ class hkgDisplayWorld;
 class hkTextDisplay;
 class hkgLight;
 class hkgAabb;
-
+class hkLoader;
 
 class HavokWidget : public ::ads::CDockWidget
 {
@@ -22,6 +22,7 @@ class HavokWidget : public ::ads::CDockWidget
     hkgSceneDataConverter* m_sceneConverter = nullptr;
     hkgDisplayWorld* m_displayWorld = nullptr;
     hkTextDisplay* m_textDisplay = nullptr;
+    hkLoader* m_loader = nullptr;
 
     bool m_showWorldAxis = true;
 
@@ -33,14 +34,17 @@ class HavokWidget : public ::ads::CDockWidget
     void tickFrame(bool justCamera);
     void renderFrame();
     void clearFrameData();
+    void setupScene();
 
 public:
     explicit HavokWidget(QWidget* parent);
 
+
+
 protected:
     void initialize();
 
-    void resize(int w, int h);
+    virtual void resizeEvent(QResizeEvent* event) override;
 
     void paint();
 

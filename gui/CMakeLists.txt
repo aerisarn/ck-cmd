@@ -186,7 +186,7 @@ add_custom_command(TARGET ${PROJECT} POST_BUILD
 
 add_custom_command(TARGET ${PROJECT} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${PROJECT_SOURCE_DIR}/../vendor/havok_2010_2_0/VisualDebugger/hkVisualDebugger.exe"
+        "${PROJECT_SOURCE_DIR}/../vendor/havok_2010_2_0/Source/Graphics/hkScene.hkx"
         $<TARGET_FILE_DIR:ck-gui>)
 
 add_custom_command(TARGET ${PROJECT} POST_BUILD
