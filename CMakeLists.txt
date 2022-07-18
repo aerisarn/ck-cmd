@@ -547,6 +547,7 @@ set (PROJECT_COMMANDS
 					 "${CMAKE_SOURCE_DIR}/include/commands/RetargetCreature.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/DecodeCache.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/desaturateVC.h"
+					 "${CMAKE_SOURCE_DIR}/include/commands/Skeleton.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/fixsse.h"
                      "${CMAKE_SOURCE_DIR}/include/commands/esp/Esp.h"
                      "${CMAKE_SOURCE_DIR}/include/commands/esp/io/EspWriter.h"
