@@ -123,6 +123,44 @@ using namespace Niflib;
 using namespace std;
 using namespace ConvertKF;
 
+ImportKF::ImportKF()
+{
+}
+
+ImportKF::~ImportKF()
+{
+}
+
+string ImportKF::GetName() const
+{
+	return "importkf";
+}
+
+string ImportKF::GetHelp() const
+{
+	string name = GetName();
+	transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+	// Usage: ck-cmd exportfbx
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_fbx> [-e <path_to_export>]\r\n";
+
+	const char help[] =
+		R"(Converts FBX format to NIF.
+		
+		Arguments:
+			<path_to_fbx> the FBX to convert
+			<path_to_export> path to the output directory
+
+		)";
+	return usage + help;
+}
+
+string ImportKF::GetHelpShort() const
+{
+	return "TODO: Short help message for ImportFBX";
+}
+
+
 //////////////////////////////////////////////////////////////////////////
 // Enumeration Types
 //////////////////////////////////////////////////////////////////////////
@@ -929,6 +967,18 @@ bool getFieldIsValid(T* object, unsigned int field, const NifInfo& info) {
 
 //TODO: other key types?
 
+string getPalettedString(NiStringPaletteRef nipalette, unsigned int offset) {
+	StringPalette s_palette = nipalette->GetPalette();
+	const char* c_palette = s_palette.palette.c_str();
+	for (size_t i = offset; i < s_palette.length; i++)
+	{
+		if (c_palette[i] == 0)
+			return string(&c_palette[offset], &c_palette[i]);
+	}
+	return "";
+}
+
+
 bool AnimationExport::exportController()
 {
 	vector<Niflib::ControlledBlock> blocks = seq->GetControlledBlocks();
@@ -980,8 +1030,7 @@ bool AnimationExport::exportController()
 	for ( vector<Niflib::ControlledBlock>::iterator bitr = blocks.begin(); bitr != blocks.end(); ++bitr)
 	{
 		int offset = bitr->nodeNameOffset;
-		//string nodename = seq->GetStringPalette()->GetSubStr(offset);
-		string nodename = Niflib::GetSubStr(seq->GetStringPalette(), offset);
+		string nodename = getPalettedString(seq->GetStringPalette(), offset);
 		StringIntMap::iterator boneitr = boneMap.find(nodename);
 		if (boneitr == boneMap.end())
 		{
@@ -1243,124 +1292,13 @@ static void HK_CALL debugReport(const char* msg, void* userContext)
 }
 
 
-static bool ExecuteCmd(hkxcmdLine &cmdLine)
+bool ImportKF::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	bool recursion = true;
 	vector<string> paths;
-	int argc = cmdLine.argc;
-	char **argv = cmdLine.argv;
 	hkPackFormat pkFormat = HKPF_DEFAULT;
 	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
-   AnimationExport::noRootSiblings = true;
-
-#pragma region Handle Input Args
-	for (int i = 0; i < argc; i++)
-	{
-		char *arg = argv[i];
-		if (arg == NULL)
-			continue;
-		if (arg[0] == '-' || arg[0] == '/')
-		{
-			switch (tolower(arg[1]))
-			{
-			case 'f':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-						break;
-					flags = (hkSerializeUtil::SaveOptionBits)StringToFlags(param, SaveFlags, hkSerializeUtil::SAVE_DEFAULT);
-				} break;
-
-			case 'n':
-				recursion = false;
-				break;
-
-         case 's':
-            AnimationExport::noRootSiblings = false;
-            break;
-
-			case 'v':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-						break;
-					pkFormat = (hkPackFormat)StringToEnum(param, PackFlags, HKPF_DEFAULT);
-				} break;
-
-			case 'd':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-					{
-						Log::SetLogLevel(LOG_DEBUG);
-						break;
-					}
-					else
-					{
-						Log::SetLogLevel((LogLevel)StringToEnum(param, LogFlags, LOG_INFO));
-					}
-				} break;
-
-			case 'o':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-						break;
-					paths.push_back(string(param));
-				}
-				break;
-
-			case 'i':
-				{
-					const char *param = arg+2;
-					if (*param == ':' || *param=='=') ++param;
-					argv[i] = NULL;
-					if ( param[0] == 0 && ( i+1<argc && ( argv[i+1][0] != '-' || argv[i+1][0] != '/' ) ) ) {
-						param = argv[++i];
-						argv[i] = NULL;
-					}
-					if ( param[0] == 0 )
-						break;
-					paths.insert(paths.begin(), 1, string(param));
-				}
-				break;
-
-
-			default:
-				Log::Error("Unknown argument specified '%s'", arg);
-				return false;
-			}
-		}
-		else
-		{
-			paths.push_back(arg);
-		}
-	}
-#pragma endregion
+    AnimationExport::noRootSiblings = true;
 
 	if (paths.empty()){
 		HelpString(hkxcmd::htLong);
@@ -1533,19 +1471,28 @@ static bool ExecuteCmd(hkxcmdLine &cmdLine)
 			}
 		}
 	}
-	hkBaseSystem::quit();
-	hkMemoryInitUtil::quit();
-
-
 	return true;
 }
-static bool SafeExecuteCmd(hkxcmdLine &cmdLine)
+
+//Havok initialization
+
+static void HK_CALL errorReport(const char* msg, void*)
 {
-   __try{
-      return ExecuteCmd(cmdLine);
-   } __except (EXCEPTION_EXECUTE_HANDLER){
-      return false;
-   }
+	Log::Error("%s", msg);
 }
 
-REGISTER_COMMAND(ConvertKF, HelpString, SafeExecuteCmd);
+static hkThreadMemory* threadMemory = NULL;
+static char* stackBuffer = NULL;
+static void InitializeHavok()
+{
+	// Initialize the base system including our memory system
+	hkMemoryRouter* pMemoryRouter(hkMemoryInitUtil::initDefault(hkMallocAllocator::m_defaultMallocAllocator, hkMemorySystem::FrameInfo(5000000)));
+	hkBaseSystem::init(pMemoryRouter, errorReport);
+	LoadDefaultRegistry();
+}
+
+static void CloseHavok()
+{
+	hkBaseSystem::quit();
+	hkMemoryInitUtil::quit();
+}

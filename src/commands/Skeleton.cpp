@@ -657,6 +657,7 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			}
 		}
 
+		const hkaSkeleton* original_ragdoll = NULL;
 
 		//check for original skeleton nodes
 		if (!original_skeleton.empty())
@@ -671,10 +672,9 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			{
 				auto root = resource->getContents<hkRootLevelContainer>();
 				auto ragdoll = root->findObjectByType(hkaRagdollInstanceClass.getName());
-				const hkaSkeleton* ragdoll_skeleton = NULL;
 				if (ragdoll != NULL)
 				{
-					ragdoll_skeleton = static_cast<hkaRagdollInstance*>(ragdoll)->m_skeleton.val();
+					original_ragdoll = static_cast<hkaRagdollInstance*>(ragdoll)->m_skeleton.val();
 				}
 				auto animation_container = static_cast<hkaAnimationContainer*>(root->findObjectByType(hkaAnimationContainerClass.getName()));
 				if (animation_container == NULL)
@@ -686,7 +686,7 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 				for (int s = 0; s < animation_container->m_skeletons.getSize(); ++s)
 				{
 					auto a_skeleton = animation_container->m_skeletons[s];
-					if (a_skeleton.val() != ragdoll_skeleton)
+					if (a_skeleton.val() != original_ragdoll)
 					{
 						skeleton = a_skeleton.val();
 					}
@@ -946,6 +946,7 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 
 		//collect rigid bodies
 		vector<bhkBlendCollisionObjectRef> rigidBodies = DynamicCast<bhkBlendCollisionObject>(skeleton_blocks);
+		
 		vector<string> rbNames(rigidBodies.size());
 		//create ragdoll parentMap and bone maps
 		vector<int> ragdollParentMap(rigidBodies.size());
@@ -970,7 +971,25 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 				Log::Error("Cannot find rigid body attached to bone %s into previously collected rigid bodies", bones[i]->GetName());
 				return -1;
 			}
+			auto name = "Ragdoll_" + bone->GetName();
 			int rbIndex = std::distance(rigidBodies.begin(), rb_it);
+			if (original_ragdoll != NULL)
+			{
+				bool found = false;
+				for (rbIndex = 0; rbIndex < original_ragdoll->m_bones.getSize(); ++rbIndex)
+				{
+					if (original_ragdoll->m_bones[rbIndex].m_name.cString() == name)
+					{
+						found = true;
+						break;
+					}
+				}
+				if (!found)
+				{
+					Log::Error("Cannot find rigid body attached to bone %s into previously collected rigid bodies", bones[i]->GetName());
+					return -1;
+				}
+			}
 			//set the skeletal parent for this rigid body
 			ragdollAnimationParentMap[rbIndex] = i;
 			rbNames[rbIndex] = "Ragdoll_" + bone->GetName();
@@ -982,7 +1001,25 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 				rbParent = DynamicCast<bhkBlendCollisionObject>(parent->GetCollisionObject());
 				if (rbParent != NULL)
 				{
+					auto parent_name = "Ragdoll_" + parent->GetName();
 					int rbParentIndex = find(rigidBodies.begin(), rigidBodies.end(), rbParent) - rigidBodies.begin();
+					if (original_ragdoll != NULL)
+					{
+						bool found = false;
+						for (rbParentIndex = 0; rbParentIndex < original_ragdoll->m_bones.getSize(); ++rbParentIndex)
+						{
+							if (original_ragdoll->m_bones[rbParentIndex].m_name.cString() == parent_name)
+							{
+								found = true;
+								break;
+							}
+						}
+						if (!found)
+						{
+							Log::Error("Cannot find parent rigid body attached to bone %s into previously collected rigid bodies", bones[i]->GetName());
+							return -1;
+						}
+					}
 					ragdollParentMap[rbIndex] = rbParentIndex;
 					rbParent_found = true;
 					break;
@@ -1004,6 +1041,8 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 				ragdollParentMap[rbIndex] = -1;
 			}
 		}
+
+
 
 		Log::Info("Ragdoll Parent map created, root bone: %s\n", rbNames[ragdoll_root_index].c_str());
 
