@@ -80,8 +80,15 @@
 #include <obj/bhkPrismaticConstraint.h>
 #include <obj/bhkHingeConstraint.h>
 #include <obj/bhkLimitedHingeConstraint.h>
+#include <obj/bhkSPCollisionObject.h>
+#include <obj/bhkSimpleShapePhantom.h>
 
 using namespace std;
+
+static float bhkScaleFactorInverse = 0.01428f; // 1 skyrim unit = 0,01428m
+
+static const float bhkScaleFactorInverseSkyrim = 0.01428f; // 1 skyrim unit = 0,01428m
+static const float bhkScaleFactorInverseOblivion = 0.1428f; // 1 skyrim unit = 0,01428m
 
 Skeleton::Skeleton()
 {
@@ -267,15 +274,15 @@ public:
 class ShapeBuilder : public ShapeVisitor {
 public:
 	virtual void visit(bhkSphereShape& shape, hkpRigidBodyCinfo& parent) {
-		parent.m_shape = new hkpSphereShape(shape.GetRadius()*7);
+		parent.m_shape = new hkpSphereShape(shape.GetRadius() / bhkScaleFactorInverse);
 	}
 
 	virtual void visit(bhkCapsuleShape& shape, hkpRigidBodyCinfo& parent) {
 		parent.m_shape = new hkpCapsuleShape
 		(
-		TOVECTOR4(shape.GetFirstPoint() * 7),
-		TOVECTOR4(shape.GetSecondPoint() * 7),
-			shape.GetRadius()*7
+		TOVECTOR4(shape.GetFirstPoint() / bhkScaleFactorInverse),
+		TOVECTOR4(shape.GetSecondPoint() / bhkScaleFactorInverse),
+			shape.GetRadius() / bhkScaleFactorInverse
 		);
 	}
 };
@@ -322,14 +329,30 @@ public:
 
 	virtual hkpConstraintData* visit(RagdollDescriptor& descriptor) {
 		hkpRagdollConstraintData* data = new hkpRagdollConstraintData();
-		data->setInBodySpace(
-			TOVECTOR4(descriptor.pivotA * 7),
-			TOVECTOR4(descriptor.pivotB * 7),
-			TOVECTOR4(descriptor.planeA),
-			TOVECTOR4(descriptor.planeB),
-			TOVECTOR4(descriptor.twistA),
-			TOVECTOR4(descriptor.twistB)
-		);
+
+		auto row1 = TOVECTOR4(descriptor.twistA);
+		auto row2 = TOVECTOR4(descriptor.planeA);
+		auto row3 = TOVECTOR4(descriptor.motorA);
+		auto row4 = TOVECTOR4(descriptor.pivotA);
+
+		hkRotation r1; r1.setCols(row1, row2, row3);
+		data->m_atoms.m_transforms.m_transformA.setRotation(r1);
+		data->m_atoms.m_transforms.m_transformA.setTranslation(row4);
+
+		auto row1b = TOVECTOR4(descriptor.twistB);
+		auto row2b = TOVECTOR4(descriptor.planeB);
+		auto row3b = TOVECTOR4(descriptor.motorB);
+		auto row4b = TOVECTOR4(descriptor.pivotB / bhkScaleFactorInverse);
+
+		hkRotation r1b; r1b.setCols(row1b, row2b, row3b);
+		data->m_atoms.m_transforms.m_transformB.setRotation(r1b);
+		data->m_atoms.m_transforms.m_transformB.setTranslation(row4b);
+
+		data->setPlaneMaxAngularLimit(descriptor.planeMaxAngle);
+		data->setPlaneMinAngularLimit(descriptor.planeMinAngle);
+		data->setTwistMaxAngularLimit(descriptor.twistMaxAngle);
+		data->setTwistMinAngularLimit(descriptor.twistMinAngle);
+		data->setConeAngularLimit(descriptor.coneMaxAngle);
 		return data;
 	}
 
@@ -371,8 +394,8 @@ public:
 	virtual hkpConstraintData* visit(HingeDescriptor& descriptor) {
 		hkpHingeConstraintData* data = new hkpHingeConstraintData();
 		data->setInBodySpace(
-			TOVECTOR4(descriptor.pivotA * 7),
-			TOVECTOR4(descriptor.pivotB * 7),
+			TOVECTOR4(descriptor.pivotA / bhkScaleFactorInverse),
+			TOVECTOR4(descriptor.pivotB / bhkScaleFactorInverse),
 			TOVECTOR4(descriptor.axleA),
 			TOVECTOR4(descriptor.axleB)
 		);
@@ -381,13 +404,15 @@ public:
 	virtual hkpConstraintData* visit(LimitedHingeDescriptor& descriptor){
 		hkpLimitedHingeConstraintData* data = new hkpLimitedHingeConstraintData();
 		data->setInBodySpace(
-			TOVECTOR4(descriptor.pivotA * 7),
-			TOVECTOR4(descriptor.pivotB * 7),
+			TOVECTOR4(descriptor.pivotA / bhkScaleFactorInverse),
+			TOVECTOR4(descriptor.pivotB / bhkScaleFactorInverse),
 			TOVECTOR4(descriptor.axleA),
 			TOVECTOR4(descriptor.axleB),
 			TOVECTOR4(descriptor.perp2AxleInA1),
 			TOVECTOR4(descriptor.perp2AxleInB1)
 		);
+		data->setMaxAngularLimit(descriptor.maxAngle);
+		data->setMinAngularLimit(descriptor.minAngle);
 		return data;
 	}
 
@@ -542,7 +567,18 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 
 		Log::Info("Found skeleton hints\n");
 		//read the skeleton
-		vector<NiObjectRef> skeleton_blocks = Niflib::ReadNifList(skeleton[0], NULL /*, &options*/);
+		NifInfo skeleton_version;
+		vector<NiObjectRef> skeleton_blocks = Niflib::ReadNifList(skeleton[0], &skeleton_version /*, &options*/);
+		if (VER_20_2_0_7 >= skeleton_version.version)
+		{
+			Log::Info("Loaded a skyrim skeleton");
+			bhkScaleFactorInverse = bhkScaleFactorInverseSkyrim;
+		}
+		else {
+			Log::Info("Loaded an oblivion skeleton");
+			bhkScaleFactorInverse = bhkScaleFactorInverseOblivion;
+		}
+
 		//find root
 		NiNodeRef skeleton_file_root = NULL;
 		vector<NiNodeRef> skeleton_nodes = DynamicCast<NiNode>(skeleton_blocks);
@@ -576,6 +612,8 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		vector<string> boneNames;
 		vector<string> floatNames;
 
+		NiNodeRef character_bumper = NULL;
+
 		std::function<void(NiAVObjectRef)> skeleton_visitor = [&](NiAVObjectRef object) {
 			if (NULL != object)
 			{
@@ -590,6 +628,10 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 						auto node_type = node->GetIDString();
 						bones.push_back(node);
 						bonesFoundIntoAnimations.erase(node->GetName());
+					}
+					if (node->GetName() == "CharacterBumper")
+					{
+						character_bumper = node;
 					}
 					auto& children = node->GetChildren();
 					for (int i = 0; i < children.size(); ++i)
@@ -918,7 +960,7 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			NiNodeRef bone = bones[i];
 			bhkBlendCollisionObjectRef rb = DynamicCast<bhkBlendCollisionObject>(bone->GetCollisionObject());
 			if (rb == NULL) {
-				Log::Info("Bone without rigid body %s:", bone->GetName());
+				Log::Info("Bone without rigid body: %s", bone->GetName().c_str());
 				continue;
 			}
 			NiNodeRef parent = bones[parentMap[i]];
@@ -978,11 +1020,9 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		std::function<void(hkQsTransform&, NiNodeRef)> getReferencePose = [&NIFParentMap](hkQsTransform& out, NiNodeRef bone)
 		{
 			out.setIdentity();
-			auto child = StaticCast<NiAVObject>(bone);
-			if (NIFParentMap.find(child) != NIFParentMap.end())
+			auto parent = bone;
+			if (NIFParentMap.find(StaticCast<NiAVObject>(parent)) != NIFParentMap.end())
 			{
-				NiNodeRef parent = NIFParentMap.at(child);
-
 				while (parent != NULL)
 				{
 					hkQsTransform parent_transform;
@@ -1017,16 +1057,18 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			if (i == ragdoll_root_index) {
 				hkBone.m_lockTranslation = false;
 				
-				getReferencePose(hkRagdollSkeleton->m_referencePose[i], bone);
+				//getReferencePose(hkRagdollSkeleton->m_referencePose[i], bone);
 
 				//hkRagdollSkeleton->m_referencePose[i].setTranslation(TOVECTOR4(bone->GetWorldTransform().GetTranslation()*scale));
 				//hkRagdollSkeleton->m_referencePose[i].setRotation(TOQUAT(bone->GetWorldTransform().GetRotation().AsQuaternion()));
 				//hkRagdollSkeleton->m_referencePose[i].setScale(hkVector4(1., 1., 1.));
 
-				//hkQsTransform rbTransform(hkQsTransform::IdentityInitializer);
-				//rbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation()*scale));
-				//rbTransform.setRotation(TOQUAT(rbody->GetRotation()));
-				//rbTransform.setScale(hkVector4(1.0, 1.0, 1.0));
+				hkQsTransform nifRbTransform;
+				nifRbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation() / bhkScaleFactorInverse));
+				nifRbTransform.setRotation(TOQUAT(rbody->GetRotation()));
+				nifRbTransform.setScale(hkVector4(1.0, 1.0, 1.0));
+
+				hkRagdollSkeleton->m_referencePose[i] = nifRbTransform;
 
 				//hkRagdollSkeleton->m_referencePose[i].setMul(hkRagdollSkeleton->m_referencePose[i], rbTransform);
 			}
@@ -1044,7 +1086,12 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 				//hkQsTransform& previous = hkRagdollSkeleton->m_referencePose[ragdollParentMap[i]];
 				hkQsTransform& next = hkRagdollSkeleton->m_referencePose[i];
 
-				hkQsTransform bone_next; getReferencePose(bone_next, bone);
+				//hkQsTransform bone_next; getReferencePose(bone_next, bone);
+
+				hkQsTransform nifRbTransform;
+				nifRbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation() / bhkScaleFactorInverse));
+				nifRbTransform.setRotation(TOQUAT(rbody->GetRotation()));
+				nifRbTransform.setScale(hkVector4(1.0, 1.0, 1.0));
 
 				//next.setTranslation(TOVECTOR4(bone->GetWorldTransform().GetTranslation()*scale));
 				//next.setRotation(TOQUAT(bone->GetWorldTransform().GetRotation().AsQuaternion()));
@@ -1056,7 +1103,8 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 				//rbTransform.setScale(hkVector4(1.0,1.0,1.0));
 				//next.setMul(next, rbTransform);
 
-				next.setMulInverseMul(previous, bone_next);
+				next.setMulInverseMul(previous, nifRbTransform);
+				//next = nifRbTransform;
 			}
 		}
 
@@ -1068,6 +1116,7 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		fromRagdollToSkeletonMapping->m_simpleMappings.setSize(rigidBodies.size());
 		fromRagdollToSkeletonMapping->m_skeletonA = hkRagdollSkeleton;
 		fromRagdollToSkeletonMapping->m_skeletonB = hkSkeleton;
+		fromRagdollToSkeletonMapping->m_mappingType = hkaSkeletonMapperData::HK_RAGDOLL_MAPPING;
 		set<int> mappedBones;
 		for (size_t i = 0; i < rigidBodies.size(); i++) {
 			hkaSkeletonMapperData::SimpleMapping& mapping = fromRagdollToSkeletonMapping->m_simpleMappings[i];
@@ -1112,12 +1161,16 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		fromSkeletonToRagdollMapping->m_simpleMappings.setSize(rigidBodies.size());
 		fromSkeletonToRagdollMapping->m_skeletonA = hkSkeleton;
 		fromSkeletonToRagdollMapping->m_skeletonB = hkRagdollSkeleton;
+		fromSkeletonToRagdollMapping->m_mappingType = hkaSkeletonMapperData::HK_RAGDOLL_MAPPING;
 
 		for (size_t i = 0; i < rigidBodies.size(); i++) {
 			hkaSkeletonMapperData::SimpleMapping& mapping = fromSkeletonToRagdollMapping->m_simpleMappings[i];
 			mapping.m_boneA = ragdollAnimationParentMap[i];
 			mapping.m_boneB = i;
 			mappedBones.insert(ragdollAnimationParentMap[i]);
+
+			string boneA_name = boneNames[ragdollAnimationParentMap[i]];
+			string boneB_name = rbNames[i];
 
 			//Absolute transform
 			int findroot = ragdollParentMap[i];
@@ -1126,6 +1179,8 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 				ragdollBoneTransform.setMul(hkRagdollSkeleton->m_referencePose[findroot], ragdollBoneTransform);
 				findroot = ragdollParentMap[findroot];
 			}
+
+
 
 			NiNodeRef animationBone = bones[ragdollAnimationParentMap[i]];
 
@@ -1166,7 +1221,9 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			//hkpRbInfo.m_forceCollideOntoPpu = bhkRB->;
 			hkpRbInfo.m_friction = bhkRB->GetFriction();
 			//hkpRbInfo.m_gravityFactor = bhkRB->get;
-			hkpRbInfo.m_inertiaTensor = TOMATRIX3(bhkRB->GetInertiaTensor());
+			hkMatrix3 inertia = TOMATRIX3(bhkRB->GetInertiaTensor());
+			inertia.setMul(1. / (bhkScaleFactorInverse * bhkScaleFactorInverse), inertia);
+			hkpRbInfo.m_inertiaTensor = inertia;
 			hkpRbInfo.m_linearDamping = bhkRB->GetLinearDamping();
 			hkpRbInfo.m_linearVelocity = TOVECTOR4(bhkRB->GetLinearVelocity());
 			//hkpRbInfo.m_localFrame;
@@ -1175,7 +1232,7 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			hkpRbInfo.m_maxLinearVelocity = bhkRB->GetMaxLinearVelocity();
 			//hkpRbInfo.m_motionType = TOMOTIONTYPE(bhkRB->GetMotionSystem());
 			//hkpRbInfo.m_numShapeKeysInContactPointProperties;
-			hkpRbInfo.m_position = TOVECTOR4(bhkRB->GetTranslation()*7);
+			hkpRbInfo.m_position = TOVECTOR4(bhkRB->GetTranslation() / bhkScaleFactorInverse);
 			//hkpRbInfo.m_qualityType = TOMOTIONQUALITY(bhkRB->GetQualityType());
 			//hkpRbInfo.m_responseModifierFlags;
 			hkpRbInfo.m_restitution = bhkRB->GetRestitution();
@@ -1191,7 +1248,11 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 
 			hkpBodies[i] = new hkpRigidBody(hkpRbInfo);
 			hkpBodies[i]->setName(rbNames[i].c_str());
-	
+			hkpBodies[i]->m_npData = 0;
+
+			auto bbody = hkpBodies[i];
+
+			int debuig = 1;
 		}
 
 		//contraints
@@ -1204,23 +1265,65 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			
 			for (int j = 0; j < bhkConstraints.size(); j++) {
 				if (bhkConstraints[j] == NULL) continue;
-				constraints.pushBack(ConstraintBuilder(rigidBodies, hkpBodies).visitConstraint(DynamicCast<bhkConstraint>(bhkConstraints[j])));
-				/*vector<int> entitiesIndexes;
-				if (bhkConstraints[j]->IsDerivedType(bhkConstraint::TYPE)) {
-					bhkConstraintRef c = bhkConstraints[j];
-					
-					for (bhkEntity* e : c->GetEntities()) {
-						for (int k = 0; k < rigidBodies.size(); k++) {
-							if (e == rigidBodies[k]->GetBody())
-								entitiesIndexes.push_back(k);
-						}
-					}
-				}
-				if (entitiesIndexes.size() == 2){
-					constraints.pushBack(new hkpConstraintInstance(hkpBodies[entitiesIndexes[1]], hkpBodies[entitiesIndexes[0]], new hkpRagdollConstraintData()));
-				}*/
+				auto constraint_name = hkpBodies[i]->getName();
+				auto* constraint = ConstraintBuilder(rigidBodies, hkpBodies).visitConstraint(DynamicCast<bhkConstraint>(bhkConstraints[j]));
+				constraint->setName(hkpBodies[i]->getName());
+				constraints.pushBack(constraint);
 			}
 			
+		}
+
+		hkpRigidBody* cprb = NULL;
+		//CharacterBumper
+		if (character_bumper != NULL && 
+			DynamicCast<bhkSPCollisionObject>(character_bumper->GetCollisionObject()) != NULL &&
+			DynamicCast<bhkSimpleShapePhantom>(DynamicCast<bhkSPCollisionObject>(character_bumper->GetCollisionObject())->GetBody()) != NULL)
+		{
+			auto co = DynamicCast<bhkSPCollisionObject>(character_bumper->GetCollisionObject());
+			auto bhkRB = DynamicCast<bhkSimpleShapePhantom>(co->GetBody());
+
+			//rigid body info
+			hkpRigidBodyCinfo hkpRbInfo;
+
+			/*hkpRbInfo.m_allowedPenetrationDepth = bhkRB->GetPenetrationDepth();
+			hkpRbInfo.m_angularDamping = bhkRB->GetAngularDamping();
+			hkpRbInfo.m_angularVelocity = TOVECTOR4(bhkRB->GetAngularVelocity());
+			hkpRbInfo.m_centerOfMass = TOVECTOR4(bhkRB->GetCenter());*/
+			//hkpRbInfo.m_collisionFilterInfo = bhkRB->GetLayer();
+			//hkpRbInfo.m_collisionResponse = hkpMaterial::ResponseType(bhkRB->GetCollisionResponse());
+			//hkpRbInfo.m_contactPointCallbackDelay = bhkRB->pin;
+			//hkpRbInfo.m_enableDeactivation = bhkRB->de
+			//hkpRbInfo.m_forceCollideOntoPpu = bhkRB->;
+			//hkpRbInfo.m_friction = bhkRB->GetFriction();
+			//hkpRbInfo.m_gravityFactor = bhkRB->get;
+			//hkpRbInfo.m_inertiaTensor = TOMATRIX3(bhkRB->GetInertiaTensor());
+			//hkpRbInfo.m_linearDamping = bhkRB->GetLinearDamping();
+			//hkpRbInfo.m_linearVelocity = TOVECTOR4(bhkRB->GetLinearVelocity());
+			//hkpRbInfo.m_localFrame;
+			//hkpRbInfo.m_mass = bhkRB->GetMass();
+			//hkpRbInfo.m_maxAngularVelocity = bhkRB->GetMaxAngularVelocity();
+			//hkpRbInfo.m_maxLinearVelocity = bhkRB->GetMaxLinearVelocity();
+			hkpRbInfo.m_motionType = hkpMotion::MotionType::MOTION_FIXED; //TOMOTIONTYPE(bhkRB->GetMotionSystem());
+			//hkpRbInfo.m_numShapeKeysInContactPointProperties;
+			hkpRbInfo.m_position = TOVECTOR4(bhkRB->GetTransform().GetTrans() / bhkScaleFactorInverse);
+			//hkpRbInfo.m_qualityType = TOMOTIONQUALITY(bhkRB->GetQualityType());
+			//hkpRbInfo.m_responseModifierFlags;
+			//hkpRbInfo.m_restitution = bhkRB->GetRestitution();
+			//hkpRbInfo.m_rollingFrictionMultiplier = bhkRB->RO;
+			hkpRbInfo.m_rotation = TOQUAT(bhkRB->GetTransform().GetRotation().AsQuaternion());
+			//hkpRbInfo.m_shape;
+
+
+			ShapeBuilder().visitShape(bhkRB->GetShape(), hkpRbInfo);
+			//makeShape(*shape, hkpRbInfo);
+			hkpRbInfo.m_solverDeactivation;
+			hkpRbInfo.m_timeFactor;
+
+			//hkpBodies[i] = new hkpRigidBody(hkpRbInfo);
+			//hkpBodies[i]->setName(rbNames[i].c_str());
+			cprb = new hkpRigidBody(hkpRbInfo);
+			cprb->setName(character_bumper->GetName().c_str());
+			cprb->m_npData = 0;
 		}
 
 		//hkaRagdollInstance ( const hkArrayBase<hkpRigidBody*>& rigidBodies, const hkArrayBase<hkpConstraintInstance*>& constraints, const hkaSkeleton* skeleton );
@@ -1235,6 +1338,8 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		for (size_t i = 0; i < rigidBodies.size(); i++) {
 			system->addRigidBody(hkpBodies[i]);
 		}
+		if (cprb!= NULL)
+			system->addRigidBody(cprb);
 		for (int i = 0; i < rigidBodies.size() - 1; i++) {
 			system->addConstraint(constraints[i]);
 		}

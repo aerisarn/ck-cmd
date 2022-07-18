@@ -185,11 +185,6 @@ add_custom_command(TARGET ${PROJECT} POST_BUILD
         $<TARGET_FILE_DIR:ck-gui>)
 
 add_custom_command(TARGET ${PROJECT} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${PROJECT_SOURCE_DIR}/../vendor/havok_2010_2_0/Source/Graphics/hkScene.hkx"
-        $<TARGET_FILE_DIR:ck-gui>)
-
-add_custom_command(TARGET ${PROJECT} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different  
         "${PROJECT_SOURCE_DIR}/../lib/QTADS/lib/$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:Release>$<$<CONFIG:RelWithDebInfo>:Release>/qtadvanceddocking.dll"
         $<TARGET_FILE_DIR:ck-gui>)
