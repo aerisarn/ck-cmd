@@ -1325,6 +1325,9 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 			cprb->setName(character_bumper->GetName().c_str());
 			cprb->m_npData = 0;
 		}
+		else {
+			Log::Warn("Character bumper not found!");
+		}
 
 		//hkaRagdollInstance ( const hkArrayBase<hkpRigidBody*>& rigidBodies, const hkArrayBase<hkpConstraintInstance*>& constraints, const hkaSkeleton* skeleton );
 		hkRefPtr<hkaRagdollInstance> ragdoll = new hkaRagdollInstance(hkpBodies, constraints, hkRagdollSkeleton.val());

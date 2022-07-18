@@ -17,6 +17,7 @@
 //////////////////////////////////////////////////////////////////////////
 #include <niflib.h>
 #include <nif_io.h>
+#include <nif_basic_types.h>
 #include "obj/NiObject.h"
 #include "obj/NiNode.h"
 #include "obj/NiTexturingProperty.h"
@@ -115,7 +116,7 @@ namespace ConvertKF {
 
 	struct AnimationExport
 	{
-		AnimationExport(Niflib::NiControllerSequenceRef seq, hkRefPtr<hkaSkeleton> skeleton, hkRefPtr<hkaAnimationBinding> binding);
+		AnimationExport(Niflib::NiControllerSequenceRef seq, hkRefPtr<hkaSkeleton> skeleton, hkRefPtr<hkaAnimationBinding> binding, const Niflib::NifInfo& info);
 
 		bool doExport();
 		bool exportNotes();
@@ -126,6 +127,7 @@ namespace ConvertKF {
 		hkRefPtr<hkaAnimationBinding> binding;
 		hkRefPtr<hkaSkeleton> skeleton;
 		static bool noRootSiblings;
+		const Niflib::NifInfo& _info;
 	};
 
 }
