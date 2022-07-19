@@ -116,6 +116,7 @@
 
 #include <obj/NiBSplineBasisData.h>
 #include <obj/NiBSplineData.h>
+#include <obj/NiBSplineCompTransformInterpolator.h>
 
 #include <interfaces\misc.h>
 
@@ -142,13 +143,13 @@ string ImportKF::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd exportfbx
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_fbx> [-e <path_to_export>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton> [-e <path_to_export>]\r\n";
 
 	const char help[] =
-		R"(Converts FBX format to NIF.
+		R"(Converts KF format to HKX.
 		
 		Arguments:
-			<path_to_fbx> the FBX to convert
+			<path_to_skeleton> the FBX to convert
 			<path_to_export> path to the output directory
 
 		)";
@@ -456,22 +457,135 @@ static const int SizeofQuat = 4;
 static const int SizeofTrans = 3;
 static const int SizeofScale = 1;
 
-int GetNumControlPoints(NiBSplineTransformInterpolatorRef& interpolator)
+template <typename interp>
+int GetNumControlPoints(interp& interpolator)
 {
 	if (interpolator->GetBasisData())
 		return interpolator->GetBasisData()->GetNumControlPoints();
 	return 0;
 }
 
+vector< Key<Quaternion> > SampleQuatRotateKeys(NiBSplineCompTransformInterpolatorRef interpolator, int npoints, int degree)
+{
+	vector< Key<Quaternion> > value;
+	if ((interpolator->GetRotationHandle() != USHRT_MAX) && interpolator->GetSplineData() && interpolator->GetBasisData()) { // has rotation data
+		int nctrl = interpolator->GetBasisData()->GetNumControlPoints();
+		int npts = nctrl * SizeofQuat;
+		Accessor<NiBSplineDataAccessor> spline_data(*interpolator->GetSplineData());
+		vector<short> points = spline_data.GetShortControlPointRange(interpolator->GetRotationHandle(), npts);
+		vector<float> control(npts);
+		vector<float> output(npoints * SizeofQuat);
+		for (int i = 0, j = 0; i < nctrl; ++i) {
+			for (int k = 0; k < SizeofQuat; ++k)
+				control[i * SizeofQuat + k] = float(points[j++]) / float(32767);
+		}
+		if (degree >= nctrl)
+			degree = nctrl - 1;
+		// fit data
+		bspline(nctrl - 1, degree + 1, SizeofQuat, &control[0], &output[0], npoints);
+
+		// copy to key
+		float time = interpolator->GetStartTime();
+		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints);
+		value.reserve(npoints);
+		for (int i = 0, j = 0; i < npoints; i++) {
+			Key<Quaternion> key;
+			key.time = time;
+			key.backward_tangent.Set(1.0f, 0.0f, 0.0f, 0.0f);
+			key.forward_tangent.Set(1.0f, 0.0f, 0.0f, 0.0f);
+			key.data.w = output[j++] * interpolator->GetRotationHalfRange() + interpolator->GetRotationOffset();
+			key.data.x = output[j++] * interpolator->GetRotationHalfRange() + interpolator->GetRotationOffset();
+			key.data.y = output[j++] * interpolator->GetRotationHalfRange() + interpolator->GetRotationOffset();
+			key.data.z = output[j++] * interpolator->GetRotationHalfRange() + interpolator->GetRotationOffset();
+			value.push_back(key);
+			time += incr;
+		}
+	}
+	return value;
+}
+
+vector< Key<Vector3> > SampleTranslateKeys(NiBSplineCompTransformInterpolatorRef interpolator, int npoints, int degree)
+{
+	vector< Key<Vector3> > value;
+	if ((interpolator->GetTranslationHandle() != USHRT_MAX) && interpolator->GetSplineData() && interpolator->GetBasisData()) { // has translation data
+		int nctrl = interpolator->GetBasisData()->GetNumControlPoints();
+		int npts = nctrl * SizeofTrans;
+		Accessor<NiBSplineDataAccessor> spline_data(*interpolator->GetSplineData());
+		vector<short> points = spline_data.GetShortControlPointRange(interpolator->GetTranslationHandle(), npts);
+		vector<float> control(npts);
+		vector<float> output(npoints * SizeofTrans);
+		for (int i = 0, j = 0; i < nctrl; ++i) {
+			for (int k = 0; k < SizeofTrans; ++k)
+				control[i * SizeofTrans + k] = float(points[j++]) / float(32767);
+		}
+		// fit data
+		bspline(nctrl - 1, degree + 1, SizeofTrans, &control[0], &output[0], npoints);
+
+		// copy to key
+		float time = interpolator->GetStartTime();
+		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints);
+		value.reserve(npoints);
+		for (int i = 0, j = 0; i < npoints; i++) {
+			Key<Vector3> key;
+			key.time = time;
+			key.backward_tangent.Set(0.0f, 0.0f, 0.0f);
+			key.forward_tangent.Set(0.0f, 0.0f, 0.0f);
+			key.data.x = output[j++] * interpolator->GetTranslationHalfRange() + interpolator->GetTranslationOffset();
+			key.data.y = output[j++] * interpolator->GetTranslationHalfRange() + interpolator->GetTranslationOffset();
+			key.data.z = output[j++] * interpolator->GetTranslationHalfRange() + interpolator->GetTranslationOffset();
+			value.push_back(key);
+			time += incr;
+		}
+	}
+	return value;
+}
+
+vector< Key<float> > SampleScaleKeys(NiBSplineCompTransformInterpolatorRef interpolator, int npoints, int degree)
+{
+	vector< Key<float> > value;
+	if ((interpolator->GetScaleHandle() != USHRT_MAX) && interpolator->GetSplineData() && interpolator->GetBasisData()) // has scale data
+	{
+		int nctrl = interpolator->GetBasisData()->GetNumControlPoints();
+		int npts = nctrl * SizeofScale;
+		Accessor<NiBSplineDataAccessor> spline_data(*interpolator->GetSplineData());
+		vector<short> points = spline_data.GetShortControlPointRange(interpolator->GetScaleHandle(), npts);
+		vector<float> control(npts);
+		vector<float> output(npoints * SizeofScale);
+		for (int i = 0, j = 0; i < nctrl; ++i) {
+			control[i] = float(points[j++]) / float(32767);
+		}
+		// fit data
+		bspline(nctrl - 1, degree + 1, SizeofScale, &control[0], &output[0], npoints);
+
+		// copy to key
+		float time = interpolator->GetStartTime();
+		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints);
+		value.reserve(npoints);
+		for (int i = 0, j = 0; i < npoints; i++) {
+			Key<float> key;
+			key.time = time;
+			key.backward_tangent = 0.0f;
+			key.forward_tangent = 0.0f;
+			key.data = output[j++] * interpolator->GetScaleHalfRange() + interpolator->GetScaleOffset();
+			value.push_back(key);
+			time += incr;
+		}
+	}
+	return value;
+}
+
+
 vector< Key<Quaternion> > SampleQuatRotateKeys(NiBSplineTransformInterpolatorRef& interpolator, int npoints, int degree)
 {
 	Accessor<NiBSplineTransformInterpolatorAccessor> accessor(interpolator);
 	vector< Key<Quaternion> > value;
-	if ((interpolator->GetTranslationHandle() != USHRT_MAX) && interpolator->GetSplineData() && interpolator->GetBasisData()) { // has rotation data
+	if ((interpolator->GetRotationHandle() != USHRT_MAX) && interpolator->GetSplineData() && interpolator->GetBasisData()) { // has rotation data
 		int nctrl = interpolator->GetBasisData()->GetNumControlPoints();
 		int npts = nctrl * SizeofQuat;
 		Accessor<NiBSplineDataAccessor> spline_data(*interpolator->GetSplineData());
 		vector<float> points = spline_data.GetFloatControlPointRange(interpolator->GetRotationHandle(), npts);
+
+
 		vector<float> control(npts);
 		vector<float> output(npoints * SizeofQuat);
 		for (int i = 0, j = 0; i < nctrl; ++i) {
@@ -548,6 +662,7 @@ vector< Key<float> > SampleScaleKeys(NiBSplineTransformInterpolatorRef& interpol
 		int npts = nctrl * SizeofScale;
 		Accessor<NiBSplineDataAccessor> spline_data(*interpolator->GetSplineData());
 		vector<float> points = spline_data.GetFloatControlPointRange(interpolator->GetScaleHandle(), npts);
+
 		vector<float> control(npts);
 		vector<float> output(npoints * SizeofScale);
 		for (int i = 0, j = 0; i < nctrl; ++i) {
@@ -1043,7 +1158,33 @@ bool AnimationExport::exportController()
 
 		FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with bindpose
 
-		if ( NiTransformInterpolatorRef interp = DynamicCast<NiTransformInterpolator>((*bitr).interpolator) )
+		if (NiBSplineCompTransformInterpolatorRef interp = DynamicCast<NiBSplineCompTransformInterpolator>((*bitr).interpolator))
+		{
+			int npoints = GetNumControlPoints(interp);
+
+			if (npoints > 3)
+			{
+				importVectorOfKeys(SampleTranslateKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
+				importVectorOfKeys(SampleQuatRotateKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
+				importVectorOfKeys(SampleScaleKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
+			}
+			else
+				throw runtime_error("Not enough points to calculate the spline");
+		}
+		//else if (NiBSplineTransformInterpolatorRef interp = DynamicCast<NiBSplineTransformInterpolator>((*bitr).interpolator))
+		//{
+		//	int npoints = GetNumControlPoints(interp);
+
+		//	if (npoints > 3)
+		//	{
+		//		importVectorOfKeys(SampleTranslateKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
+		//		importVectorOfKeys(SampleQuatRotateKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
+		//		importVectorOfKeys(SampleScaleKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
+		//	}
+		//	else
+		//		throw runtime_error("Not enough points to calculate the spline");
+		//}
+		else if (NiTransformInterpolatorRef interp = DynamicCast<NiTransformInterpolator>((*bitr).interpolator))
 		{
 			if (NiTransformDataRef data = interp->GetData())
 			{
@@ -1073,46 +1214,33 @@ bool AnimationExport::exportController()
 				}
 			}
 		}
-		else if (NiBSplineTransformInterpolatorRef interp = DynamicCast<NiBSplineTransformInterpolator>((*bitr).interpolator))
-		{
-			int npoints = GetNumControlPoints(interp);
-
-			if (npoints > 3)
-			{
-				importVectorOfKeys(SampleTranslateKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
-				importVectorOfKeys(SampleQuatRotateKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
-				importVectorOfKeys(SampleScaleKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
-			}
-			else
-				throw runtime_error("Not enough points to calculate the spline");
-		}
-		else if (NiKeyBasedInterpolatorRef interp = DynamicCast<NiKeyBasedInterpolator>((*bitr).interpolator)) {
-			//niboolinterpolator
-			//nifloatinterpolator
-			//nipathinterpolator
-			//nipoint3interpolator
-		}
+		//else if (NiKeyBasedInterpolatorRef interp = DynamicCast<NiKeyBasedInterpolator>((*bitr).interpolator)) {
+		//	//niboolinterpolator
+		//	//nifloatinterpolator
+		//	//nipathinterpolator
+		//	//nipoint3interpolator
+		//}
 	}
 
 	hkaSkeletonUtils::normalizeRotations (transforms.begin(), transforms.getSize()); 
 
 	// create the animation with default settings
 	{
-		hkaSplineCompressedAnimation::TrackCompressionParams tparams;
-		hkaSplineCompressedAnimation::AnimationCompressionParams aparams;
+		//hkaSplineCompressedAnimation::TrackCompressionParams tparams;
+		//hkaSplineCompressedAnimation::AnimationCompressionParams aparams;
 
-		tparams.m_rotationTolerance = 0.001f;
-		tparams.m_rotationQuantizationType = hkaSplineCompressedAnimation::TrackCompressionParams::THREECOMP40;
+		//tparams.m_rotationTolerance = 0.001f;
+		//tparams.m_rotationQuantizationType = hkaSplineCompressedAnimation::TrackCompressionParams::THREECOMP40;
 
-		hkRefPtr<hkaSplineCompressedAnimation> outAnim = new hkaSplineCompressedAnimation( *tempAnim.val(), tparams, aparams ); 
-		binding->m_animation = outAnim;
+		//hkRefPtr<hkaSplineCompressedAnimation> outAnim = new hkaSplineCompressedAnimation( *tempAnim.val(), tparams, aparams ); 
+		binding->m_animation = tempAnim;
 	}
 	
 	return true;
 }
 
-static void ExportAnimations(const string& rootdir, const string& skelfile
-                      , const vector<string>& animlist, const string& outdir
+static void ExportAnimations(const string& rootdir, const fs::path& skelfile
+                      , const vector<fs::path>& animlist, const string& outdir
                       , hkPackFormat pkFormat, const hkPackfileWriter::Options& packFileOptions
                       , hkSerializeUtil::SaveOptionBits flags
                       , bool norelativepath = false)
@@ -1124,7 +1252,7 @@ static void ExportAnimations(const string& rootdir, const string& skelfile
 	Log::Verbose("ExportAnimation('%s','%s','%s')", rootdir.c_str(), skelfile.c_str(), outdir.c_str());
 	// Read back a serialized file
 	{
-		hkIstream stream(skelfile.c_str());
+		hkIstream stream(skelfile.string().c_str());
 		hkStreamReader *reader = stream.getStreamReader();
       skelResource = hkSerializeLoadResource(reader);
       if (skelResource == NULL)
@@ -1143,15 +1271,15 @@ static void ExportAnimations(const string& rootdir, const string& skelfile
 	}
 	if (skeleton != NULL)
 	{
-		for (vector<string>::const_iterator itr = animlist.begin(); itr != animlist.end(); ++itr)
+		for (vector<fs::path>::const_iterator itr = animlist.begin(); itr != animlist.end(); ++itr)
 		{
-			string animfile = (*itr);
+			string animfile = (*itr).string();
 			Log::Verbose("ExportAnimation Starting '%s'", animfile.c_str());
 
 
 			char outfile[MAX_PATH], relout[MAX_PATH];
 			LPCSTR extn = PathFindExtension(outdir.c_str());
-			if (stricmp(extn, ".hkx") == 0)
+			if (stricmp(extn, ".kf") == 0)
 			{
 				strcpy(outfile, outdir.c_str());
 			}
@@ -1221,6 +1349,7 @@ static void ExportAnimations(const string& rootdir, const string& skelfile
 
 						hkOstream stream(outfile);
 						hkVariant root = { &rootCont, &rootCont.staticClass() };
+						flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT | hkSerializeUtil::SAVE_TEXT_NUMBERS);
 						hkResult res = hkSerializeUtilSave(pkFormat, root, stream, flags, packFileOptions);
 						if ( res != HK_SUCCESS )
 						{
@@ -1241,11 +1370,26 @@ static void ExportAnimations(const string& rootdir, const string& skelfile
 }
 //////////////////////////////////////////////////////////////////////////
 
+static void findFiles(fs::path startingDir, string extension, vector<fs::path>& results) {
+	if (!exists(startingDir) || !is_directory(startingDir)) return;
+	for (auto& dirEntry : fs::recursive_directory_iterator(startingDir))
+	{
+		if (fs::is_directory(dirEntry.path()))
+			continue;
+
+		std::string entry_extension = dirEntry.path().extension().string();
+		transform(entry_extension.begin(), entry_extension.end(), entry_extension.begin(), ::tolower);
+		if (entry_extension == extension) {
+			results.push_back(dirEntry.path().string());
+		}
+	}
+}
+
 static void ExportProject( const string &projfile, const char * rootPath, const char * outdir
                           , hkPackFormat pkFormat, const hkPackfileWriter::Options& packFileOptions
                           , hkSerializeUtil::SaveOptionBits flags, bool recursion)
 {
-	vector<string> skelfiles, animfiles;
+	vector<fs::path> skelfiles, animfiles;
 	char projpath[MAX_PATH], skelpath[MAX_PATH], animpath[MAX_PATH];
 
 	if ( wildmatch("*skeleton.hkx", projfile) )
@@ -1255,18 +1399,7 @@ static void ExportProject( const string &projfile, const char * rootPath, const 
 		GetFullPathName(projfile.c_str(), MAX_PATH, projpath, NULL);
 		PathRemoveFileSpec(projpath);
 		PathAddBackslash(projpath);
-		PathCombine(animpath, projpath, "..\\animations\\*.hkx");
-		FindFiles(animfiles, animpath, recursion);	
-	}
-	else
-	{
-		GetFullPathName(projfile.c_str(), MAX_PATH, projpath, NULL);
-		PathRemoveFileSpec(projpath);
-		PathAddBackslash(projpath);
-		PathCombine(skelpath, projpath, "character assets\\*skeleton.hkx");
-		FindFiles(skelfiles, skelpath, recursion);
-		PathCombine(animpath, projpath, "animations\\*.hkx");
-		FindFiles(animfiles, animpath, recursion);
+		findFiles(rootPath, ".kf", animfiles);
 	}
 	if (skelfiles.empty())
 	{
@@ -1294,8 +1427,14 @@ static void HK_CALL debugReport(const char* msg, void* userContext)
 
 bool ImportKF::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
+	string importKF, exportPath;
+
+	importKF = parsedArgs["<path_to_skeleton>"].asString();
+	exportPath = parsedArgs["<path_to_export>"].asString();
+
 	bool recursion = true;
 	vector<string> paths;
+	paths.push_back(importKF);
 	hkPackFormat pkFormat = HKPF_DEFAULT;
 	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
     AnimationExport::noRootSiblings = true;
@@ -1440,14 +1579,14 @@ bool ImportKF::InternalRunCommand(map<string, docopt::value> parsedArgs)
 					else // second path is animation, third is output
 					{
 						string animpath = paths[1];
-						if (PathIsDirectory(animpath.c_str()))
-						{
-							strcpy(rootPath, animpath.c_str());
-							animpath += string("\\*.hkx");
-							norelativepath = false;
-						}
-						vector<string> animfiles;
-						FindFiles(animfiles, animpath.c_str(), recursion);
+						//if (PathIsDirectory(animpath.c_str()))
+						//{
+						//	strcpy(rootPath, animpath.c_str());
+						//	animpath += string("\\*.hkx");
+						//	norelativepath = false;
+						//}
+						vector<fs::path> animfiles;
+						findFiles(animpath, "*hkx", animfiles);
 
 						if (animfiles.empty())
 						{

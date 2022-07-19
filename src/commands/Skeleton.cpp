@@ -62,6 +62,7 @@
 #include <obj/NiControllerSequence.h>
 #include <obj/NiStringPalette.h>
 #include <obj/NiTriStrips.h>
+#include <obj/NiTriShape.h>
 #include <obj/NiStringExtraData.h>
 #include <obj/NiFloatExtraData.h>
 
@@ -557,7 +558,7 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 					for (auto& controlledBlock : controllerBlock->GetControlledBlocks()) {
 						int offset = controlledBlock.nodeNameOffset;
 						Accessor<PaletteCollector> accessor(controllerBlock->GetStringPalette());
-						int next_end = accessor._palette.palette.find("\0", offset);
+						int next_end = accessor._palette.palette.find('\0', offset);
 						std::string bone = accessor._palette.palette.substr(offset, next_end - offset);
 						bonesFoundIntoAnimations.insert(bone);
 					}
@@ -582,6 +583,7 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		//find root
 		NiNodeRef skeleton_file_root = NULL;
 		vector<NiNodeRef> skeleton_nodes = DynamicCast<NiNode>(skeleton_blocks);
+
 		for (auto& snode : skeleton_nodes)
 		{
 			bool hasParent = false;
@@ -653,6 +655,67 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 				if (data->GetName().find("hkVis:") == 0 || data->GetName().find("hkFade:") == 0)
 				{
 					floatNames.push_back(data->GetName());
+				}
+			}
+		}
+
+		Log::Info("Load Meshes and search for missing bones\n");
+
+		map<string, vector<NiObjectRef>> meshesBlocksMap;
+		map<string, std::map<NiAVObjectRef, NiNodeRef>> meshesParentsMap;
+
+		for (vector<string>::iterator itr = meshes.begin(); itr != meshes.end(); ++itr) {
+			//Animation roots
+			Log::Info("Loading %s ...", itr->c_str());
+			vector<NiObjectRef> blocks = Niflib::ReadNifList(itr->c_str(), NULL /*, &options*/);
+			//build parents map
+			for (auto& object : blocks)
+			{
+				auto av_object = DynamicCast<NiNode>(object);
+				if (NULL != av_object)
+				{
+					for (auto& child : av_object->GetChildren())
+						meshesParentsMap[itr->c_str()][child] = av_object;
+				}
+			}
+			meshesBlocksMap[*itr] = blocks;
+
+			vector<NiNodeRef> mesh_nodes = DynamicCast<NiNode>(blocks);
+			vector<NiTriBasedGeomRef> meshes = DynamicCast<NiTriBasedGeom>(blocks);
+			vector<NiStringExtraDataRef> stringDatas = DynamicCast<NiStringExtraData>(blocks);
+
+			for (auto& node : meshes) {
+				if (bonesFoundIntoAnimations.find(node->GetName()) != bonesFoundIntoAnimations.end()) {
+					//Found the bone, get the attachment
+					string parentBoneName = "";
+					for (auto& stringdata : stringDatas) {
+						if (stringdata->GetName() == "Prn") {
+
+							parentBoneName = Accessor<ExtraDataColector>(stringdata)._string;
+						}
+					}
+					if (parentBoneName == "") throw runtime_error("Unable to find parent bone name");
+					//find the actual parent bone
+					for (vector<NiNodeRef>::iterator i = bones.begin(); i < bones.end(); i++) {
+						NiNodeRef bone = *i;
+						//create a fake bone and insert into the skeleton
+						if (bone->GetName() == parentBoneName) {
+							NiNodeRef fakeBone = DynamicCast<NiNode>(NiNode::Create());
+							fakeBone->SetName(node->GetName());
+							auto& children = bone->GetChildren();
+							children.push_back(StaticCast<NiAVObject>(fakeBone));
+							bone->SetChildren(children);
+							//fakeBone->SetParent(bone);
+							//fakeBone->SetLocalTransform(node->GetLocalTransform());
+							fakeBone->SetTranslation(node->GetTranslation());
+							fakeBone->SetRotation(node->GetRotation());
+							fakeBone->SetScale(node->GetScale());
+							skeleton_blocks.push_back(StaticCast<NiObject>(fakeBone));
+							boneNames.push_back(node->GetName());
+							bones.push_back(fakeBone);
+						}
+					}
+					bonesFoundIntoAnimations.erase(node->GetName());
 				}
 			}
 		}
@@ -810,63 +873,7 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		//	}
 		//}
 
-		Log::Info("Load Meshes and search for missing bones\n");
-
-		map<string, vector<NiObjectRef>> meshesBlocksMap;
-		map<string, std::map<NiAVObjectRef, NiNodeRef>> meshesParentsMap;
-
-		for (vector<string>::iterator itr = meshes.begin(); itr != meshes.end(); ++itr) {
-			//Animation roots
-			Log::Info("Loading %s ...", itr->c_str());
-			vector<NiObjectRef> blocks = Niflib::ReadNifList(itr->c_str(), NULL /*, &options*/);
-			//build parents map
-			for (auto& object : blocks)
-			{
-				auto av_object = DynamicCast<NiNode>(object);
-				if (NULL != av_object)
-				{
-					for (auto& child : av_object->GetChildren())
-						meshesParentsMap[itr->c_str()][child] = av_object;
-				}
-			}
-			meshesBlocksMap[*itr] = blocks;
-
-			vector<NiNodeRef> mesh_nodes = DynamicCast<NiNode>(blocks);
-			vector<NiTriStripsRef> meshes = DynamicCast<NiTriStrips>(blocks);
-			vector<NiStringExtraDataRef> stringDatas = DynamicCast<NiStringExtraData>(blocks);
-
-			for (auto& node : meshes) {
-				if (bonesFoundIntoAnimations.find(node->GetName()) != bonesFoundIntoAnimations.end()) {
-					//Found the bone, get the attachment
-					string parentBoneName = "";
-					for (auto& stringdata : stringDatas) {
-						if (stringdata->GetName() == "Prn") {
-
-							parentBoneName = Accessor<ExtraDataColector>(stringdata)._string;
-						}
-					}
-					if (parentBoneName == "") throw runtime_error("Unable to find parent bone name");
-					//find the actual parent bone
-					for (vector<NiNodeRef>::iterator i = bones.begin(); i < bones.end(); i++) {
-						NiNodeRef bone = *i;
-						//create a fake bone and insert into the skeleton
-						if (bone->GetName() == parentBoneName) {
-							NiNodeRef fakeBone = DynamicCast<NiNode>(NiNode::Create());
-							fakeBone->SetName(node->GetName());
-							auto& children = bone->GetChildren();
-							children.push_back(StaticCast<NiAVObject>(fakeBone));
-							//fakeBone->SetParent(bone);
-							//fakeBone->SetLocalTransform(node->GetLocalTransform());
-							fakeBone->SetTranslation(node->GetTranslation());
-							fakeBone->SetRotation(node->GetRotation());
-							fakeBone->SetScale(node->GetScale());
-							i = bones.insert(++i, fakeBone);
-						}
-					}
-					bonesFoundIntoAnimations.erase(node->GetName());
-				}
-			}
-		}
+		
 
 		Log::Info("Build skeleton\n");
 
