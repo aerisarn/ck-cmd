@@ -1099,6 +1099,8 @@ bool AnimationExport::exportController()
 	vector<Niflib::ControlledBlock> blocks = seq->GetControlledBlocks();
 	int nbones = skeleton->m_bones.getSize();
 
+	//Find accum bone
+
    //if (AnimationExport::noRootSiblings)
    //{
 	  // // Remove bones not children of root.  This is a bit of a kludge.  
@@ -1139,7 +1141,14 @@ bool AnimationExport::exportController()
 		boneMap[name] = i;
 	}
 
-
+	if (boneMap.find(seq->GetAccumRootName()) == boneMap.end())
+	{
+		Log::Error("Unable to find sequence accumulation root into the skeleton!");
+		return false;
+	}
+	int accum_root_index = boneMap.at(seq->GetAccumRootName());
+	hkQsTransform rootTransform = skeleton->m_referencePose[accum_root_index];
+	//rootTransform.setInverse(rootTransform);
 
 	//Controlled links
 	for ( vector<Niflib::ControlledBlock>::iterator bitr = blocks.begin(); bitr != blocks.end(); ++bitr)
@@ -1155,18 +1164,43 @@ bool AnimationExport::exportController()
 
 		int boneIdx = boneitr->second;
 		hkQsTransform localTransform = skeleton->m_referencePose[boneIdx];
+		NiTransformInterpolatorRef generic_interp = DynamicCast<NiTransformInterpolator>((*bitr).interpolator);
+		if (NULL != generic_interp)
+		{
+			auto translation = TOVECTOR4(generic_interp->GetTransform().translation);
+			SetTransformPosition(localTransform, translation);
+			if (generic_interp->GetTransform().rotation.x != FloatNegINF)
+			{
+				auto rotation = TOQUAT(generic_interp->GetTransform().rotation);
+				SetTransformRotation(localTransform, rotation);
+			}
+			auto scale = generic_interp->GetTransform().scale;
+			SetTransformScale(localTransform, scale);
+		}
 
 		FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with bindpose
 
 		if (NiBSplineCompTransformInterpolatorRef interp = DynamicCast<NiBSplineCompTransformInterpolator>((*bitr).interpolator))
 		{
+			auto translation = TOVECTOR4(interp->GetTransform().translation);
+			SetTransformPosition(localTransform, translation);
+			if (interp->GetTransform().rotation.x != FloatNegINF)
+			{
+				auto rotation = TOQUAT(interp->GetTransform().rotation);
+				SetTransformRotation(localTransform, rotation);
+			}
+			auto scale = interp->GetTransform().scale;
+			SetTransformScale(localTransform, scale);
+
+			FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with bindpose
+
 			int npoints = GetNumControlPoints(interp);
 
 			if (npoints > 3)
 			{
-				importVectorOfKeys(SampleTranslateKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
-				importVectorOfKeys(SampleQuatRotateKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
-				importVectorOfKeys(SampleScaleKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
+				importVectorOfKeys(SampleTranslateKeys(interp, nframes, 3), transforms, nbones, boneIdx, duration);
+				importVectorOfKeys(SampleQuatRotateKeys(interp, nframes, 3), transforms, nbones, boneIdx, duration);
+				importVectorOfKeys(SampleScaleKeys(interp, nframes, 3), transforms, nbones, boneIdx, duration);
 			}
 			else
 				throw runtime_error("Not enough points to calculate the spline");
@@ -1214,6 +1248,12 @@ bool AnimationExport::exportController()
 				}
 			}
 		}
+
+		if (boneIdx == accum_root_index)
+		{
+
+		}
+
 		//else if (NiKeyBasedInterpolatorRef interp = DynamicCast<NiKeyBasedInterpolator>((*bitr).interpolator)) {
 		//	//niboolinterpolator
 		//	//nifloatinterpolator

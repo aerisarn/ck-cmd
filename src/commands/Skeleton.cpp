@@ -662,38 +662,43 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		Log::Info("Load Meshes and search for missing bones\n");
 
 		map<string, vector<NiObjectRef>> meshesBlocksMap;
-		map<string, std::map<NiAVObjectRef, NiNodeRef>> meshesParentsMap;
 
 		for (vector<string>::iterator itr = meshes.begin(); itr != meshes.end(); ++itr) {
 			//Animation roots
 			Log::Info("Loading %s ...", itr->c_str());
 			vector<NiObjectRef> blocks = Niflib::ReadNifList(itr->c_str(), NULL /*, &options*/);
+			vector<NiNodeRef> meshes_nodes = DynamicCast<NiNode>(blocks);
 			//build parents map
-			for (auto& object : blocks)
+			NiNodeRef root;
+			for (auto& ninode : meshes_nodes)
 			{
-				auto av_object = DynamicCast<NiNode>(object);
-				if (NULL != av_object)
+				bool hasParent = false;
+				for (auto& another_ninode : meshes_nodes)
 				{
-					for (auto& child : av_object->GetChildren())
-						meshesParentsMap[itr->c_str()][child] = av_object;
+					for (auto& child : another_ninode->GetChildren())
+					{
+						if (child == ninode)
+						{
+							hasParent = true;
+							break;
+						}
+					}
 				}
+				if (!hasParent)
+					root = ninode;
 			}
-			meshesBlocksMap[*itr] = blocks;
-
-			vector<NiNodeRef> mesh_nodes = DynamicCast<NiNode>(blocks);
 			vector<NiTriBasedGeomRef> meshes = DynamicCast<NiTriBasedGeom>(blocks);
-			vector<NiStringExtraDataRef> stringDatas = DynamicCast<NiStringExtraData>(blocks);
 
 			for (auto& node : meshes) {
 				if (bonesFoundIntoAnimations.find(node->GetName()) != bonesFoundIntoAnimations.end()) {
 					//Found the bone, get the attachment
 					string parentBoneName = "";
-					for (auto& stringdata : stringDatas) {
+					for (auto& stringdata : root->GetExtraDataList()) {
 						if (stringdata->GetName() == "Prn") {
-
-							parentBoneName = Accessor<ExtraDataColector>(stringdata)._string;
+							parentBoneName = Accessor<ExtraDataColector>(StaticCast<NiStringExtraData>(stringdata))._string;
 						}
 					}
+
 					if (parentBoneName == "") throw runtime_error("Unable to find parent bone name");
 					//find the actual parent bone
 					for (vector<NiNodeRef>::iterator i = bones.begin(); i < bones.end(); i++) {
@@ -705,11 +710,36 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 							auto& children = bone->GetChildren();
 							children.push_back(StaticCast<NiAVObject>(fakeBone));
 							bone->SetChildren(children);
-							//fakeBone->SetParent(bone);
-							//fakeBone->SetLocalTransform(node->GetLocalTransform());
-							fakeBone->SetTranslation(node->GetTranslation());
-							fakeBone->SetRotation(node->GetRotation());
-							fakeBone->SetScale(node->GetScale());
+
+							NiNodeRef parent = bone;
+							//Calculate bone worldtranslation
+							//hkQsTransform parent_transform;
+							//parent_transform.setTranslation(TOVECTOR4(bone->GetTranslation()));
+							//parent_transform.setRotation(TOQUAT(bone->GetRotation().AsQuaternion()));
+							//parent_transform.setScale(hkVector4(1., 1., 1.));
+							//while (skeletonParentsMap.find(StaticCast<NiAVObject>(parent)) != skeletonParentsMap.end())
+							//{
+							//	parent = skeletonParentsMap.at(StaticCast<NiAVObject>(parent));
+							//	hkQsTransform transform;
+							//	transform.setTranslation(TOVECTOR4(parent->GetTranslation()));
+							//	transform.setRotation(TOQUAT(parent->GetRotation().AsQuaternion()));
+							//	transform.setScale(hkVector4(1., 1., 1.));
+							//	parent_transform.setMul(transform, parent_transform);
+							//}
+
+							//hkQsTransform attachment_transform;
+							//attachment_transform.setTranslation(TOVECTOR4(node->GetTranslation()));
+							//attachment_transform.setRotation(TOQUAT(node->GetRotation().AsQuaternion()));
+							//attachment_transform.setScale(hkVector4(1., 1., 1.));
+
+							//hkQsTransform local_transform; local_transform.setMulInverseMul(attachment_transform, parent_transform);
+
+							//fakeBone->SetTranslation(TOVECTOR3(local_transform.getTranslation()));
+							//fakeBone->SetRotation(TOQUAT(local_transform.getRotation()).AsMatrix());
+							//fakeBone->SetScale(1.);
+							fakeBone->SetTranslation(root->GetTranslation());
+							fakeBone->SetRotation(root->GetRotation());
+							fakeBone->SetScale(root->GetScale());
 							skeleton_blocks.push_back(StaticCast<NiObject>(fakeBone));
 							boneNames.push_back(node->GetName());
 							bones.push_back(fakeBone);
