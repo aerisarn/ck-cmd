@@ -120,6 +120,9 @@
 
 #include <interfaces\misc.h>
 
+#include <core/HKXWrangler.h>
+#include <core/EulerAngles.h>
+
 using namespace Niflib;
 using namespace std;
 using namespace ConvertKF;
@@ -1269,6 +1272,7 @@ bool AnimationExport::exportController()
 	float duration = seq->GetStopTime() - seq->GetStartTime();
 	int nframes = (int)roundf(duration / FramesIncrement);
 
+	float frameTime = duration / nframes;
 
 	int nCurrentFrame = 0;
 
@@ -1306,6 +1310,13 @@ bool AnimationExport::exportController()
 			anno.m_text = entry.second.c_str();
 			anno.m_time = entry.first;
 			root_annotations.m_annotations.pushBack(anno);
+
+			_root_info.events.push_back(
+				{
+					entry.first,
+					entry.second
+				}
+			);
 		}
 	}
 
@@ -1426,18 +1437,79 @@ bool AnimationExport::exportController()
 				}
 			}
 		}
-
-		if (boneIdx == accum_root_index)
-		{
-
-		}
-
 		//else if (NiKeyBasedInterpolatorRef interp = DynamicCast<NiKeyBasedInterpolator>((*bitr).interpolator)) {
 		//	//niboolinterpolator
 		//	//nifloatinterpolator
 		//	//nipathinterpolator
 		//	//nipoint3interpolator
 		//}
+	}
+
+	//Extract Motion
+	for (int f = 0; f < nframes; f++)
+	{
+		hkQsTransform& root_transform = tempAnim->m_transforms[nbones * f];
+		hkQsTransform& pelvis_transform = tempAnim->m_transforms[nbones * f + 1]; //assume pelvis is the second bone
+
+		hkQsTransform pelvis_world_transform; pelvis_world_transform.setMul(root_transform, pelvis_transform);
+		
+		// the root movement is x, y, rotation round z
+		root_transform.setTranslation(
+			hkVector4(
+				0.,//pelvis_world_transform.getTranslation()(0),
+				0.,//pelvis_world_transform.getTranslation()(1),
+				0.
+			)
+		);
+		auto quat = pelvis_world_transform.getRotation();
+		Quat QuatRotNew = { quat(0), quat(1), quat(2), quat(3) };
+		EulerAngles z_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
+		z_eul.x = 0; z_eul.y = 0;
+		EulerAngles xy_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
+		xy_eul.z = 0;
+		auto z_quat = Eul_ToQuat(z_eul);
+		auto xy_quat = Eul_ToQuat(xy_eul);
+
+		_root_info.translations.push_back
+		({
+			f * (frameTime),
+			hkVector4(pelvis_world_transform.getTranslation()(0), pelvis_world_transform.getTranslation()(1), 0.0)
+			});
+
+		_root_info.rotations.push_back
+		({
+			f* (frameTime),
+			{(float)z_quat.x, (float)z_quat.y, (float)z_quat.z, (float)z_quat.w}
+		});
+
+
+		rootTransform.setRotation({0., 0., 0., 1.});
+
+		//Pelvis Movement gets the rest;
+		pelvis_transform.setTranslation(
+			hkVector4(
+				0.,
+				0.,
+				pelvis_world_transform.getTranslation()(2)
+			)
+		);
+		pelvis_transform.setRotation({ (float)xy_quat.x, (float)xy_quat.y, (float)xy_quat.z, (float)xy_quat.w });
+	}
+
+	if (_root_info.translations.empty()) {
+		_root_info.translations.push_back
+		({
+			duration,
+			hkVector4(0.0, 0.0, 0.0)
+			});
+	}
+
+	if (_root_info.rotations.empty()) {
+		_root_info.rotations.push_back
+		({
+			duration,
+			::hkQuaternion(0.0, 0.0, 0.0, 1.0)
+			});
 	}
 
 	hkaSkeletonUtils::normalizeRotations (transforms.begin(), transforms.getSize()); 
@@ -1461,6 +1533,7 @@ void ImportKF::ExportAnimations(const string& rootdir, const fs::path& skelfile
                       , const vector<fs::path>& animlist, const string& outdir
                       , hkPackFormat pkFormat, const hkPackfileWriter::Options& packFileOptions
                       , hkSerializeUtil::SaveOptionBits flags
+					  , ckcmd::HKX::RootMovement& root_info
                       , bool norelativepath)
 {
 	hkResource* skelResource = NULL;
@@ -1573,6 +1646,7 @@ void ImportKF::ExportAnimations(const string& rootdir, const fs::path& skelfile
 						{
 							Log::Error("Havok reports save failed.");
 						}
+						root_info = exporter._root_info;
 					}
 					else
 					{
@@ -1633,7 +1707,8 @@ static void ExportProject( const string &projfile, const char * rootPath, const 
 	}
 	else
 	{
-		ImportKF::ExportAnimations(string(rootPath), skelfiles[0],animfiles, outdir, pkFormat, packFileOptions, flags, false);
+		ckcmd::HKX::RootMovement movement;
+		ImportKF::ExportAnimations(string(rootPath), skelfiles[0],animfiles, outdir, pkFormat, packFileOptions, flags, movement, false);
 	}
 }
 
@@ -1819,8 +1894,8 @@ bool ImportKF::InternalRunCommand(map<string, docopt::value> parsedArgs)
 							} else { 
 								strcpy(outdir, rootPath); 
 							}
-
-							ExportAnimations(string(rootPath), skelpath, animfiles, outdir, pkFormat, packFileOptions, flags, norelativepath);
+							ckcmd::HKX::RootMovement movement;
+							ExportAnimations(string(rootPath), skelpath, animfiles, outdir, pkFormat, packFileOptions, flags, movement, norelativepath);
 						}
 
 					}

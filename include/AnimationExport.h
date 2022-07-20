@@ -112,6 +112,8 @@ typedef Niflib::Key<string> StringKey;
 #include <cstdio>
 #include <sys/stat.h>
 
+#include <core/HKXWrangler.h>
+
 namespace ConvertKF {
 
 	struct AnimationExport
@@ -128,6 +130,7 @@ namespace ConvertKF {
 		hkRefPtr<hkaSkeleton> skeleton;
 		static bool noRootSiblings;
 		const Niflib::NifInfo& _info;
+		ckcmd::HKX::RootMovement _root_info;
 	};
 
 }
