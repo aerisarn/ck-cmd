@@ -932,10 +932,10 @@ QModelIndexList ProjectModel::match(const QModelIndex& start, int role,
 		QModelIndex next_idx = next(idx);
 
 		if (visited.find(next_idx) != visited.end())
-			__debugbreak();
+			return { next_idx };
 
 		if (next_idx == idx)
-			__debugbreak();
+			return { next_idx };
 		if (!recurse)
 		{
 			while (next_idx.internalPointer() > idx.internalPointer())

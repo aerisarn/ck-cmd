@@ -110,13 +110,14 @@ string Skeleton::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd importanimation
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_input> -o <path_to_output>\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_input> <path_to_animations> -o <path_to_output>\r\n";
 
 	const char help[] =
 		R"(Converts a NIF skeleton with optional kf animation extending set into an HKX skeleton.
 		
 		Arguments:
-			<path_to_input> path where skeleton nif and kf animations are found
+			<path_to_input> path where skeleton nif (with optional original skeleton.hkx for bones order)
+			<path_to_animations> path where kf animations are for checking additional for bones
 			<path_to_output>, folder where skleton.hkx will be produced
 
 		)";
@@ -445,15 +446,16 @@ template <> struct Accessor<ExtraDataColector>
 bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	string inpath = parsedArgs["<path_to_input>"].asString();
+	string animations_path = parsedArgs["<path_to_animations>"].asString();
 	string outpath = ".";
 	if (parsedArgs["-o"].asBool())
 		outpath = parsedArgs["<path_to_output>"].asString();
 
-	return Convert(inpath, outpath);
+	return Convert(inpath, animations_path, outpath);
 }
 
 
-bool Skeleton::Convert(const string& inpath, const string& outpath)
+bool Skeleton::Convert(const string& inpath, const string& animations_path, const string& outpath)
 {
 
 	hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT|hkSerializeUtil::SAVE_TEXT_NUMBERS);
@@ -496,7 +498,7 @@ bool Skeleton::Convert(const string& inpath, const string& outpath)
 		//animations
 		includes.push_back("*.kf");
 		vector<string> animations;
-		FindFiles(animations, inpath.c_str(), excludes, true, includes);
+		FindFiles(animations, animations_path.c_str(), excludes, true, includes);
 
 		//meshes		
 		includes.clear();

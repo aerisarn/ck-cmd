@@ -146,13 +146,14 @@ string ImportKF::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd exportfbx
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton> [-e <path_to_export>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton> <path_to_animations> [-e <path_to_export>]\r\n";
 
 	const char help[] =
 		R"(Converts KF format to HKX.
 		
 		Arguments:
-			<path_to_skeleton> the FBX to convert
+			<path_to_skeleton> the skeleton for the animations to convert
+			<path_to_animations> the animation directory containing fk files to convert
 			<path_to_export> path to the output directory
 
 		)";
@@ -1720,14 +1721,17 @@ static void HK_CALL debugReport(const char* msg, void* userContext)
 
 bool ImportKF::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
-	string importKF, exportPath;
+	string importKF, animationPaths, exportPath;
 
 	importKF = parsedArgs["<path_to_skeleton>"].asString();
+	animationPaths = parsedArgs["<path_to_animations>"].asString();
 	exportPath = parsedArgs["<path_to_export>"].asString();
 
 	bool recursion = true;
 	vector<string> paths;
 	paths.push_back(importKF);
+	paths.push_back(animationPaths);
+	paths.push_back(exportPath);
 	hkPackFormat pkFormat = HKPF_DEFAULT;
 	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
     AnimationExport::noRootSiblings = true;
@@ -1879,7 +1883,7 @@ bool ImportKF::InternalRunCommand(map<string, docopt::value> parsedArgs)
 						//	norelativepath = false;
 						//}
 						vector<fs::path> animfiles;
-						findFiles(animpath, "*hkx", animfiles);
+						findFiles(animpath, ".kf", animfiles);
 
 						if (animfiles.empty())
 						{

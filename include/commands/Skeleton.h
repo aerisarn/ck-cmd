@@ -18,7 +18,7 @@ public:
 	virtual string GetHelp() const;
 	virtual string GetHelpShort() const;
 
-	static bool Convert(const string& inpath, const string& outpath);
+	static bool Convert(const string& inpath, const string& animations_path, const string& outpath);
 
 protected:
 	virtual bool InternalRunCommand(map<string, docopt::value> parsedArgs);
