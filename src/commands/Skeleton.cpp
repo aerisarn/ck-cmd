@@ -1048,356 +1048,367 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 				ragdollParentMap[rbIndex] = -1;
 			}
 		}
+		bool doRagdoll = !rbNames.empty() && ragdoll_root_index != -1;
 
-
-
-		Log::Info("Ragdoll Parent map created, root bone: %s\n", rbNames[ragdoll_root_index].c_str());
-
-		hkRefPtr<hkaSkeleton> hkRagdollSkeleton = new hkaSkeleton();
-		hkRagdollSkeleton->m_name = rbNames[ragdoll_root_index].c_str();
-
-		//Allocate
-		hkRagdollSkeleton->m_parentIndices.setSize(rigidBodies.size());
-		hkRagdollSkeleton->m_bones.setSize(rigidBodies.size());
-		hkRagdollSkeleton->m_referencePose.setSize(rigidBodies.size());
-
-		auto& NIFParentMap = skeletonParentsMap;
-
-		std::function<void(hkQsTransform&, NiNodeRef)> getReferencePose = [&NIFParentMap](hkQsTransform& out, NiNodeRef bone)
+		if (rbNames.empty())
 		{
-			out.setIdentity();
-			auto parent = bone;
-			if (NIFParentMap.find(StaticCast<NiAVObject>(parent)) != NIFParentMap.end())
-			{
-				while (parent != NULL)
-				{
-					hkQsTransform parent_transform;
-					parent_transform.setTranslation(TOVECTOR4(parent->GetTranslation()));
-					parent_transform.setRotation(TOQUAT(parent->GetRotation().AsQuaternion()));
-					parent_transform.setScale(hkVector4(1., 1., 1.));
-					out.setMul(parent_transform, out);
+			Log::Info("No bhkBlendCollision objects found, no ragdoll can be made\n");
+		}
 
-					if (NIFParentMap.find(StaticCast<NiAVObject>(parent)) != NIFParentMap.end())
+		if (ragdoll_root_index == -1)
+		{
+			Log::Info("No root bhkBlendCollision object found, no ragdoll can be made\n");
+		}
+
+		if (doRagdoll)
+		{
+			Log::Info("Ragdoll Parent map created, root bone: %s\n", rbNames[ragdoll_root_index].c_str());
+
+			hkRefPtr<hkaSkeleton> hkRagdollSkeleton = new hkaSkeleton();
+			hkRagdollSkeleton->m_name = rbNames[ragdoll_root_index].c_str();
+
+			//Allocate
+			hkRagdollSkeleton->m_parentIndices.setSize(rigidBodies.size());
+			hkRagdollSkeleton->m_bones.setSize(rigidBodies.size());
+			hkRagdollSkeleton->m_referencePose.setSize(rigidBodies.size());
+
+			auto& NIFParentMap = skeletonParentsMap;
+
+			std::function<void(hkQsTransform&, NiNodeRef)> getReferencePose = [&NIFParentMap](hkQsTransform& out, NiNodeRef bone)
+			{
+				out.setIdentity();
+				auto parent = bone;
+				if (NIFParentMap.find(StaticCast<NiAVObject>(parent)) != NIFParentMap.end())
+				{
+					while (parent != NULL)
 					{
-						parent = NIFParentMap.at(StaticCast<NiAVObject>(parent));
-					}
-					else {
-						parent = NULL;
+						hkQsTransform parent_transform;
+						parent_transform.setTranslation(TOVECTOR4(parent->GetTranslation()));
+						parent_transform.setRotation(TOQUAT(parent->GetRotation().AsQuaternion()));
+						parent_transform.setScale(hkVector4(1., 1., 1.));
+						out.setMul(parent_transform, out);
+
+						if (NIFParentMap.find(StaticCast<NiAVObject>(parent)) != NIFParentMap.end())
+						{
+							parent = NIFParentMap.at(StaticCast<NiAVObject>(parent));
+						}
+						else {
+							parent = NULL;
+						}
 					}
 				}
+			};
+
+			for (size_t i = 0; i < rigidBodies.size(); i++) {
+				bhkBlendCollisionObjectRef body = rigidBodies[i];
+				bhkRigidBodyRef rbody = DynamicCast<bhkRigidBody>(body->GetBody());
+				NiNodeRef bone = bones[ragdollAnimationParentMap[i]];
+				//parent map
+				hkRagdollSkeleton->m_parentIndices[i] = ragdollParentMap[i];
+
+				double scale = 1.0;
+
+				//bone track
+				hkaBone& hkBone = hkRagdollSkeleton->m_bones[i];
+				hkBone.m_name = rbNames[i].c_str();
+				if (i == ragdoll_root_index) {
+					hkBone.m_lockTranslation = false;
+
+					//getReferencePose(hkRagdollSkeleton->m_referencePose[i], bone);
+
+					//hkRagdollSkeleton->m_referencePose[i].setTranslation(TOVECTOR4(bone->GetWorldTransform().GetTranslation()*scale));
+					//hkRagdollSkeleton->m_referencePose[i].setRotation(TOQUAT(bone->GetWorldTransform().GetRotation().AsQuaternion()));
+					//hkRagdollSkeleton->m_referencePose[i].setScale(hkVector4(1., 1., 1.));
+
+					hkQsTransform nifRbTransform;
+					nifRbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation() / bhkScaleFactorInverse));
+					nifRbTransform.setRotation(TOQUAT(rbody->GetRotation()));
+					nifRbTransform.setScale(hkVector4(1.0, 1.0, 1.0));
+
+					hkRagdollSkeleton->m_referencePose[i] = nifRbTransform;
+
+					//hkRagdollSkeleton->m_referencePose[i].setMul(hkRagdollSkeleton->m_referencePose[i], rbTransform);
+				}
+				else {
+					hkBone.m_lockTranslation = true;
+					//calculate the previous rb world transform
+					int findroot = ragdollParentMap[i];
+					hkQsTransform previous(hkQsTransform::IDENTITY);
+					while (findroot != -1) {
+						previous.setMul(hkRagdollSkeleton->m_referencePose[findroot], previous);
+						findroot = ragdollParentMap[findroot];
+					}
+
+					//calculate the relative transform between the parent rb bone
+					//hkQsTransform& previous = hkRagdollSkeleton->m_referencePose[ragdollParentMap[i]];
+					hkQsTransform& next = hkRagdollSkeleton->m_referencePose[i];
+
+					//hkQsTransform bone_next; getReferencePose(bone_next, bone);
+
+					hkQsTransform nifRbTransform;
+					nifRbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation() / bhkScaleFactorInverse));
+					nifRbTransform.setRotation(TOQUAT(rbody->GetRotation()));
+					nifRbTransform.setScale(hkVector4(1.0, 1.0, 1.0));
+
+					//next.setTranslation(TOVECTOR4(bone->GetWorldTransform().GetTranslation()*scale));
+					//next.setRotation(TOQUAT(bone->GetWorldTransform().GetRotation().AsQuaternion()));
+					//next.setScale(hkVector4(bone->GetWorldTransform().GetScale(), bone->GetWorldTransform().GetScale(), bone->GetWorldTransform().GetScale()));
+
+					//hkQsTransform rbTransform;
+					//rbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation()*scale));
+					//rbTransform.setRotation(TOQUAT(rbody->GetRotation()));
+					//rbTransform.setScale(hkVector4(1.0,1.0,1.0));
+					//next.setMul(next, rbTransform);
+
+					next.setMulInverseMul(previous, nifRbTransform);
+					//next = nifRbTransform;
+				}
 			}
-		};
 
-		for (size_t i = 0; i < rigidBodies.size(); i++) {
-			bhkBlendCollisionObjectRef body = rigidBodies[i];
-			bhkRigidBodyRef rbody = DynamicCast<bhkRigidBody>(body->GetBody());
-			NiNodeRef bone = bones[ragdollAnimationParentMap[i]];
-			//parent map
-			hkRagdollSkeleton->m_parentIndices[i] = ragdollParentMap[i];
+			skelAnimCont->m_skeletons.append(&hkRagdollSkeleton, 1);
 
-			double scale = 1.0;
+			Log::Info("Build Mappings Ragdoll -> Skeleton\n");
 
-			//bone track
-			hkaBone& hkBone = hkRagdollSkeleton->m_bones[i];
-			hkBone.m_name = rbNames[i].c_str();
-			if (i == ragdoll_root_index) {
-				hkBone.m_lockTranslation = false;
-				
-				//getReferencePose(hkRagdollSkeleton->m_referencePose[i], bone);
+			hkaSkeletonMapperData* fromRagdollToSkeletonMapping = new hkaSkeletonMapperData();
+			fromRagdollToSkeletonMapping->m_simpleMappings.setSize(rigidBodies.size());
+			fromRagdollToSkeletonMapping->m_skeletonA = hkRagdollSkeleton;
+			fromRagdollToSkeletonMapping->m_skeletonB = hkSkeleton;
+			fromRagdollToSkeletonMapping->m_mappingType = hkaSkeletonMapperData::HK_RAGDOLL_MAPPING;
+			set<int> mappedBones;
+			for (size_t i = 0; i < rigidBodies.size(); i++) {
+				hkaSkeletonMapperData::SimpleMapping& mapping = fromRagdollToSkeletonMapping->m_simpleMappings[i];
+				mapping.m_boneA = i;
+				mapping.m_boneB = ragdollAnimationParentMap[i];
+				mappedBones.insert(ragdollAnimationParentMap[i]);
 
-				//hkRagdollSkeleton->m_referencePose[i].setTranslation(TOVECTOR4(bone->GetWorldTransform().GetTranslation()*scale));
-				//hkRagdollSkeleton->m_referencePose[i].setRotation(TOQUAT(bone->GetWorldTransform().GetRotation().AsQuaternion()));
-				//hkRagdollSkeleton->m_referencePose[i].setScale(hkVector4(1., 1., 1.));
-
-				hkQsTransform nifRbTransform;
-				nifRbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation() / bhkScaleFactorInverse));
-				nifRbTransform.setRotation(TOQUAT(rbody->GetRotation()));
-				nifRbTransform.setScale(hkVector4(1.0, 1.0, 1.0));
-
-				hkRagdollSkeleton->m_referencePose[i] = nifRbTransform;
-
-				//hkRagdollSkeleton->m_referencePose[i].setMul(hkRagdollSkeleton->m_referencePose[i], rbTransform);
-			}
-			else {
-				hkBone.m_lockTranslation = true;
-				//calculate the previous rb world transform
+				//Absolute transform
 				int findroot = ragdollParentMap[i];
-				hkQsTransform previous(hkQsTransform::IDENTITY);
-				while (findroot!=-1) {
-					previous.setMul(hkRagdollSkeleton->m_referencePose[findroot], previous);
+				hkQsTransform ragdollBoneTransform = hkRagdollSkeleton->m_referencePose[i];
+				while (findroot != -1) {
+					ragdollBoneTransform.setMul(hkRagdollSkeleton->m_referencePose[findroot], ragdollBoneTransform);
 					findroot = ragdollParentMap[findroot];
 				}
 
-				//calculate the relative transform between the parent rb bone
-				//hkQsTransform& previous = hkRagdollSkeleton->m_referencePose[ragdollParentMap[i]];
-				hkQsTransform& next = hkRagdollSkeleton->m_referencePose[i];
+				NiNodeRef animationBone = bones[ragdollAnimationParentMap[i]];
 
-				//hkQsTransform bone_next; getReferencePose(bone_next, bone);
+				hkQsTransform animationBoneTransform;
+				double scale = 1.0;
+				getReferencePose(animationBoneTransform, animationBone);
 
-				hkQsTransform nifRbTransform;
-				nifRbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation() / bhkScaleFactorInverse));
-				nifRbTransform.setRotation(TOQUAT(rbody->GetRotation()));
-				nifRbTransform.setScale(hkVector4(1.0, 1.0, 1.0));
+				//animationBoneTransform.setTranslation(TOVECTOR4(animationBone->GetWorldTransform().GetTranslation()*scale));
+				//animationBoneTransform.setRotation(TOQUAT(animationBone->GetWorldTransform().GetRotation().AsQuaternion()));
+				//animationBoneTransform.setScale(hkVector4(animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale()));
 
-				//next.setTranslation(TOVECTOR4(bone->GetWorldTransform().GetTranslation()*scale));
-				//next.setRotation(TOQUAT(bone->GetWorldTransform().GetRotation().AsQuaternion()));
-				//next.setScale(hkVector4(bone->GetWorldTransform().GetScale(), bone->GetWorldTransform().GetScale(), bone->GetWorldTransform().GetScale()));
-
-				//hkQsTransform rbTransform;
-				//rbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation()*scale));
-				//rbTransform.setRotation(TOQUAT(rbody->GetRotation()));
-				//rbTransform.setScale(hkVector4(1.0,1.0,1.0));
-				//next.setMul(next, rbTransform);
-
-				next.setMulInverseMul(previous, nifRbTransform);
-				//next = nifRbTransform;
-			}
-		}
-
-		skelAnimCont->m_skeletons.append(&hkRagdollSkeleton, 1);
-
-		Log::Info("Build Mappings Ragdoll -> Skeleton\n");
-
-		hkaSkeletonMapperData* fromRagdollToSkeletonMapping = new hkaSkeletonMapperData();
-		fromRagdollToSkeletonMapping->m_simpleMappings.setSize(rigidBodies.size());
-		fromRagdollToSkeletonMapping->m_skeletonA = hkRagdollSkeleton;
-		fromRagdollToSkeletonMapping->m_skeletonB = hkSkeleton;
-		fromRagdollToSkeletonMapping->m_mappingType = hkaSkeletonMapperData::HK_RAGDOLL_MAPPING;
-		set<int> mappedBones;
-		for (size_t i = 0; i < rigidBodies.size(); i++) {
-			hkaSkeletonMapperData::SimpleMapping& mapping = fromRagdollToSkeletonMapping->m_simpleMappings[i];
-			mapping.m_boneA = i;
-			mapping.m_boneB = ragdollAnimationParentMap[i];
-			mappedBones.insert(ragdollAnimationParentMap[i]);
-
-			//Absolute transform
-			int findroot = ragdollParentMap[i];
-			hkQsTransform ragdollBoneTransform = hkRagdollSkeleton->m_referencePose[i];
-			while (findroot != -1) {
-				ragdollBoneTransform.setMul(hkRagdollSkeleton->m_referencePose[findroot], ragdollBoneTransform);
-				findroot = ragdollParentMap[findroot];
+				mapping.m_aFromBTransform.setMulInverseMul(ragdollBoneTransform, animationBoneTransform);
 			}
 
-			NiNodeRef animationBone = bones[ragdollAnimationParentMap[i]];
-
-			hkQsTransform animationBoneTransform;
-			double scale = 1.0;
-			getReferencePose(animationBoneTransform, animationBone);
-
-			//animationBoneTransform.setTranslation(TOVECTOR4(animationBone->GetWorldTransform().GetTranslation()*scale));
-			//animationBoneTransform.setRotation(TOQUAT(animationBone->GetWorldTransform().GetRotation().AsQuaternion()));
-			//animationBoneTransform.setScale(hkVector4(animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale()));
-
-			mapping.m_aFromBTransform.setMulInverseMul(ragdollBoneTransform, animationBoneTransform);
-		}
-
-		for (int i = 0; i < bones.size(); i++) {
-			if (mappedBones.find(i) == mappedBones.end())
-				fromRagdollToSkeletonMapping->m_unmappedBones.pushBack(i);
-		}
-
-		hkRefPtr<hkaSkeletonMapper> ragdollToAnimationMapper = new hkaSkeletonMapper(*fromRagdollToSkeletonMapping);
-
-		rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", ragdollToAnimationMapper.val(), &ragdollToAnimationMapper->staticClass()));
-
-
-		Log::Info("Build Mappings Skeleton -> Ragdoll\n");
-
-		hkaSkeletonMapperData* fromSkeletonToRagdollMapping = new hkaSkeletonMapperData();
-		fromSkeletonToRagdollMapping->m_simpleMappings.setSize(rigidBodies.size());
-		fromSkeletonToRagdollMapping->m_skeletonA = hkSkeleton;
-		fromSkeletonToRagdollMapping->m_skeletonB = hkRagdollSkeleton;
-		fromSkeletonToRagdollMapping->m_mappingType = hkaSkeletonMapperData::HK_RAGDOLL_MAPPING;
-
-		for (size_t i = 0; i < rigidBodies.size(); i++) {
-			hkaSkeletonMapperData::SimpleMapping& mapping = fromSkeletonToRagdollMapping->m_simpleMappings[i];
-			mapping.m_boneA = ragdollAnimationParentMap[i];
-			mapping.m_boneB = i;
-			mappedBones.insert(ragdollAnimationParentMap[i]);
-
-			string boneA_name = boneNames[ragdollAnimationParentMap[i]];
-			string boneB_name = rbNames[i];
-
-			//Absolute transform
-			int findroot = ragdollParentMap[i];
-			hkQsTransform ragdollBoneTransform = hkRagdollSkeleton->m_referencePose[i];
-			while (findroot != -1) {
-				ragdollBoneTransform.setMul(hkRagdollSkeleton->m_referencePose[findroot], ragdollBoneTransform);
-				findroot = ragdollParentMap[findroot];
+			for (int i = 0; i < bones.size(); i++) {
+				if (mappedBones.find(i) == mappedBones.end())
+					fromRagdollToSkeletonMapping->m_unmappedBones.pushBack(i);
 			}
 
+			hkRefPtr<hkaSkeletonMapper> ragdollToAnimationMapper = new hkaSkeletonMapper(*fromRagdollToSkeletonMapping);
+
+			rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", ragdollToAnimationMapper.val(), &ragdollToAnimationMapper->staticClass()));
 
 
-			NiNodeRef animationBone = bones[ragdollAnimationParentMap[i]];
+			Log::Info("Build Mappings Skeleton -> Ragdoll\n");
 
-			hkQsTransform animationBoneTransform;
-			double scale = 1.0;
-			getReferencePose(animationBoneTransform, animationBone);
+			hkaSkeletonMapperData* fromSkeletonToRagdollMapping = new hkaSkeletonMapperData();
+			fromSkeletonToRagdollMapping->m_simpleMappings.setSize(rigidBodies.size());
+			fromSkeletonToRagdollMapping->m_skeletonA = hkSkeleton;
+			fromSkeletonToRagdollMapping->m_skeletonB = hkRagdollSkeleton;
+			fromSkeletonToRagdollMapping->m_mappingType = hkaSkeletonMapperData::HK_RAGDOLL_MAPPING;
 
-			//animationBoneTransform.setTranslation(TOVECTOR4(animationBone->GetWorldTransform().GetTranslation()*scale));
-			//animationBoneTransform.setRotation(TOQUAT(animationBone->GetWorldTransform().GetRotation().AsQuaternion()));
-			//animationBoneTransform.setScale(hkVector4(animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale()));
+			for (size_t i = 0; i < rigidBodies.size(); i++) {
+				hkaSkeletonMapperData::SimpleMapping& mapping = fromSkeletonToRagdollMapping->m_simpleMappings[i];
+				mapping.m_boneA = ragdollAnimationParentMap[i];
+				mapping.m_boneB = i;
+				mappedBones.insert(ragdollAnimationParentMap[i]);
 
-			mapping.m_aFromBTransform.setMulInverseMul(animationBoneTransform, ragdollBoneTransform);
-		}
+				string boneA_name = boneNames[ragdollAnimationParentMap[i]];
+				string boneB_name = rbNames[i];
 
-		hkRefPtr<hkaSkeletonMapper> animationToRagdollMapper = new hkaSkeletonMapper(*fromSkeletonToRagdollMapping);
+				//Absolute transform
+				int findroot = ragdollParentMap[i];
+				hkQsTransform ragdollBoneTransform = hkRagdollSkeleton->m_referencePose[i];
+				while (findroot != -1) {
+					ragdollBoneTransform.setMul(hkRagdollSkeleton->m_referencePose[findroot], ragdollBoneTransform);
+					findroot = ragdollParentMap[findroot];
+				}
 
-		rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", animationToRagdollMapper.val(), &animationToRagdollMapper->staticClass()));
 
-		hkArray<hkpRigidBody*> hkpBodies(rigidBodies.size());
 
-		//hkArrayBase<hkpConstraintInstance*> constraints();
+				NiNodeRef animationBone = bones[ragdollAnimationParentMap[i]];
 
-		//Rigid Bodies
-		for (size_t i = 0; i < rigidBodies.size(); i++) {
-			bhkRigidBodyRef bhkRB = DynamicCast<bhkRigidBody>(rigidBodies[i]->GetBody());
+				hkQsTransform animationBoneTransform;
+				double scale = 1.0;
+				getReferencePose(animationBoneTransform, animationBone);
 
-			//rigid body info
-			hkpRigidBodyCinfo hkpRbInfo;
+				//animationBoneTransform.setTranslation(TOVECTOR4(animationBone->GetWorldTransform().GetTranslation()*scale));
+				//animationBoneTransform.setRotation(TOQUAT(animationBone->GetWorldTransform().GetRotation().AsQuaternion()));
+				//animationBoneTransform.setScale(hkVector4(animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale(), animationBone->GetWorldTransform().GetScale()));
 
-			hkpRbInfo.m_allowedPenetrationDepth = bhkRB->GetPenetrationDepth();
-			hkpRbInfo.m_angularDamping = bhkRB->GetAngularDamping();
-			hkpRbInfo.m_angularVelocity = TOVECTOR4(bhkRB->GetAngularVelocity());
-			hkpRbInfo.m_centerOfMass = TOVECTOR4(bhkRB->GetCenter());
-			//hkpRbInfo.m_collisionFilterInfo = bhkRB->GetLayer();
-			//hkpRbInfo.m_collisionResponse = hkpMaterial::ResponseType(bhkRB->GetCollisionResponse());
-			//hkpRbInfo.m_contactPointCallbackDelay = bhkRB->pin;
-			//hkpRbInfo.m_enableDeactivation = bhkRB->de
-			//hkpRbInfo.m_forceCollideOntoPpu = bhkRB->;
-			hkpRbInfo.m_friction = bhkRB->GetFriction();
-			//hkpRbInfo.m_gravityFactor = bhkRB->get;
-			hkMatrix3 inertia = TOMATRIX3(bhkRB->GetInertiaTensor());
-			inertia.setMul(1. / (bhkScaleFactorInverse * bhkScaleFactorInverse), inertia);
-			hkpRbInfo.m_inertiaTensor = inertia;
-			hkpRbInfo.m_linearDamping = bhkRB->GetLinearDamping();
-			hkpRbInfo.m_linearVelocity = TOVECTOR4(bhkRB->GetLinearVelocity());
-			//hkpRbInfo.m_localFrame;
-			hkpRbInfo.m_mass = bhkRB->GetMass();
-			hkpRbInfo.m_maxAngularVelocity = bhkRB->GetMaxAngularVelocity();
-			hkpRbInfo.m_maxLinearVelocity = bhkRB->GetMaxLinearVelocity();
-			//hkpRbInfo.m_motionType = TOMOTIONTYPE(bhkRB->GetMotionSystem());
-			//hkpRbInfo.m_numShapeKeysInContactPointProperties;
-			hkpRbInfo.m_position = TOVECTOR4(bhkRB->GetTranslation() / bhkScaleFactorInverse);
-			//hkpRbInfo.m_qualityType = TOMOTIONQUALITY(bhkRB->GetQualityType());
-			//hkpRbInfo.m_responseModifierFlags;
-			hkpRbInfo.m_restitution = bhkRB->GetRestitution();
-			//hkpRbInfo.m_rollingFrictionMultiplier = bhkRB->RO;
-			hkpRbInfo.m_rotation = TOQUAT(bhkRB->GetRotation());
-			//hkpRbInfo.m_shape;
-			
-
-			ShapeBuilder().visitShape(bhkRB->GetShape(), hkpRbInfo);
-			//makeShape(*shape, hkpRbInfo);
-			hkpRbInfo.m_solverDeactivation;
-			hkpRbInfo.m_timeFactor;
-
-			hkpBodies[i] = new hkpRigidBody(hkpRbInfo);
-			hkpBodies[i]->setName(rbNames[i].c_str());
-			hkpBodies[i]->m_npData = 0;
-
-			auto bbody = hkpBodies[i];
-
-			int debuig = 1;
-		}
-
-		//contraints
-		hkArray<hkpConstraintInstance*> constraints;
-		
-		for (int i = 0; i < rigidBodies.size(); i++) {
-			bhkRigidBodyRef bhkRB = DynamicCast<bhkRigidBody>(rigidBodies[i]->GetBody());
-			vector<bhkSerializableRef> bhkConstraints = bhkRB->GetConstraints();
-			if (bhkConstraints.empty()) continue;
-			
-			for (int j = 0; j < bhkConstraints.size(); j++) {
-				if (bhkConstraints[j] == NULL) continue;
-				auto constraint_name = hkpBodies[i]->getName();
-				auto* constraint = ConstraintBuilder(rigidBodies, hkpBodies).visitConstraint(DynamicCast<bhkConstraint>(bhkConstraints[j]));
-				constraint->setName(hkpBodies[i]->getName());
-				constraints.pushBack(constraint);
+				mapping.m_aFromBTransform.setMulInverseMul(animationBoneTransform, ragdollBoneTransform);
 			}
-			
+
+			hkRefPtr<hkaSkeletonMapper> animationToRagdollMapper = new hkaSkeletonMapper(*fromSkeletonToRagdollMapping);
+
+			rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("SkeletonMapper", animationToRagdollMapper.val(), &animationToRagdollMapper->staticClass()));
+
+			hkArray<hkpRigidBody*> hkpBodies(rigidBodies.size());
+
+			//hkArrayBase<hkpConstraintInstance*> constraints();
+
+			//Rigid Bodies
+			for (size_t i = 0; i < rigidBodies.size(); i++) {
+				bhkRigidBodyRef bhkRB = DynamicCast<bhkRigidBody>(rigidBodies[i]->GetBody());
+
+				//rigid body info
+				hkpRigidBodyCinfo hkpRbInfo;
+
+				hkpRbInfo.m_allowedPenetrationDepth = bhkRB->GetPenetrationDepth();
+				hkpRbInfo.m_angularDamping = bhkRB->GetAngularDamping();
+				hkpRbInfo.m_angularVelocity = TOVECTOR4(bhkRB->GetAngularVelocity());
+				hkpRbInfo.m_centerOfMass = TOVECTOR4(bhkRB->GetCenter());
+				//hkpRbInfo.m_collisionFilterInfo = bhkRB->GetLayer();
+				//hkpRbInfo.m_collisionResponse = hkpMaterial::ResponseType(bhkRB->GetCollisionResponse());
+				//hkpRbInfo.m_contactPointCallbackDelay = bhkRB->pin;
+				//hkpRbInfo.m_enableDeactivation = bhkRB->de
+				//hkpRbInfo.m_forceCollideOntoPpu = bhkRB->;
+				hkpRbInfo.m_friction = bhkRB->GetFriction();
+				//hkpRbInfo.m_gravityFactor = bhkRB->get;
+				hkMatrix3 inertia = TOMATRIX3(bhkRB->GetInertiaTensor());
+				inertia.setMul(1. / (bhkScaleFactorInverse * bhkScaleFactorInverse), inertia);
+				hkpRbInfo.m_inertiaTensor = inertia;
+				hkpRbInfo.m_linearDamping = bhkRB->GetLinearDamping();
+				hkpRbInfo.m_linearVelocity = TOVECTOR4(bhkRB->GetLinearVelocity());
+				//hkpRbInfo.m_localFrame;
+				hkpRbInfo.m_mass = bhkRB->GetMass();
+				hkpRbInfo.m_maxAngularVelocity = bhkRB->GetMaxAngularVelocity();
+				hkpRbInfo.m_maxLinearVelocity = bhkRB->GetMaxLinearVelocity();
+				//hkpRbInfo.m_motionType = TOMOTIONTYPE(bhkRB->GetMotionSystem());
+				//hkpRbInfo.m_numShapeKeysInContactPointProperties;
+				hkpRbInfo.m_position = TOVECTOR4(bhkRB->GetTranslation() / bhkScaleFactorInverse);
+				//hkpRbInfo.m_qualityType = TOMOTIONQUALITY(bhkRB->GetQualityType());
+				//hkpRbInfo.m_responseModifierFlags;
+				hkpRbInfo.m_restitution = bhkRB->GetRestitution();
+				//hkpRbInfo.m_rollingFrictionMultiplier = bhkRB->RO;
+				hkpRbInfo.m_rotation = TOQUAT(bhkRB->GetRotation());
+				//hkpRbInfo.m_shape;
+
+
+				ShapeBuilder().visitShape(bhkRB->GetShape(), hkpRbInfo);
+				//makeShape(*shape, hkpRbInfo);
+				hkpRbInfo.m_solverDeactivation;
+				hkpRbInfo.m_timeFactor;
+
+				hkpBodies[i] = new hkpRigidBody(hkpRbInfo);
+				hkpBodies[i]->setName(rbNames[i].c_str());
+				hkpBodies[i]->m_npData = 0;
+
+				auto bbody = hkpBodies[i];
+
+				int debuig = 1;
+			}
+
+			//contraints
+			hkArray<hkpConstraintInstance*> constraints;
+
+			for (int i = 0; i < rigidBodies.size(); i++) {
+				bhkRigidBodyRef bhkRB = DynamicCast<bhkRigidBody>(rigidBodies[i]->GetBody());
+				vector<bhkSerializableRef> bhkConstraints = bhkRB->GetConstraints();
+				if (bhkConstraints.empty()) continue;
+
+				for (int j = 0; j < bhkConstraints.size(); j++) {
+					if (bhkConstraints[j] == NULL) continue;
+					auto constraint_name = hkpBodies[i]->getName();
+					auto* constraint = ConstraintBuilder(rigidBodies, hkpBodies).visitConstraint(DynamicCast<bhkConstraint>(bhkConstraints[j]));
+					constraint->setName(hkpBodies[i]->getName());
+					constraints.pushBack(constraint);
+				}
+
+			}
+
+			hkpRigidBody* cprb = NULL;
+			//CharacterBumper
+			if (character_bumper != NULL &&
+				DynamicCast<bhkSPCollisionObject>(character_bumper->GetCollisionObject()) != NULL &&
+				DynamicCast<bhkSimpleShapePhantom>(DynamicCast<bhkSPCollisionObject>(character_bumper->GetCollisionObject())->GetBody()) != NULL)
+			{
+				auto co = DynamicCast<bhkSPCollisionObject>(character_bumper->GetCollisionObject());
+				auto bhkRB = DynamicCast<bhkSimpleShapePhantom>(co->GetBody());
+
+				//rigid body info
+				hkpRigidBodyCinfo hkpRbInfo;
+
+				/*hkpRbInfo.m_allowedPenetrationDepth = bhkRB->GetPenetrationDepth();
+				hkpRbInfo.m_angularDamping = bhkRB->GetAngularDamping();
+				hkpRbInfo.m_angularVelocity = TOVECTOR4(bhkRB->GetAngularVelocity());
+				hkpRbInfo.m_centerOfMass = TOVECTOR4(bhkRB->GetCenter());*/
+				//hkpRbInfo.m_collisionFilterInfo = bhkRB->GetLayer();
+				//hkpRbInfo.m_collisionResponse = hkpMaterial::ResponseType(bhkRB->GetCollisionResponse());
+				//hkpRbInfo.m_contactPointCallbackDelay = bhkRB->pin;
+				//hkpRbInfo.m_enableDeactivation = bhkRB->de
+				//hkpRbInfo.m_forceCollideOntoPpu = bhkRB->;
+				//hkpRbInfo.m_friction = bhkRB->GetFriction();
+				//hkpRbInfo.m_gravityFactor = bhkRB->get;
+				//hkpRbInfo.m_inertiaTensor = TOMATRIX3(bhkRB->GetInertiaTensor());
+				//hkpRbInfo.m_linearDamping = bhkRB->GetLinearDamping();
+				//hkpRbInfo.m_linearVelocity = TOVECTOR4(bhkRB->GetLinearVelocity());
+				//hkpRbInfo.m_localFrame;
+				//hkpRbInfo.m_mass = bhkRB->GetMass();
+				//hkpRbInfo.m_maxAngularVelocity = bhkRB->GetMaxAngularVelocity();
+				//hkpRbInfo.m_maxLinearVelocity = bhkRB->GetMaxLinearVelocity();
+				hkpRbInfo.m_motionType = hkpMotion::MotionType::MOTION_FIXED; //TOMOTIONTYPE(bhkRB->GetMotionSystem());
+				//hkpRbInfo.m_numShapeKeysInContactPointProperties;
+				hkpRbInfo.m_position = TOVECTOR4(bhkRB->GetTransform().GetTrans() / bhkScaleFactorInverse);
+				//hkpRbInfo.m_qualityType = TOMOTIONQUALITY(bhkRB->GetQualityType());
+				//hkpRbInfo.m_responseModifierFlags;
+				//hkpRbInfo.m_restitution = bhkRB->GetRestitution();
+				//hkpRbInfo.m_rollingFrictionMultiplier = bhkRB->RO;
+				hkpRbInfo.m_rotation = TOQUAT(bhkRB->GetTransform().GetRotation().AsQuaternion());
+				//hkpRbInfo.m_shape;
+
+
+				ShapeBuilder().visitShape(bhkRB->GetShape(), hkpRbInfo);
+				//makeShape(*shape, hkpRbInfo);
+				hkpRbInfo.m_solverDeactivation;
+				hkpRbInfo.m_timeFactor;
+
+				//hkpBodies[i] = new hkpRigidBody(hkpRbInfo);
+				//hkpBodies[i]->setName(rbNames[i].c_str());
+				cprb = new hkpRigidBody(hkpRbInfo);
+				cprb->setName(character_bumper->GetName().c_str());
+				cprb->m_npData = 0;
+			}
+			else {
+				Log::Warn("Character bumper not found!");
+			}
+
+			//hkaRagdollInstance ( const hkArrayBase<hkpRigidBody*>& rigidBodies, const hkArrayBase<hkpConstraintInstance*>& constraints, const hkaSkeleton* skeleton );
+			hkRefPtr<hkaRagdollInstance> ragdoll = new hkaRagdollInstance(hkpBodies, constraints, hkRagdollSkeleton.val());
+
+			rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("RagdollInstance", ragdoll.val(), &ragdoll->staticClass()));
+
+			//Physics system
+
+
+			hkRefPtr<hkpPhysicsSystem> system = new hkpPhysicsSystem();
+			for (size_t i = 0; i < rigidBodies.size(); i++) {
+				system->addRigidBody(hkpBodies[i]);
+			}
+			if (cprb != NULL)
+				system->addRigidBody(cprb);
+			for (int i = 0; i < rigidBodies.size() - 1; i++) {
+				system->addConstraint(constraints[i]);
+			}
+
+			hkRefPtr<hkpPhysicsData> data = new hkpPhysicsData();
+			data->addPhysicsSystem(system.val());
+
+			rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Physics Data", data.val(), &data->staticClass()));
 		}
-
-		hkpRigidBody* cprb = NULL;
-		//CharacterBumper
-		if (character_bumper != NULL && 
-			DynamicCast<bhkSPCollisionObject>(character_bumper->GetCollisionObject()) != NULL &&
-			DynamicCast<bhkSimpleShapePhantom>(DynamicCast<bhkSPCollisionObject>(character_bumper->GetCollisionObject())->GetBody()) != NULL)
-		{
-			auto co = DynamicCast<bhkSPCollisionObject>(character_bumper->GetCollisionObject());
-			auto bhkRB = DynamicCast<bhkSimpleShapePhantom>(co->GetBody());
-
-			//rigid body info
-			hkpRigidBodyCinfo hkpRbInfo;
-
-			/*hkpRbInfo.m_allowedPenetrationDepth = bhkRB->GetPenetrationDepth();
-			hkpRbInfo.m_angularDamping = bhkRB->GetAngularDamping();
-			hkpRbInfo.m_angularVelocity = TOVECTOR4(bhkRB->GetAngularVelocity());
-			hkpRbInfo.m_centerOfMass = TOVECTOR4(bhkRB->GetCenter());*/
-			//hkpRbInfo.m_collisionFilterInfo = bhkRB->GetLayer();
-			//hkpRbInfo.m_collisionResponse = hkpMaterial::ResponseType(bhkRB->GetCollisionResponse());
-			//hkpRbInfo.m_contactPointCallbackDelay = bhkRB->pin;
-			//hkpRbInfo.m_enableDeactivation = bhkRB->de
-			//hkpRbInfo.m_forceCollideOntoPpu = bhkRB->;
-			//hkpRbInfo.m_friction = bhkRB->GetFriction();
-			//hkpRbInfo.m_gravityFactor = bhkRB->get;
-			//hkpRbInfo.m_inertiaTensor = TOMATRIX3(bhkRB->GetInertiaTensor());
-			//hkpRbInfo.m_linearDamping = bhkRB->GetLinearDamping();
-			//hkpRbInfo.m_linearVelocity = TOVECTOR4(bhkRB->GetLinearVelocity());
-			//hkpRbInfo.m_localFrame;
-			//hkpRbInfo.m_mass = bhkRB->GetMass();
-			//hkpRbInfo.m_maxAngularVelocity = bhkRB->GetMaxAngularVelocity();
-			//hkpRbInfo.m_maxLinearVelocity = bhkRB->GetMaxLinearVelocity();
-			hkpRbInfo.m_motionType = hkpMotion::MotionType::MOTION_FIXED; //TOMOTIONTYPE(bhkRB->GetMotionSystem());
-			//hkpRbInfo.m_numShapeKeysInContactPointProperties;
-			hkpRbInfo.m_position = TOVECTOR4(bhkRB->GetTransform().GetTrans() / bhkScaleFactorInverse);
-			//hkpRbInfo.m_qualityType = TOMOTIONQUALITY(bhkRB->GetQualityType());
-			//hkpRbInfo.m_responseModifierFlags;
-			//hkpRbInfo.m_restitution = bhkRB->GetRestitution();
-			//hkpRbInfo.m_rollingFrictionMultiplier = bhkRB->RO;
-			hkpRbInfo.m_rotation = TOQUAT(bhkRB->GetTransform().GetRotation().AsQuaternion());
-			//hkpRbInfo.m_shape;
-
-
-			ShapeBuilder().visitShape(bhkRB->GetShape(), hkpRbInfo);
-			//makeShape(*shape, hkpRbInfo);
-			hkpRbInfo.m_solverDeactivation;
-			hkpRbInfo.m_timeFactor;
-
-			//hkpBodies[i] = new hkpRigidBody(hkpRbInfo);
-			//hkpBodies[i]->setName(rbNames[i].c_str());
-			cprb = new hkpRigidBody(hkpRbInfo);
-			cprb->setName(character_bumper->GetName().c_str());
-			cprb->m_npData = 0;
-		}
-		else {
-			Log::Warn("Character bumper not found!");
-		}
-
-		//hkaRagdollInstance ( const hkArrayBase<hkpRigidBody*>& rigidBodies, const hkArrayBase<hkpConstraintInstance*>& constraints, const hkaSkeleton* skeleton );
-		hkRefPtr<hkaRagdollInstance> ragdoll = new hkaRagdollInstance(hkpBodies, constraints, hkRagdollSkeleton.val());
-
-		rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("RagdollInstance", ragdoll.val(), &ragdoll->staticClass()));
-
-		//Physics system
-
-
-		hkRefPtr<hkpPhysicsSystem> system = new hkpPhysicsSystem();
-		for (size_t i = 0; i < rigidBodies.size(); i++) {
-			system->addRigidBody(hkpBodies[i]);
-		}
-		if (cprb!= NULL)
-			system->addRigidBody(cprb);
-		for (int i = 0; i < rigidBodies.size() - 1; i++) {
-			system->addConstraint(constraints[i]);
-		}
-
-		hkRefPtr<hkpPhysicsData> data = new hkpPhysicsData();
-		data->addPhysicsSystem(system.val());
-
-		rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Physics Data", data.val(), &data->staticClass()));
-
 		//hkRefPtr<hkaSkeleton> hkRagdollSkeleton = new hkaSkeleton();
 		//hkRagdollSkeleton->m_name = skeleton_root->GetName().c_str();
 
