@@ -254,19 +254,19 @@ bool Convert::InternalRunCommand(map<string, docopt::value> parsedArgs)
 	}
 #pragma endregion
 */
-	if (inpath.empty()){
-        Log::Info(GetHelp().c_str());
-		return false;
-	}
-	if (PathIsDirectory(inpath.c_str()))
-	{
-		char path[MAX_PATH];
-		strcpy(path, inpath.c_str());
-		PathAddBackslash(path);
-		strcat(path, "*.hkx");
-		GetFullPathName(path, MAX_PATH, path, NULL);
-		inpath = path;
-	}
+	//if (inpath.empty()){
+ //       Log::Info(GetHelp().c_str());
+	//	return false;
+	//}
+	//if (PathIsDirectory(inpath.c_str()))
+	//{
+	//	char path[MAX_PATH];
+	//	strcpy(path, inpath.c_str());
+	//	PathAddBackslash(path);
+	//	strcat(path, "*.hkx");
+	//	GetFullPathName(path, MAX_PATH, path, NULL);
+	//	inpath = path;
+	//}
 	char rootDir[MAX_PATH];
 	strcpy(rootDir, inpath.c_str());
 	GetFullPathName(rootDir, MAX_PATH, rootDir, NULL);

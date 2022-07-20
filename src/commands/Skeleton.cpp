@@ -448,25 +448,15 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 	string outpath = ".";
 	if (parsedArgs["-o"].asBool())
 		outpath = parsedArgs["<path_to_output>"].asString();
-	//int argc = cmdLine.argc;
-	//char **argv = cmdLine.argv;
+
+	return Convert(inpath, outpath);
+}
+
+
+bool Skeleton::Convert(const string& inpath, const string& outpath)
+{
+
 	hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT|hkSerializeUtil::SAVE_TEXT_NUMBERS);
-
-	//if (inpath.empty()){
-	//	HelpString(hkxcmd::htLong);
-	//	return false;
-	//}
-	if (PathIsDirectory(inpath.c_str()))
-	{
-		//char path[MAX_PATH];
-		//strcpy(path, inpath.c_str());
-		//PathAddBackslash(path);
-		//strcat(path, "skeleton.nif");
-		//GetFullPathName(path, MAX_PATH, path, NULL);
-		//inpath = path;
-	}
-
-
 
 	char rootDir[MAX_PATH];
 	strcpy(rootDir, inpath.c_str());

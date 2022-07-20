@@ -770,7 +770,156 @@ bool AnimationExport::doExport()
 	return exportController();
 }
 
-bool AnimationExport::exportNotes( )
+//TODO
+//check StartAnimationDriven in bear annotations
+
+/*
+List of Text Keys
+
+a: [L|R]
+	Used to indicate when to switch between left and right attacks. The handtohandattackleft animation, 
+	for example, has a text key informing the engine when it should switch to a right-handed attack (a:R).
+Attach
+	Used in Equip animations. Could indicate at what point to equip the weapon.
+Attack
+	Used by BlockAttack animations to indicate when a counter-attack should be registered.
+Blend: <int>
+	"Define a range of animation priorities for all bones in the animation. The existing priorities are 
+	modified to fit within +- range, where int is the blending integer priority defined. This is applied to 
+	the entire animation." Sinkhole. It is not clear for how long these animation priorities exist or whether 
+	or not it is specific to the animation it is set for or if it changes a general setting in the game engine. 
+	It is assumed that the blending begins with the Blend keyframe and ends when the animation ends and that 
+	the blending only affects bone priorities for the animation it is set for. Some animations set Blend: 
+	0 text keys, however, which appear to forcibly set blending to 0 for that animation. 
+	I'm not sure why this would be required if the blending was restricted to the animation the key was set for, 
+	though it might make sense if the Blending was a general setting for the engine and if certain animations 
+	should not be blended. Examples of this can be found in the blockhit and handtohandblockhit animations.
+Detach
+	Used in Unequip animations. Could indicate at what point to unequip the weapon.
+end
+	Indicates the last frame of the animation. Required.
+Enum: <string>
+	Indicate when sound effects (like footsteps) should be played. Enum sound effects appear to be used by the engine 
+	for specific events, such as footsteps and the sound made by a creature when it detects an enemy. 
+	Other sound effects that the animator may require can be played using the Sound text key. 
+	Note that the foot step sound effects do not have to be actual foot steps; 
+	if your creature floats, flies, or swims it can be any sound that would typically be made by your creature 
+	when moving. Standard sound effects include: 
+	Left, Right, BackLeft, BackRight (for feet), Aware, Attack, Hit (for injury), and Death.
+Hit
+	Indicates the point in an animation at which an attack or spell hits its target. 
+	If you fail to include this key your attack and spell animations will never actually hit.
+Hold
+	Used in bow animations. Presumably to indicate when to hold (pause) the animation sequence while the player 
+	has the bow drawn but has not yet released the arrow.
+m: [L|R]
+	Used to indicate when the left or right foot is in contact with the ground and when to switch to the other foot. 
+	This key is used in movement animations but doesn't appear to be used in other animations.
+Release
+	Used in bow animations. Presumably to indicate when to continue the animation sequence after the player has 
+	released the arrow.
+Sound: <string>
+	Used to indicate when other sounds not expected by the engine should be played. Some sound effects are expected 
+	in movement animations, equipping animations, etc., and are usually handled by the Enum text key. 
+	All other sounds appear to be handled by the Sound key.
+start
+	Indicates the first frame of the animation. Required.
+*/
+
+bool isOblivionEngineAnnotation(const std::string& in )
+{
+	if (
+		in == "a:L" ||
+		in == "a:R" ||
+		in == "Attach" ||
+		in == "Attack" ||
+		in.find("Blend:") == 0 ||
+		in == "Detach" ||
+		in.find("Enum:") == 0 ||
+		in == "Hit" ||
+		in == "Hold" ||
+		in == "m:L" ||
+		in == "m:R" ||
+		in == "Release" ||
+		in.find("Sound:") == 0
+		)
+	{
+		return true;
+	}
+	return false;
+}
+
+std::set<std::pair<float, std::string>> convertOblivionAnnotations(const std::pair<float,std::string>& note, bool bow = false)
+{
+	std::set<std::pair<float, std::string>> out;
+
+	//Attach -> weaponDraw (bow has also BeginWeaponDraw at 0.0)
+	//Detach -> weaponSheathe
+	
+	//Sound: -> SoundPlay.
+	//Enum:Left -> FootLeft 
+	//Enum:Right -> FootRight
+	//Enum:BackLeft -> FootFront
+	//Enum:BackRight -> FootBack
+
+	//Enum:Aware -> ?
+	//Enum:Attack -> weaponSwing
+	//Enum:Hit -> ?
+	//Enum:Death -> ?
+
+	//Hit -> preHitFrame, HitFrame
+	//m:R -> SyncRight
+	//m:L -> SyncLeft
+
+	if (note.second == "Attach")
+	{
+		if (bow)
+			out.insert({ 0., "BeginWeaponDraw" });
+		out.insert({note.first, "weaponDraw"});
+	}
+	else if (note.second == "Detach") {
+		out.insert({ note.first, "weaponSheathe" });
+	}
+	else if (note.second.find("Sound:") == 0) {
+		std::string old = "Sound:";
+		std::string new_sound = note.second;
+		new_sound.replace(new_sound.find(old), old.length(), "SoundPlay.");
+		out.insert({ note.first, new_sound });
+	}
+	else if (note.second.find("Enum:Left") == 0) {
+		out.insert({ note.first, "FootLeft" });
+	}
+	else if (note.second.find("Enum:Right") == 0) {
+		out.insert({ note.first, "FootRight" });
+	}
+	else if (note.second.find("Enum:BackLeft") == 0) {
+		out.insert({ note.first, "FootFront" });
+	}
+	else if (note.second.find("Enum:BackRight") == 0) {
+		out.insert({ note.first, "FootBack" });
+	}
+	else if (note.second.find("Enum:Attack") == 0) {
+		out.insert({ note.first, "weaponSwing" });
+	}
+	else if (note.second.find("Hit") == 0) {
+		out.insert({ note.first - 0.15, "preHitFrame" });
+		out.insert({ note.first, "HitFrame" });
+	}
+	else if (note.second.find("m:R") == 0) {
+		out.insert({ note.first, "FootRight" });
+		out.insert({ note.first, "SyncRight" });
+	}
+	else if (note.second.find("m:L") == 0) {
+		out.insert({ note.first, "FootLeft" });
+		out.insert({ note.first, "SyncLeft" });
+	}
+
+	return out;
+}
+
+
+
+bool AnimationExport::exportNotes()
 {
 #if 0
 	vector<StringKey> textKeys;
@@ -1131,6 +1280,35 @@ bool AnimationExport::exportController()
 	tempAnim->m_floats.setSize(tempAnim->m_numberOfFloatTracks);
 	tempAnim->m_annotationTracks.setSize(numTracks);
 
+	if (seq->GetTextKeys() != NULL)
+	{
+		auto data = seq->GetTextKeys();
+		multimap<float, string> annotations;
+		for (const auto& key : data->GetTextKeys())
+		{
+			if (isOblivionEngineAnnotation(key.data))
+			{
+				//TODO bow
+				auto converted = convertOblivionAnnotations({ key.time, key.data });
+				for (auto& entry : converted)
+				{
+					annotations.insert({entry.first, entry.second});
+				}
+			}
+			else {
+				annotations.insert({ key.time, key.data });
+			}
+		}
+		auto& root_annotations = tempAnim->m_annotationTracks[0];
+		for (auto& entry : annotations)
+		{
+			hkaAnnotationTrack::Annotation anno;
+			anno.m_text = entry.second.c_str();
+			anno.m_time = entry.first;
+			root_annotations.m_annotations.pushBack(anno);
+		}
+	}
+
 	hkArray<hkQsTransform>& transforms = tempAnim->m_transforms;
 
 	typedef map<string, int, ltstr> StringIntMap;
@@ -1279,11 +1457,11 @@ bool AnimationExport::exportController()
 	return true;
 }
 
-static void ExportAnimations(const string& rootdir, const fs::path& skelfile
+void ImportKF::ExportAnimations(const string& rootdir, const fs::path& skelfile
                       , const vector<fs::path>& animlist, const string& outdir
                       , hkPackFormat pkFormat, const hkPackfileWriter::Options& packFileOptions
                       , hkSerializeUtil::SaveOptionBits flags
-                      , bool norelativepath = false)
+                      , bool norelativepath)
 {
 	hkResource* skelResource = NULL;
 	hkResource* animResource = NULL;
@@ -1455,7 +1633,7 @@ static void ExportProject( const string &projfile, const char * rootPath, const 
 	}
 	else
 	{
-		ExportAnimations(string(rootPath), skelfiles[0],animfiles, outdir, pkFormat, packFileOptions, flags, false);
+		ImportKF::ExportAnimations(string(rootPath), skelfiles[0],animfiles, outdir, pkFormat, packFileOptions, flags, false);
 	}
 }
 
