@@ -1268,9 +1268,9 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 				hkpRigidBodyCinfo hkpRbInfo;
 
 				hkpRbInfo.m_allowedPenetrationDepth = bhkRB->GetPenetrationDepth();
-				hkpRbInfo.m_angularDamping = bhkRB->GetAngularDamping();
+				hkpRbInfo.m_angularDamping = 0.049805; // bhkRB->GetAngularDamping();
 				hkpRbInfo.m_angularVelocity = TOVECTOR4(bhkRB->GetAngularVelocity());
-				hkpRbInfo.m_centerOfMass = TOVECTOR4(bhkRB->GetCenter());
+				hkpRbInfo.m_centerOfMass = TOVECTOR4(bhkRB->GetCenter() / bhkScaleFactorInverse);
 				//hkpRbInfo.m_collisionFilterInfo = bhkRB->GetLayer();
 				//hkpRbInfo.m_collisionResponse = hkpMaterial::ResponseType(bhkRB->GetCollisionResponse());
 				//hkpRbInfo.m_contactPointCallbackDelay = bhkRB->pin;
@@ -1281,7 +1281,7 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 				hkMatrix3 inertia = TOMATRIX3(bhkRB->GetInertiaTensor());
 				inertia.setMul(1. / (bhkScaleFactorInverse * bhkScaleFactorInverse), inertia);
 				hkpRbInfo.m_inertiaTensor = inertia;
-				hkpRbInfo.m_linearDamping = bhkRB->GetLinearDamping();
+				hkpRbInfo.m_linearDamping = 0.; //bhkRB->GetLinearDamping();
 				hkpRbInfo.m_linearVelocity = TOVECTOR4(bhkRB->GetLinearVelocity());
 				//hkpRbInfo.m_localFrame;
 				hkpRbInfo.m_mass = bhkRB->GetMass();

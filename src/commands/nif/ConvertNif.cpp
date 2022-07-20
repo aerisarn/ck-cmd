@@ -1495,6 +1495,12 @@ public:
 		if (obj.qualityType == MO_QUAL_KEYFRAMED || obj.qualityType == MO_QUAL_KEYFRAMED_REPORT)
 			obj.qualityType = MO_QUAL_FIXED;
 
+		//Better stability?
+		if (obj.havokFilter.layer_sk == SKYL_BIPED)
+		{
+			obj.motionSystem = MO_SYS_SPHERE_INERTIA;
+		}
+
 		//anvildoorucinteriorload01 has motion system fixed but solver deactivation medium
 		if (obj.motionSystem == MO_SYS_FIXED) {
 			obj.solverDeactivation = SOLVER_DEACTIVATION_OFF;
@@ -3988,8 +3994,6 @@ public:
 
 	//TODO: need to upgrade shapes into containers
 
-
-
 	//Shapes
 	template<>
 	inline void visit_object(bhkSphereShape& obj) {
@@ -4006,9 +4010,6 @@ public:
 			half_extent.x *= COLLISION_RATIO;
 			half_extent.y *= COLLISION_RATIO;
 			half_extent.z *= COLLISION_RATIO;
-			//if (_is_clutter) {
-			//	half_extent *= 0.8;
-			//}
 			obj.SetDimensions(half_extent);
 		}
 	}
@@ -4034,18 +4035,12 @@ public:
 				v.x *= COLLISION_RATIO;
 				v.y *= COLLISION_RATIO;
 				v.z *= COLLISION_RATIO;
-				//if (_is_clutter) {
-				//	v *= 0.8;
-				//}
 			}
 
 			obj.SetVertices(vertices);
 			vector<Vector4> normals = obj.GetNormals();
 			for (Vector4& n : normals) {
 				n.w = n.w * COLLISION_RATIO;
-				//if (_is_clutter) {
-				//	n.w *= 0.8;
-				//}
 			}
 			obj.SetNormals(normals);
 		}
@@ -4056,62 +4051,58 @@ public:
 	template<>
 	void visit_compound(HingeDescriptor& descriptor) {
 		if (already_upgraded.insert(&descriptor).second) {
-			hkpHingeConstraintData data;
-			hkVector4 parent_i; parent_i.setCross(
-				TOVECTOR4(descriptor.parentSpace.axis),
-				TOVECTOR4(descriptor.axis)
-			);
-			data.setInBodySpace(
-				TOVECTOR4(descriptor.parentSpace.pivot - _collision_translation),
-				TOVECTOR4(descriptor.childSpace.pivot - _collision_translation),
-				parent_i,
-				TOVECTOR4(descriptor.childSpace.axis)
-			);
 
-			hkTransform& hkA = data.m_atoms.m_transforms.m_transformA;
-			hkTransform& hkB = data.m_atoms.m_transforms.m_transformB;
+			auto a = TOVECTOR4(descriptor.parentSpace.axis);
+			auto b = TOVECTOR4(descriptor.axis);
+			hkVector4 c; c.setCross(a, b);
 
-			descriptor.axleA = HKMATRIXROW(hkA, 0);
-			descriptor.perp2AxleInA1 = HKMATRIXROW(hkA, 1);
-			descriptor.perp2AxleInA2 = HKMATRIXROW(hkA, 2);
-			descriptor.pivotA = TOVECTOR4(hkA.getTranslation()) / 10;
+			descriptor.axleA = TOVECTOR3(c); // descriptor.parentSpace.axis^ descriptor.axis;
+			descriptor.perp2AxleInA1 = descriptor.parentSpace.axis;
+			descriptor.perp2AxleInA2 = descriptor.axis;
+			descriptor.pivotA = (descriptor.parentSpace.pivot - _collision_translation) * COLLISION_RATIO;
 
-			descriptor.axleB = HKMATRIXROW(hkB, 0);
-			descriptor.perp2AxleInB1 = HKMATRIXROW(hkB, 1);
-			descriptor.perp2AxleInB2 = HKMATRIXROW(hkB, 2);
-			descriptor.pivotB = TOVECTOR4(hkB.getTranslation()) / 10;
+			descriptor.axleB = descriptor.childSpace.axis;
+			descriptor.pivotB = (descriptor.childSpace.pivot - _collision_translation) * COLLISION_RATIO;
+
+			//find rotation matrix
+			auto row1 = TOVECTOR4(descriptor.axleA);
+			auto row2 = TOVECTOR4(descriptor.pivotA);  row2.normalize3();
+			hkVector4 row3; row3.setCross(row1, row2);
+			hkRotation r1; r1.setCols(row1, row2, row3);
+
+
+			auto row1b = TOVECTOR4(descriptor.axleB);
+			auto row2b = TOVECTOR4(descriptor.pivotB);  row2b.normalize3();
+			hkVector4 row3b; row3b.setCross(row1b, row2b);
+			hkRotation r1b; r1b.setCols(row1b, row2b, row3b);
+
+			hkRotation ab; ab.setMulInverseMul(r1b, r1);
+
+			hkVector4 perp2AxleInB1; perp2AxleInB1.setMul3(ab, TOVECTOR4(descriptor.perp2AxleInA1));
+			hkVector4 perp2AxleInB2; perp2AxleInB2.setMul3(ab, TOVECTOR4(descriptor.perp2AxleInA2));
+
+			descriptor.perp2AxleInB1 = TOVECTOR3(perp2AxleInB1);
+			descriptor.perp2AxleInB2 = TOVECTOR3(perp2AxleInB2);
 		}
 	}
 
 	template<>
 	void visit_compound(LimitedHingeDescriptor& descriptor) {
 		if (already_upgraded.insert(&descriptor).second) {
-			hkpLimitedHingeConstraintData data;
-			hkVector4 child_j; child_j.setCross(
-				TOVECTOR4(descriptor.childSpace.referenceSystem.yAxis),
-				TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis)
-			);
-			data.setInBodySpace(
-				TOVECTOR4(descriptor.parentSpace.pivot - _collision_translation),
-				TOVECTOR4(descriptor.childSpace.pivot - _collision_translation),
-				TOVECTOR4(descriptor.parentSpace.referenceSystem.xAxis),
-				TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis),
-				TOVECTOR4(descriptor.parentSpace.referenceSystem.yAxis),
-				child_j
-			);
 
-			hkTransform& hkA = data.m_atoms.m_transforms.m_transformA;
-			hkTransform& hkB = data.m_atoms.m_transforms.m_transformB;
+			descriptor.axleA = descriptor.parentSpace.referenceSystem.xAxis;
+			descriptor.perp2AxleInA1 = descriptor.parentSpace.referenceSystem.yAxis;
+			descriptor.perp2AxleInA2 = descriptor.axis;
+			descriptor.pivotA = (descriptor.parentSpace.pivot - _collision_translation) * COLLISION_RATIO;
 
-			descriptor.axleA = HKMATRIXROW(hkA, 0);
-			descriptor.perp2AxleInA1 = HKMATRIXROW(hkA, 1);
-			descriptor.perp2AxleInA2 = HKMATRIXROW(hkA, 2);
-			descriptor.pivotA = TOVECTOR4(hkA.getTranslation()) / 10;
+			auto a = TOVECTOR4(descriptor.childSpace.referenceSystem.yAxis);
+			auto b = TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis);
+			hkVector4 c; c.setCross(a, b);
 
-			descriptor.axleB = HKMATRIXROW(hkB, 0);
-			descriptor.perp2AxleInB1 = HKMATRIXROW(hkB, 1);
-			descriptor.perp2AxleInB2 = HKMATRIXROW(hkB, 2);
-			descriptor.pivotB = TOVECTOR4(hkB.getTranslation()) / 10;
+			descriptor.axleB = descriptor.childSpace.referenceSystem.xAxis;
+			descriptor.perp2AxleInB1 = TOVECTOR3(c);//descriptor.childSpace.referenceSystem.yAxis ^ descriptor.childSpace.referenceSystem.xAxis;
+			descriptor.perp2AxleInB2 = descriptor.childSpace.referenceSystem.yAxis;
+			descriptor.pivotB = (descriptor.childSpace.pivot - _collision_translation) * COLLISION_RATIO;
 		}
 	}
 
@@ -4124,30 +4115,16 @@ public:
 	template<>
 	void visit_compound(PrismaticDescriptor& descriptor) {
 		if (already_upgraded.insert(&descriptor).second) {
-			hkpPrismaticConstraintData data;
-			data.setInBodySpace(
-				TOVECTOR4(descriptor.parentSpace.pivot - _collision_translation),
-				TOVECTOR4(descriptor.childSpace.pivot - _collision_translation),
-				TOVECTOR4(descriptor.parentSpace.referenceSystem.xAxis),
-				TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis),
-				TOVECTOR4(descriptor.parentSpace.referenceSystem.yAxis),
-				TOVECTOR4(descriptor.childSpace.referenceSystem.yAxis)
-			);
 
-			//TODO: Check if plane has to be used
+			descriptor.slidingA = descriptor.plane.xAxis;
+			descriptor.rotationA = descriptor.parentSpace.referenceSystem.xAxis;
+			descriptor.planeA = descriptor.parentSpace.referenceSystem.yAxis;
+			descriptor.pivotA = (descriptor.parentSpace.pivot - _collision_translation) * COLLISION_RATIO;
 
-			hkTransform& hkA = data.m_atoms.m_transforms.m_transformA;
-			hkTransform& hkB = data.m_atoms.m_transforms.m_transformB;
-
-			descriptor.slidingA = HKMATRIXROW(hkA, 0);
-			descriptor.rotationA = HKMATRIXROW(hkA, 1);
-			descriptor.planeA = HKMATRIXROW(hkA, 2);
-			descriptor.pivotA = TOVECTOR4(hkA.getTranslation());
-
-			descriptor.slidingB = HKMATRIXROW(hkB, 0);
-			descriptor.rotationB = HKMATRIXROW(hkB, 1);
-			descriptor.planeB = HKMATRIXROW(hkB, 2);
-			descriptor.pivotB = TOVECTOR4(hkB.getTranslation());
+			descriptor.slidingB = descriptor.childSpace.referenceSystem.yAxis;
+			descriptor.rotationB = descriptor.childSpace.pivot;
+			descriptor.planeB = descriptor.childSpace.referenceSystem.xAxis;
+			descriptor.pivotB = (descriptor.plane.yAxis - _collision_translation) * COLLISION_RATIO;
 		}
 	}
 
@@ -4161,28 +4138,22 @@ public:
 	template<>
 	void visit_compound(RagdollDescriptor& descriptor) {
 		if (already_upgraded.insert(&descriptor).second) {
-			hkpRagdollConstraintData data;
-			data.setInBodySpace(
-				TOVECTOR4(descriptor.parentSpace.pivot - _collision_translation),
-				TOVECTOR4(descriptor.childSpace.pivot - _collision_translation),
-				TOVECTOR4(descriptor.parentSpace.referenceSystem.xAxis),
-				TOVECTOR4(descriptor.childSpace.referenceSystem.xAxis),
-				TOVECTOR4(descriptor.parentSpace.referenceSystem.yAxis),
-				TOVECTOR4(descriptor.childSpace.referenceSystem.yAxis)
-			);
 
-			hkTransform& hkA = data.m_atoms.m_transforms.m_transformA;
-			hkTransform& hkB = data.m_atoms.m_transforms.m_transformB;
+			descriptor.twistA = descriptor.parentSpace.referenceSystem.yAxis;
+			descriptor.planeA = descriptor.parentSpace.referenceSystem.xAxis;
+			auto a = TOVECTOR4(descriptor.twistA);
+			auto b = TOVECTOR4(descriptor.planeA);
+			hkVector4 c; c.setCross(a, b);
+			descriptor.motorA = TOVECTOR3(c); // descriptor.twistA^ descriptor.planeA;
+			descriptor.pivotA = (descriptor.parentSpace.pivot - _collision_translation) * COLLISION_RATIO;
 
-			descriptor.twistA = HKMATRIXROW(hkA, 0);
-			descriptor.planeA = HKMATRIXROW(hkA, 1);
-			descriptor.motorA = HKMATRIXROW(hkA, 2);
-			descriptor.pivotA = TOVECTOR4(hkA.getTranslation());
-
-			descriptor.twistB = HKMATRIXROW(hkB, 0);
-			descriptor.planeB = HKMATRIXROW(hkB, 1);
-			descriptor.motorB = HKMATRIXROW(hkB, 2);
-			descriptor.pivotB = TOVECTOR4(hkB.getTranslation());
+			descriptor.twistB = descriptor.childSpace.referenceSystem.yAxis;
+			descriptor.planeB = descriptor.childSpace.referenceSystem.xAxis;
+			a = TOVECTOR4(descriptor.twistB);
+			b = TOVECTOR4(descriptor.planeB);
+			c.setCross(a, b);
+			descriptor.motorB = TOVECTOR3(c);//descriptor.twistB ^ descriptor.planeB;
+			descriptor.pivotB = (descriptor.childSpace.pivot - _collision_translation) * COLLISION_RATIO;
 		}
 	}
 };
