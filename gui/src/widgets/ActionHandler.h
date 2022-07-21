@@ -41,6 +41,7 @@ namespace ckcmd {
 			QAction* _exportLE;
 
 			QAction* _copy;
+			QAction* _paste;
 
 			void buildSaveAction();
 			void buildImportFBXAction();
@@ -61,6 +62,7 @@ namespace ckcmd {
 			void buildExportLEAction();
 
 			void buildCopyAction();
+			void buildPasteAction();
 
 		public slots:
 			void save();
@@ -76,6 +78,7 @@ namespace ckcmd {
 			void addProperty();
 			void removeProperty();
 			void copy();
+			void paste();
 			void addOrSet();
 			void remove();
 			void addTransition();

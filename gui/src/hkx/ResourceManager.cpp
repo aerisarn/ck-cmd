@@ -1808,3 +1808,36 @@ void ResourceManager::exportProject(int project_index)
 	}
 }
 
+void ResourceManager::CreateNewBehaviorFiles(int project_index, const QString& behavior_name)
+{
+	fs::path behaviors_path = assetFolder(project_index, AssetType::behavior);
+	fs::path out = behaviors_path / behavior_name.toUtf8().constData(); out.replace_extension(".hkx");
+	hkbBehaviorGraphStringData* string_data = new hkbBehaviorGraphStringData();
+	hkbBehaviorGraphData* data = new hkbBehaviorGraphData();
+	data->m_stringData = string_data;
+	hkbBehaviorGraph* graph = new hkbBehaviorGraph();
+	graph->m_data = data;
+	graph->m_name = behavior_name.toUtf8().constData();
+	hkRootLevelContainer* root = new hkRootLevelContainer();
+	//NamedVariant(const char* name, void* object, const hkClass* klass);
+	root->m_namedVariants.pushBack(
+		{
+			hkbBehaviorGraphClass.getName(),
+			graph,
+			&hkbBehaviorGraphClass
+		}
+	);
+	HKXWrapper wrap;
+	wrap.write_le_se(root, out);
+	delete string_data;
+	delete data;
+	delete graph;
+	delete root;
+	get(out);
+}
+
+void ResourceManager::CreateNewProject(const QString& project_name, const fs::path& folder)
+{
+
+}
+

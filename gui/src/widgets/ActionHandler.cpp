@@ -211,10 +211,19 @@ void ActionHandler::buildCreateProjectAction()
 void ActionHandler::buildCopyAction()
 {
 	_copy = new QAction(tr("&Copy"), this);
-	_copy->setShortcuts(QKeySequence::New);
+	_copy->setShortcuts(QKeySequence::Copy);
 	_copy->setStatusTip(tr("Copy node"));
 	_copy->setEnabled(true);
 	connect(_copy, SIGNAL(triggered()), this, SLOT(copy()));
+}
+
+void ActionHandler::buildPasteAction()
+{
+	_paste = new QAction(tr("&Paste"), this);
+	_paste->setShortcuts(QKeySequence::Paste);
+	_paste->setStatusTip(tr("Paste copy"));
+	_paste->setEnabled(true);
+	connect(_paste, SIGNAL(triggered()), this, SLOT(paste()));
 }
 
 void ActionHandler::buildFindAction()
@@ -529,7 +538,7 @@ void ActionHandler::copy()
 	QModelIndex index = action->data().value<QModelIndex>();
 	if (!index.isValid())
 		return; //todo error message
-	action->setData(QVariant());
+	_model.SetCopyPointer(index);
 }
 
 void ActionHandler::addOrSet()

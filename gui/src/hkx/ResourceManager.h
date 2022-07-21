@@ -221,6 +221,10 @@ namespace ckcmd {
 
 			QStringList getStates(hkbStateMachine* fsm);
 
+			/*FILES*/
+			void CreateNewBehaviorFiles(int project_file, const QString& behavior_name);
+			void CreateNewProject(const QString& project_name, const fs::path& folder);
+
 		};
 	}
 }
