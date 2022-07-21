@@ -172,7 +172,9 @@ void TopInfoWidget::OnIndexSelected()
     if (_model.isVariant(_index))
     {
         buildReflectionTable(true);
+        nameLineEdit->blockSignals(true);
         nameLineEdit->setText(_model.data(_index, Qt::DisplayRole).toString());
+        nameLineEdit->blockSignals(false);
         refreshBindings();
     }
 }

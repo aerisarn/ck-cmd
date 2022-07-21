@@ -285,10 +285,10 @@ Qt::ItemFlags ProjectModel::flags(const QModelIndex& index) const
 	return QAbstractItemModel::flags(index);
 }
 
-bool ProjectModel::setData(const QModelIndex& index, const QVariant& value,
+bool ProjectModel::setData(const QModelIndex& actual_index, const QVariant& value,
 	int role)
 {
-	auto& edge = modelEdge(index);
+
 	//if (NULL != node)
 	//{
 	//	if (role == Qt::BackgroundRole && index.isValid())
@@ -299,23 +299,30 @@ bool ProjectModel::setData(const QModelIndex& index, const QVariant& value,
 
 	if (role == Qt::EditRole)
 	{
-		int children = edge.childCount(_resourceManager);
+		QModelIndex index = actual_index;
+		auto& edge = modelEdge(index);
+		auto& parent_edge = modelEdge(edge._parent);
+		//check if data is a link
+		int child_index = parent_edge.childIndex(edge.row(), edge.column(), _resourceManager);
+		if (this->index(edge.row(), edge.column(), edge._parent) == actual_index)
+		{
+			int row = edge.row();
+			int column = edge.column();
+			auto parent_index = edge._parent;
+			//it is, remove link first
+			remove(index);
+			index = this->index(row, column, parent_index);
+			edge = modelEdge(index);
+		}
+		//int children = edge.childCount(_resourceManager);
 		bool result = edge.setData(index.row(), index.column(), value, _resourceManager);
 		if (result)
 			emit dataChanged(index, index);
-		int new_children = edge.childCount(_resourceManager);
-		if (children != new_children)
+		//int new_children = edge.childCount(_resourceManager);
+		if (MODELEDGE_INVALID != child_index)
 		{
-			int difference = new_children - children;
-			if (difference > 0)
-			{
-				emit beginInsertChildren(index, children, children + difference - 1);
-				emit endInsertChildren();
-			}
-			else {
-				emit beginRemoveChildren(index, children, children + abs(difference) - 1);
-				emit endRemoveChildren();
-			}
+			emit beginInsertChildren(index, child_index, child_index);
+			emit endInsertChildren();
 		}
 		return result;
 	}
