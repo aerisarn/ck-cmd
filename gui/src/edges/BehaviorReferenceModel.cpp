@@ -7,9 +7,29 @@ std::vector<const hkClass*> BehaviorReferenceModel::handled_hkclasses() const
 	return { &hkbBehaviorReferenceGeneratorClass };
 }
 
+hkbBehaviorReferenceGenerator* BehaviorReferenceModel::variant(const ModelEdge& edge) const
+{
+	hkVariant* variant = edge.childItem<hkVariant>();
+	if (nullptr != variant)
+	{
+		auto* bfr = reinterpret_cast<hkbBehaviorReferenceGenerator*>(variant->m_object);
+		return bfr;
+	}
+	return nullptr;
+}
+
 int BehaviorReferenceModel::childCount(const ModelEdge& edge, ResourceManager& manager) const
 {
-	return 1;
+	auto bfr = variant(edge);
+	if (bfr != NULL)
+	{
+		if (bfr->m_behaviorName != NULL)
+		{
+			if (MODELEDGE_INVALID != manager.behaviorFileIndex(edge.project(), edge.childItem<hkVariant>()))
+				return 1;
+		}
+	}
+	return 0;
 }
 
 std::pair<int, int> BehaviorReferenceModel::child(int index, const ModelEdge& edge, ResourceManager& manager) const
@@ -20,7 +40,10 @@ std::pair<int, int> BehaviorReferenceModel::child(int index, const ModelEdge& ed
 int BehaviorReferenceModel::childIndex(int row, int column, const ModelEdge& edge, ResourceManager& manager) const
 {
 	if (row == 4 && column == 1)
-		return 0;
+	{
+		if (childCount(edge, manager) > 0)
+			return 0;
+	}
 	return MODELEDGE_INVALID;
 }
 

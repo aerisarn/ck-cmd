@@ -9,6 +9,7 @@ namespace ckcmd {
 
 		class BehaviorReferenceModel : public Edge
 		{
+			hkbBehaviorReferenceGenerator* variant(const ModelEdge& edge) const;
 		public:
 			virtual std::vector<NodeType> handled_types() const override { return {}; }
 			virtual std::vector<const hkClass*> handled_hkclasses() const override;
