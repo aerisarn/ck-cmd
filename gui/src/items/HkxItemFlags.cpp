@@ -30,13 +30,6 @@ void HkxItemFlags::fillTemplate() const
 	QWidget* template_ = getTemplate();
 	for (int i = 0; i < _storage * 8; i++) {
 		QCheckBox* checkbox = template_->findChild<QCheckBox*>(QString("%1").arg(i));
-		//if (i < _enum_class->getNumItems()) {
-		//	QString name = _enum_class->getItem(i).getName();
-		//	checkbox->setText(name);
-		//}
-		//else {
-		//	checkbox->setText(QString("Unknown %1").arg(i));
-		//}
 		int flag = 1 << i;
 
 		int enum_value = _value;
@@ -173,6 +166,10 @@ QWidget* HkxItemFlags::CreateEditor(QWidget* parent) {
 	editor->setAutoFillBackground(true);
 	QVBoxLayout* editor_layout = new QVBoxLayout(editor);
 	QCheckBox* checkbox;
+
+
+
+
 	for (int i = 0; i < _storage * 8; i++)
 	{
 		checkbox = new QCheckBox(QString("Unknown %1").arg(i));
@@ -193,13 +190,33 @@ void HkxItemFlags::setFlag(size_t flag_index, bool value)
 void HkxItemFlags::FillEditor(QWidget* editor)
 {
 	for (int i = 0; i < _storage * 8; i++) {
+
+		int flag = 1 << i;
+
+		int enum_value = _value;
+		switch (_storage)
+		{
+		case 1:
+			flag = (unsigned char)flag;
+			break;
+		case 2:
+			flag = _byteswap_ushort((unsigned short)flag);
+			break;
+		default:
+			flag = _byteswap_ulong((unsigned int)flag);
+			break;
+		}
+
+		const char* temp = nullptr;
+		auto result = _enum_class->getNameOfValue(flag, &temp);
+		QString name = temp;
 		QCheckBox* checkbox = editor->findChild<QCheckBox*>(QString("%1").arg(i));
-		if (i < _enum_class->getNumItems()) {
-			QString name = _enum_class->getItem(i).getName();
+		if (!name.isEmpty()) 
+		{	
 			checkbox->setText(name);
 		}
 		else {
-			checkbox->setText(QString("Unknown %1").arg(i));
+			checkbox->setVisible(false);
 		}
 		if (_value & (1 << i))
 		{

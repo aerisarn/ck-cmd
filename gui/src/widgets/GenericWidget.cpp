@@ -38,7 +38,7 @@ void clearLayout(QLayout* layout, bool deleteWidgets = true)
 	}
 }
 
-void verticalResizeTableViewToContents(QTableView* tableView, bool min_row_value, bool forceScroll)
+void verticalResizeTableViewToContents(QTableView* tableView, bool min_row_value, bool forceScroll, int actual_width)
 {
 	int rowTotalHeight = 0;
 
@@ -55,10 +55,15 @@ void verticalResizeTableViewToContents(QTableView* tableView, bool min_row_value
 
 	// Check for scrollbar visibility
 
-
-	if (tableView->horizontalScrollBar()->isVisible() || forceScroll)
+	int columns_width = 0;
+	for (int i = 0; i < tableView->horizontalHeader()->count(); i++)
 	{
-		if (forceScroll)
+		columns_width += tableView->columnWidth(i);
+	}
+
+	if (tableView->horizontalScrollBar()->isVisible() || columns_width > 510)
+	{
+		if (columns_width > actual_width)
 			rowTotalHeight += 23;
 		else
 			rowTotalHeight += tableView->horizontalScrollBar()->height();
@@ -108,18 +113,18 @@ void GenericWidget::makeFieldWidget
 		if (actual_values <= 0)
 			setRemoveButton->setEnabled(false);
 
-		connect(setAddButton, &QToolButton::clicked, [editor, editModel, first_row, setRemoveButton]()
+		connect(setAddButton, &QToolButton::clicked, [this, editor, editModel, first_row, setRemoveButton]()
 		{
 			int new_row = editModel->rowCount();
 			editModel->insertRow(new_row);
 			editor->resizeRowsToContents();
 			editor->resizeColumnsToContents();
 			int check = editModel->rowCount();
-			verticalResizeTableViewToContents(editor, false, false);
+			verticalResizeTableViewToContents(editor, false, false, width());
 			setRemoveButton->setEnabled(true);
 		});
 
-		connect(setRemoveButton, &QToolButton::clicked, [editor, editModel, first_row, setRemoveButton]()
+		connect(setRemoveButton, &QToolButton::clicked, [this, editor, editModel, first_row, setRemoveButton]()
 		{
 			auto index = editor->selectionModel()->currentIndex();
 			int row = editModel->rowCount() - 1;
@@ -132,7 +137,7 @@ void GenericWidget::makeFieldWidget
 			editor->resizeRowsToContents();
 			editor->resizeColumnsToContents();
 			int check = editModel->rowCount();
-			verticalResizeTableViewToContents(editor, false, false);
+			verticalResizeTableViewToContents(editor, false, false, width());
 			if (check <= 0)
 				setRemoveButton->setEnabled(false);
 		});
@@ -180,9 +185,9 @@ void GenericWidget::makeFieldWidget
 	bool forceScroll = columnLabels.size() > 5;
 
 	if (rows.size() > 1)
-		verticalResizeTableViewToContents(editor, !isArray, forceScroll);
+		verticalResizeTableViewToContents(editor, !isArray, forceScroll, width());
 	else
-		verticalResizeTableViewToContents(editor, true, forceScroll);
+		verticalResizeTableViewToContents(editor, true, forceScroll, width());
 }
 
 void GenericWidget::OnIndexSelected()
