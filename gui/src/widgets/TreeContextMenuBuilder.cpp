@@ -71,7 +71,9 @@ void TreeContextMenuBuilder::buildHavokMenu(std::vector<QAction*>& actions, cons
 		actions.push_back(action);
 	actions.push_back(nullptr);
 	actions.push_back(_actionHandler.copyAction());
-	actions.push_back(_actionHandler.removeAction());
+	auto remove = _actionHandler.removeAction();
+	remove->setData(QVariant());
+	actions.push_back(remove);
 }
 
 QMenu* TreeContextMenuBuilder::build(NodeType type, const QModelIndex& action_data)
