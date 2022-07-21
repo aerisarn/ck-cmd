@@ -314,15 +314,20 @@ bool ProjectModel::setData(const QModelIndex& actual_index, const QVariant& valu
 			index = this->index(row, column, parent_index);
 			edge = modelEdge(index);
 		}
-		//int children = edge.childCount(_resourceManager);
 		bool result = edge.setData(index.row(), index.column(), value, _resourceManager);
 		if (result)
 			emit dataChanged(index, index);
-		//int new_children = edge.childCount(_resourceManager);
-		if (MODELEDGE_INVALID != child_index)
+		auto new_index = this->index(index.row(), index.column(), index);
+		auto new_child_index = edge.childIndex(index.row(), index.column(), _resourceManager);
+		if (new_index.internalId() != index.internalId())
 		{
-			emit beginInsertChildren(index, child_index, child_index);
+			emit beginInsertChildren(index, new_child_index, new_child_index);
 			emit endInsertChildren();
+		}
+		else if (actual_index.internalId() != new_index.internalId())
+		{
+			emit beginRemoveChildren(index, new_child_index, new_child_index);
+			emit endRemoveChildren();
 		}
 		return result;
 	}
@@ -953,4 +958,32 @@ QModelIndexList ProjectModel::match(const QModelIndex& start, int role,
 		idx = next_idx;
 	}
 	return result;
+}
+
+void* ProjectModel::createObject(const QModelIndex& index, const hkClass* hkclass, const std::string& name)
+{
+	auto& edge = modelEdge(index);
+	int file_index = edge._file;
+	void* out = _resourceManager.createObject(file_index, hkclass, name);
+	//Special case
+	if (hkclass == &hkbStateMachineStateInfoClass && edge._childItem!= NULL)
+	{
+		hkbStateMachineStateInfo* state = (hkbStateMachineStateInfo*)out;
+		auto fsm_variant = edge.childItem<hkVariant>();
+		auto fsm = (hkbStateMachine*)fsm_variant->m_object;
+		int highest_stateid = -1;
+		if (state != NULL && fsm != NULL)
+		{
+			for (int i = 0; i < fsm->m_states.getSize(); i++)
+			{
+				if (fsm->m_states[i]->m_stateId > highest_stateid)
+					highest_stateid = fsm->m_states[i]->m_stateId;
+			}
+			if (highest_stateid >= 0)
+			{
+				state->m_stateId = highest_stateid + 1;
+			}
+		}
+	}
+	return out;
 }

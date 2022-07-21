@@ -68,6 +68,8 @@ namespace ckcmd {
             std::vector<TypeInfo> rowTypes(const QModelIndex& index);
             bool isArray(const QModelIndex& index);
             QStringList rowNames(const QModelIndex& index, const QString& prefix_filter = QString(""));
+            void* createObject(const QModelIndex& index, const hkClass* hkclass, const std::string& name);
+
 
             /*
             ** AbstractItemModel(required methods)

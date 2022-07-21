@@ -1,8 +1,13 @@
 #include <src/Skyrim/TES5File.h>
 #include <src/Collection.h>
 #include <src/ModFile.h>
-#include <src/hkx/HkxVariant.h>
+#include <src/hkx/HkxTableVariant.h>
 #include <src/hkx/ReferenceSetter.h>
+#include <src/utility/Objects.h>
+#include <src/items/HkxItemBone.h>
+#include <src/items/HkxItemEvent.h>
+#include <src/items/HkxItemRagdollBone.h>
+#include <src/items/HkxItemVar.h>
 
 #include <src/config.h>
 
@@ -1650,7 +1655,25 @@ void* ResourceManager::createObject(int file, const hkClass* hkclass, const std:
 		memset(v.m_object, 0, hkclass->getObjectSize());
 		v.m_class = hkclass;
 		auto info = hkTypeInfoRegistry::getInstance().finishLoadedObject(v.m_object, hkclass->getName());
-		HkxVariant(v).setName(name.c_str());
+		HkxTableVariant vv(v);
+		vv.setName(name.c_str());
+		int rows = vv.rows();
+		for (int i = 0; i < rows; i++)
+		{
+			int columns = vv.columns(i);
+			for (int j = 0; j < columns; j++)
+			{
+				auto value = vv.data(i, j);
+				if (value.canConvert<HkxItemEvent>() ||
+					value.canConvert<HkxItemVar>() ||
+					value.canConvert<HkxItemBone>() ||
+					value.canConvert<HkxItemRagdollBone>())
+				{
+					vv.setData(i, j, -1);
+				}
+			}
+		}
+		initializeValues(v.m_object, hkclass);
 		_contents[file].second.push_back(v);
 	}
 	return v.m_object;

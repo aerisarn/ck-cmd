@@ -550,7 +550,7 @@ void ActionHandler::addOrSet()
 		if (to_set_or_add == nullptr)
 		{
 			std::string name = selection.first.second.toUtf8().constData();
-			to_set_or_add = _model.getResourceManager().createObject(_model.getFileIndex(index), selection.first.first, name);
+			to_set_or_add = _model.createObject(index, selection.first.first, name);
 		}
 		HkxItemPointer p(to_set_or_add);
 		QVariant value; value.setValue(p);
