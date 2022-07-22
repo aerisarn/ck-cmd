@@ -541,6 +541,10 @@ void ActionHandler::copy()
 	_model.SetCopyPointer(index);
 }
 
+void ActionHandler::paste()
+{
+}
+
 void ActionHandler::addOrSet()
 {
 	QAction* action = static_cast<QAction*>(sender());

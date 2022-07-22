@@ -155,7 +155,7 @@ namespace ckcmd {
 			size_t getRagdollIndex(int project_file, const std::string& path);
 			hkVariant* getRagdollRoot(int project_file, int rig_index);
 
-			size_t behaviorFileIndex(int project_file, hkVariant* data);
+			int behaviorFileIndex(int project_file, hkVariant* data);
 			hkVariant* behaviorFileRoot(int behavior_file);
 
 			const AnimData::root_movement_t& getAnimationMovementData(int project_file, const std::string& animation_name);

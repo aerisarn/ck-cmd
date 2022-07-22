@@ -1890,6 +1890,10 @@ void HKXWrapper::add_skeleton(const fs::path& path, FbxNode* scene_root, vector<
 				animation_skeleton = skeletons[0], ragdoll_skeleton = skeletons[1];
 		}
 	}
+	else {
+		animation_skeleton = skeletons[0];
+		ragdoll_instance = NULL;
+	}
 
 	Log::Info("Animation Skeleton: %s", animation_skeleton->m_name.cString());
 	if (ragdoll_instance != NULL)

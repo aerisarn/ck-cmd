@@ -996,7 +996,7 @@ void ResourceManager::close(int file_index)
 	}
 }
 
-size_t ResourceManager::behaviorFileIndex(int project_file, hkVariant* data)
+int ResourceManager::behaviorFileIndex(int project_file, hkVariant* data)
 {
 	fs::path behavior_path = path(project_file).parent_path();
 	if (data->m_class == &hkbCharacterDataClass)
@@ -1009,8 +1009,12 @@ size_t ResourceManager::behaviorFileIndex(int project_file, hkVariant* data)
 		hkbBehaviorReferenceGenerator* brg = reinterpret_cast<hkbBehaviorReferenceGenerator*>(data->m_object);
 		behavior_path /= brg->m_behaviorName.cString();
 	}
-	get(behavior_path);
-	return index(behavior_path);
+	if (fs::exists(behavior_path))
+	{
+		get(behavior_path);
+		return index(behavior_path);
+	}
+	return -1;
 }
 
 hkVariant* ResourceManager::behaviorFileRoot(int behavior_file)
