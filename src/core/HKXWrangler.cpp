@@ -436,11 +436,6 @@ FbxAMatrix getWorldTransform(FbxNode* pNode, FbxTime time) {
 
 	matrixGeo = localMatrix * matrixGeo;
 	return matrixGeo;
-	//hkQsTransform hk_trans;
-
-
-
-	//return hk_trans;
 }
 
 hkTransform getTransform(const FbxVector4& lT, const FbxQuaternion& lR) {
@@ -1028,15 +1023,47 @@ set<string> HKXWrapper::create_animations(
 		hkArray<hkQsTransform> root_track;
 		hkArray<hkReal> root_track_times;
 
+		std::set<FbxNode*> ignore_before_pelvis;
+
+		float threshold = 1.0e-6;
+
+		FbxNode* pelvis = NULL;
+		//find pelvis
+		for (FbxNode* bone : skeleton)
+		{
+			auto bone_world_transform = getWorldTransform(bone, 0.);
+			auto Z_component = bone_world_transform.GetT()[2];
+			if (abs(Z_component) > threshold)
+			{
+				pelvis = bone;
+				FbxNode* parent = bone->GetParent();
+				while (parent != NULL)
+				{
+					ignore_before_pelvis.insert(parent);
+					parent = parent->GetParent();
+				}
+				break;
+			}
+		}
+
+		if (pelvis == NULL)
+		{
+			Log::Error("Unable to find the pelvis bone! Pelvis bone is determined as the first bone with z != 0. Exiting");
+			return {};
+		}
+
 		// Sample each animation frame
 		for (float time = startTime.GetSecondDouble();
 			time <= endTime.GetSecondDouble() + timePerFrame.GetSecondDouble()/2;
 			time += timePerFrame.GetSecondDouble(), ++numFrames)
 		{
+			tempAnim->m_transforms.expandBy(numTracks);
+
 			FbxTime fbx_time;  fbx_time.SetSecondDouble(time);
-			for (FbxNode* bone : skeleton)
+			for (int bone_index = 0; bone_index < skeleton.size(); ++bone_index)
 			{
-				if (bone == skeleton[0])
+				FbxNode* bone = skeleton[bone_index];
+				if (ignore_before_pelvis.find(bone) != ignore_before_pelvis.end())
 				{
 					//root_track.pushBack(getBoneTransform(bone, fbx_time));
 					//Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
@@ -1051,47 +1078,61 @@ set<string> HKXWrapper::create_animations(
 					//	(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(3)
 					//);
 					//root_track_times.pushBack((hkReal)time);
+					tempAnim->m_transforms[numFrames * skeleton.size() + bone_index].setIdentity();
 					continue;
 				}
-				if (bone == skeleton[1]) //evaluate pelvis position instead of relying on root bone
+				if (bone == pelvis) //evaluate pelvis position instead of relying on root bone
 				{
 					auto pelvis_world_transform = getWorldTransform(bone, fbx_time);
-					auto angles = pelvis_world_transform.GetQ().DecomposeSphericalXYZ();
-					FbxQuaternion z_rotation(FbxVector4( 0., 0., 1. ), angles[2]);
-					FbxQuaternion residual({ 0., 0., 0. }); 
-					residual.ComposeSphericalXYZ(FbxVector4( angles[0], angles[1], 0. ));
+					//auto angles = pelvis_world_transform.GetQ().DecomposeSphericalXYZ();
+					//FbxQuaternion z_rotation(FbxVector4( 0., 0., 1. ), angles[2]);
+					//FbxQuaternion residual({ 0., 0., 0. }); 
+					//residual.ComposeSphericalXYZ(FbxVector4( angles[0], angles[1], 0. ));
+					auto quat = pelvis_world_transform.GetQ();
+					Quat QuatRotNew = { quat[0], quat[1], quat[2], quat[3] };
+					EulerAngles z_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
+					z_eul.x = 0; z_eul.y = 0;
+					EulerAngles xy_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
+					xy_eul.z = 0;
+					auto z_quat = Eul_ToQuat(z_eul);
+					auto xy_quat = Eul_ToQuat(xy_eul);
 
 					hkQsTransform root_transform;
 					root_transform.setTranslation(hkVector4(pelvis_world_transform.GetT()[0], pelvis_world_transform.GetT()[1], 0.));
-					root_transform.setRotation(::hkQuaternion(z_rotation[0], z_rotation[1], z_rotation[2], z_rotation[3]));
+					root_transform.setRotation(::hkQuaternion((float)z_quat.x, (float)z_quat.y, (float)z_quat.z, (float)z_quat.w));
 					root_transform.setScale(hkVector4(1., 1., 1., 0.000000));
 					root_transform.fastRenormalize();
 
 					hkQsTransform pelvis_transform;
 					pelvis_transform.setTranslation(hkVector4(0., 0., pelvis_world_transform.GetT()[2]));
-					pelvis_transform.setRotation(::hkQuaternion(residual[0], residual[1], residual[2], residual[3]));
+					pelvis_transform.setRotation(::hkQuaternion((float)xy_quat.x, (float)xy_quat.y, (float)xy_quat.z, (float)xy_quat.w));
 					pelvis_transform.setScale(hkVector4(1., 1., 1., 0.000000));
 					pelvis_transform.fastRenormalize();
 					
-					root_track.pushBack(root_transform);
-					Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
-						(float)time,
-						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(0),
-						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(1),
-						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(2),
-						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(3),
-						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(0),
-						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(1),
-						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(2),
-						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(3)
-					);
-					root_track_times.pushBack((hkReal)time);
 
-					tempAnim->m_transforms.pushBack(root_transform);
-					tempAnim->m_transforms.pushBack(pelvis_transform);
+						root_track.pushBack(root_transform);
+						Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
+							(float)time,
+							(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(0),
+							(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(1),
+							(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(2),
+							(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(3),
+							(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(0),
+							(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(1),
+							(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(2),
+							(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(3)
+						);
+						root_track_times.pushBack((hkReal)time);
+					
+
+					//tempAnim->m_transforms.pushBack(root_transform);
+					//tempAnim->m_transforms.pushBack(pelvis_transform);
+					tempAnim->m_transforms[numFrames * skeleton.size() + bone_index - 1] = root_transform;
+					tempAnim->m_transforms[numFrames * skeleton.size() + bone_index] = pelvis_transform;
 				}
 				else {
-					tempAnim->m_transforms.pushBack(getBoneTransform(bone, fbx_time));
+					tempAnim->m_transforms[numFrames * skeleton.size() + bone_index] = getBoneTransform(bone, fbx_time);
+					//tempAnim->m_transforms.pushBack(getBoneTransform(bone, fbx_time));
 				}
 			}
 			for (FbxProperty& float_track : floats)
@@ -1099,10 +1140,6 @@ set<string> HKXWrapper::create_animations(
 				tempAnim->m_floats.pushBack(getFloatTrackValue(float_track, fbx_time));
 			}
 		}
-
-		auto last = skeleton[0]->EvaluateGlobalTransform(endTime);
-
-		hkQsTransform last_root = root_track[root_track.getSize() - 1];
 
 		if (!transform_track_to_bone_indices.empty()) {
 			for (const auto& index : transform_track_to_bone_indices)
@@ -1189,8 +1226,17 @@ set<string> HKXWrapper::create_animations(
 					{
 					0.0,
 					0.0,
-					tempAnim->m_transforms[i * skeleton.size()].getTranslation().getSimdAt(2),
-					tempAnim->m_transforms[i * skeleton.size()].getTranslation().getSimdAt(3)
+					0.0
+					}
+				);
+
+				tempAnim->m_transforms[i * skeleton.size()].setRotation
+				(
+					{
+					0.0,
+					0.0,
+					0.0,
+					1.0
 					}
 				);
 			}

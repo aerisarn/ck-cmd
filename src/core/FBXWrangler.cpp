@@ -225,9 +225,9 @@ void FBXWrangler::NewScene() {
 		CloseScene();
 
 	scene = FbxScene::Create(sdkManager, "ckcmd");
-	//eMax,				/*!< UpVector = ZAxis, FrontVector = -ParityOdd, CoordSystem = RightHanded */
-	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector)FbxAxisSystem::eParityOdd, FbxAxisSystem::ECoordSystem::eRightHanded);
-	scene->GetGlobalSettings().SetAxisSystem(maxSystem);
+	////eMax,				/*!< UpVector = ZAxis, FrontVector = -ParityOdd, CoordSystem = RightHanded */
+	//FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, (FbxAxisSystem::EFrontVector)FbxAxisSystem::eParityOdd, FbxAxisSystem::ECoordSystem::eRightHanded);
+	scene->GetGlobalSettings().SetAxisSystem(FbxAxisSystem::Max);
 	scene->GetRootNode()->LclScaling.Set(FbxDouble3(1.0, 1.0, 1.0));
 	scene->GetGlobalSettings().SetSystemUnit(FbxSystemUnit::cm);
 
@@ -2544,8 +2544,24 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 
 	bool status = iImporter->Import(scene);
 
-	FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, FbxAxisSystem::EFrontVector::eParityOdd, FbxAxisSystem::ECoordSystem::eRightHanded);
-	maxSystem.ConvertScene(scene);
+	FbxAxisSystem lAxisSytemReference = scene->GetGlobalSettings().GetAxisSystem();
+
+	int lUpVectorSign = 1;
+	int lFrontVectorSign = 1;
+
+	//get upVector and its sign.
+	FbxAxisSystem::EUpVector lUpVector = lAxisSytemReference.GetUpVector(lUpVectorSign);
+
+	//get FrontVector and its sign.
+	FbxAxisSystem::EFrontVector lFrontVector = lAxisSytemReference.GetFrontVector(lFrontVectorSign);
+
+	//get uCoorSystem. 
+	FbxAxisSystem::ECoordSystem lCoorSystem = lAxisSytemReference.GetCoorSystem();
+
+	//FbxAxisSystem maxSystem(FbxAxisSystem::EUpVector::eZAxis, FbxAxisSystem::EFrontVector::eParityOdd, FbxAxisSystem::ECoordSystem::eRightHanded);
+	//maxSystem.ConvertScene(scene);
+
+	FbxAxisSystem::Max.ConvertScene(scene);
 
 	auto units = scene->GetGlobalSettings().GetSystemUnit();
 
@@ -2572,20 +2588,20 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 		}
 	}
 
-	if (scene->GetGlobalSettings().GetSystemUnit() != FbxSystemUnit::cm)
-	{
-		const FbxSystemUnit::ConversionOptions lConversionOptions = {
-		  false, /* mConvertRrsNodes */
-		  true, /* mConvertLimits */
-		  true, /* mConvertClusters */
-		  true, /* mConvertLightIntensity */
-		  true, /* mConvertPhotometricLProperties */
-		  true  /* mConvertCameraClipPlanes */
-		};
+	//if (scene->GetGlobalSettings().GetSystemUnit() != FbxSystemUnit::cm)
+	//{
+	//	const FbxSystemUnit::ConversionOptions lConversionOptions = {
+	//	  false, /* mConvertRrsNodes */
+	//	  true, /* mConvertLimits */
+	//	  true, /* mConvertClusters */
+	//	  true, /* mConvertLightIntensity */
+	//	  true, /* mConvertPhotometricLProperties */
+	//	  true  /* mConvertCameraClipPlanes */
+	//	};
 
-		// Convert the scene to meters using the defined options.
-		FbxSystemUnit::cm.ConvertScene(scene, lConversionOptions);
-	}
+	//	// Convert the scene to meters using the defined options.
+	//	FbxSystemUnit::cm.ConvertScene(scene, lConversionOptions);
+	//}
 
 	//Blender sets a 100 factor for no reason
 	if (exporter_name.find("Blender") != string::npos)
@@ -5644,7 +5660,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 						continue;
 					}
 					//OPTIMIZATION: if track curve exists but doesn't have key, do not add
-					if (!paired && animated_nodes.find(track) == animated_nodes.end())
+					if (!paired && animated_nodes.find(track) == animated_nodes.end() && i != 0) //butwe always want the root track!
 						continue;
 					transformTrackToBoneIndices.push_back(i);
 					tracks.push_back(track);
