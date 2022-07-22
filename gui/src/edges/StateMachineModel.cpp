@@ -171,7 +171,7 @@ int StateMachineModel::childCount(const ModelEdge& edge, ResourceManager& manage
 		}
 		if (edge.childType() == NodeType::FSMStateTransition)
 		{
-			auto transition = getStateTransitionFromRow(FSM, edge.row());
+			auto transition = getStateTransitionFromRow(FSM, edge.subindex());
 			int count = 0;
 			if (transition->m_transition != nullptr)
 				count++;
@@ -192,17 +192,49 @@ std::pair<int, int> StateMachineModel::child(int index, const ModelEdge& edge, R
 	case NodeType::FSMStateTransitions:
 		return { index, 0 };
 	case NodeType::FSMWildcardTransition:
-	case NodeType::FSMStateTransition:
+	{
+		auto* FSM = variant(edge);
 		switch (index)
 		{
 		case 0:
-			return { 9, 1 };
+		{
+			if (FSM != nullptr && FSM->m_wildcardTransitions != nullptr && FSM->m_wildcardTransitions->m_transitions[edge.subindex()].m_transition != nullptr)
+				return { 9, 1 };
+			return { MODELEDGE_INVALID, MODELEDGE_INVALID };
+		}
 		case 1:
-			return { 10, 1 };
+		{
+			if (FSM != nullptr && FSM->m_wildcardTransitions != nullptr && FSM->m_wildcardTransitions->m_transitions[edge.subindex()].m_condition != nullptr)
+				return { 10, 1 };
+			return { MODELEDGE_INVALID, MODELEDGE_INVALID };
+		}
 		default:
 			break;
 		}
 		return  { MODELEDGE_INVALID, MODELEDGE_INVALID };
+	}
+	case NodeType::FSMStateTransition:
+	{
+		auto* FSM = variant(edge);
+		auto transition = getStateTransitionFromRow(FSM, edge.subindex());
+		if (transition != nullptr)
+		{
+			switch (index)
+			{
+			case 0:
+			{
+				return { 9, 1 };
+			}
+			case 1:
+			{
+				return { 10, 1 };
+			}
+			default:
+				break;
+			}
+		}
+		return  { MODELEDGE_INVALID, MODELEDGE_INVALID };
+	}
 	default:
 		break;
 	}
@@ -233,9 +265,9 @@ int StateMachineModel::childIndex(int row, int column, const ModelEdge& edge, Re
 			auto transition = getStateTransitionFromRow(FSM, edge.row());
 			if (nullptr != transition)
 			{
-				if (row == 9 && column == 1 && FSM != nullptr && FSM->m_wildcardTransitions != nullptr && transition->m_transition != nullptr)
+				if (row == 9 && column == 1 && FSM != nullptr && transition->m_transition != nullptr)
 					return 0;
-				if (row == 10 && column == 1 && FSM != nullptr && FSM->m_wildcardTransitions != nullptr && transition->m_condition != nullptr)
+				if (row == 10 && column == 1 && FSM != nullptr && transition->m_condition != nullptr)
 					return 1;
 			}
 		}
@@ -324,9 +356,9 @@ QVariant StateMachineModel::data(int row, int column, const ModelEdge& edge, Res
 		}
 		if (edge.childType() == NodeType::FSMWildcardTransition)
 		{
+			auto& transition = FSM->m_wildcardTransitions->m_transitions[edge.subindex()];
 			if (row == 0 && column == 0)
 			{
-				auto& transition = FSM->m_wildcardTransitions->m_transitions[edge.subindex()];
 				QString result = "Transition to Invalid State";
 				for (const auto& state : FSM->m_states)
 				{
@@ -394,13 +426,16 @@ QVariant StateMachineModel::data(int row, int column, const ModelEdge& edge, Res
 					}
 				}
 			}
+			auto transition = getStateTransitionFromRow(FSM, edge.subindex());
 			if (row == 9 && column == 1)
 			{
-				return "Transition effect not set";
+				if (transition->m_transition == NULL)
+					return "Transition effect not set";
 			}
 			if (row == 10 && column == 1)
 			{
-				return "Condition not set";
+				if (transition->m_condition == NULL)
+					return "Condition not set";
 			}
 			hkVariant v;
 			v.m_class = &hkbStateMachineTransitionInfoClass;
