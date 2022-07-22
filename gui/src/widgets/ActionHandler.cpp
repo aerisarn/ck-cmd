@@ -201,11 +201,20 @@ void ActionHandler::buildRemoveTransition()
 
 void ActionHandler::buildCreateProjectAction()
 {
-	_createProject = new QAction(tr("&New"), this);
+	_createProject = new QAction(tr("&New Project"), this);
 	_createProject->setShortcuts(QKeySequence::New);
 	_createProject->setStatusTip(tr("Create new project"));
 	_createProject->setEnabled(false);
 	connect(_createProject, SIGNAL(triggered()), this, SLOT(createProject()));
+}
+
+void ActionHandler::buildCreateBehaviorAction()
+{
+	_createBehavior = new QAction(tr("&New Behavior"), this);
+	_createBehavior->setShortcuts(QKeySequence::New);
+	_createBehavior->setStatusTip(tr("Create new Behavior File"));
+	_createBehavior->setEnabled(false);
+	connect(_createBehavior, SIGNAL(triggered()), this, SLOT(createBehavior()));
 }
 
 void ActionHandler::buildCopyAction()
@@ -265,6 +274,26 @@ void ActionHandler::createProject()
 	//	ProjectNode* node = model->getNode(selected.topLeft());
 	//	Saver(_resourceManager, node, model);
 	//}
+}
+
+void ActionHandler::createBehavior()
+{
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+	action->setData(QVariant());
+	int project_index = _model.getProjectIndex(index);
+	bool ok;
+	QString name = QInputDialog::getText(0, "Choose new Behavior's filename",
+		"Filename:", QLineEdit::Normal,
+		"", &ok);
+	if (ok)
+	{
+		_model.getResourceManager().CreateNewBehaviorFile(project_index, name);
+	}
 }
 
 void ActionHandler::importFBX()

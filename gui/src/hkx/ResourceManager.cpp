@@ -1812,36 +1812,131 @@ void ResourceManager::exportProject(int project_index)
 	}
 }
 
-void ResourceManager::CreateNewBehaviorFiles(int project_index, const QString& behavior_name)
+
+void createBehaviorFile(const fs::path& out, const std::string& behavior_name)
+{
+	if (!fs::exists(out))
+	{
+		hkbBehaviorGraphStringData* string_data = new hkbBehaviorGraphStringData();
+		hkbBehaviorGraphData* data = new hkbBehaviorGraphData();
+		data->m_stringData = string_data;
+		hkbBehaviorGraph* graph = new hkbBehaviorGraph();
+		graph->m_data = data;
+		graph->m_name = behavior_name.c_str();
+		hkRootLevelContainer* root = new hkRootLevelContainer();
+		root->m_namedVariants.pushBack(
+			{
+				hkbBehaviorGraphClass.getName(),
+				graph,
+				&hkbBehaviorGraphClass
+			}
+		);
+		HKXWrapper wrap;
+		wrap.write_le_se(root, out);
+		delete string_data;
+		delete data;
+		delete graph;
+		delete root;
+	}
+}
+
+void ResourceManager::CreateNewBehaviorFile(int project_index, const QString& behavior_name)
 {
 	fs::path behaviors_path = assetFolder(project_index, AssetType::behavior);
 	fs::path out = behaviors_path / behavior_name.toUtf8().constData(); out.replace_extension(".hkx");
-	hkbBehaviorGraphStringData* string_data = new hkbBehaviorGraphStringData();
-	hkbBehaviorGraphData* data = new hkbBehaviorGraphData();
-	data->m_stringData = string_data;
-	hkbBehaviorGraph* graph = new hkbBehaviorGraph();
-	graph->m_data = data;
-	graph->m_name = behavior_name.toUtf8().constData();
-	hkRootLevelContainer* root = new hkRootLevelContainer();
-	//NamedVariant(const char* name, void* object, const hkClass* klass);
-	root->m_namedVariants.pushBack(
-		{
-			hkbBehaviorGraphClass.getName(),
-			graph,
-			&hkbBehaviorGraphClass
-		}
-	);
-	HKXWrapper wrap;
-	wrap.write_le_se(root, out);
-	delete string_data;
-	delete data;
-	delete graph;
-	delete root;
-	get(out);
+	createBehaviorFile(out, behavior_name.toUtf8().constData());
 }
 
-void ResourceManager::CreateNewProject(const QString& project_name, const fs::path& folder)
+void createProjectFile(const fs::path& out, const std::string& character_file)
 {
+	if (!fs::exists(out))
+	{
+		hkbProjectStringData* string_data = new hkbProjectStringData();
+		string_data->m_characterFilenames.pushBack(character_file.c_str());
+		hkbProjectData* data = new hkbProjectData();
+		data->m_stringData = string_data;
+		hkRootLevelContainer* root = new hkRootLevelContainer();
+		root->m_namedVariants.pushBack(
+			{
+				hkbProjectDataClass.getName(),
+				data,
+				&hkbProjectDataClass
+			}
+		);
+		HKXWrapper wrap;
+		wrap.write_le_se(root, out);
+		delete string_data;
+		delete data;
+		delete root;
+	}
+}
 
+void createCharacterFile(const fs::path& out, const std::string& behavior_file, const std::string& character_name)
+{
+	if (!fs::exists(out))
+	{
+		hkbMirroredSkeletonInfo* minfo = new hkbMirroredSkeletonInfo();
+		hkbCharacterStringData* string_data = new hkbCharacterStringData();
+		string_data->m_name = character_name.c_str();
+		string_data->m_behaviorFilename - behavior_file.c_str();
+		hkbVariableValueSet* properties_values = new hkbVariableValueSet();
+		//string_data->m_characterFilenames.pushBack(character_file.c_str());
+		hkbCharacterData* data = new hkbCharacterData();
+		data->m_modelUpMS = hkVector4( 0., 0., 1., 0. );
+		data->m_modelForwardMS = hkVector4(0., 1., 0., 0.);
+		data->m_modelRightMS = hkVector4(1., 0., 0., 0.);
+		data->m_characterPropertyValues = properties_values;
+		data->m_stringData = string_data;
+		data->m_mirroredSkeletonInfo = minfo;
+		hkRootLevelContainer* root = new hkRootLevelContainer();
+		root->m_namedVariants.pushBack(
+			{
+				hkbCharacterDataClass.getName(),
+				data,
+				& hkbCharacterDataClass
+			}
+		);
+		HKXWrapper wrap;
+		wrap.write_le_se(root, out);
+		delete minfo;
+		delete string_data;
+		delete properties_values;
+		delete data;
+		delete root;
+	}
+}
+
+void ResourceManager::CreateNewProject(const QString& project_name, const QString& sub_folder, ProjectType type)
+{
+	std::string name = project_name.toUtf8().constData();
+	std::string folder = sub_folder.toUtf8().constData();
+	fs::path project_dir = _workspace.getFolder() / folder / name;
+	if (!fs::exists(project_dir))
+	{
+		fs::create_directories(project_dir);
+		fs::create_directories(project_dir / "Animations");
+		fs::create_directories(project_dir / "Characters");
+		fs::create_directories(project_dir / "Character Assets");
+		fs::create_directories(project_dir / "Behaviors");
+
+		fs::path project_file = project_dir / (name + ".hkx");
+		fs::path character_file = fs::path("Characters") / (name + "Character.hkx");
+		fs::path behavior_file = fs::path("Behaviors") / (name + "Behavior.hkx");
+
+		createProjectFile(project_file, character_file.string());
+		createCharacterFile(project_dir / character_file, behavior_file.string(), name);
+		createBehaviorFile(project_dir / behavior_file, name + "Behavior");
+
+		auto entry = _cache.findOrCreate(name, type == ProjectType::character);
+		fs::path animationDataPath = "animationdatasinglefile.txt";
+		fs::path animationSetDataPath = "animationsetdatasinglefile.txt";
+		_cache.save_creature(
+			name, entry, animationDataPath, animationSetDataPath, _workspace.getFolder()
+		);
+		if (type == ProjectType::character)
+			_workspace.addCharacterProject(project_file.string().c_str(), project_name);
+		else
+			_workspace.addMiscellaneousProject(project_file.string().c_str(), project_name);
+	}
 }
 

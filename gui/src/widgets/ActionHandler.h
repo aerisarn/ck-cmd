@@ -23,6 +23,7 @@ namespace ckcmd {
 			QAction* _save;
 
 			QAction* _createProject;
+			QAction* _createBehavior;
 
 			QAction* _importFBX;
 			QAction* _exportFBX;
@@ -43,6 +44,9 @@ namespace ckcmd {
 			QAction* _copy;
 			QAction* _paste;
 
+			void buildCreateProjectAction();
+			void buildCreateBehaviorAction();
+
 			void buildSaveAction();
 			void buildImportFBXAction();
 			void buildExportFBXAction();
@@ -56,7 +60,6 @@ namespace ckcmd {
 			void buildRemoveNode();
 			void buildAddTransition();
 			void buildRemoveTransition();
-			void buildCreateProjectAction();
 			void buildFindAction();
 			void buildFindNextAction();
 			void buildExportLEAction();
@@ -68,6 +71,8 @@ namespace ckcmd {
 			void save();
 
 			void createProject();
+			void createBehavior();
+
 			void importFBX();
 			void exportFBX();
 			void removeAnimation();
@@ -96,6 +101,9 @@ namespace ckcmd {
 				_model(model),
 				QObject(parent)
 			{
+				buildCreateProjectAction();
+				buildCreateBehaviorAction();
+
 				buildSaveAction();
 				buildImportFBXAction();
 				buildExportFBXAction();
@@ -118,6 +126,10 @@ namespace ckcmd {
 			void setView(ProjectsWidget* view);
 
 			QAction* saveAction(const QVariant& action_data);
+
+			QAction* createProjectAction() { return _createProject; }
+			QAction* createBehaviorAction() { return _createBehavior; }
+
 			std::vector<QAction*> addActions(const QVariant& action_data);
 			QAction* exportFBXAction() { return _exportFBX; }
 			QAction* importFBXAction() { return _importFBX; }
@@ -127,8 +139,7 @@ namespace ckcmd {
 			QAction* addVariableAction() { return _addVariable; }
 			QAction* removeVariableAction() { return _removeVariable; }
 			QAction* addPropertyAction() { return _addProperty; }
-			QAction* removePropertyAction() { return _removeProperty; }
-			QAction* createProjectAction() { return _createProject; }
+			QAction* removePropertyAction() { return _removeProperty; }	
 			QAction* addTransitionAction() { return _addTransition; }
 			QAction* removeTransitionAction() { return _removeTransition; }
 			QAction* removeAction() { return _removeNode; }
