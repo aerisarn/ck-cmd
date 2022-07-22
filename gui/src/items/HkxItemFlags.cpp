@@ -51,6 +51,8 @@ void HkxItemFlags::fillTemplate() const
 		QString name = temp;
 		if (name.isEmpty())
 			checkbox->setVisible(false);
+		else
+			checkbox->setVisible(true);
 		checkbox->setText(name);
 		if (_value & (1 << i))
 		{
@@ -214,6 +216,7 @@ void HkxItemFlags::FillEditor(QWidget* editor)
 		if (!name.isEmpty()) 
 		{	
 			checkbox->setText(name);
+			checkbox->setVisible(true);
 		}
 		else {
 			checkbox->setVisible(false);
