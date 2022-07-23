@@ -243,6 +243,7 @@ bool MultipleVariantsEdge::setData(int row, int column, const ModelEdge& edge, c
 				}
 			}
 		}
+		return result;
 	}
 	else {
 		int count = Edge::rows(edge, manager);

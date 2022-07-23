@@ -304,7 +304,8 @@ bool ProjectModel::setData(const QModelIndex& actual_index, const QVariant& valu
 		auto& parent_edge = modelEdge(edge._parent);
 		//check if data is a link
 		int child_index = parent_edge.childIndex(edge.row(), edge.column(), _resourceManager);
-		if (this->index(edge.row(), edge.column(), edge._parent) == actual_index && edge.column() != 0)
+		if (this->index(edge.row(), edge.column(), edge._parent) == actual_index && 
+			value.canConvert<HkxItemPointer>())
 		{
 			int row = edge.row();
 			int column = edge.column();
@@ -319,16 +320,17 @@ bool ProjectModel::setData(const QModelIndex& actual_index, const QVariant& valu
 			emit dataChanged(index, index);
 		auto new_index = this->index(index.row(), index.column(), index);
 		auto new_child_index = edge.childIndex(index.row(), index.column(), _resourceManager);
-		if (new_index.internalId() != index.internalId() && edge.column() != 0)
+		if (new_index.internalId() != index.internalId() &&
+			value.canConvert<HkxItemPointer>())
 		{
 			emit beginInsertChildren(index, new_child_index, new_child_index);
 			emit endInsertChildren();
 		}
-		else if (actual_index.internalId() != new_index.internalId() && edge.column() != 0)
-		{
-			emit beginRemoveChildren(index, new_child_index, new_child_index);
-			emit endRemoveChildren();
-		}
+		//else if (actual_index.internalId() != new_index.internalId() && edge.column() != 0)
+		//{
+		//	emit beginRemoveChildren(index, new_child_index, new_child_index);
+		//	emit endRemoveChildren();
+		//}
 		return result;
 	}
 	return false;
