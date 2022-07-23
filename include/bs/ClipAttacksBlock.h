@@ -33,11 +33,13 @@ namespace AnimData {
 			AttackDataBlock block;
 			block.eventName = attack_event;
 			attackData.push_back(block);
+			blocks = attackData.size();
 		}
 
 		void removeAttack(int index)
 		{
 			attackData.erase(attackData.begin() + index);
+			blocks = attackData.size();
 		}
 
 		std::string& getAttackEvent(int attack_index)
