@@ -38,6 +38,14 @@ void ActionHandler::buildExportLEAction()
 	connect(_exportLE, SIGNAL(triggered()), this, SLOT(exportLE()));
 }
 
+void ActionHandler::buildExportSEAction()
+{
+	_exportSE = new QAction(tr("&Export to SE"), this);
+	_exportSE->setShortcuts(QKeySequence::Save);
+	_exportSE->setStatusTip(tr("Export this project files to Skyrim SE"));
+	connect(_exportSE, SIGNAL(triggered()), this, SLOT(exportSE()));
+}
+
 QAction* ActionHandler::saveAction(const QVariant& action_data)
 {
 	QModelIndex index = action_data.value<QModelIndex>();
@@ -66,6 +74,21 @@ QAction* ActionHandler::exportLEAction(const QVariant& action_data)
 		_exportLE->setEnabled(false);
 	}
 	return _exportLE;
+}
+
+QAction* ActionHandler::exportSEAction(const QVariant& action_data)
+{
+	QModelIndex index = action_data.value<QModelIndex>();
+	if (index.isValid())
+	{
+		int project_index = _model.getProjectIndex(index);
+		bool enable = project_index != -1 && _model.getResourceManager().is_open(project_index);
+		_exportSE->setEnabled(enable);
+	}
+	else {
+		_exportSE->setEnabled(false);
+	}
+	return _exportSE;
 }
 
 std::vector<QAction*> ActionHandler::addActions(const QVariant& action_data)
@@ -731,5 +754,18 @@ void ActionHandler::exportLE()
 		return; //todo error message
 	action->setData(QVariant());
 	int project_index = _model.getProjectIndex(index);
-	_model.getResourceManager().exportProject(project_index);
+	_model.getResourceManager().exportProject(project_index, ExportType::LE);
+}
+
+void ActionHandler::exportSE()
+{
+	QAction* action = static_cast<QAction*>(sender());
+	if (action == nullptr)
+		return; //todo error message
+	QModelIndex index = action->data().value<QModelIndex>();
+	if (!index.isValid())
+		return; //todo error message
+	action->setData(QVariant());
+	int project_index = _model.getProjectIndex(index);
+	_model.getResourceManager().exportProject(project_index, ExportType::SE);
 }

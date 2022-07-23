@@ -174,6 +174,19 @@ void HKXWrapper::write(hkRootLevelContainer* rootCont, const fs::path& out)
 		Log::Error("Havok reports XML save failed.");
 	}
 }
+void HKXWrapper::write_se_only(hkRootLevelContainer* rootCont, const fs::path& out)
+{
+	hkPackFormat pkFormat = HKPF_AMD64;
+	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
+	hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
+	hkOstream stream(out.string().c_str());
+	hkVariant root = { rootCont, &rootCont->staticClass() };
+	hkResult res = hkSerializeUtilSave(pkFormat, root, stream, flags, packFileOptions);
+	if (res != HK_SUCCESS)
+	{
+		Log::Error("Havok reports save failed.");
+	}
+}
 
 void HKXWrapper::write_le_se(hkRootLevelContainer* rootCont, const fs::path& out)
 {

@@ -1742,16 +1742,36 @@ fs::path ResourceManager::makeExportPath(const fs::path& absolute_file, const fs
 	return dest;
 }
 
-void ResourceManager::exportProject(int row, ProjectType type)
+void ResourceManager::exportProject(int row, ProjectType type, ExportType export_to)
 {
 	fs::path fs_path = projectPath(row, type);
 	int project_index = index(fs_path);
-	saveProject(project_index);
+	exportProject(project_index, export_to);
 }
 
-void ResourceManager::exportProject(int project_index)
+void copyAsset(const fs::path& _From, const fs::path& _To, ExportType export_to)
+{
+	if (export_to == ExportType::SE)
+	{
+		HKXWrapper wrap;
+		auto root = wrap.read(_From);
+		wrap.write_se_only(root, _To);
+	}
+	else {
+		fs::copy(_From, _To, fs::copy_options::overwrite_existing);
+	}
+}
+
+void ResourceManager::exportProject(int project_index, ExportType export_to)
 {
 	fs::path export_path = fs::path(Settings.get<std::string>("/general/skyrim_le_folder")) / "meshes";
+	if (export_to == ExportType::SE)
+	{
+		export_path = Games::Instance().data(Games::TES5SE);
+		if (!fs::exists(export_path))
+			return;
+		export_path = export_path / "meshes";
+	}
 	fs::create_directories(export_path);
 	if (fs::exists(export_path))
 	{
@@ -1760,7 +1780,7 @@ void ResourceManager::exportProject(int project_index)
 		fs::path relative_project_path = fs::relative(project_path, base_path);
 
 		//Project
-		fs::copy(project_path, makeExportPath(project_path, export_path), fs::copy_options::overwrite_existing);
+		copyAsset(project_path, makeExportPath(project_path, export_path), export_to);
 
 		//Character
 		auto& project_contents = get(project_path);
@@ -1769,7 +1789,7 @@ void ResourceManager::exportProject(int project_index)
 		{
 			//copy character
 			fs::path char_path = base_path / project_data->m_characterFilenames[0].cString();
-			fs::copy(char_path, makeExportPath(char_path, export_path), fs::copy_options::overwrite_existing);
+			copyAsset(char_path, makeExportPath(char_path, export_path), export_to);
 
 			int character_index = index(char_path);
 			if (character_index == -1)
@@ -1786,7 +1806,7 @@ void ResourceManager::exportProject(int project_index)
 					if (fs::is_regular_file(dir_entry.path()))
 					{
 						//copy all behaviors, just in case
-						fs::copy(dir_entry.path(), makeExportPath(dir_entry.path(), export_path), fs::copy_options::overwrite_existing);
+						copyAsset(dir_entry.path(), makeExportPath(dir_entry.path(), export_path), export_to);
 					}
 				}
 				//copy animation
@@ -1794,13 +1814,13 @@ void ResourceManager::exportProject(int project_index)
 				{
 					fs::path animation_path = base_path / string_data->m_animationNames[i].cString();
 					if (fs::exists(animation_path))
-						fs::copy(animation_path, makeExportPath(animation_path, export_path), fs::copy_options::overwrite_existing);
+						copyAsset(animation_path, makeExportPath(animation_path, export_path), export_to);
 				}
 				//copy rig
 				fs::path rig_path = base_path / string_data->m_rigName.cString();
 				if (fs::exists(rig_path))
 				{
-					fs::copy(rig_path, makeExportPath(rig_path, export_path), fs::copy_options::overwrite_existing);
+					copyAsset(rig_path, makeExportPath(rig_path, export_path), export_to);
 				}
 			}
 		}

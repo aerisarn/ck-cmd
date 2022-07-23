@@ -36,6 +36,12 @@ namespace ckcmd {
 			misc = 2
 		};
 
+		enum class ExportType {
+			invalid = 0,
+			LE = 1,
+			SE = 2
+		};
+
 		enum class AssetType {
 			invalid = 0,
 			project,
@@ -138,8 +144,8 @@ namespace ckcmd {
 			void closeProjectFile(int row, ProjectType type);
 			void saveProject(int row, ProjectType type);
 			void saveProject(int project_index);
-			void exportProject(int row, ProjectType type);
-			void exportProject(int project_index);
+			void exportProject(int row, ProjectType type, ExportType export_to);
+			void exportProject(int project_index, ExportType export_to);
 			size_t projectCharacters(int project_index);
 			size_t projectFileIndex(int row, ProjectType type);
 
