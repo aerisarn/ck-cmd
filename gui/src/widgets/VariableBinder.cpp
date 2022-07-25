@@ -93,29 +93,30 @@ void VariableBinder::buildVariablesByTypeList()
 
 void VariableBinder::buildBindablesList()
 {
-	auto start = _model.dataStart(_index);
-	auto class_rows = _model.rowCount(_index);
+	auto hk_bindables = _model.bindables(_index);
+	//auto start = _model.dataStart(_index);
+	//auto class_rows = _model.rowCount(_index);
 	QStringList bindables;
-	for (int r = start.first; r < class_rows; r++)
+	for (int r = 0; r < hk_bindables.size(); ++r)
 	{
-		auto row_index = _model.index(r, 0, _index);
-		auto row_name = row_index.data().toString();
+		//auto row_index = _model.index(r, 0, _index);
+		auto row_name = get<0>(hk_bindables[r]); // row_index.data().toString();
 		if (row_name.startsWith("bindings"))
 			continue;
 		if (row_name.startsWith("variableBindingSet"))
 			continue;
 		row_name.replace(".", "/");
 		int dot_index = row_name.indexOf("/");
-		auto type = _model.rowType(row_index);
+		auto type = get<1>(hk_bindables[r]); //_model.rowType(row_index);
 		auto binding_type = QVariantTypeToVariantType(type);
 		if (-1 == binding_type)
 			continue;
 		if (dot_index != -1)
 		{
-			bool isRowArray = _model.isArray(row_index);
+			bool isRowArray = get<2>(hk_bindables[r]);//_model.isArray(row_index);
 			if (isRowArray)
 			{
-				int elements = _model.columnCount(row_index) - start.second;
+				int elements = get<3>(hk_bindables[r]);;
 				for (int e = 0; e < elements; e++)
 				{
 					QString array_row_name = row_name;

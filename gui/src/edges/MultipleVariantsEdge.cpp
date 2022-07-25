@@ -108,7 +108,7 @@ std::pair<int, int> MultipleVariantsEdge::child(int index, const ModelEdge& edge
 		{
 			auto variant_links = HkxLinkedTableVariant(*v).links();
 			if (index < (int)variant_links.size())
-				return { rows + variant_links.at(index)._row, variant_links.at(index)._column };
+				return { rows + variant_links.at(index)._row, variant_links.at(index)._column + 1 };
 			rows += HkxLinkedTableVariant(*v).rows();
 			child_index -= variant_links.size();
 		}
@@ -138,7 +138,7 @@ int MultipleVariantsEdge::childIndex(int row, int column, const ModelEdge& edge,
 				auto links = HkxLinkedTableVariant(*v).links();
 				for (int l = 0; l < (int)links.size(); ++l)
 				{
-					if (links.at(l)._row == row_index && links.at(l)._column == column)
+					if (links.at(l)._row == row_index && links.at(l)._column == column - 1)
 						return child_index;
 				}
 				++child_index;
@@ -171,7 +171,7 @@ ModelEdge MultipleVariantsEdge::child(int row, int column, const ModelEdge& edge
 				auto links = HkxLinkedTableVariant(*v).links();
 				for (int l = 0; l < (int)links.size(); ++l)
 				{
-					if (links.at(l)._row == row_index && links.at(l)._column == column)
+					if (links.at(l)._row == row_index && links.at(l)._column == column - 1)
 					{
 						auto child_variant = manager.findVariant(edge.file(), links.at(i)._ref);
 						if (child_variant != nullptr)

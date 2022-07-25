@@ -42,30 +42,37 @@ void ArrayFinder::visit(void* object, const hkClassMember& definition) {
 	const auto& arraytype = definition.getArrayType();
 	const auto& arrayclass = definition.getStructClass();
 	const auto& arraysubtype = definition.getSubType();
-	int elements = definition.getSizeInBytes() / definition.getArrayMemberSize();
-	bool isArray = false;
-	if (hkClassMember::TYPE_ARRAY == definition.getType())
+	if (arraysubtype == hkClassMember::Type::TYPE_VOID)
+		return;
+	auto size = definition.getSizeInBytes();
+	auto arraymembersize = definition.getArrayMemberSize();
+	if (arraymembersize > 0)
 	{
-		isArray = true;
-	}
-	if (definition.hasClass()) {
-		RowCalculator r;
-		hkVariant v;
-		v.m_class = definition.getClass();
-		v.m_object = nullptr;
-		HkxVariant h(v);
-		h.accept(r);
-		for (int i = 0; i < r.rows(); ++i)
+		int elements = size / arraymembersize;
+		bool isArray = false;
+		if (hkClassMember::TYPE_ARRAY == definition.getType())
 		{
+			isArray = true;
+		}
+		if (definition.hasClass()) {
+			RowCalculator r;
+			hkVariant v;
+			v.m_class = definition.getClass();
+			v.m_object = nullptr;
+			HkxVariant h(v);
+			h.accept(r);
+			for (int i = 0; i < r.rows(); ++i)
+			{
+				if (isArray)
+					_arrayrows.push_back(_row);
+				_row += 1;
+			}
+		}
+		else {
 			if (isArray)
 				_arrayrows.push_back(_row);
 			_row += 1;
 		}
-	}
-	else {
-		if (isArray)
-			_arrayrows.push_back(_row);
-		_row += 1;
 	}
 }
 

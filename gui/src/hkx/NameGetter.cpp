@@ -16,7 +16,7 @@ const hkClassMember&  NameGetter::getSerializedMember(size_t row) {
 	size_t actual_row = 0;
 	for (size_t i = 0; i < _class->getNumMembers(); i++) {
 		const auto& member_declaration = _class->getMember(i);
-		if (member_declaration.getFlags().get() & hkClassMember::SERIALIZE_IGNORED)
+		if (ignoreNotSerializables() && member_declaration.getFlags().get() & hkClassMember::SERIALIZE_IGNORED)
 			continue;
 		if (actual_row == row)
 			return _class->getMember(i);

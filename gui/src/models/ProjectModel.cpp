@@ -251,7 +251,10 @@ QModelIndex ProjectModel::child(int child_index, const QModelIndex& parent) cons
 	const auto& edge = modelEdge(parent);
 	auto result = edge.child(child_index, _resourceManager);
 	if (result == std::pair<int, int>{-1, -1})
-		__debugbreak();
+	{
+		//it happens without reason on blendergenerators. Comes from Qt.
+		return QModelIndex();
+	}
 	return this->index(result.first, result.second, parent);
 }
 
@@ -317,14 +320,19 @@ bool ProjectModel::setData(const QModelIndex& actual_index, const QVariant& valu
 		}
 		bool result = edge.setData(index.row(), index.column(), value, _resourceManager);
 		if (result)
-			emit dataChanged(index, index);
-		auto new_index = this->index(index.row(), index.column(), index);
-		auto new_child_index = edge.childIndex(index.row(), index.column(), _resourceManager);
-		if (new_index.internalId() != index.internalId() &&
-			value.canConvert<HkxItemPointer>())
 		{
-			emit beginInsertChildren(index, new_child_index, new_child_index);
-			emit endInsertChildren();
+			emit dataChanged(index, index);
+			auto new_index = this->index(index.row(), index.column(), edge._child);
+			auto new_child_index = edge.childIndex(index.row(), index.column(), _resourceManager);
+			if (value.canConvert<HkxItemPointer>())
+			{
+				auto new_ptr = value.value<HkxItemPointer>();
+				if (new_ptr.get() != nullptr)
+				{
+					emit beginInsertChildren(edge._child, new_child_index, new_child_index);
+					emit endInsertChildren();
+				}
+			}
 		}
 		//else if (actual_index.internalId() != new_index.internalId() && edge.column() != 0)
 		//{
@@ -988,4 +996,10 @@ void* ProjectModel::createObject(const QModelIndex& index, const hkClass* hkclas
 		}
 	}
 	return out;
+}
+
+std::vector<std::tuple<QString, TypeInfo, bool, size_t>> ProjectModel::bindables(const QModelIndex& index)
+{
+	auto& edge = modelEdge(index);
+	return edge.bindables(_resourceManager);
 }

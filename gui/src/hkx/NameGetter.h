@@ -13,6 +13,8 @@ namespace ckcmd {
 
 			const hkClassMember& getSerializedMember(size_t row);
 
+			bool ignoreNotSerializable = true;
+
 		public:
 
 			NameGetter(const int row, std::string parent_prefix) : 
@@ -22,6 +24,13 @@ namespace ckcmd {
 			{}
 
 			QString name();
+
+			void setIgnoreNotSerializable(bool value) { ignoreNotSerializable = value; }
+
+			virtual bool ignoreNotSerializables() const override
+			{
+				return ignoreNotSerializable;
+			}
 
 			template<typename T> void visit(T& value);
 

@@ -139,6 +139,11 @@ bool ModelEdge::canAddRow(const ModelEdge& other, ResourceManager& manager)
 	return ModelEdgeRegistry::instance().handler(*this)->canAdd(*this, other, manager);
 }
 
+std::vector<std::tuple<QString, TypeInfo, bool, size_t>> ModelEdge::bindables(ResourceManager& manager)
+{
+    return ModelEdgeRegistry::instance().handler(*this)->bindables(*this, manager);
+}
+
 bool ModelEdge::isArray(int row, ResourceManager& manager) const
 {
 	return ModelEdgeRegistry::instance().handler(*this)->isArray(row, *this, manager);

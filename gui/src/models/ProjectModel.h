@@ -69,6 +69,7 @@ namespace ckcmd {
             bool isArray(const QModelIndex& index);
             QStringList rowNames(const QModelIndex& index, const QString& prefix_filter = QString(""));
             void* createObject(const QModelIndex& index, const hkClass* hkclass, const std::string& name);
+            std::vector<std::tuple<QString, TypeInfo, bool, size_t>> bindables(const QModelIndex& index);
 
 
             /*

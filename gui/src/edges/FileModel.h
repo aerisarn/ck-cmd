@@ -22,6 +22,11 @@ namespace ckcmd {
 
 			virtual bool isArray(int row, const ModelEdge& edge, ResourceManager& manager) const { return false; }
 
+			virtual std::vector<std::tuple<QString, TypeInfo, bool, size_t>> bindables(ModelEdge& edge, ResourceManager& manager) const override
+			{
+				return  {};
+			}
+
 			virtual TypeInfo rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const override
 			{
 				return { hkClassMember::Type::TYPE_VOID, nullptr };

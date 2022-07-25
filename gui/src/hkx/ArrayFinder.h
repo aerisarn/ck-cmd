@@ -14,12 +14,21 @@ namespace ckcmd {
 			std::vector<int> _arrayrows;
 			int _row = 0;
 
+			bool ignoreNotSerializable = true;
+
 		public:
 
 
 			ArrayFinder();
 
 			const std::vector<int>& arrayrows() const;
+
+			void setIgnoreNotSerializable(bool value) { ignoreNotSerializable = value; }
+
+			virtual bool ignoreNotSerializables() const override
+			{
+				return ignoreNotSerializable;
+			}
 
 			template<typename T>
 			void visit(T& value) 

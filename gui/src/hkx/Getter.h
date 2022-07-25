@@ -25,6 +25,8 @@ namespace ckcmd {
 
 			void specialType(MemberIndexType type, int value);
 
+			bool ignoreNotSerializable = true;
+
 		public:
 
 			Getter(const size_t row, const size_t column) :
@@ -32,6 +34,13 @@ namespace ckcmd {
 				_row(row), _column(column) {}
 
 			QVariant value() { return _value; }
+
+			void setIgnoreNotSerializable(bool value) { ignoreNotSerializable = value; }
+
+			virtual bool ignoreNotSerializables() const override
+			{
+				return ignoreNotSerializable;
+			}
 
 			template<typename T>
 			void visit(T& value);

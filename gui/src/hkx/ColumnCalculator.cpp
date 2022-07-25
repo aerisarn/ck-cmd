@@ -14,7 +14,11 @@ void ColumnCalculator::visit(void* object, const hkClassMember& definition)
 	const auto& arrayclass = definition.getStructClass();
 	const auto& arraytype = definition.getArrayType();
 	const auto& arraysubtype = definition.getSubType();
-
+	if (arraysubtype == hkClassMember::Type::TYPE_VOID)
+	{
+		fit(1);
+		return;
+	}
 	size_t num_elements = definition.getSizeInBytes() / definition.getArrayMemberSize();
 	if (hkClassMember::TYPE_ARRAY == definition.getType())
 	{

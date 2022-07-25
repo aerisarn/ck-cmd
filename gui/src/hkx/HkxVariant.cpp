@@ -43,7 +43,7 @@ void HkxVariant::accept(HkxItemVisitor& visitor) const
 	for (size_t i = 0; i < _variant.m_class->getNumMembers(); i++) {
 		const auto& member_declaration = _variant.m_class->getMember(i);
 		visitor.setClassMember(&member_declaration);
-		if (member_declaration.getFlags().get() & hkClassMember::SERIALIZE_IGNORED)
+		if ( visitor.ignoreNotSerializables() && member_declaration.getFlags().get() & hkClassMember::SERIALIZE_IGNORED)
 			continue;
 		visitor.setMemberIndex(i);
 		void* object = (void*)((char*)_variant.m_object + member_declaration.getOffset());
@@ -110,7 +110,8 @@ void HkxVariant::accept(HkxItemVisitor& visitor) const
 			return;
 			/// Generic pointer, see member flags for more info
 		case hkClassMember::TYPE_POINTER:
-			visitor.visit(object, *member_declaration.getClass(), member_declaration.getFlags()); break;
+			if (member_declaration.getClass() != NULL)
+				visitor.visit(object, *member_declaration.getClass(), member_declaration.getFlags()); break;
 			/// Function pointer
 		case hkClassMember::TYPE_FUNCTIONPOINTER:
 			return;

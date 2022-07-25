@@ -97,3 +97,44 @@ bool HkxTableVariant::resizeColumns(int row, int column, int delta)
 	accept(sizer);
 	return sizer.result();
 }
+
+std::vector<std::tuple<QString, TypeInfo, bool, size_t>> HkxTableVariant::bindables()
+{
+	std::vector<std::tuple<QString, TypeInfo, bool, size_t>> out;
+	
+	RowCalculator r;
+	r.setIgnoreNotSerializable(false);
+	accept(r);
+	int rows = r.rows();
+
+	ArrayFinder af;
+	af.setIgnoreNotSerializable(false);
+	accept(af);
+	auto arrays = af.arrayrows();
+
+
+	for (int i = 0; i < rows; ++i)
+	{
+		NameGetter ng(i, "");
+		ng.setIgnoreNotSerializable(false);
+		accept(ng);
+		auto name =  ng.name();
+
+		ClassGetter cg(i);
+		cg.setIgnoreNotSerializable(false);
+		accept(cg);
+		auto hkclass = cg.hkclass();
+
+		bool isArray = std::find(arrays.begin(), arrays.end(), i) != arrays.end();
+		int columns = 0;
+		if (isArray)
+		{
+			ColumnCalculator c;
+			c.setIgnoreNotSerializable(false);
+			accept(c);
+			columns = c.column(i);
+		}
+		out.push_back({ name, hkclass, isArray, columns });
+	}
+	return out;
+}

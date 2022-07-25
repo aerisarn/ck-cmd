@@ -79,16 +79,17 @@ ResourceManager::ResourceManager(WorkspaceConfig& workspace) :
 	defaultRegistry.getClasses(classes);
 	for (int i = 0; i < classes.getSize(); ++i)
 	{
-		bool isParent = false;
-		for (int j = 0; j < classes.getSize(); ++j)
-		{
-			if (classes[j]->getParent() == classes[i])
-			{
-				isParent = true;
-				break;
-			}
-		}
-		if (!isParent)
+		//bool isParent = false;
+		//for (int j = 0; j < classes.getSize(); ++j)
+		//{
+		//	if (classes[j]->getParent() == classes[i])
+		//	{
+		//		isParent = true;
+		//		break;
+		//	}
+		//}
+		bool not_serializable = classes[i]->getFlags().allAreSet(hkClass::FLAGS_NOT_SERIALIZABLE);
+		if (!not_serializable)
 			_concreate_classes.push_back(classes[i]);
 	}
 

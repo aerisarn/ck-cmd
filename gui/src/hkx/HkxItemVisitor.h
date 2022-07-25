@@ -73,6 +73,7 @@ namespace ckcmd {
 			virtual void setClass(const hkClass* hkclass) = 0;
 			virtual void setType(hkClassMember::Type) = 0;
 			virtual void setClassMember(const hkClassMember* hkclassmember) = 0;
+			virtual bool ignoreNotSerializables() const = 0;
 			virtual void setLastVariant(const hkVariant* variant) = 0;
 			virtual void setMemberIndex(int index) = 0;
 		};
@@ -263,6 +264,12 @@ namespace ckcmd {
 			virtual void setMemberIndex(int index) {
 				_memberIndex = index;
 			}
+
+			virtual bool ignoreNotSerializables() const override
+			{
+				return true;
+			}
+
 		};
 
 	}

@@ -11,6 +11,8 @@ namespace ckcmd {
 			TypeInfo _type;
 			int _rows = 0;
 			int _target_row;
+			
+			bool ignoreNotSerializable = true;
 
 		public:
 
@@ -21,6 +23,13 @@ namespace ckcmd {
 			{}
 
 			TypeInfo hkclass() { return _type; }
+
+			void setIgnoreNotSerializable(bool value) { ignoreNotSerializable = value; }
+
+			virtual bool ignoreNotSerializables() const override
+			{
+				return ignoreNotSerializable;
+			}
 
 			template<typename T> void visit(T& value);
 

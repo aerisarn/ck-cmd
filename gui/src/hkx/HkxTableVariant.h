@@ -29,6 +29,7 @@ namespace ckcmd {
 			QVariant data(int row, int column);
 			bool setData(int row, int column, const QVariant& variant);
 			bool resizeColumns(int row, int column, int delta);
+			std::vector<std::tuple<QString, TypeInfo, bool, size_t>> bindables();
 		};
 	}
 }

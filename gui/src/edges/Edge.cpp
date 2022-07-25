@@ -213,3 +213,13 @@ bool Edge::isArray(int row, const ModelEdge& edge, ResourceManager& manager) con
 	}
 	return false;
 }
+
+std::vector<std::tuple<QString, TypeInfo, bool, size_t>> Edge::bindables(ModelEdge& edge, ResourceManager& manager) const
+{
+	hkVariant* variant = edge.childItem<hkVariant>();
+	if (nullptr != variant)
+	{
+		return HkxTableVariant(*variant).bindables();
+	}
+	return {};
+}

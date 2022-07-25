@@ -6,11 +6,21 @@ namespace ckcmd {
 	namespace HKX {
 		class RowCalculator : public HkxConcreteVisitor<RowCalculator> {
 			size_t _rows = 0;
+
+			bool ignoreNotSerializable = true;
+
 		public:
 
 			RowCalculator() : HkxConcreteVisitor(*this) {}
 
 			size_t rows() { return _rows > 0 ? _rows : 1; }
+
+			void setIgnoreNotSerializable(bool value) { ignoreNotSerializable = value; }
+
+			virtual bool ignoreNotSerializables() const override
+			{
+				return ignoreNotSerializable;
+			}
 
 			template<typename T>
 			void visit(T& value) { _rows += 1; }

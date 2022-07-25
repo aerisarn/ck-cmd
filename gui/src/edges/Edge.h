@@ -23,6 +23,7 @@ namespace ckcmd {
 			virtual TypeInfo rowClass(int row, const ModelEdge& edge, ResourceManager& manager) const override;
 			virtual bool canAdd(const ModelEdge& this_edge, const ModelEdge& another_edge, ResourceManager& manager) const override;
 			virtual bool isArray(int row, const ModelEdge& edge, ResourceManager& manager) const override;
+			virtual std::vector<std::tuple<QString, TypeInfo, bool, size_t>> bindables(ModelEdge& edge, ResourceManager& manager) const override;
 
 			virtual bool setData(int row, int column, const ModelEdge& edge, const QVariant& data, ResourceManager& manager) override;
 			virtual bool addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager) override;

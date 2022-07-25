@@ -18,6 +18,8 @@ namespace ckcmd {
 				_columns = array_columns > _columns ? array_columns : _columns;
 			}
 
+			bool ignoreNotSerializable = true;
+
 		public:
 
 			ColumnCalculator() : HkxConcreteVisitor(*this) { _array_size.push(1); }
@@ -26,6 +28,13 @@ namespace ckcmd {
 			size_t columns() { return _columns; }
 			size_t column(size_t row) { return _columns_size[row]; }
 			size_t rows() { return _columns_size.size(); }
+
+			void setIgnoreNotSerializable(bool value) { ignoreNotSerializable = value; }
+
+			virtual bool ignoreNotSerializables() const override
+			{
+				return ignoreNotSerializable;
+			}
 
 			template<typename T>
 			void visit(T& value) { fit(1); }

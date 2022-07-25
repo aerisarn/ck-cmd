@@ -111,7 +111,6 @@ namespace ckcmd {
             }
 
         public:
-            //bool operator < (const ModelEdge& rhs) const;
 
             bool operator == (const ModelEdge& rhs) const;
 
@@ -179,13 +178,9 @@ namespace ckcmd {
             size_t hash_combine(size_t lhs, size_t rhs) const;
 
             size_t hash() const;
-        };
 
-        //struct ModelEdgeComparator {
-        //    bool operator()(const ModelEdge* a, const ModelEdge* b) const {
-        //        return *a < *b;
-        //    }
-        //};
+            std::vector<std::tuple<QString, TypeInfo, bool, size_t>> bindables(ResourceManager& manager);
+        };
 
         class ModelEdgeHasher
         {

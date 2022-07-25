@@ -372,16 +372,17 @@ void ActionHandler::exportFBX()
 	bool ok;
 	auto type = _model.nodeType(index);
 	fs::path assets_path;
-	if (NodeType::animationNames == type)
+	if (NodeType::animationNames == type || NodeType::animationName == type)
 		assets_path = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::animation);
 	else if (NodeType::SkeletonHkxNode == type)
 		assets_path = _model.getResourceManager().assetFolder(_model.getProjectIndex(index), AssetType::character_assets);
 	if (export_fbx_output_dir.empty())
 		export_fbx_output_dir = assets_path;
 	QString dir = QFileDialog::getExistingDirectory(nullptr, tr("Select Output directory"),
-		export_fbx_output_dir.string().c_str(),
-		QFileDialog::ShowDirsOnly
-		| QFileDialog::DontResolveSymlinks);
+		"",
+		QFileDialog::DontUseNativeDialog |
+		QFileDialog::ShowDirsOnly |
+		QFileDialog::DontResolveSymlinks);
 
 	if (!dir.isEmpty())
 	{
