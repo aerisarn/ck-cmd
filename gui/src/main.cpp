@@ -427,14 +427,16 @@ int main(int argc, char *argv[])
 		}
 	} 
 
-	if (!fs::exists(fs::path(workspace_path) / "creatures.esp"))
-	{
-		fs::path data_path = Settings.get<std::string>("/general/skyrim_le_folder");
-		if (fs::exists(data_path))
-		{
-			extractIDLE();
-		}
-	}
+	//TODO, maybe
+
+	//if (!fs::exists(fs::path(workspace_path) / "creatures.esp"))
+	//{
+	//	fs::path data_path = Settings.get<std::string>("/general/skyrim_le_folder");
+	//	if (fs::exists(data_path))
+	//	{
+	//		extractIDLE();
+	//	}
+	//}
 
 	MainWindow w(InitializeHavok());
 	w.show();

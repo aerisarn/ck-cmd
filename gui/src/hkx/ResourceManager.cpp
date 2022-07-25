@@ -50,13 +50,13 @@ ResourceManager::ResourceManager(WorkspaceConfig& workspace) :
 	_charactersNames = _workspace.getCharacterProjects();
 	for (auto& character : _charactersNames)
 	{
-		_characters.push_back(character.toUtf8().constData());
+		_characters.push_back(_workspace.getFolder() / character.toUtf8().constData());
 	}
 
 	_miscellaneousNames = _workspace.getMiscellaneousProjects();
 	for (auto& misc : _miscellaneousNames)
 	{
-		_miscellaneous.push_back(misc.toUtf8().constData());
+		_miscellaneous.push_back(_workspace.getFolder() / misc.toUtf8().constData());
 	}
 
 	_esp = new Collection((char* const)_workspace.getFolder().string().c_str(), 3);
@@ -326,7 +326,9 @@ bool ResourceManager::isHavokAnimation(const fs::path& file)
 }
 
 std::string __inline internal_get_sanitized_name(const fs::path& path) {
-	return path.filename().replace_extension("").string();
+	std::string name = path.filename().replace_extension("").string();
+	transform(name.begin(), name.end(), name.begin(), ::tolower);
+	return name;
 }
 
 const std::string& ResourceManager::get_sanitized_name(int file_index) {
@@ -454,14 +456,15 @@ void ResourceManager::scanWorkspace()
 					LOG << " WARNING: " << sanitized_project_name << " was not found into the animation cache. The project won't be loaded by the game" << log_endl;
 				}
 				else {
+					fs::path relative = fs::relative(p.path(), _workspace.getFolder());
 					if (entry->hasCache()) {
 						//LOG << "Project is a creature" << sanitized_project_name << log_endl;
-						_workspace.addCharacterProject(p.path().string().c_str(), sanitized_project_name.c_str());
+						_workspace.addCharacterProject(relative.string().c_str(), sanitized_project_name.c_str());
 
 					}
 					else {
 						//LOG << "Project is miscellaneous" << sanitized_project_name << log_endl;
-						_workspace.addMiscellaneousProject(p.path().string().c_str(), sanitized_project_name.c_str());
+						_workspace.addMiscellaneousProject(relative.string().c_str(), sanitized_project_name.c_str());
 					}
 				}
 			}
