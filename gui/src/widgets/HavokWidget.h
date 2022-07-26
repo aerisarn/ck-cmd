@@ -25,6 +25,7 @@ class HavokWidget : public ::ads::CDockWidget
     hkLoader* m_loader = nullptr;
 
     bool m_showWorldAxis = true;
+    bool m_showGrid = true;
 
     QTimer m_qTimer;
 
@@ -35,6 +36,8 @@ class HavokWidget : public ::ads::CDockWidget
     void renderFrame();
     void clearFrameData();
     void setupScene();
+    void drawGrid();
+    void cameraSetFront();
 
 public:
     explicit HavokWidget(QWidget* parent);
@@ -45,6 +48,10 @@ protected:
     void initialize();
 
     virtual void resizeEvent(QResizeEvent* event) override;
+    virtual void mouseMoveEvent(QMouseEvent* event) override;
+    virtual void mousePressEvent(QMouseEvent* event) override;
+    virtual void mouseReleaseEvent(QMouseEvent* event) override;
+    virtual void wheelEvent(QWheelEvent* event);
 
     void paint();
 
