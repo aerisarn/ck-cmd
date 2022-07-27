@@ -22,6 +22,12 @@ namespace ckcmd
 		}
 
 		template <>
+		void initializeValues<hkbStateMachine>(hkbStateMachine& obj)
+		{
+			obj.m_maxSimultaneousTransitions = 32;
+		}
+
+		template <>
 		void initializeValues<hkbClipGenerator>(hkbClipGenerator& obj)
 		{
 			obj.m_animationBindingIndex = -1;
