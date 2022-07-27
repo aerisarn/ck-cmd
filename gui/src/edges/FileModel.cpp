@@ -106,7 +106,7 @@ QVariant FileModel::data(int row, int column, const ModelEdge& edge, ResourceMan
 	return QVariant();
 }
 
-std::pair<int, int> FileModel::dataStart() const
+std::pair<int, int> FileModel::dataStart(const ModelEdge& edge) const
 {
 	return { -1, -1 };
 }

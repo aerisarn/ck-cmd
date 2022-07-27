@@ -644,6 +644,7 @@ void ActionHandler::remove()
 	if (!index.isValid())
 		return; //todo error message
 	_model.remove(index);
+	_model.remove(index);
 	action->setData(QVariant());
 }
 

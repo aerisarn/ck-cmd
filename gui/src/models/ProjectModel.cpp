@@ -324,7 +324,7 @@ bool ProjectModel::setData(const QModelIndex& actual_index, const QVariant& valu
 			emit dataChanged(index, index);
 			auto new_index = this->index(index.row(), index.column(), edge._child);
 			auto new_child_index = edge.childIndex(index.row(), index.column(), _resourceManager);
-			if (value.canConvert<HkxItemPointer>())
+			if (MODELEDGE_INVALID != new_child_index && value.canConvert<HkxItemPointer>())
 			{
 				auto new_ptr = value.value<HkxItemPointer>();
 				if (new_ptr.get() != nullptr)

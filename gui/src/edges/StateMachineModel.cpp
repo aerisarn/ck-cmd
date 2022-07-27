@@ -568,11 +568,23 @@ bool StateMachineModel::isArray(int row, const ModelEdge& edge, ResourceManager&
 bool StateMachineModel::addRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)
 {
 	auto* FSM = variant(edge);
-	if (nullptr != FSM && nullptr != FSM->m_wildcardTransitions)
+	if (nullptr != FSM)
 	{
 		if (edge.childType() == NodeType::FSMWildcardTransitions)
 		{
-			return addToContainer(row_start, count, FSM->m_wildcardTransitions->m_transitions);
+			if (nullptr == FSM->m_wildcardTransitions)
+			{
+				FSM->m_wildcardTransitions = manager.createObject<hkbStateMachineTransitionInfoArray>(
+					edge.file(), &hkbStateMachineTransitionInfoArrayClass);
+			}
+			/*return addToContainer(row_start, count, FSM->m_wildcardTransitions->m_transitions);*/
+			auto& new_transition = FSM->m_wildcardTransitions->m_transitions.expandOne();
+			memset(&new_transition, 0, sizeof(hkbStateMachineTransitionInfo));
+			new_transition.m_triggerInterval.m_enterEventId = -1;
+			new_transition.m_triggerInterval.m_exitEventId = -1;
+			new_transition.m_initiateInterval.m_enterEventId = -1;
+			new_transition.m_initiateInterval.m_exitEventId = -1;
+			return true;
 		}
 		if (edge.childType() == NodeType::FSMStateTransitions)
 		{
@@ -588,6 +600,10 @@ bool StateMachineModel::addRows(int row_start, int count, const ModelEdge& edge,
 					}
 					auto& new_transition =  state->m_transitions->m_transitions.expandOne();
 					memset(&new_transition, 0, sizeof(hkbStateMachineTransitionInfo));
+					new_transition.m_triggerInterval.m_enterEventId = -1;
+					new_transition.m_triggerInterval.m_exitEventId = -1;
+					new_transition.m_initiateInterval.m_enterEventId = -1;
+					new_transition.m_initiateInterval.m_exitEventId = -1;
 					return true;
 				}
 			}
@@ -600,11 +616,11 @@ bool StateMachineModel::addRows(int row_start, int count, const ModelEdge& edge,
 bool StateMachineModel::removeRows(int row_start, int count, const ModelEdge& edge, ResourceManager& manager)
 {
 	auto* FSM = variant(edge);
-	if (nullptr != FSM && nullptr != FSM->m_wildcardTransitions)
+	if (nullptr != FSM)
 	{
 		if (edge.childType() == NodeType::FSMWildcardTransitions)
 		{
-			if (row_start < FSM->m_wildcardTransitions->m_transitions.getSize())
+			if (nullptr != FSM->m_wildcardTransitions && row_start < FSM->m_wildcardTransitions->m_transitions.getSize())
 			{
 				FSM->m_wildcardTransitions->m_transitions.removeAtAndCopy(row_start);
 				return true;
@@ -630,4 +646,13 @@ bool StateMachineModel::removeRows(int row_start, int count, const ModelEdge& ed
 		}
 	}
 	return SupportEnhancedEdge::removeRows(row_start, count, edge, manager);
+}
+
+std::pair<int, int> StateMachineModel::dataStart(const ModelEdge& edge) const
+{
+	if (edge.childType() == NodeType::FSMWildcardTransition || edge.childType() == NodeType::FSMStateTransition)
+	{
+		return { 1 , 1 };
+	}
+	return SupportEnhancedEdge::dataStart(edge);
 }

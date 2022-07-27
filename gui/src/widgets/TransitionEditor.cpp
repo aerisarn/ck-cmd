@@ -29,9 +29,6 @@ void TransitionEditorWidget::OnIndexSelected()
 		fromStateLineEdit->setEnabled(true);
 		fromNestedStateTableView->setEnabled(true);
 		fromStateLineEdit->setText(_model.index(0, 1, _index).data().toString());
-		//ValuesProxyModel* editModel = new ValuesProxyModel(&_model, { _members["fromStateId"].first }, 1, _index, this);
-		//fromStateTableView->setModel(editModel);
-		//fromStateTableView->setItemDelegate(new ItemsDelegate(*editModel, this));
 	}
 	else {
 		fromStateLineEdit->setEnabled(false);
@@ -123,6 +120,30 @@ void TransitionEditorWidget::OnIndexSelected()
 		flagsTableView->setModel(editModel);
 		flagsTableView->setItemDelegate(new ItemsDelegate(*editModel, this));
 		flagsTableView->resizeRowsToContents();
+	}
+	if (_members.find("initiateInterval.enterEventId") != _members.end())
+	{
+		ValuesProxyModel* editModel = new ValuesProxyModel(&_model, { _members["initiateInterval.enterEventId"].first }, 1, _index, this);
+		initiateWindowEnterEventTableView->setModel(editModel);
+		initiateWindowEnterEventTableView->setItemDelegate(new ItemsDelegate(*editModel, this));
+	}
+	if (_members.find("initiateInterval.exitEventId") != _members.end())
+	{
+		ValuesProxyModel* editModel = new ValuesProxyModel(&_model, { _members["initiateInterval.exitEventId"].first }, 1, _index, this);
+		initiateWindowExitEventTableView->setModel(editModel);
+		initiateWindowExitEventTableView->setItemDelegate(new ItemsDelegate(*editModel, this));
+	}
+	if (_members.find("triggerInterval.enterEventId") != _members.end())
+	{
+		ValuesProxyModel* editModel = new ValuesProxyModel(&_model, { _members["triggerInterval.enterEventId"].first }, 1, _index, this);
+		triggerWindowEnterEventTableView->setModel(editModel);
+		triggerWindowEnterEventTableView->setItemDelegate(new ItemsDelegate(*editModel, this));
+	}
+	if (_members.find("triggerInterval.exitEventId") != _members.end())
+	{
+		ValuesProxyModel* editModel = new ValuesProxyModel(&_model, { _members["triggerInterval.exitEventId"].first }, 1, _index, this);
+		triggerWindowExitEventTableView->setModel(editModel);
+		triggerWindowExitEventTableView->setItemDelegate(new ItemsDelegate(*editModel, this));
 	}
 }
 

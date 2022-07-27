@@ -131,7 +131,7 @@ bool ModelEdge::removeColumns(int row, int column_start, int count, ResourceMana
 
 std::pair<int, int> ModelEdge::dataStart()
 {
-	return ModelEdgeRegistry::instance().handler(*this)->dataStart();
+	return ModelEdgeRegistry::instance().handler(*this)->dataStart(*this);
 }
 
 bool ModelEdge::canAddRow(const ModelEdge& other, ResourceManager& manager)

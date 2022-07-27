@@ -309,7 +309,7 @@ void setEditorDataReference(QWidget* editor, ValuesProxyModel& model,
     QAbstractItemModel* data_model;
     if (typeid(T) == typeid(HkxItemFSMState))
     {
-        data_model = model.editModel(index, value.assetType());
+        data_model = model.editModel(index, value.assetType(), "");
     }
     else {
         data_model = model.editModel(index, value.assetType(), "<Not Set>", Qt::EditRole);

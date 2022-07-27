@@ -1,6 +1,7 @@
 #include "GenericWidget.h"
 #include <src/models/ValuesProxyModel.h>
 #include <src/hkx/ItemsDelegate.h>
+#include <src/items/HkxItemPointer.h>
 
 #include <QSpacerItem>
 #include <QtWidgets/QLabel>
@@ -190,6 +191,50 @@ void GenericWidget::makeFieldWidget
 		verticalResizeTableViewToContents(editor, true, forceScroll, width());
 }
 
+void GenericWidget::nullObjectWidget(const QString& labelText, size_t row, const hkClass* type)
+{
+	QLabel* label = new QLabel(this);
+	ValuesProxyModel* editModel = new ValuesProxyModel(&_model, { row }, 1, _index, this);
+	label->setText(labelText);
+	label->setMaximumHeight(23);
+
+	QHBoxLayout* hlayout = new QHBoxLayout(this);
+	hlayout->addWidget(label);
+
+	QToolButton* setAddButton;
+	setAddButton = new QToolButton(this);
+	setAddButton->setObjectName(QString::fromUtf8("setAddButton"));
+	setAddButton->setText("+");
+
+	//QToolButton* setRemoveButton;
+	//setRemoveButton = new QToolButton(this);
+	//setRemoveButton->setObjectName(QString::fromUtf8("setRemoveButton"));
+	//setRemoveButton->setText("-");
+
+	connect(setAddButton, &QToolButton::clicked, [this, editModel, row, type]()
+		{
+			auto index = editModel->index(0, 0, QModelIndex());
+			auto file = editModel->getFileIndex(index);
+			HkxItemPointer ptr(editModel->getResourceManager().createObject(file, type, ""));
+			QVariant v_ptr; v_ptr.setValue(ptr);
+			editModel->setData(index, v_ptr);
+			OnIndexSelected();
+		});
+
+	//connect(setRemoveButton, &QToolButton::clicked, [this, editModel, row, setRemoveButton]()
+	//	{
+	//		auto index = editModel->index(0, 0, QModelIndex());
+	//		auto file = editModel->getFileIndex(index);
+	//		HkxItemPointer ptr(nullptr);
+	//		editModel->setData(index, file);
+	//		OnIndexSelected();
+	//	});
+
+
+	hlayout->addWidget(setAddButton);
+	verticalLayout->addLayout(hlayout);
+}
+
 void GenericWidget::OnIndexSelected()
 {
 	buildReflectionTable();
@@ -203,17 +248,32 @@ void GenericWidget::OnIndexSelected()
 	bool isArray = false;
 	for (const auto& member : _members)
 	{
+		if (std::get<0>(member) == "name" ||
+			std::get<0>(member) == "variableBindingSet")
+			continue;
+
 		int row = member.second.first;
 		QModelIndex row_index = _model.index(row, 0, _index);
 		auto type = _model.rowType(row_index);
-		if (type._class != nullptr)
-			continue;
-		if (std::get<0>(member) == "name")
-			continue;
-
 		isArray = _model.isArray(row_index);
-
 		auto dot_index = std::get<0>(member).indexOf(".");
+		if (type._class != nullptr && dot_index == -1)
+		{
+			if (isArray && _model.columnCount(row_index) == 1)
+				nullObjectWidget(std::get<0>(member), row, type._class);
+			else if (!isArray)
+			{
+				auto value_index = _model.index(row, 1, _index);
+				auto value = _model.data(value_index);
+				if (value.canConvert<HkxItemPointer>())
+				{
+					auto ptr = value.value<HkxItemPointer>();
+					if (ptr.get() == nullptr)
+						nullObjectWidget(std::get<0>(member), row, type._class);
+				}
+			}
+			continue;
+		}
 		if (dot_index != -1)
 		{
 			//this is an object;

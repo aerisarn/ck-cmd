@@ -13,7 +13,7 @@ namespace ckcmd {
 
 			RowCalculator() : HkxConcreteVisitor(*this) {}
 
-			size_t rows() { return _rows > 0 ? _rows : 1; }
+			size_t rows() { return _rows /*> 0 ? _rows : 1*/; }
 
 			void setIgnoreNotSerializable(bool value) { ignoreNotSerializable = value; }
 

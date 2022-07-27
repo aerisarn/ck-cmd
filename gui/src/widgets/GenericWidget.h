@@ -17,6 +17,8 @@ class GenericWidget : public ckcmd::ModelWidget
 		bool isArray
 	);
 
+	void nullObjectWidget(const QString& labelText, size_t row, const hkClass* type);
+
 public:
 	GenericWidget(ckcmd::HKX::ProjectModel& model, QWidget* parent = 0);
 

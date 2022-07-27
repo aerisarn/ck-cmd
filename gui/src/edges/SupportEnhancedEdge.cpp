@@ -58,7 +58,7 @@ QVariant SupportEnhancedEdge::data(int row, int column, const ModelEdge& edge, R
 	return MultipleVariantsEdge::data(row == 0 ? row : row - supports(), column, edge, manager);
 }
 
-std::pair<int, int> SupportEnhancedEdge::dataStart() const
+std::pair<int, int> SupportEnhancedEdge::dataStart(const ModelEdge& edge) const
 {
 	return { 1 + supports(), 1 };
 }

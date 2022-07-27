@@ -127,7 +127,7 @@ QVariant Edge::data(int row, int column, const ModelEdge& edge, ResourceManager&
 	return "Invalid data";
 }
 
-std::pair<int, int> Edge::dataStart() const
+std::pair<int, int> Edge::dataStart(const ModelEdge& edge) const
 {
 	return { 1, 1 };
 }
