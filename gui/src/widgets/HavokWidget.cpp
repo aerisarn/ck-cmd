@@ -222,8 +222,10 @@ void HavokWidget::initialize()
 {
 	hkgSystem::init("d3d9s");
 	m_window = hkgWindow::create();
+	m_window->setWantDrawHavokLogo(false);
+	m_window->setWantDrawMousePointer(false);
 	m_window->setShadowMapSize(0); // 0 == use default platform size
-	HKG_WINDOW_CREATE_FLAG windowFlags = HKG_WINDOW_WINDOWED;
+	HKG_WINDOW_CREATE_FLAG windowFlags = HKG_WINDOW_WINDOWED | HKG_WINDOW_MSAA;
 
 	m_window->initialize(windowFlags,
 		HKG_WINDOW_BUF_COLOR | HKG_WINDOW_BUF_DEPTH32, size().width(), size().height(),
@@ -252,7 +254,40 @@ void HavokWidget::initialize()
 
 	setupLights();
 
+	hkgCamera* camera = m_window->getCurrentViewport()->getCamera();
+
+	float v[3] = { 0,0,0 };
+	//camera->setFrom(v);
+	//hkgVec3Zero(v);
+	//camera->setTo(v);
+	v[2] = 1;
+	//camera->setUp(v);
+	m_window->getCurrentViewport()->setFlyModeUp(v);
+	cameraSetFront();
+
 	m_window->getContext()->unlock();
+}
+
+void HavokWidget::cameraSetFront()
+{
+	float front[3] = { 0,1,0 };
+	hkgCamera* camera = m_window->getCurrentViewport()->getCamera();
+	camera->setProjectionMode(HKG_CAMERA_COMPUTE_ORTHOGRAPHIC);
+	float t[3];
+	camera->getTo(t);
+	float f[3];
+	camera->getFrom(f);
+	hkgVec3Sub(t, f);
+	float num = hkgVec3Length(t);
+	hkgVec3Scale(front, num);
+
+	camera->getTo(t);
+	hkgVec3Add(front, t);
+
+	camera->setFrom(front);
+	camera->setUp(m_window->getCurrentViewport()->getFlyModeUpPtr());
+	camera->computeModelView(false);
+	camera->computeProjection();
 }
 
 void HavokWidget::resizeEvent(QResizeEvent* event)
@@ -262,24 +297,323 @@ void HavokWidget::resizeEvent(QResizeEvent* event)
 	m_window->getContext()->unlock();
 }
 
+void HavokWidget::mouseMoveEvent(QMouseEvent* event)
+{
+	m_window->processMouseMove(event->pos().x(), m_window->getHeight() - event->pos().y() - 1, false);
+}
+
+void HavokWidget::mousePressEvent(QMouseEvent* event)
+{
+	HKG_MOUSE_BUTTON btn;
+	switch (event->button())
+	{
+	case Qt::MouseButton::LeftButton:
+		btn = HKG_MOUSE_LEFT_BUTTON;
+		break;
+	case Qt::MouseButton::RightButton:
+		btn = HKG_MOUSE_RIGHT_BUTTON;
+		break;
+	case Qt::MouseButton::MiddleButton:
+	case Qt::MouseButton::XButton1:
+	case Qt::MouseButton::XButton2:
+		btn = HKG_MOUSE_MIDDLE_BUTTON;
+		break;
+	default:
+		return;
+	}
+	m_window->processMouseButton(btn, true, event->pos().x(), m_window->getHeight() - event->pos().y() - 1, false);
+}
+
+void HavokWidget::mouseReleaseEvent(QMouseEvent* event)
+{
+	HKG_MOUSE_BUTTON btn;
+	switch (event->button())
+	{
+	case Qt::MouseButton::LeftButton:
+		btn = HKG_MOUSE_LEFT_BUTTON;
+		break;
+	case Qt::MouseButton::RightButton:
+		btn = HKG_MOUSE_RIGHT_BUTTON;
+		break;
+	case Qt::MouseButton::MiddleButton:
+	case Qt::MouseButton::XButton1:
+	case Qt::MouseButton::XButton2:
+		btn = HKG_MOUSE_MIDDLE_BUTTON;
+		break;
+	default:
+		return;
+	}
+	m_window->processMouseButton(btn, false, event->pos().x(), m_window->getHeight() - event->pos().y() - 1, false);
+}
+
+void HavokWidget::wheelEvent(QWheelEvent* event)
+{
+	m_window->processMouseWheel(event->delta(), event->pos().x(), m_window->getHeight() - event->pos().y() - 1, false);
+}
 
 void HavokWidget::showAxis()
 {
-	// world axis
-	if (m_showWorldAxis)
+	uint color = 0xFF0000;
+	constexpr uint alphaMask = (0xFF << 24);
+	static const float array[102] =
 	{
-		hkgWindow* window = m_window;
-		hkgCamera* camera = window->getViewport(0)->getCamera();
-		float			res[] = { 0,0,0 };	camera->unProjectExact(32, 32, 0.75f, window->getWidth(), window->getHeight(), res);
-		float			res2[] = { 0,0,0 };	camera->unProjectExact(32, 32 + 24, 0.75f, window->getWidth(), window->getHeight(), res2);
-		hkVector4		org; org.set(res[0], res[1], res[2], 0);
-		hkVector4		del; del.set(res2[0], res2[1], res2[2], 0);
-		hkReal			s(org.distanceTo3(del));
+		0.0f,
+		0.0f,
+		0.0f,
+		1.0f,
+		0.0f,
+		0.0f,
+		1.0f,
+		0.0f,
+		0.0f,
+		0.85f,
+		0.1f,
+		0.0f,
+		1.0f,
+		0.0f,
+		0.0f,
+		0.85f,
+		-0.1f,
+		0.0f,
+		1.1f,
+		0.1f,
+		0.0f,
+		1.2f,
+		-0.1f,
+		0.0f,
+		1.2f,
+		0.1f,
+		0.0f,
+		1.1f,
+		-0.1f,
+		0.0f,
+		0.0f,
+		0.0f,
+		0.0f,
+		0.0f,
+		1.0f,
+		0.0f,
+		0.0f,
+		1.0f,
+		0.0f,
+		0.1f,
+		0.85f,
+		0.0f,
+		0.0f,
+		1.0f,
+		0.0f,
+		-0.1f,
+		0.85f,
+		0.0f,
+		0.1f,
+		1.1f,
+		0.0f,
+		0.0f,
+		1.15f,
+		0.0f,
+		0.1f,
+		1.2f,
+		0.0f,
+		0.0f,
+		1.15f,
+		0.0f,
+		0.0f,
+		1.15f,
+		0.0f,
+		-0.1f,
+		1.15f,
+		0.0f,
+		0.0f,
+		0.0f,
+		0.0f,
+		0.0f,
+		0.0f,
+		1.0f,
+		0.0f,
+		0.0f,
+		1.0f,
+		0.1f,
+		0.0f,
+		0.85f,
+		0.0f,
+		0.0f,
+		1.0f,
+		-0.1f,
+		0.0f,
+		0.85f,
+		0.1f,
+		0.0f,
+		1.1f,
+		0.1f,
+		0.0f,
+		1.2f,
+		0.1f,
+		0.0f,
+		1.2f,
+		-0.1f,
+		0.0f,
+		1.1f,
+		-0.1f,
+		0.0f,
+		1.1f,
+		-0.1f,
+		0.0f,
+		1.2f
+	};
 
-		HK_DISPLAY_ARROW(org, hkVector4(s, 0, 0), hkColor::RED);
-		HK_DISPLAY_ARROW(org, hkVector4(0, s, 0), hkColor::GREEN);
-		HK_DISPLAY_ARROW(org, hkVector4(0, 0, s), hkColor::BLUE);
+	if (!m_showWorldAxis)
+		return;
+
+	auto* ctx = m_window->getContext();
+	HKG_ENABLED_STATE enabledState = ctx->getEnabledState();
+
+	ctx->matchState(HKG_ENABLED_NONE, ctx->getCullfaceMode(), ctx->getBlendMode(), ctx->getAlphaSampleMode());
+	float m[16];
+	float result[3];
+	float temp[3];
+
+	hkgMat4Identity(m);
+	hkgVec3Zero(result);
+	hkgVec3Zero(temp);
+
+	hkgViewport* viewport = m_window->getViewport(0);
+	hkgCamera* camera = viewport->getCamera();
+	camera->unProject(40, 40, 0.2f, viewport->getWidth(), viewport->getHeight(), result);
+	camera->getFrom(temp);
+	hkgVec3Sub(temp, result);
+
+	float distanceFromCam = hkgVec3Length(temp);
+	float scale = camera->computeIconVerticalDrawSize(distanceFromCam, 32, viewport->getHeight());
+	ctx->pushMatrix();
+	m[12] = result[0];
+	m[13] = result[1];
+	m[14] = result[2];
+
+	ctx->multMatrix(m);
+
+	ctx->beginGroup(HKG_IMM_LINES);
+	int index = 0;
+	float currentPosition[3];
+	hkgVec3Zero(currentPosition);
+
+
+	float pos[3];
+	for (int i = 0; i < 5; i++) 
+	{
+		ctx->setCurrentColorPacked(color | alphaMask);
+		hkgVec3Copy(pos, &array[index]); 
+		index += 3;
+		hkgVec3Scale(pos, -scale);
+		ctx->setCurrentPosition(pos);
+
+		ctx->setCurrentColorPacked(color | alphaMask);
+		hkgVec3Copy(pos, &array[index]);
+		index += 3;
+		hkgVec3Scale(pos, -scale);
+		ctx->setCurrentPosition(pos);
 	}
+
+	color >>= 8;
+	for (int i = 0; i < 6; i++)
+	{
+		ctx->setCurrentColorPacked(color | alphaMask);
+		hkgVec3Copy(pos, &array[index]);
+		index += 3;
+		hkgVec3Scale(pos, -scale);
+		ctx->setCurrentPosition(pos);
+
+		ctx->setCurrentColorPacked(color | alphaMask);
+		hkgVec3Copy(pos, &array[index]);
+		index += 3;
+		hkgVec3Scale(pos, -scale);
+		ctx->setCurrentPosition(pos);
+	}
+
+	color >>= 8;
+	for (int i = 0; i < 6; i++)
+	{
+		ctx->setCurrentColorPacked(color | alphaMask);
+		hkgVec3Copy(pos, &array[index]);
+		index += 3;
+		hkgVec3Scale(pos, scale);
+		ctx->setCurrentPosition(pos);
+
+		ctx->setCurrentColorPacked(color | alphaMask);
+		hkgVec3Copy(pos, &array[index]);
+		index += 3;
+		hkgVec3Scale(pos, scale);
+		ctx->setCurrentPosition(pos);
+	}
+	ctx->endGroup();
+
+	ctx->popMatrix();
+	ctx->matchState(enabledState, ctx->getCullfaceMode(), ctx->getBlendMode(),ctx->getAlphaSampleMode());
+}
+
+void HavokWidget::drawGrid()
+{
+	if (!m_showGrid)
+		return;
+
+	hkgDisplayContext* ctx = m_window->getContext();
+	float num = 100.0f;
+
+	auto enabledState = ctx->getEnabledState();
+	auto cullfaceMode = ctx->getCullfaceMode();
+	auto blendMode = ctx->getBlendMode();
+
+	ctx->matchState(HKG_ENABLED_ALPHABLEND|HKG_ENABLED_ZREAD, HKG_CULLFACE_CCW, HKG_BLEND_ADD, ctx->getAlphaSampleMode());
+	ctx->beginGroup(HKG_IMM_LINES);
+	
+	float p[3];
+	float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+	for (int i = 0; i <= 100; ++i)
+	{
+		float num2 = -0.5f * num + i;
+		color[3] = !(i % 10) ? 1.0f : 0.15f;
+
+		hkgVec3Set(p, num2, 0, 0);
+		ctx->setCurrentColor4(color);
+		ctx->setCurrentPosition(p);
+
+		hkgVec3Set(p, num2, 0.5f * num, 0);
+		ctx->setCurrentColor4(color);
+		ctx->setCurrentPosition(p);
+
+		hkgVec3Set(p, num2, 0, 0);
+		ctx->setCurrentColor4(color);
+		ctx->setCurrentPosition(p);
+
+		hkgVec3Set(p, num2, -0.5f * num, 0);
+		ctx->setCurrentColor4(color);
+		ctx->setCurrentPosition(p); 
+	}
+	
+	for (int j = 0; j <= 100; ++j)
+	{
+		float num3 = -0.5f * num + (float)j;
+		color[3] = (j % 10 == 0) ? 1.0f : 0.15f;
+
+		hkgVec3Set(p, 0, num3, 0);
+		ctx->setCurrentColor4(color);
+		ctx->setCurrentPosition(p);
+
+		hkgVec3Set(p, 0.5f * num, num3, 0);
+		ctx->setCurrentColor4(color);
+		ctx->setCurrentPosition(p);
+
+
+		hkgVec3Set(p, 0, num3, 0);
+		ctx->setCurrentColor4(color);
+		ctx->setCurrentPosition(p);
+
+		hkgVec3Set(p, -0.5f * num, num3, 0);
+		ctx->setCurrentColor4(color);
+		ctx->setCurrentPosition(p);
+	}
+	ctx->endGroup();
+	ctx->matchState(enabledState, cullfaceMode, blendMode, ctx->getAlphaSampleMode());
 }
 
 void HavokWidget::tickFrame(bool justCamera)
@@ -328,6 +662,8 @@ void HavokWidget::renderFrame()
 
 	hkgViewport* masterView = window->getCurrentViewport();
 
+	window->inViewportResize();
+
 	HKG_TIMER_SPLIT_LIST("SetViewport");
 
 	masterView->setAsCurrent(ctx);
@@ -355,6 +691,10 @@ void HavokWidget::renderFrame()
 	{
 		dh->drawImmediate();
 	}
+	
+	// Draw Gizmos
+	drawGrid();
+	showAxis();
 
 	HKG_TIMER_SPLIT_LIST("PostEffects");
 
@@ -362,8 +702,10 @@ void HavokWidget::renderFrame()
 
 	HKG_TIMER_SPLIT_LIST("Final Pass Objects");
 	{
-		dw->finalRender(ctx, true /* frustum cull */);
+		dw->finalRender(ctx, true /* frustum cull */); 
 	}
+
+	window->stepInput();
 
 	HKG_TIMER_SPLIT_LIST("SwapBuffers");
 
@@ -382,8 +724,6 @@ void HavokWidget::paint()
 	m_window->clearBuffers();
 
 	hkMemorySystem::getInstance().advanceFrame();
-
-	showAxis();
 
 	renderFrame();
 
