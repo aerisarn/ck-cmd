@@ -720,15 +720,15 @@ void HavokWidget::renderFrame()
 
 void HavokWidget::paint()
 {
+	if (isVisible())
+	{
+		m_window->clearBuffers();
 
-	m_window->clearBuffers();
+		hkMemorySystem::getInstance().advanceFrame();
 
-	hkMemorySystem::getInstance().advanceFrame();
+		renderFrame();
 
-	renderFrame();
-
-	////tick
-	tickFrame(false);
-
-
+		////tick
+		tickFrame(false);
+	}
 }
