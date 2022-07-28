@@ -36,6 +36,16 @@ std::vector<std::function<hkVariant* (const ModelEdge&, ResourceManager& manager
 	return out;
 }
 
+std::vector<QString> MultipleVariantsEdge::_additional_variants_names() const
+{
+	std::vector<QString> out;
+	out.push_back("");
+	auto& others = additional_variants_names();
+	for (auto& name : others)
+		out.push_back(name);
+	return out;
+}
+
 int MultipleVariantsEdge::rows(const ModelEdge& edge, ResourceManager& manager) const
 {
 	int count = 0;
@@ -202,6 +212,7 @@ QVariant MultipleVariantsEdge::data(int row, int column, const ModelEdge& edge, 
 
 	hkVariant* variant = edge.childItem<hkVariant>();
 	int row_index = row - count;
+	auto additional_variants_size = _additional_variants().size();
 	for (size_t i = 0; i < _additional_variants().size(); ++i)
 	{
 		if (row_index < 0)
@@ -214,6 +225,9 @@ QVariant MultipleVariantsEdge::data(int row, int column, const ModelEdge& edge, 
 			{
 				if (column == 0)
 				{
+					auto additional_variants_names = _additional_variants_names();
+					if (additional_variants_names.size() > i)
+						return additional_variants_names.at(i) + "." + HkxTableVariant(*v).rowName(row_index);
 					return HkxTableVariant(*v).rowName(row_index);
 				}
 				return HkxTableVariant(*v).data(row_index, column - 1);

@@ -9,9 +9,11 @@ namespace ckcmd {
 		{
 		private:
 			virtual std::vector<std::function<hkVariant* (const ModelEdge&, ResourceManager& manager, hkVariant*)>> _additional_variants() const;
+			virtual std::vector<QString> _additional_variants_names() const;
 
 		protected:
 			virtual std::vector<std::function<hkVariant* (const ModelEdge&, ResourceManager& manager, hkVariant*)>> additional_variants() const { return {}; };
+			virtual std::vector<QString> additional_variants_names() const { return {}; };
 
 		public:
 

@@ -9,6 +9,7 @@
 #include <src/edges/FileModel.h>
 #include <src/edges/ClipModel.h>
 #include <src/edges/EvaluateExpressionModifierModel.h>
+#include <src/edges/StateMachineStateModel.h>
 
 using namespace ckcmd::HKX;
 
@@ -20,6 +21,7 @@ ModelEdgeRegistry::ModelEdgeRegistry()
 	addEdgeHandler(new SkeletonModel());
 	addEdgeHandler(new RagdollModel());
 	addEdgeHandler(new StateMachineModel());
+	addEdgeHandler(new StateMachineStateModel());
 	addEdgeHandler(new FileModel());
 	addEdgeHandler(new ClipModel());
 	addEdgeHandler(new EvaluateExpressionModifierModel());
