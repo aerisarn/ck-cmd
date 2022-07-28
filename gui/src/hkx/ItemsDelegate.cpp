@@ -2,6 +2,7 @@
 
 #include <QCompleter>
 #include <QLabel>
+#include <QLineEdit>
 #include <QComboBox>
 #include <QPainter>
 #include <QApplication>
@@ -14,6 +15,7 @@
 #include <src/items/HkxItemBone.h>
 #include <src/items/HkxItemRagdollBone.h>
 #include <src/items/HkxItemFSMState.h>
+#include <src/items/HkxItemEventPayload.h>
 
 #include <src/hkx/HkxVariant.h>
 
@@ -75,7 +77,26 @@ void paintReference(QPainter* painter, const QStyleOptionViewItem& option, Value
 
 void ItemsDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
-    if (index.data().canConvert<HkxItemPointer>()) {
+    if (index.data().canConvert<HkxItemEventPayload>()) 
+    {
+        QString label = "";
+        HkxItemEventPayload data = index.data().value<HkxItemEventPayload>();
+
+        if (option.state & QStyle::State_Selected)
+        {
+            painter->fillRect(option.rect, option.palette.highlight());
+            painter->setPen(Qt::white);
+        }
+        else {
+            painter->setPen(Qt::black);
+        }
+
+        label = data.get();
+        auto rect = option.rect.adjusted(CUSTOM_SIZE_PADDING, 0, 0, 0);
+        painter->drawText(rect, Qt::AlignLeft | Qt::AlignVCenter, label);
+
+    }
+    else if (index.data().canConvert<HkxItemPointer>()) {
 
         QString label = "";
         HkxItemPointer data = index.data().value<HkxItemPointer>();
@@ -267,6 +288,9 @@ QWidget* ItemsDelegate::createEditor(QWidget* parent,
     const QStyleOptionViewItem& option ,
     const QModelIndex& index ) const
 {
+    if (index.data().canConvert<HkxItemEventPayload>()) {
+        return new QLineEdit(parent);
+    }
     if (index.data().canConvert<HkxItemPointer>()) {
         return new QComboBox(parent);
     }
@@ -341,6 +365,12 @@ void setEditorDataReference(QWidget* editor, ValuesProxyModel& model,
 void ItemsDelegate::setEditorData(QWidget* editor,
     const QModelIndex& index) const
 {
+    if (index.data().canConvert<HkxItemEventPayload>()) {
+        HkxItemEventPayload ptr = index.data().value<HkxItemEventPayload>();
+        QLineEdit* ptr_editor = dynamic_cast<QLineEdit*>(editor);
+        ptr_editor->setText(ptr.get());
+        return;
+    }
     if (index.data().canConvert<HkxItemPointer>()) {
         QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
         HkxItemPointer ptr = index.data().value<HkxItemPointer>();
@@ -416,7 +446,27 @@ void setModelDataReference(QWidget* editor, QAbstractItemModel* model,
 void ItemsDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
     const QModelIndex& index) const
 {
-    if (index.data().canConvert<HkxItemPointer>()) {
+    if (index.data().canConvert<HkxItemEventPayload>()) {
+        QLineEdit* ptr_editor = dynamic_cast<QLineEdit*>(editor);
+        HkxItemEventPayload ptr = index.data().value<HkxItemEventPayload>();
+        hkbStringEventPayload* value = ptr.data();
+        QString text_value = ptr_editor->text();
+        auto file = _model.getFileIndex(index);
+        if (text_value.isEmpty())
+        {
+            value = nullptr;
+        }
+        else {
+            if (value == nullptr)
+            {
+                value = _model.getResourceManager().createObject<hkbStringEventPayload>(file, &hkbStringEventPayloadClass);
+            }
+            value->m_data = text_value.toUtf8().constData();
+        }
+        QVariant new_value; new_value.setValue(HkxItemPointer(value));
+        model->setData(index, new_value, Qt::EditRole);
+    }
+    else if (index.data().canConvert<HkxItemPointer>()) {
         QComboBox* ptr_editor = dynamic_cast<QComboBox*>(editor);
         HkxItemPointer ptr = index.data().value<HkxItemPointer>();
         //auto objects = _manager.findCompatibleNodes(ptr.file_index(), ptr.field_class());

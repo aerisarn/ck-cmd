@@ -15,7 +15,8 @@ namespace ckcmd {
 			ragdollBoneIndex,
 			stateIndex,
 			generatorIndex,
-			bindingIndex
+			bindingIndex,
+			eventPayload
 		};
 
 		class Utility {

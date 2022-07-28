@@ -442,6 +442,7 @@ std::map<std::pair<const hkClass*, int>, MemberIndexType> Utility::indexedMember
 	{{&hkbEventDrivenModifierClass,13}, MemberIndexType::eventIndex}, //activateEventId
 	{{&hkbEventDrivenModifierClass,14}, MemberIndexType::eventIndex}, //deactivateEventId
 	{{&hkbEventPropertyClass,0}, MemberIndexType::eventIndex}, //id
+	{{&hkbEventPropertyClass,1}, MemberIndexType::eventPayload }, //id
 	//{{&hkbEventRaisedInfoClass,2}, MemberIndexType::eventIndex}, //characterId
 	//{{&hkbEventRaisedInfoClass,5}, MemberIndexType::eventIndex}, //senderId
 	//{{&hkbEventRaisedInfoClass,6}, MemberIndexType::eventIndex}, //padding

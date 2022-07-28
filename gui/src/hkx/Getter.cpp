@@ -6,6 +6,7 @@
 #include <src/items/HkxItemFSMState.h>
 #include <src/items/HkxItemRagdollBone.h>
 #include <src/items/HkxItemVar.h>
+#include <src/items/HkxItemEventPayload.h>
 
 #include "Getter.h"
 
@@ -27,7 +28,22 @@ void Getter::check(void* value) {
 void Getter::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
 	if (_row == 0)
-		_value.setValue(HkxItemPointer((void*)*(uintptr_t*)v));
+	{
+		if (Utility::indexedMembersMap.find({ _class, _memberIndex }) != Utility::indexedMembersMap.end())
+		{
+			auto type = Utility::indexedMembersMap.at({ _class, _memberIndex });
+			if (type == MemberIndexType::eventPayload)
+			{
+				_value.setValue(HkxItemEventPayload((void*)*(uintptr_t*)v));
+			}
+			else {
+				_value.setValue(HkxItemPointer((void*)*(uintptr_t*)v));
+			}
+		}
+		else {
+			_value.setValue(HkxItemPointer((void*)*(uintptr_t*)v));
+		}
+	}
 	_row -= 1;
 }
 
@@ -49,6 +65,9 @@ void Getter::specialType(MemberIndexType type, int value)
 		break;
 	case MemberIndexType::stateIndex:
 		_value.setValue(HkxItemFSMState(value));
+		break;
+	case MemberIndexType::eventPayload:
+		_value = value;
 		break;
 	case MemberIndexType::generatorIndex:
 	case MemberIndexType::bindingIndex:
