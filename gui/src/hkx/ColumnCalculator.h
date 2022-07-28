@@ -39,7 +39,7 @@ namespace ckcmd {
 			template<typename T>
 			void visit(T& value) { fit(1); }
 
-			void visit(char* value) { fit(1); }
+			void visit(char*& value) { fit(1); }
 
 			template<> void visit(hkVector4& value);
 			template<> void visit(::hkQuaternion& value);

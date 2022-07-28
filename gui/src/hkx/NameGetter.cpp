@@ -34,7 +34,7 @@ void NameGetter::visit(T& value)
 	_target_row -= 1;
 }
 
-void NameGetter::visit(char* value)
+void NameGetter::visit(char*& value)
 {
 	if (_target_row == 0)
 		_name = QString::fromStdString(getSerializedMember(_rows).getName());

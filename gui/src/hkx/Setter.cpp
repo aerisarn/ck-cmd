@@ -7,9 +7,19 @@
 using namespace ckcmd::HKX;
 
 
-void Setter::visit(char* value) {
+void Setter::visit(char*& value) {
 	if (_row == 0)
-		throw std::runtime_error("Cannot set a constant string!");
+	{
+		if (value != nullptr)
+		{
+			int s = strlen(value);
+			hkMemHeapBufFree(value, s+1);
+		}
+		QString new_value = _value.toString();
+		int size = new_value.length() + 1;
+		value = hkMemHeapBufAlloc<char>(size);
+		strcpy_s(value, size, new_value.toUtf8().constData());
+	}
 	_row -= 1;
 }
 

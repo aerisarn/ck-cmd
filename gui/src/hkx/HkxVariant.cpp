@@ -142,7 +142,7 @@ void HkxVariant::accept(HkxItemVisitor& visitor) const
 			visitor.visit(*(hkVariant*)object); break;
 			/// char*, null terminated string
 		case hkClassMember::TYPE_CSTRING:
-			visitor.visit((char*)(*(uintptr_t*)object)); break;
+			visitor.visit(*(char**)object); break;
 			/// hkUlong, unsigned long, defined to always be the same size as a pointer
 		case hkClassMember::TYPE_ULONG:
 			visitor.visit(*(hkUlong*)object); break;

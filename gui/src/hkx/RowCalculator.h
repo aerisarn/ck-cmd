@@ -25,7 +25,7 @@ namespace ckcmd {
 			template<typename T>
 			void visit(T& value) { _rows += 1; }
 
-			void visit(char* value) { _rows += 1; }
+			void visit(char*& value) { _rows += 1; }
 
 			virtual void visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags) override;
 			virtual void visit(void* object, const hkClassMember& definition) override;

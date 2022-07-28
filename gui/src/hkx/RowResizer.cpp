@@ -12,7 +12,7 @@ void RowResizer::visit(T& value)
 	_target_row -= 1;
 }
 
-void RowResizer::visit(char* value)
+void RowResizer::visit(char*& value)
 {
 	_target_row -= 1;
 }

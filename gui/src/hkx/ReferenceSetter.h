@@ -87,7 +87,6 @@ namespace ckcmd {
 				check(value);
 			}
 
-			virtual void visit(char* value) override;
 			virtual void visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags) override;
 			virtual void visit(void* object, const hkClassMember& definition) override;
 			virtual void visit(void* value, const hkClassEnum& enum_type, hkClassMember::Type type) override;

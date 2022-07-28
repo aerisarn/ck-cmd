@@ -17,7 +17,7 @@ void ClassGetter::visit(T& value)
 	_target_row -= 1;
 }
 
-void ClassGetter::visit(char* value)
+void ClassGetter::visit(char*& value)
 {
 	if (_target_row == 0)
 	{

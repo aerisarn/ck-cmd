@@ -15,9 +15,14 @@
 using namespace ckcmd::HKX;
 
 
-void Getter::visit(char* value) {
+void Getter::visit(char*& value) {
 	if (_row == 0)
-		_value = QString::fromStdString(value);
+	{
+		if (value != nullptr)
+			_value = QString::fromStdString(value);
+		else
+			_value = "";
+	}
 	_row -= 1;
 }
 

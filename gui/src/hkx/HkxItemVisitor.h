@@ -60,7 +60,7 @@ namespace ckcmd {
 			/// hkVariant (void* and hkClass*) type
 			virtual void visit(hkVariant&) = 0;
 			/// char*, null terminated string
-			virtual void visit(char*) = 0;
+			virtual void visit(char*&) = 0;
 			/// hkUlong, unsigned long, defined to always be the same size as a pointer
 			virtual void visit(hkUlong&) = 0;
 			/// hkFlags<ENUM,STORAGE> - 8,16,32 bits of named values.
@@ -154,7 +154,7 @@ namespace ckcmd {
 			/// hkVariant (void* and hkClass*) type
 			virtual void visit(hkVariant& v) override { _handler.visit(v); }
 			/// char*, null terminated string
-			virtual void visit(char* v) override { _handler.visit(v); }
+			virtual void visit(char*& v) override { _handler.visit(v); }
 			/// hkUlong, unsigned long, defined to always be the same size as a pointer
 			virtual void visit(hkUlong& v) override { _handler.visit(v); }
 			/// hkFlags<ENUM,STORAGE> - 8,16,32 bits of named values.
@@ -228,7 +228,7 @@ namespace ckcmd {
 					_handler.visit(*(hkTransform*)object); break;
 					/// char*, null terminated string
 				case hkClassMember::TYPE_CSTRING:
-					_handler.visit((char*)object); break;
+					_handler.visit((char*&)object); break;
 					/// hkUlong, unsigned long, defined to always be the same size as a pointer
 				case hkClassMember::TYPE_ULONG:
 					_handler.visit(*(hkUlong*)object); break;

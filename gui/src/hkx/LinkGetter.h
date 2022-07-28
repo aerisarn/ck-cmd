@@ -32,7 +32,7 @@ namespace ckcmd {
 				_row += 1;
 			}
 
-			void visit(char* value);
+			void visit(char*& value);
 
 			virtual void visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags) override;
 			virtual void visit(void* object, const hkClassMember& definition) override;

@@ -33,7 +33,7 @@ namespace ckcmd {
 
 			template<typename T> void visit(T& value);
 
-			virtual void visit(char* value) override;
+			virtual void visit(char*& value) override;
 			virtual void visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags) override;
 			virtual void visit(void* object, const hkClassMember& definition) override;
 			virtual void visit(void*, const hkClassEnum& enum_type, hkClassMember::Type type) override;

@@ -41,7 +41,7 @@ bool isValidLinkClass(void* ptr)
 	return false;
 }
 
-void LinkGetter::visit(char* value) {}
+void LinkGetter::visit(char*& value) {}
 
 void LinkGetter::visit(void* object, const hkClass& pointer_type, hkClassMember::Flags flags)
 {

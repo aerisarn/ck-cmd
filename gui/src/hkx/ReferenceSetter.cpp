@@ -7,9 +7,6 @@
 using namespace ckcmd::HKX;
 
 
-void ReferenceSetter::visit(char* value) {
-}
-
 void ReferenceSetter::visit(void* v, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
 }

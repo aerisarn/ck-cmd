@@ -20,7 +20,7 @@ const std::vector<int>& ArrayFinder::arrayrows() const
 	return _arrayrows;
 }
 
-void ArrayFinder::visit(char* value) {}
+void ArrayFinder::visit(char*& value) {}
 
 void ArrayFinder::visit(void* object, const hkClass& pointer_type, hkClassMember::Flags flags)
 {
