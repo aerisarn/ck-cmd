@@ -1065,6 +1065,12 @@ set<string> HKXWrapper::create_animations(
 			return {};
 		}
 
+		if (skeleton.size() < 2)
+		{
+			Log::Info("Skeleton has a single bone only, root motion could not be extract ");
+			return {};
+		}
+
 		// Sample each animation frame
 		for (float time = startTime.GetSecondDouble();
 			time <= endTime.GetSecondDouble() + timePerFrame.GetSecondDouble()/2;
@@ -1076,7 +1082,7 @@ set<string> HKXWrapper::create_animations(
 			for (int bone_index = 0; bone_index < skeleton.size(); ++bone_index)
 			{
 				FbxNode* bone = skeleton[bone_index];
-				if (ignore_before_pelvis.find(bone) != ignore_before_pelvis.end())
+				if (skeleton.size() > 1 && ignore_before_pelvis.find(bone) != ignore_before_pelvis.end())
 				{
 					//root_track.pushBack(getBoneTransform(bone, fbx_time));
 					//Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
@@ -1094,7 +1100,7 @@ set<string> HKXWrapper::create_animations(
 					tempAnim->m_transforms[numFrames * skeleton.size() + bone_index].setIdentity();
 					continue;
 				}
-				if (bone == pelvis) //evaluate pelvis position instead of relying on root bone
+				if (bone == pelvis && skeleton.size() > 1) //evaluate pelvis position instead of relying on root bone
 				{
 					auto pelvis_world_transform = getWorldTransform(bone, fbx_time);
 					//auto angles = pelvis_world_transform.GetQ().DecomposeSphericalXYZ();
