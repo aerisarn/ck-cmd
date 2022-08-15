@@ -7,11 +7,19 @@
 class hkgWindow;
 class hkgDisplayHandler;
 class hkgSceneDataConverter;
+class hkgDisplayContext;
 class hkgDisplayWorld;
 class hkTextDisplay;
 class hkgLight;
 class hkgAabb;
+
 class hkLoader;
+class hkgGeometry;
+class hkgFaceSet;
+class hkaAnimationContainer;
+class hkMatrix4;
+class hkaSkeleton;
+class hkgShaderEffectCollection;
 
 class HavokWidget : public ::ads::CDockWidget
 {
@@ -21,8 +29,11 @@ class HavokWidget : public ::ads::CDockWidget
     hkgDisplayHandler* m_displayHandler = nullptr;
     hkgSceneDataConverter* m_sceneConverter = nullptr;
     hkgDisplayWorld* m_displayWorld = nullptr;
+    hkgDisplayWorld* m_skeletalWorld = nullptr;
     hkTextDisplay* m_textDisplay = nullptr;
     hkLoader* m_loader = nullptr;
+    hkaAnimationContainer* animContainer = nullptr;
+    hkgShaderEffectCollection* skeletalShader = nullptr;
 
     bool m_showWorldAxis = true;
     bool m_showGrid = true;
@@ -36,6 +47,10 @@ class HavokWidget : public ::ads::CDockWidget
     void renderFrame();
     void clearFrameData();
     void setupScene();
+    void drawSkeletal();
+    void drawSkeletalTriangleThingy(hkaSkeleton* skeletal, const std::vector<hkMatrix4>& boneAbsTransform);
+    hkgGeometry* createDoublePyramid(float* vTarget, float* vOrigin);
+    hkgFaceSet* createDoublePyramid(float* vA, float* vB, hkgDisplayContext* context);
     void drawGrid();
     void cameraSetFront();
 
