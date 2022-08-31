@@ -47,7 +47,7 @@ using namespace Niflib;
 			double bhkScaleFactor; // = 6.9969
 
 		public:
-			string name;
+			string fileName;
 
 			NifFile() {}
 
@@ -65,13 +65,17 @@ using namespace Niflib;
 			}
 
 
-			size_t getNumBlocks() {
+			size_t getNumBlocks() const {
 				return blocks.size();
 			}
 
-			NiObjectRef getBlock(unsigned short index) {
+			size_t getNumBlocks(const Type& type) const;
+
+			NiObjectRef getBlock(unsigned short index) const {
 				return blocks[index];
 			}
+
+			NiObjectRef getBlock(unsigned short index, const Type& type) const;
 
 			NifInfo& GetInfo() { return hdr; }
 			//void CopyFrom(const NifFile& other);

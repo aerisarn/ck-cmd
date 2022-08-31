@@ -81,6 +81,9 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 
 	connect(_handler, &ckcmd::HKX::ActionHandler::found, _projectTreeView, &ProjectsWidget::on_search_found);
 
+	//Tools
+	_textureTool = new TextureTool(this);
+
 	//Edit
 	ui->menuEdit->addAction(_command_manager.createUndoAction(this));
 	ui->menuEdit->addAction(_command_manager.createRedoAction(this));
@@ -99,6 +102,9 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	m_DockManager->addDockWidgetTab(ads::CenterDockWidgetArea, GLWidget);
 	m_DockManager->addDockWidget(ads::LeftDockWidgetArea, _projectTreeView);
 	m_DockManager->addDockWidget(ads::BottomDockWidgetArea, LogWidget);
+
+	//Tools
+	ui->menuTools->addAction(_textureTool->toggleViewAction());
 
 	loadWindowSettings();
 }

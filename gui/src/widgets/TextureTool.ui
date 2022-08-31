@@ -1,0 +1,916 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TextureTool</class>
+ <widget class="QDialog" name="TextureTool">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1027</width>
+    <height>746</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Texture Tool</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_8">
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_14">
+     <item>
+      <layout class="QVBoxLayout" name="verticalLayout_11">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_13">
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_9">
+           <item>
+            <widget class="QLabel" name="label">
+             <property name="text">
+              <string>Select Folder</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_9">
+             <item>
+              <widget class="QLineEdit" name="folderLineEdit"/>
+             </item>
+             <item>
+              <widget class="QToolButton" name="folderSelectButton">
+               <property name="text">
+                <string>...</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_10"/>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QLabel" name="label_4">
+         <property name="text">
+          <string>Filter:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="filterLineEdit"/>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_12">
+         <item>
+          <widget class="QLabel" name="label_2">
+           <property name="text">
+            <string>Nif Files:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="viewModeCheckBox">
+           <property name="text">
+            <string>View Mode</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QVBoxLayout" name="verticalLayout_6">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_10">
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_3">
+             <item>
+              <widget class="QTreeView" name="nifView">
+               <property name="editTriggers">
+                <set>QAbstractItemView::NoEditTriggers</set>
+               </property>
+               <property name="selectionMode">
+                <enum>QAbstractItemView::MultiSelection</enum>
+               </property>
+               <property name="textElideMode">
+                <enum>Qt::ElideNone</enum>
+               </property>
+               <property name="rootIsDecorated">
+                <bool>false</bool>
+               </property>
+               <attribute name="headerVisible">
+                <bool>false</bool>
+               </attribute>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_4"/>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_5"/>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="shaderTypeCheckBox">
+           <property name="text">
+            <string>Set Shader Type</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="shaderTypeComboBox">
+           <item>
+            <property name="text">
+             <string>Default</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Environment Map</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Glow Shader</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Parallax</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Face Tint</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Skin Tint</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Hair Tint</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Parallax Occ</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Multitexture Landscape</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>LOD Landscape</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Snow</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Multilayer Parallax</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Tree Animation</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>LOD Objects</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Sparkle Snow</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>LOD Objects HD</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Eye Environment Map</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Cloud</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>LOD Landscape Noise</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Multitexture Landscape LOD Blend</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>FO4 Dismemberment</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="texturesCheckBox">
+           <property name="text">
+            <string>Override Textures</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout">
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout">
+             <item>
+              <widget class="QLabel" name="label_7">
+               <property name="text">
+                <string>1. Diffuse</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="textureSlot_0"/>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_2">
+             <item>
+              <widget class="QLabel" name="label_8">
+               <property name="text">
+                <string>2. Normal</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="textureSlot_1">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_3">
+             <item>
+              <widget class="QLabel" name="label_9">
+               <property name="text">
+                <string>3. Emissive</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="textureSlot_2">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_4">
+             <item>
+              <widget class="QLabel" name="label_10">
+               <property name="text">
+                <string>4. Height/Parallax</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="textureSlot_3">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_5">
+             <item>
+              <widget class="QLabel" name="label_11">
+               <property name="text">
+                <string>5. Environment / Cube Map</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="textureSlot_4">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_6">
+             <item>
+              <widget class="QLabel" name="label_12">
+               <property name="text">
+                <string>6. Greyscale / Metallic</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="textureSlot_5">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_7">
+             <item>
+              <widget class="QLabel" name="label_13">
+               <property name="text">
+                <string>7. Subsurface Tint</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="textureSlot_6">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_8">
+             <item>
+              <widget class="QLabel" name="label_14">
+               <property name="text">
+                <string>8. Backlight</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="textureSlot_7">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="shaderFlagsCheckBox">
+           <property name="text">
+            <string>Set Shader Flags</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_11">
+       <item>
+        <widget class="QGroupBox" name="SF1">
+         <property name="title">
+          <string>Shader Flags 1</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_2">
+          <item>
+           <widget class="QCheckBox" name="SF1_0">
+            <property name="text">
+             <string>Specular</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_1">
+            <property name="text">
+             <string>Skinned</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_2">
+            <property name="text">
+             <string>Temp Refraction</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_3">
+            <property name="text">
+             <string>Vertex Alpha</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_4">
+            <property name="text">
+             <string>Greyscale to PaletteAlpha</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_5">
+            <property name="text">
+             <string>Greyscale to PaletteColor</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_6">
+            <property name="text">
+             <string>Use Falloff</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_7">
+            <property name="text">
+             <string>Environment Mapping</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_8">
+            <property name="text">
+             <string>Receive Shadows</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_9">
+            <property name="text">
+             <string>Cast Shadows</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_10">
+            <property name="text">
+             <string>Facegen Detail Map</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_11">
+            <property name="text">
+             <string>Parallax</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_12">
+            <property name="text">
+             <string>Model Space Normals</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_13">
+            <property name="text">
+             <string>Non Projective Shadows</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_14">
+            <property name="text">
+             <string>Landscape</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_15">
+            <property name="text">
+             <string>Refraction</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_16">
+            <property name="text">
+             <string>Fire Refraction</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_17">
+            <property name="text">
+             <string>Eye Environment Mapping</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_18">
+            <property name="text">
+             <string>Hair Soft Lightning</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_19">
+            <property name="text">
+             <string>Screendoor Alpha Fade</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_20">
+            <property name="text">
+             <string>Localmap Hide Secret</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_21">
+            <property name="text">
+             <string>FaceGen RGB Tint</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_22">
+            <property name="text">
+             <string>Own Emit</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_23">
+            <property name="text">
+             <string>Projected UV</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_24">
+            <property name="text">
+             <string>Multiple Textures</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_25">
+            <property name="text">
+             <string>Remappable Textures</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_26">
+            <property name="text">
+             <string>Decal</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_27">
+            <property name="text">
+             <string>Dynamic Decal</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_28">
+            <property name="text">
+             <string>Parallax Occlusion</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_29">
+            <property name="text">
+             <string>External Emittance</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_30">
+            <property name="text">
+             <string>Soft Effect</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF1_31">
+            <property name="text">
+             <string>ZBuffer Test</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="SF2">
+         <property name="title">
+          <string>Shader Flags 2</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_7">
+          <item>
+           <widget class="QCheckBox" name="SF2_0">
+            <property name="text">
+             <string>ZBuffer_Write</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_1">
+            <property name="text">
+             <string>LOD Landscape</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_2">
+            <property name="text">
+             <string>LOD Objects</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_3">
+            <property name="text">
+             <string>No Fade</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_4">
+            <property name="text">
+             <string>Double Sided</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_5">
+            <property name="text">
+             <string>Vertex Colors</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_6">
+            <property name="text">
+             <string>Glow Map</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_7">
+            <property name="text">
+             <string>Assume Shadowmask</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_8">
+            <property name="text">
+             <string>Packed Tangent</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_9">
+            <property name="text">
+             <string>Multi Index Shadow</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_10">
+            <property name="text">
+             <string>Vertex Lightning</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_11">
+            <property name="text">
+             <string>Uniform Scale</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_12">
+            <property name="text">
+             <string>Fit Slope</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_13">
+            <property name="text">
+             <string>Billboard</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_14">
+            <property name="text">
+             <string>No LOD Land Blend</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_15">
+            <property name="text">
+             <string>EnvMap Light Fade</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_16">
+            <property name="text">
+             <string>Wireframe</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_17">
+            <property name="text">
+             <string>Weapon Blood</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_18">
+            <property name="text">
+             <string>Hide On Local Map</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_19">
+            <property name="text">
+             <string>Premult Alpha</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_20">
+            <property name="text">
+             <string>Cloud LOD</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_21">
+            <property name="text">
+             <string>Anisotropic Lightning</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_22">
+            <property name="text">
+             <string>No Transparency Multisampling</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_23">
+            <property name="text">
+             <string>Unused01</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_24">
+            <property name="text">
+             <string>Multi Layer Parallax</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_25">
+            <property name="text">
+             <string>Soft Lightning</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_26">
+            <property name="text">
+             <string>Rim Lightning</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_27">
+            <property name="text">
+             <string>Back Lightning</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_28">
+            <property name="text">
+             <string>Unused02</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_29">
+            <property name="text">
+             <string>Tree Animation</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_30">
+            <property name="text">
+             <string>Effect Lighting</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="SF2_31">
+            <property name="text">
+             <string>HD LOD Objects</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>TextureTool</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>TextureTool</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

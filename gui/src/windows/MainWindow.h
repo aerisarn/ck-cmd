@@ -6,6 +6,7 @@
 #include <QMainWindow>
 #include "DockManager.h"
 
+//Widgets
 #include <src/widgets/LogControl.h>
 #include <src/workspace.h>
 #include <src/models/ProjectTreeModel.h>
@@ -13,6 +14,9 @@
 #include <src/widgets/ValuesWidget.h>
 #include <src/widgets/ActionHandler.h>
 #include <src/widgets/HavokWidget.h>
+
+//Tools
+#include <src/widgets/TextureTool.h>
 
 #include <src/hkx/HkxSimulation.h>
 #include <src/hkx/CommandManager.h>
@@ -65,6 +69,9 @@ private:
     ValuesWidget* _valuesTableView;
     HkxSimulation* _simulation;
     HavokWidget* _preview;
+
+    //Tools
+    TextureTool* _textureTool;
 
     //Data
     WorkspaceConfig _workspace;

@@ -538,6 +538,7 @@ void NifFile::Clear() {
 }
 
 int NifFile::Load(const std::string& fileName) {
+	this->fileName = fileName;
 	Clear();
 	try {
 		blocks = ReadNifList(fileName.c_str(), &hdr);
@@ -576,6 +577,33 @@ int NifFile::Load(std::istream& stream) {
 	isValid = true;
 	return 0;
 }
+
+size_t NifFile::getNumBlocks(const Type& type) const
+{
+	size_t count = 0;
+	for (const auto& block : blocks)
+	{
+		if (block->IsSameType(type))
+			count++;
+	}
+	return count;
+}
+
+NiObjectRef NifFile::getBlock(unsigned short index, const Type& type) const
+{
+	size_t count = 0;
+	for (const auto& block : blocks)
+	{
+		if (block->IsSameType(type))
+		{
+			if (count == index)
+				return block;
+			count++;
+		}
+	}
+	return NULL;
+}
+
 //
 //	if (file.is_open()) {
 //		/*NiStream stream(&file, &hdr.GetVersion());
