@@ -575,23 +575,24 @@ QAbstractItemModel* ProjectModel::editModel(const QModelIndex& index, AssetType 
 		}
 		else if (AssetType::events == type)
 		{
-			auto top_behavior_index = getChildAssetProxy(index, NodeType::BehaviorHkxNode);
-			if (top_behavior_index.isValid())
-			{
-				if (AssetType::events == type)
-				{
-					auto events_node = getChildAssetProxy(top_behavior_index, NodeType::behaviorEventNames);
-					if (events_node.isValid())
-						return new SelectionProxyModel(this, events_node);
-				}
-			}
-			return nullptr;
+			//auto top_behavior_index = getChildAssetProxy(index, NodeType::BehaviorHkxNode);
+			//if (top_behavior_index.isValid())
+			//{
+			//	if (AssetType::events == type)
+			//	{
+			//		auto events_node = getChildAssetProxy(top_behavior_index, NodeType::behaviorEventNames);
+			//		if (events_node.isValid())
+			//			return new SelectionProxyModel(this, events_node);
+			//	}
+			//}
+			//return nullptr;
+			return new StringListModel(_resourceManager.eventList(edge._project, false));
 		}
 		else if (AssetType::variable_words == type) {
 			return new StringListModel(_resourceManager.wordVariableList(edge._project));
 		}
 		else if (AssetType::attack_events == type) {
-			return new StringListModel(_resourceManager.attackEventList(edge._project));
+			return new StringListModel(_resourceManager.eventList(edge._project, true));
 		}
 		else if (AssetType::clips == type) {
 			return new StringListModel(_resourceManager.clipList(edge._project));

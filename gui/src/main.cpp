@@ -387,7 +387,7 @@ int main(int argc, char *argv[])
 			return 1; // Error, for example
 		}
 		Settings.set("/general/workspace_folder", launcher._workspace_folder);
-		workspace_path = launcher._workspace_folder.toStdString();
+		workspace_path = launcher._workspace_folder.toUtf8().constData();
 	}
 
 	//Check if the workspace is empty

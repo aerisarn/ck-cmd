@@ -47,125 +47,127 @@ ResourceManager::ResourceManager(WorkspaceConfig& workspace) :
 		scanWorkspace();
 	}
 
-	_charactersNames = _workspace.getCharacterProjects();
-	for (auto& character : _charactersNames)
+	if (!_workspace.empty())
 	{
-		_characters.push_back(_workspace.getFolder() / character.toUtf8().constData());
-	}
+		_charactersNames = _workspace.getCharacterProjects();
+		for (auto& character : _charactersNames)
+		{
+			_characters.push_back(_workspace.getFolder() / character.toUtf8().constData());
+		}
 
-	_miscellaneousNames = _workspace.getMiscellaneousProjects();
-	for (auto& misc : _miscellaneousNames)
-	{
-		_miscellaneous.push_back(_workspace.getFolder() / misc.toUtf8().constData());
-	}
+		_miscellaneousNames = _workspace.getMiscellaneousProjects();
+		for (auto& misc : _miscellaneousNames)
+		{
+			_miscellaneous.push_back(_workspace.getFolder() / misc.toUtf8().constData());
+		}
 
-	_esp = new Collection((char* const)_workspace.getFolder().string().c_str(), 3);
+		_esp = new Collection((char* const)_workspace.getFolder().string().c_str(), 3);
 
-	ModFlags masterFlags = ModFlags(0xA);
-	ModFile* skyrimMod = _esp->AddMod("creatures.esp", masterFlags);
+		ModFlags masterFlags = ModFlags(0xA);
+		ModFile* skyrimMod = _esp->AddMod("creatures.esp", masterFlags);
 
-	char* argvv[4];
-	argvv[0] = new char();
-	argvv[1] = new char();
-	argvv[2] = new char();
-	argvv[3] = new char();
-	logger.init(4, argvv);
+		char* argvv[4];
+		argvv[0] = new char();
+		argvv[1] = new char();
+		argvv[2] = new char();
+		argvv[3] = new char();
+		logger.init(4, argvv);
 
-	_esp->Load();
+		_esp->Load();
 
-	//find children classes;
-	hkDefaultClassNameRegistry& defaultRegistry = hkDefaultClassNameRegistry::getInstance();
-	hkArray<const hkClass*> classes;
-	defaultRegistry.getClasses(classes);
-	for (int i = 0; i < classes.getSize(); ++i)
-	{
-		//bool isParent = false;
-		//for (int j = 0; j < classes.getSize(); ++j)
+		//find children classes;
+		hkDefaultClassNameRegistry& defaultRegistry = hkDefaultClassNameRegistry::getInstance();
+		hkArray<const hkClass*> classes;
+		defaultRegistry.getClasses(classes);
+		for (int i = 0; i < classes.getSize(); ++i)
+		{
+			//bool isParent = false;
+			//for (int j = 0; j < classes.getSize(); ++j)
+			//{
+			//	if (classes[j]->getParent() == classes[i])
+			//	{
+			//		isParent = true;
+			//		break;
+			//	}
+			//}
+			bool not_serializable = classes[i]->getFlags().allAreSet(hkClass::FLAGS_NOT_SERIALIZABLE);
+			if (!not_serializable)
+				_concreate_classes.push_back(classes[i]);
+		}
+
+		//used to generate the Special members map
+		//std::set<std::array<std::string, 3>> interesting_members;
+		//std::set<std::string> interesting_classes;
+		//for (int c = 0; c < _concreate_classes.size(); ++c)
 		//{
-		//	if (classes[j]->getParent() == classes[i])
-		//	{
-		//		isParent = true;
-		//		break;
+		//	for (size_t i = 0; i < _concreate_classes[c]->getNumMembers(); ++i) {
+		//		const auto& member_declaration = _concreate_classes[c]->getMember(i);
+		//		if (member_declaration.getFlags().get() & hkClassMember::SERIALIZE_IGNORED)
+		//			continue;
+		//		switch (member_declaration.getType()) {
+		//		case hkClassMember::TYPE_INT8:
+		//		case hkClassMember::TYPE_UINT8:
+		//		case hkClassMember::TYPE_INT16:
+		//		case hkClassMember::TYPE_UINT16:
+		//		case hkClassMember::TYPE_INT32:
+		//		case hkClassMember::TYPE_UINT32:
+		//		case hkClassMember::TYPE_INT64:
+		//		case hkClassMember::TYPE_UINT64:
+		//			interesting_classes.insert(std::string(_concreate_classes[c]->getName()) + "Class");
+		//			interesting_members.insert(
+		//				{
+		//				"&" + std::string(_concreate_classes[c]->getName()) + "Class",
+		//				std::to_string(i),
+		//				member_declaration.getName()
+		//				}
+		//			);
+		//		default:
+		//			break;
+		//		}
 		//	}
 		//}
-		bool not_serializable = classes[i]->getFlags().allAreSet(hkClass::FLAGS_NOT_SERIALIZABLE);
-		if (!not_serializable)
-			_concreate_classes.push_back(classes[i]);
+		//ofstream myfile;
+		//myfile.open("int_class_members.txt");
+		//for (auto& entry : interesting_classes)
+		//{
+		//	myfile << "extern const hkClass " << entry << ";" << std::endl;
+		//}
+		//myfile << std::endl;
+		//for (auto& entry : interesting_members)
+		//{
+		//	std::string guessed_type = "MemberIndexType::Invalid";
+		//	if (
+		//		entry[0].find("ragdoll") != string::npos || entry[0].find("Ragdoll") != string::npos ||
+		//		entry[2].find("ragdoll") != string::npos || entry[2].find("Ragdoll") != string::npos
+		//		)
+		//	{
+		//		guessed_type = "MemberIndexType::ragdollBoneIndex";
+		//	}
+		//	else if (
+		//		entry[0].find("bone") != string::npos || entry[0].find("Bone") != string::npos ||
+		//		entry[2].find("bone") != string::npos || entry[2].find("Bone") != string::npos
+		//		)
+		//	{
+		//		guessed_type = "MemberIndexType::boneIndex";
+		//	}
+		//	else if (
+		//		entry[0].find("event") != string::npos || entry[0].find("Event") != string::npos ||
+		//		entry[2].find("event") != string::npos || entry[2].find("Event") != string::npos
+		//		)
+		//	{
+		//		guessed_type = "MemberIndexType::eventIndex";
+		//	}
+		//	else if (
+		//		entry[0].find("variable") != string::npos || entry[0].find("Variable") != string::npos ||
+		//		entry[2].find("variable") != string::npos || entry[2].find("Variable") != string::npos
+		//		)
+		//	{
+		//		guessed_type = "MemberIndexType::variableIndex";
+		//	}
+		//	myfile << "\t{{" << entry[0] << "," << entry[1] << "}, " << guessed_type <<"}, //" << entry[2] << std::endl;
+		//}
+		//myfile.close();
 	}
-
-	//used to generate the Special members map
-	//std::set<std::array<std::string, 3>> interesting_members;
-	//std::set<std::string> interesting_classes;
-	//for (int c = 0; c < _concreate_classes.size(); ++c)
-	//{
-	//	for (size_t i = 0; i < _concreate_classes[c]->getNumMembers(); ++i) {
-	//		const auto& member_declaration = _concreate_classes[c]->getMember(i);
-	//		if (member_declaration.getFlags().get() & hkClassMember::SERIALIZE_IGNORED)
-	//			continue;
-	//		switch (member_declaration.getType()) {
-	//		case hkClassMember::TYPE_INT8:
-	//		case hkClassMember::TYPE_UINT8:
-	//		case hkClassMember::TYPE_INT16:
-	//		case hkClassMember::TYPE_UINT16:
-	//		case hkClassMember::TYPE_INT32:
-	//		case hkClassMember::TYPE_UINT32:
-	//		case hkClassMember::TYPE_INT64:
-	//		case hkClassMember::TYPE_UINT64:
-	//			interesting_classes.insert(std::string(_concreate_classes[c]->getName()) + "Class");
-	//			interesting_members.insert(
-	//				{
-	//				"&" + std::string(_concreate_classes[c]->getName()) + "Class",
-	//				std::to_string(i),
-	//				member_declaration.getName()
-	//				}
-	//			);
-	//		default:
-	//			break;
-	//		}
-	//	}
-	//}
-	//ofstream myfile;
-	//myfile.open("int_class_members.txt");
-	//for (auto& entry : interesting_classes)
-	//{
-	//	myfile << "extern const hkClass " << entry << ";" << std::endl;
-	//}
-	//myfile << std::endl;
-	//for (auto& entry : interesting_members)
-	//{
-	//	std::string guessed_type = "MemberIndexType::Invalid";
-	//	if (
-	//		entry[0].find("ragdoll") != string::npos || entry[0].find("Ragdoll") != string::npos ||
-	//		entry[2].find("ragdoll") != string::npos || entry[2].find("Ragdoll") != string::npos
-	//		)
-	//	{
-	//		guessed_type = "MemberIndexType::ragdollBoneIndex";
-	//	}
-	//	else if (
-	//		entry[0].find("bone") != string::npos || entry[0].find("Bone") != string::npos ||
-	//		entry[2].find("bone") != string::npos || entry[2].find("Bone") != string::npos
-	//		)
-	//	{
-	//		guessed_type = "MemberIndexType::boneIndex";
-	//	}
-	//	else if (
-	//		entry[0].find("event") != string::npos || entry[0].find("Event") != string::npos ||
-	//		entry[2].find("event") != string::npos || entry[2].find("Event") != string::npos
-	//		)
-	//	{
-	//		guessed_type = "MemberIndexType::eventIndex";
-	//	}
-	//	else if (
-	//		entry[0].find("variable") != string::npos || entry[0].find("Variable") != string::npos ||
-	//		entry[2].find("variable") != string::npos || entry[2].find("Variable") != string::npos
-	//		)
-	//	{
-	//		guessed_type = "MemberIndexType::variableIndex";
-	//	}
-	//	myfile << "\t{{" << entry[0] << "," << entry[1] << "}, " << guessed_type <<"}, //" << entry[2] << std::endl;
-	//}
-	//myfile.close();
-
 }
 
 ResourceManager::~ResourceManager() 
@@ -1263,7 +1265,7 @@ QStringList ResourceManager::clipAnimationsList(int project_index)
 	return out.toList();
 }
 
-QStringList ResourceManager::attackEventList(int project_index)
+QStringList ResourceManager::eventList(int project_index, bool attacksOnly)
 {
 	HKXWrapper wrap;
 	QSet<QString> out;
@@ -1287,13 +1289,18 @@ QStringList ResourceManager::attackEventList(int project_index)
 					for (int e = 0; e < string_data->m_eventNames.getSize(); ++e)
 					{
 						QString eventName = string_data->m_eventNames[e].cString();
-						if (
-							eventName.startsWith("attackStart") ||
-							eventName.startsWith("attackPowerStart") ||
-							eventName.startsWith("bashStart") ||
-							eventName.startsWith("bashPowerStart")
-							)
+						if (attacksOnly)
 						{
+							if (eventName.startsWith("attackStart") ||
+								eventName.startsWith("attackPowerStart") ||
+								eventName.startsWith("bashStart") ||
+								eventName.startsWith("bashPowerStart")
+								)
+							{
+								out << eventName;
+							}
+						}
+						else {
 							out << eventName;
 						}
 					}

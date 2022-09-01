@@ -54,13 +54,14 @@ void TextureTool::on_folderLineEdit_textChanged(const QString& text)
 			{
 				_proxyModel->setFilterFixedString(pattern);
 				nifView->expandAll();
+				nifView->resizeColumnToContents(0);
 			}
 		);
 
 		nifView->setModel(_proxyModel.get());
 		nifView->setVisible(false);
-		nifView->resizeColumnToContents(0);
 		nifView->expandAll();
+		nifView->resizeColumnToContents(0);
 		nifView->setVisible(true);
 
 		connect(nifView->selectionModel(), &QItemSelectionModel::currentChanged, this, &TextureTool::on_nifView_selectionChanged);

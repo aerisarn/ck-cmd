@@ -136,19 +136,22 @@ AnimationCache::AnimationCache(const fs::path& workspacePath) :
 }
 
 AnimationCache::AnimationCache(const fs::path& animationDataPath, const  fs::path& animationSetDataPath) {
-	string animationDataContent;
+	if (fs::exists(animationDataPath) && fs::exists(animationSetDataPath))
 	{
-		std::ifstream t(animationDataPath.string());
-		animationDataContent = string((std::istreambuf_iterator<char>(t)),
-			std::istreambuf_iterator<char>());
+		string animationDataContent;
+		{
+			std::ifstream t(animationDataPath.string());
+			animationDataContent = string((std::istreambuf_iterator<char>(t)),
+				std::istreambuf_iterator<char>());
+		}
+		string animationSetDataContent;
+		{
+			std::ifstream t(animationSetDataPath.string());
+			animationSetDataContent = string((std::istreambuf_iterator<char>(t)),
+				std::istreambuf_iterator<char>());
+		}
+		build(animationDataContent, animationSetDataContent);
 	}
-	string animationSetDataContent;
-	{
-		std::ifstream t(animationSetDataPath.string());
-		animationSetDataContent = string((std::istreambuf_iterator<char>(t)),
-			std::istreambuf_iterator<char>());
-	}
-	build(animationDataContent, animationSetDataContent);
 }
 
 AnimationCache::AnimationCache(const string& animationDataContent, const string& animationSetDataContent) {
