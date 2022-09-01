@@ -20,9 +20,10 @@ class TextureTool : public QDialog, private Ui::TextureTool
 
 	void populateValues(const QModelIndex& current);
 
-	void SetShaderType(Niflib::BSLightingShaderPropertyRef property);
+	Niflib::BSLightingShaderPropertyShaderType SetShaderType(Niflib::BSLightingShaderPropertyRef property);
 	void SetTextures(Niflib::BSLightingShaderPropertyRef property);
 	void SetFlags(Niflib::BSLightingShaderPropertyRef property);
+	void CheckShaderRequirements(Niflib::BSLightingShaderPropertyShaderType type, Niflib::NiAVObjectRef obj);
 
 private slots:
 

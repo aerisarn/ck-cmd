@@ -64,7 +64,7 @@ QVariant NIFTreeModel::data(const QModelIndex& index, int role) const
 	if (role != Qt::DisplayRole)
 		return QVariant();
 
-	if (index.internalId() == -1 && index.row() < _files.size())
+	if (index.internalId() == (quintptr)-1 && index.row() < _files.size())
 	{
 		return _files.at(index.row()).fileName.c_str();
 	}
@@ -101,7 +101,7 @@ QModelIndex NIFTreeModel::index(int row, int col, const QModelIndex& parent) con
 
     if (!parent.isValid())
     {
-		return createIndex(row, col, -1);
+		return createIndex(row, col, (quintptr)-1);
 	}
 
 	return createIndex(row, col, parent.row());
@@ -112,10 +112,10 @@ QModelIndex NIFTreeModel::parent(const QModelIndex& index) const
     if (!index.isValid())
         return QModelIndex();
 
-	if (index.internalId() == -1)
+	if (index.internalId() == (quintptr)-1)
 		return QModelIndex();
 
-	return createIndex(index.internalId(), 0, -1);
+	return createIndex(index.internalId(), 0, (quintptr)-1);
 }
 
 int NIFTreeModel::rowCount(const QModelIndex& index) const
@@ -123,7 +123,7 @@ int NIFTreeModel::rowCount(const QModelIndex& index) const
 	if (!index.isValid())
 		return _files.size();
 
-	if (index.internalId() == -1 && index.row() < _files.size())
+	if (index.internalId() == (quintptr)-1 && index.row() < _files.size())
 	{
 		auto& nif_file = _files.at(index.row());
 		return nif_file.getNumBlocks({ NiTriShape::TYPE, BSTriShape::TYPE });

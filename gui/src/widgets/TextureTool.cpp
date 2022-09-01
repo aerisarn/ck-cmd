@@ -176,15 +176,51 @@ void TextureTool::on_nifView_selectionChanged(const QModelIndex& current, const 
 {
 	if (viewModeCheckBox->isChecked())
 	{
-		populateValues(current);
+		populateValues(_proxyModel->mapToSource(current));
 	}
 }
 
-void TextureTool::SetShaderType(BSLightingShaderPropertyRef property)
+void TextureTool::CheckShaderRequirements(BSLightingShaderPropertyShaderType type, NiAVObjectRef obj)
+{
+	if (type == ST_PARALLAX)
+	{
+		//needs VC
+		if (obj->IsSameType(BSTriShape::TYPE))
+		{
+			auto bs_shape = DynamicCast<BSTriShape>(obj);
+			bool hasVC = bs_shape->GetVertexDesc().HasFlag(VA_Vertex_Colors);
+			if (!bs_shape->GetVertexDesc().HasFlag(VA_Vertex_Colors))
+			{
+				auto desc = bs_shape->GetVertexDesc();
+				desc.SetFlag(VA_Vertex_Colors);
+				auto data = bs_shape->GetVertexData();
+				for (auto& entry : data)
+				{
+					entry.SetVertexColor(Niflib::Color4(1., 1., 1.));
+				}
+				bs_shape->SetVertexData(data);
+				bs_shape->SetVertexDesc(desc);
+			}
+		}
+		else if (obj->IsSameType(NiTriShape::TYPE))
+		{
+			auto ni_shape = DynamicCast<NiTriShape>(obj);
+			if (ni_shape->GetData()->GetVertexColors().empty())
+			{
+				auto colors = vector<Niflib::Color4>(ni_shape->GetData()->GetVertices().size(), Niflib::Color4(1., 1., 1.));
+				ni_shape->GetData()->SetVertexColors(colors);
+				ni_shape->GetData()->SetHasVertexColors(true);
+			}
+		}
+	}
+}
+
+BSLightingShaderPropertyShaderType TextureTool::SetShaderType(BSLightingShaderPropertyRef property)
 {
 	auto type = (BSLightingShaderPropertyShaderType)shaderTypeComboBox->currentIndex();
 	LOGINFO << "Setting shader type: " << NifFile::shader_type_name(type) << endl;
 	property->SetSkyrimShaderType(type);
+	return type;
 }
 
 void TextureTool::SetTextures(BSLightingShaderPropertyRef property)
@@ -270,7 +306,7 @@ void TextureTool::accept()
 	bool setShaderFlags = shaderFlagsCheckBox->isChecked();
 	bool viewMode = viewModeCheckBox->isChecked();
 
-	if (!viewMode && (overrideTextures || setShaderFlags || viewMode))
+	if (!viewMode && (overrideTextures || setShaderFlags || setShaderType))
 	{
 		auto selection = nifView->selectionModel()->selectedIndexes();
 		if (!selection.empty())
@@ -281,8 +317,9 @@ void TextureTool::accept()
 			if (reply == QMessageBox::Yes) {
 				LOGINFO << "Tool running" << endl;
 				QModelIndex last_file_index = QModelIndex();
-				for (auto& index : selection)
+				for (auto& proxy_index : selection)
 				{
+					auto index = _proxyModel->mapToSource(proxy_index);
 					auto block = _model->block(index);
 					LOGINFO << "Block: " << block->GetName() << endl;
 					if (nullptr != block)
@@ -293,7 +330,10 @@ void TextureTool::accept()
 						if (nullptr != property)
 						{
 							if (setShaderType)
-								SetShaderType(property);
+							{
+								auto type = SetShaderType(property);
+								CheckShaderRequirements(type, block);
+							}
 							if (overrideTextures)
 								SetTextures(property);
 							if (setShaderFlags)
