@@ -202,6 +202,94 @@ std::array<double, 3> NifFile::material_color(const SkyrimHavokMaterial& materia
 	return { 1.0, 0.0, 0.0 };
 }
 
+/*
+
+		SF2->setTitle(QCoreApplication::translate("TextureTool", "Shader Flags 2", nullptr));
+
+*/
+
+const char* NifFile::skyrimFlags1_name(int mask)
+{
+	switch (mask)
+	{
+	case 0: return "Specular";
+	case 1: return "Skinned";
+	case 2: return "Temp Refraction";
+	case 3: return "Vertex Alpha";
+	case 4: return "Greyscale to PaletteAlpha";
+	case 5: return "Greyscale to PaletteColor";
+	case 6: return "Use Falloff";
+	case 7: return "Environment Mapping";
+	case 8: return "Receive Shadows";
+	case 9: return "Cast Shadows";
+	case 10: return "Facegen Detail Map";
+	case 11: return "Parallax";
+	case 12: return "Model Space Normals";
+	case 13: return "Non Projective Shadows";
+	case 14: return "Landscape";
+	case 15: return "Refraction";
+	case 16: return "Fire Refraction";
+	case 17: return "Eye Environment Mapping";
+	case 18: return "Hair Soft Lightning";
+	case 19: return "Screendoor Alpha Fade";
+	case 20: return "Localmap Hide Secret";
+	case 21: return "FaceGen RGB Tint";
+	case 22: return "Own Emit";
+	case 23: return "Projected UV";
+	case 24: return "Multiple Textures";
+	case 25: return "Remappable Textures";
+	case 26: return "Decal";
+	case 27: return "Dynamic Decal";
+	case 28: return "Parallax Occlusion";
+	case 29: return "External Emittance";
+	case 30: return "Soft Effect";
+	case 31: return "ZBuffer Test";
+	default: break;
+	}
+	return "UNKNOWN";
+}
+
+const char* NifFile::skyrimFlags2_name(int mask)
+{
+	switch (mask)
+	{
+	case 0: return "ZBuffer_Write";
+	case 1: return "LOD Landscape";
+	case 2: return "LOD Objects";
+	case 3: return "No Fade";
+	case 4: return "Double Sided";
+	case 5: return "Vertex Colors";
+	case 6: return "Glow Map";
+	case 7: return "Assume Shadowmask";
+	case 8: return "Packed Tangent";
+	case 9: return "Multi Index Shadow";
+	case 10: return "Vertex Lightning";
+	case 11: return "Uniform Scale";
+	case 12: return "Fit Slope";
+	case 13: return "Billboard";
+	case 14: return "No LOD Land Blend";
+	case 15: return "EnvMap Light Fade";
+	case 16: return "Wireframe";
+	case 17: return "Weapon Blood";
+	case 18: return "Hide On Local Map";
+	case 19: return "Premult Alpha";
+	case 20: return "Cloud LOD";
+	case 21: return "Anisotropic Lightning";
+	case 22: return "No Transparency Multisampling";
+	case 23: return "Unused01";
+	case 24: return "Multi Layer Parallax";
+	case 25: return "Soft Lightning";
+	case 26: return "Rim Lightning";
+	case 27: return "Back Lightning";
+	case 28: return "Unused02";
+	case 29: return "Tree Animation";
+	case 30: return "Effect Lighting";
+	case 31: return "HD LOD Objects";
+	default: break;
+	}
+	return "UNKNOWN";
+}
+
 const char* NifFile::material_name(const SkyrimHavokMaterial& material) {
 	switch (material) {
 		case SKY_HAV_MAT_BROKEN_STONE: return "SKY_HAV_MAT_BROKEN_STONE";
@@ -587,6 +675,35 @@ size_t NifFile::getNumBlocks(const Type& type) const
 			count++;
 	}
 	return count;
+}
+
+size_t NifFile::getNumBlocks(const std::vector<Type>& types) const
+{
+	size_t count = 0;
+	for (const auto& block : blocks)
+	{
+		for (const auto& type : types)
+			if (block->IsSameType(type))
+				count++;
+	}
+	return count;
+}
+
+
+NiObjectRef NifFile::getBlock(unsigned short index, const std::vector<Type>& types) const
+{
+	size_t count = 0;
+	for (const auto& block : blocks)
+	{
+		for (const auto& type : types)
+			if (block->IsSameType(type))
+			{
+				if (count == index)
+					return block;
+				count++;
+			}
+	}
+	return NULL;
 }
 
 NiObjectRef NifFile::getBlock(unsigned short index, const Type& type) const

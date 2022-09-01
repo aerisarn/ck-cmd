@@ -71,11 +71,15 @@ using namespace Niflib;
 
 			size_t getNumBlocks(const Type& type) const;
 
+			size_t getNumBlocks(const std::vector<Type>& type) const;
+
 			NiObjectRef getBlock(unsigned short index) const {
 				return blocks[index];
 			}
 
 			NiObjectRef getBlock(unsigned short index, const Type& type) const;
+
+			NiObjectRef getBlock(unsigned short index, const std::vector<Type>& types) const;
 
 			NifInfo& GetInfo() { return hdr; }
 			//void CopyFrom(const NifFile& other);
@@ -84,6 +88,7 @@ using namespace Niflib;
 			int Load(istream& file);
 			int Save(const string& fileName);
 			int Save(std::ostream& file);
+			int Save() { return fileName.empty() ? -1 : Save(fileName); }
 
 			bool IsValid() { return isValid; }
 			bool HasUnknown() { return hasUnknown; }
@@ -99,6 +104,8 @@ using namespace Niflib;
 			static std::array<double, 3> material_color(const SkyrimHavokMaterial& material);
 			static const char* layer_name(const SkyrimLayer& layer);
 			static SkyrimLayer layer_value(const string& name);
+			static const char* skyrimFlags1_name(int mask);
+			static const char* skyrimFlags2_name(int mask);
 
 			void Create(const NifInfo& version);
 			void Clear();

@@ -1,7 +1,13 @@
 #include "TextureTool.h"
 
 #include <QFileDialog>
+#include <QMessageBox>
 
+#include <src/log.h>
+
+
+using namespace ckcmd;
+using namespace ckcmd::NIF;
 using namespace Niflib;
 
 QString TextureTool::_lastOpenedFolder = "";
@@ -33,16 +39,36 @@ void TextureTool::on_folderLineEdit_textChanged(const QString& text)
 		if (nullptr != _model)
 		{
 			disconnect(nifView->selectionModel(), &QItemSelectionModel::currentChanged, this, &TextureTool::on_nifView_selectionChanged);
+			disconnect(filterLineEdit, &QLineEdit::textChanged, _proxyModel.get(), &QSortFilterProxyModel::setFilterFixedString);
 		}
 
 		_model = std::make_shared< ckcmd::HKX::NIFTreeModel>(std_text);
-		nifView->setModel(_model.get());
+
+		_proxyModel = make_shared<QSortFilterProxyModel>(this);
+		_proxyModel->setSourceModel(_model.get());
+		_proxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+		_proxyModel->setRecursiveFilteringEnabled(true);
+		connect(filterLineEdit,
+			&QLineEdit::textChanged,
+			[=](const QString& pattern) 
+			{
+				_proxyModel->setFilterFixedString(pattern);
+				nifView->expandAll();
+			}
+		);
+
+		nifView->setModel(_proxyModel.get());
 		nifView->setVisible(false);
 		nifView->resizeColumnToContents(0);
 		nifView->expandAll();
 		nifView->setVisible(true);
 
 		connect(nifView->selectionModel(), &QItemSelectionModel::currentChanged, this, &TextureTool::on_nifView_selectionChanged);
+	
+		if (viewModeCheckBox->isEnabled())
+			nifView->setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
+		else
+			nifView->setSelectionMode(QAbstractItemView::SelectionMode::MultiSelection);
 	}
 }
 
@@ -62,7 +88,7 @@ void TextureTool::populateValues(const QModelIndex& current)
 	auto block = _model->block(current);
 	if (nullptr != block)
 	{
-		auto property = DynamicCast<BSLightingShaderProperty>(block->GetShaderProperty());
+		auto property = ckcmd::HKX::getProperty(block);
 		if (property != NULL)
 		{
 			//Set Shader
@@ -134,10 +160,161 @@ void TextureTool::populateValues(const QModelIndex& current)
 	}
 }
 
+void TextureTool::on_viewModeCheckBox_toggled(bool checked)
+{
+	if (nullptr != _model)
+	{
+		if (checked)
+			nifView->setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
+		else
+			nifView->setSelectionMode(QAbstractItemView::SelectionMode::MultiSelection);
+	}
+}
+
 void TextureTool::on_nifView_selectionChanged(const QModelIndex& current, const QModelIndex& previous)
 {
 	if (viewModeCheckBox->isChecked())
 	{
 		populateValues(current);
+	}
+}
+
+void TextureTool::SetShaderType(BSLightingShaderPropertyRef property)
+{
+	auto type = (BSLightingShaderPropertyShaderType)shaderTypeComboBox->currentIndex();
+	LOGINFO << "Setting shader type: " << NifFile::shader_type_name(type) << endl;
+	property->SetSkyrimShaderType(type);
+}
+
+void TextureTool::SetTextures(BSLightingShaderPropertyRef property)
+{
+	auto textureset = property->GetTextureSet()->GetTextures();
+	if (!textureSlot_0->text().isEmpty())
+	{
+		LOGINFO << "Setting Diffuse: " << textureSlot_0->text().toUtf8().constData() << endl;
+		textureset[0] = textureSlot_0->text().toUtf8().constData();
+	}
+	if (!textureSlot_1->text().isEmpty())
+	{
+		LOGINFO << "Setting Normal: " << textureSlot_1->text().toUtf8().constData() << endl;
+		textureset[1] = textureSlot_1->text().toUtf8().constData();
+	}
+	if (!textureSlot_2->text().isEmpty())
+	{
+		LOGINFO << "Setting Emissive: " << textureSlot_2->text().toUtf8().constData() << endl;
+		textureset[2] = textureSlot_2->text().toUtf8().constData();
+	}
+	if (!textureSlot_3->text().isEmpty())
+	{
+		LOGINFO << "Setting Height/Parallax: " << textureSlot_3->text().toUtf8().constData() << endl;
+		textureset[3] = textureSlot_3->text().toUtf8().constData();
+	}
+	if (!textureSlot_4->text().isEmpty())
+	{
+		LOGINFO << "Setting Environment/Cube Map: " << textureSlot_4->text().toUtf8().constData() << endl;
+		textureset[4] = textureSlot_4->text().toUtf8().constData();
+	}
+	if (!textureSlot_5->text().isEmpty())
+	{
+		LOGINFO << "Setting Greyscale/Metallic: " << textureSlot_5->text().toUtf8().constData() << endl;
+		textureset[5] = textureSlot_5->text().toUtf8().constData();
+	}
+	if (!textureSlot_6->text().isEmpty())
+	{
+		LOGINFO << "Setting Subsurface Tint: " << textureSlot_6->text().toUtf8().constData() << endl;
+		textureset[6] = textureSlot_6->text().toUtf8().constData();
+	}
+	if (!textureSlot_7->text().isEmpty())
+	{
+		LOGINFO << "Setting Backlight: " << textureSlot_7->text().toUtf8().constData() << endl;
+		textureset[7] = textureSlot_7->text().toUtf8().constData();
+	}
+	property->GetTextureSet()->SetTextures(textureset);
+}
+
+void TextureTool::SetFlags(BSLightingShaderPropertyRef property)
+{
+	int flags_1 = 0;
+	for (int s = 0; s < 32; s++)
+	{
+		QString field_name = QString("SF1_%1").arg(s);
+		auto field = SF1->findChild<QCheckBox*>(field_name, Qt::FindDirectChildrenOnly);
+		int mask = 1 << s;
+		if (field->isChecked())
+		{
+			LOGINFO << "Setting into Flags 1: " << NifFile::skyrimFlags1_name(s) << endl;
+			flags_1 |= mask;
+		}
+	}
+	property->SetShaderFlags1_sk((SkyrimShaderPropertyFlags1)flags_1);
+	int flags_2 = 0;
+	for (int s = 0; s < 32; s++)
+	{
+		QString field_name = QString("SF2_%1").arg(s);
+		auto field = SF2->findChild<QCheckBox*>(field_name, Qt::FindDirectChildrenOnly);
+		int mask = 1 << s;
+		if (field->isChecked())
+		{
+			LOGINFO << "Setting into Flags 2: " << NifFile::skyrimFlags2_name(s) << endl;
+			flags_2 |= mask;
+		}
+	}
+	property->SetShaderFlags2_sk((SkyrimShaderPropertyFlags2)flags_2);
+}
+
+void TextureTool::accept()
+{
+	bool setShaderType = shaderTypeCheckBox->isChecked();
+	bool overrideTextures = texturesCheckBox->isChecked();
+	bool setShaderFlags = shaderFlagsCheckBox->isChecked();
+	bool viewMode = viewModeCheckBox->isChecked();
+
+	if (!viewMode && (overrideTextures || setShaderFlags || viewMode))
+	{
+		auto selection = nifView->selectionModel()->selectedIndexes();
+		if (!selection.empty())
+		{
+			QMessageBox::StandardButton reply;
+			reply = QMessageBox::question(this, "Confirm", QString("Are you sure you want to modify %1 blocks?").arg(selection.size()),
+				QMessageBox::Yes | QMessageBox::No);
+			if (reply == QMessageBox::Yes) {
+				LOGINFO << "Tool running" << endl;
+				QModelIndex last_file_index = QModelIndex();
+				for (auto& index : selection)
+				{
+					auto block = _model->block(index);
+					LOGINFO << "Block: " << block->GetName() << endl;
+					if (nullptr != block)
+					{
+						auto file = index.parent();		
+						auto property = ckcmd::HKX::getProperty(block);
+
+						if (nullptr != property)
+						{
+							if (setShaderType)
+								SetShaderType(property);
+							if (overrideTextures)
+								SetTextures(property);
+							if (setShaderFlags)
+								SetFlags(property);
+						}
+						if (file != last_file_index)
+						{
+							if (last_file_index.isValid())
+							{
+								LOGINFO << "Saving file: " << _model->file(last_file_index).fileName << endl;
+								_model->file(last_file_index).Save();
+							}
+							last_file_index = file;
+						}
+					} 
+				}
+				if (last_file_index.isValid())
+				{
+					LOGINFO << "Saving file: " << _model->file(last_file_index).fileName << endl;
+					_model->file(last_file_index).Save();
+				}
+			}
+		}
 	}
 }

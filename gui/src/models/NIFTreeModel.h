@@ -10,6 +10,8 @@ namespace fs = std::filesystem;
 namespace ckcmd {
     namespace HKX {
 
+        Niflib::BSLightingShaderPropertyRef getProperty(Niflib::NiAVObjectRef mesh);
+
         class NIFTreeModel : public QAbstractItemModel {
             
             fs::path _folder;
@@ -20,7 +22,8 @@ namespace ckcmd {
             NIFTreeModel(const fs::path& directory);
             ~NIFTreeModel();
 
-            Niflib::NiTriShapeRef block(QModelIndex index);
+            NIF::NifFile& file(QModelIndex index);
+            Niflib::NiAVObjectRef block(QModelIndex index);
 
             /*
             ** AbstractItemModel(required methods)

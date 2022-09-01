@@ -1,4 +1,5 @@
 #include <src/models/NIFTreeModel.h>
+#include <QProgressDialog>
 
 #include <src/log.h>
 
@@ -7,10 +8,28 @@ using namespace ckcmd::NIF;
 
 NIFTreeModel::NIFTreeModel(const fs::path& folder)
 {
+	int files_to_load = 0;
 	for (auto const& dir_entry : fs::recursive_directory_iterator(folder))
 	{
 		if (dir_entry.path().extension() == ".nif")
 		{
+			auto file = dir_entry.path();
+			files_to_load++;
+		}
+	}
+	
+	QProgressDialog progress(QString("Loading %1 NIF files").arg(files_to_load), "Stop", 0, files_to_load);
+	progress.setWindowModality(Qt::WindowModal);
+
+	int loaded_files = 0;
+	for (auto const& dir_entry : fs::recursive_directory_iterator(folder))
+	{
+		if (dir_entry.path().extension() == ".nif")
+		{
+			if (progress.wasCanceled())
+				break;
+			progress.setValue(loaded_files++);
+
 			auto file = dir_entry.path();
 			LOGINFO << "NIF: " << file.string() << '\n';
 			_files.emplace_back(
@@ -22,6 +41,19 @@ NIFTreeModel::NIFTreeModel(const fs::path& folder)
 
 NIFTreeModel::~NIFTreeModel()
 {
+}
+
+BSLightingShaderPropertyRef ckcmd::HKX::getProperty(NiAVObjectRef mesh)
+{
+	if (mesh->IsSameType(NiTriShape::TYPE))
+	{
+		return DynamicCast<BSLightingShaderProperty>(DynamicCast<NiTriShape>(mesh)->GetShaderProperty());
+	}
+	if (mesh->IsSameType(BSTriShape::TYPE))
+	{
+		return DynamicCast<BSLightingShaderProperty>(DynamicCast<BSTriShape>(mesh)->GetShaderProperty());
+	}
+	return nullptr;
 }
 
 QVariant NIFTreeModel::data(const QModelIndex& index, int role) const
@@ -39,11 +71,11 @@ QVariant NIFTreeModel::data(const QModelIndex& index, int role) const
 	if (index.internalId() < _files.size())
 	{
 		auto& nif_file = _files.at(index.internalId());
-		int meshes = nif_file.getNumBlocks(NiTriShape::TYPE);
+		int meshes = nif_file.getNumBlocks({ NiTriShape::TYPE, BSTriShape::TYPE });
 		if (index.row() < meshes)
 		{
-			auto mesh = DynamicCast<NiTriShape>(nif_file.getBlock(index.row(), NiTriShape::TYPE));
-			auto property = DynamicCast<BSLightingShaderProperty>(mesh->GetShaderProperty());
+			auto mesh = DynamicCast<NiAVObject>(nif_file.getBlock(index.row(), { NiTriShape::TYPE,BSTriShape::TYPE }));
+			auto property = getProperty(mesh);
 			QString diffuse = "<none>";
 			if (property != NULL)
 			{
@@ -94,7 +126,7 @@ int NIFTreeModel::rowCount(const QModelIndex& index) const
 	if (index.internalId() == -1 && index.row() < _files.size())
 	{
 		auto& nif_file = _files.at(index.row());
-		return nif_file.getNumBlocks(NiTriShape::TYPE);
+		return nif_file.getNumBlocks({ NiTriShape::TYPE, BSTriShape::TYPE });
 	}
     return 0;
 }
@@ -109,16 +141,29 @@ QVariant NIFTreeModel::headerData(int section, Qt::Orientation orientation, int 
     return QVariant();
 }
 
-Niflib::NiTriShapeRef NIFTreeModel::block(QModelIndex index)
+Niflib::NiAVObjectRef NIFTreeModel::block(QModelIndex index)
 {
 	if (index.internalId()>=0 && index.internalId() < _files.size())
 	{
 		auto& nif_file = _files.at(index.internalId());
-		int meshes = nif_file.getNumBlocks(NiTriShape::TYPE);
+		int meshes = nif_file.getNumBlocks({ NiTriShape::TYPE, BSTriShape::TYPE });
 		if (index.row() < meshes)
 		{
-			return DynamicCast<NiTriShape>(nif_file.getBlock(index.row(), NiTriShape::TYPE));
+			return DynamicCast<NiAVObject>(nif_file.getBlock(index.row(), {NiTriShape::TYPE, BSTriShape::TYPE }));
 		}
 	}
 	return nullptr;
+}
+
+ckcmd::NIF::NifFile& NIFTreeModel::file(QModelIndex index)
+{
+	if (index.internalId() >= 0 && index.internalId() < _files.size())
+	{
+		return _files.at(index.internalId());
+	}
+	if (index.row() >= 0 && index.row() < _files.size())
+	{
+		return _files.at(index.row());
+	}
+	return ckcmd::NIF::NifFile();
 }
