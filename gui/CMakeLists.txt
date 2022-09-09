@@ -103,6 +103,14 @@ if(NOT DEFINED ESPS)
     source_group("Esp\\Sources" FILES ${ESP_SOURCES})
 endif()
 
+if(NOT DEFINED NIFSKOPE_GL)
+    file(GLOB_RECURSE NIFSKOPE_GL_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/nifskope/*.h)
+    file(GLOB_RECURSE NIFSKOPE_GL_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/nifskope/*.cpp)
+
+    source_group("Nifskope\\Headers" FILES ${NIFSKOPE_GL_HEADERS})
+    source_group("Nifskope\\Sources" FILES ${NIFSKOPE_GL_SOURCES})
+endif()
+
 if(NOT DEFINED WIDGETS)
     file(GLOB_RECURSE WIDGET_HEADERS ${CMAKE_SOURCE_DIR}/gui/src/widgets/*.h)
     file(GLOB_RECURSE WIDGET_SOURCES ${CMAKE_SOURCE_DIR}/gui/src/widgets/*.cpp)
@@ -155,10 +163,12 @@ add_executable(${PROJECT} WIN32
     ${WIDGET_HEADERS} 
     ${WIDGET_SOURCES}
     ${WIDGET_UIS}
+    ${NIFSKOPE_GL_HEADERS}
+    ${NIFSKOPE_GL_SOURCES}
     ${QT_RESOURCES} 
     "${CMAKE_SOURCE_DIR}/gui/src/main.cpp" 
 $<TARGET_OBJECTS:ck-cmd-lib>)
-target_include_directories	(${PROJECT}  PUBLIC ${PROJECT_INCLUDES} )
+target_include_directories	(${PROJECT}  PUBLIC ${PROJECT_INCLUDES} ${CMAKE_SOURCE_DIR}/gui/src/nifskope )
 add_dependencies			(${PROJECT} zlib)
 add_dependencies			(${PROJECT} docopt_parser)
 target_link_libraries(${PROJECT}
@@ -169,6 +179,11 @@ target_link_libraries(${PROJECT}
     QTADS
     Qt5::Widgets
     Qt5::OpenGL
+    Qt5::3DCore
+    Qt5::3DExtras
+    Qt5::3DRender
+    Qt5::3DInput
+    Qt5::3DAnimation
     ${OPENGL_LIBRARIES}
 	${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib
     OpenMP::OpenMP_CXX

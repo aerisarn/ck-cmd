@@ -81,6 +81,8 @@ using namespace Niflib;
 
 			NiObjectRef getBlock(unsigned short index, const std::vector<Type>& types) const;
 
+			int getBlockIndex(NiObjectRef ref) const;
+
 			NifInfo& GetInfo() { return hdr; }
 			//void CopyFrom(const NifFile& other);
 

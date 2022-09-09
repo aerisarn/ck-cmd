@@ -2,6 +2,8 @@
 
 #include "ILogger.h"
 
+#include <QString>
+
 #include <sstream>
 #include <map>
 #include <thread>
@@ -21,17 +23,6 @@ namespace ckcmd {
 
 
 
-        //template<typename T>
-        //Log& operator<<(T& in) {
-        //    stream << in;
-        //    return *this;
-        //}
-
-        //template<>
-        //Log& operator<<(Log& in) {
-        //    return log::endl(in);
-        //}
-
     private:
 
         //std::stringstream stream;
@@ -46,7 +37,14 @@ namespace ckcmd {
         Log(Log&&) = delete;
         Log& operator=(Log&&) = delete;
     };
+
+    Log& operator<<(Log& stream, const QString& in) {
+        stream << std::string(in.toUtf8().constData());
+        return stream;
+    }
 }
+
+
 
 #define LOG Log::Get() << __FILE__ << " "
 #define LOGINFO Log::Get() << "[INFO] " 

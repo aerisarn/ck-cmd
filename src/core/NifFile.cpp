@@ -721,6 +721,21 @@ NiObjectRef NifFile::getBlock(unsigned short index, const Type& type) const
 	return NULL;
 }
 
+int NifFile::getBlockIndex(NiObjectRef ref) const
+{
+	if (ref != nullptr)
+	{
+		for (int i = 0; i < blocks.size(); ++i)
+		{
+			if (&*blocks[i] == &*ref)
+			{
+				return i;
+			}
+		}
+	}
+	return -1;
+}
+
 //
 //	if (file.is_open()) {
 //		/*NiStream stream(&file, &hdr.GetVersion());
