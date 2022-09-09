@@ -1185,16 +1185,16 @@ void EffectColorController::updateTime( float time )
 
 					int lIdx;
 
+					auto keys = data->GetData();
 
-
-					if (interpolate(val, iData, "Data", ctrlTime(time), lIdx)) {
+					if (interpolate(keys.interpolation, val, keys, ctrlTime(time), lIdx)) {
 						switch (variable) {
 						case 0:
 						{
 							auto c = target->getEmissiveColor();
 							auto m = target->getEmissiveMult();
 
-							target->setEmissive(Color4(val[0], val[1], val[2], c.alpha()), m);
+							target->setEmissive(::Color4(val[0], val[1], val[2], c.alpha()), m);
 							break;
 						}
 						default:
@@ -1210,8 +1210,15 @@ void EffectColorController::updateTime( float time )
 bool EffectColorController::update( const NifModel * nif, const QModelIndex & index )
 {
 	if ( Controller::update( nif, index ) ) {
-		variable = nif->get<int>( iBlock, "Type of Controlled Color" );
-		return true;
+		const auto& controller = DynamicCast<BSEffectShaderPropertyColorController>(nif->getBlock(iBlock));
+		if (nullptr != controller)
+		{
+			variable = (int)controller->GetTypeOfControlledColor(); // EffectFloat::Variable(nif->get<int>(iBlock, "Type of Controlled Variable"));
+			return true;
+		}
+
+		//variable = nif->get<int>( iBlock, "Type of Controlled Color" );
+		//return true;
 	}
 
 	return false;
@@ -1228,43 +1235,63 @@ void LightingFloatController::updateTime( float time )
 	if ( !(target && active) )
 		return;
 
-	float val;
+	const NifModel* nif = static_cast<const NifModel*>(iBlock.model());
 
-	int lIdx;
+	if (nif)
+	{
+		const auto& controller = DynamicCast<BSEffectShaderPropertyFloatController>(nif->getBlock(iBlock));
+		if (nullptr != controller)
+		{
+			const auto& interpolator = DynamicCast<NiFloatInterpolator>(controller->GetInterpolator());
+			if (interpolator)
+			{
+				const auto& data = interpolator->GetData();
+				if (nullptr != data)
+				{
 
-	if ( interpolate( val, iData, "Data", ctrlTime( time ), lIdx ) ) {
-		switch ( variable ) {
-		case LightingFloat::Refraction_Strength:
-			break;
-		case LightingFloat::Reflection_Strength:
-			target->setEnvironmentReflection( val );
-			break;
-		case LightingFloat::Glossiness:
-			target->setSpecular( target->getSpecularColor(), val, target->getSpecularStrength() );
-			break;
-		case LightingFloat::Specular_Strength:
-			target->setSpecular( target->getSpecularColor(), target->getSpecularGloss(), val );
-			break;
-		case LightingFloat::Emissive_Multiple:
-			target->setEmissive( target->getEmissiveColor(), val );
-			break;
-		case LightingFloat::Alpha:
-			target->setAlpha( val );
-			break;
-		case LightingFloat::U_Offset:
-			target->setUvOffset( val, target->getUvOffset().y );
-			break;
-		case LightingFloat::U_Scale:
-			target->setUvScale( val, target->getUvScale().y );
-			break;
-		case LightingFloat::V_Offset:
-			target->setUvOffset( target->getUvOffset().x, val );
-			break;
-		case LightingFloat::V_Scale:
-			target->setUvScale( target->getUvScale().x, val );
-			break;
-		default:
-			break;
+					float val;
+
+					int lIdx;
+
+					auto keys = data->GetData();
+
+					if (interpolate(keys.interpolation, val, keys, ctrlTime(time), lIdx)) {
+						switch (variable) {
+						case LightingFloat::Refraction_Strength:
+							break;
+						case LightingFloat::Reflection_Strength:
+							target->setEnvironmentReflection(val);
+							break;
+						case LightingFloat::Glossiness:
+							target->setSpecular(target->getSpecularColor(), val, target->getSpecularStrength());
+							break;
+						case LightingFloat::Specular_Strength:
+							target->setSpecular(target->getSpecularColor(), target->getSpecularGloss(), val);
+							break;
+						case LightingFloat::Emissive_Multiple:
+							target->setEmissive(target->getEmissiveColor(), val);
+							break;
+						case LightingFloat::Alpha:
+							target->setAlpha(val);
+							break;
+						case LightingFloat::U_Offset:
+							target->setUvOffset(val, target->getUvOffset().y);
+							break;
+						case LightingFloat::U_Scale:
+							target->setUvScale(val, target->getUvScale().y);
+							break;
+						case LightingFloat::V_Offset:
+							target->setUvOffset(target->getUvOffset().x, val);
+							break;
+						case LightingFloat::V_Scale:
+							target->setUvScale(target->getUvScale().x, val);
+							break;
+						default:
+							break;
+						}
+					}
+				}
+			}
 		}
 	}
 }
@@ -1272,15 +1299,22 @@ void LightingFloatController::updateTime( float time )
 bool LightingFloatController::update( const NifModel * nif, const QModelIndex & index )
 {
 	if ( Controller::update( nif, index ) ) {
-		variable = LightingFloat::Variable(nif->get<int>( iBlock, "Type of Controlled Variable" ));
-		return true;
+		const auto& controller = DynamicCast<BSLightingShaderPropertyFloatController>(nif->getBlock(iBlock));
+		if (nullptr != controller)
+		{
+			variable = (LightingFloat::Variable)controller->GetTypeOfControlledVariable(); // EffectFloat::Variable(nif->get<int>(iBlock, "Type of Controlled Variable"));
+			return true;
+		}
+
+		//variable = LightingFloat::Variable(nif->get<int>( iBlock, "Type of Controlled Variable" ));
+		//return true;
 	}
 
 	return false;
 }
 
 
-LightingColorController::LightingColorController( BSLightingShaderProperty * prop, const QModelIndex & index )
+LightingColorController::LightingColorController( ::BSLightingShaderProperty * prop, const QModelIndex & index )
 	: Controller( index ), target( prop )
 {
 }
@@ -1290,7 +1324,7 @@ void LightingColorController::updateTime( float time )
 	if ( !(target && active) )
 		return;
 
-	Vector3 val;
+	::Vector3 val;
 
 	int lIdx;
 
