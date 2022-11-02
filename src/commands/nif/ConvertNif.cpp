@@ -5185,6 +5185,7 @@ void convert_blocks(
 				}
 			}
 		}
+		out_blocks = new_blocks;
 	}
 	else {
 		//TODO
@@ -5357,9 +5358,10 @@ void ConvertCreatures(
 		Log::Info("Converting %d/%d: %s", ++index, skeletons.size(), entry.first.string().c_str());
 		fs::path creature_path = entry.first.parent_path();
 		NifInfo info;
+		vector<Ref<NiObject>> skeleton_converted_blocks;
 		auto assets = load_override_or_bsa_nif_folder(entry.first, oblivionDataFolder, info);
-
 		{
+
 			//Convert skeleton NIF
 			fs::path creature_output_skeleton = outputFolder / "Character Assets" / entry.first;
 			fs::create_directories(creature_output_skeleton.parent_path());		
@@ -5367,11 +5369,11 @@ void ConvertCreatures(
 			info.userVersion = 12;
 			info.userVersion2 = 83;
 			info.version = Niflib::VER_20_2_0_7;
-			vector<NiObjectRef> new_blocks;
+
 			NiObjectRef root;
 			convert_blocks(
 				std::get<0>(assets),
-				new_blocks,
+				skeleton_converted_blocks,
 				root,
 				wrappers,
 				info,
@@ -5380,6 +5382,7 @@ void ConvertCreatures(
 				metadata
 			);
 			WriteNifTree(creature_output_skeleton.string(), root, info);
+			std::get<0>(assets) = skeleton_converted_blocks;
 			material_controllers_map.clear();
 			material_alpha_controllers_map.clear();
 			material_flip_controllers_map.clear();

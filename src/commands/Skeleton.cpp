@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include <commands/Skeleton.h>
+#include <commands/Geometry.h>
 
 #include <core/hkxcmd.h>
 #include <core/hkxutils.h>
@@ -83,6 +84,8 @@
 #include <obj/bhkLimitedHingeConstraint.h>
 #include <obj/bhkSPCollisionObject.h>
 #include <obj/bhkSimpleShapePhantom.h>
+
+#include <algorithm>
 
 using namespace std;
 
@@ -498,7 +501,7 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 		//read the skeleton
 		vector<NiObjectRef> skeleton_blocks = std::get<0>(in);
 		Log::Info("Loaded an oblivion skeleton");
-		bhkScaleFactorInverse = bhkScaleFactorInverseOblivion;
+		bhkScaleFactorInverse = bhkScaleFactorInverseSkyrim;
 
 		//find root
 		NiNodeRef skeleton_file_root = NULL;
@@ -881,6 +884,18 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 		if (doRagdoll)
 		{
 			Log::Info("Ragdoll Parent map created, root bone: %s\n", rbNames[ragdoll_root_index].c_str());
+			//sort by parent index
+			auto p = sort_permutation(rigidBodies,
+				[&rigidBodies, &ragdollParentMap](Niflib::bhkBlendCollisionObjectRef const & a, Niflib::bhkBlendCollisionObjectRef const & b)
+				{ 
+					auto a_it = std::find(rigidBodies.begin(), rigidBodies.end(), a);
+					auto b_it = std::find(rigidBodies.begin(), rigidBodies.end(), b);
+					size_t a_index = std::distance(rigidBodies.begin(), a_it);
+					size_t b_index = std::distance(rigidBodies.begin(), b_it);
+					return ragdollParentMap.at(a_index) <
+						ragdollParentMap.at(b_index);
+				}
+			);
 
 			hkRefPtr<hkaSkeleton> hkRagdollSkeleton = new hkaSkeleton();
 			hkRagdollSkeleton->m_name = rbNames[ragdoll_root_index].c_str();
@@ -1333,15 +1348,15 @@ bool Skeleton::Convert(const string& inpath, const string& animations_path, cons
 		//read the skeleton
 		NifInfo skeleton_version;
 		vector<NiObjectRef> skeleton_blocks = Niflib::ReadNifList(skeleton[0], &skeleton_version /*, &options*/);
-		if (VER_20_2_0_7 >= skeleton_version.version)
-		{
+		//if (VER_20_2_0_7 >= skeleton_version.version)
+		//{
 			Log::Info("Loaded a skyrim skeleton");
 			bhkScaleFactorInverse = bhkScaleFactorInverseSkyrim;
-		}
-		else {
-			Log::Info("Loaded an oblivion skeleton");
-			bhkScaleFactorInverse = bhkScaleFactorInverseOblivion;
-		}
+		//}
+		//else {
+		//	Log::Info("Loaded an oblivion skeleton");
+		//	bhkScaleFactorInverse = bhkScaleFactorInverseOblivion;
+		//}
 
 		//find root
 		NiNodeRef skeleton_file_root = NULL;

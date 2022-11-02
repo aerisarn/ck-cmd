@@ -29,13 +29,12 @@ namespace ckcmd {
 
 			static bool isGameSupported(const TCHAR* keyName) {
 				return
-					!_tcscmp(keyName, _T("Fallout3")) ||
-					!_tcscmp(keyName, _T("Fallout4")) ||
-					!_tcscmp(keyName, _T("falloutnv")) ||
-					!_tcscmp(keyName, _T("oblivion")) ||
-					!_tcscmp(keyName, _T("Oblivion")) ||
-					!_tcscmp(keyName, _T("skyrim")) ||
-					!_tcscmp(keyName, _T("Skyrim Special Edition"));
+					!_tcsicmp(keyName, _T("Fallout3")) ||
+					!_tcsicmp(keyName, _T("Fallout4")) ||
+					!_tcsicmp(keyName, _T("falloutnv")) ||
+					!_tcsicmp(keyName, _T("oblivion")) ||
+					!_tcsicmp(keyName, _T("skyrim")) ||
+					!_tcsicmp(keyName, _T("Skyrim Special Edition"));
 			}
 
 			static const std::string string(const Game& game) {
