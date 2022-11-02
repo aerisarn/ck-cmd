@@ -4,6 +4,26 @@
 
 // Command Base
 #include <commands/CommandBase.h>
+#include <filesystem>
+
+#if _MSC_VER < 1920
+namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
+
+namespace Niflib {
+	template<class T> class Ref;
+	class NiObject;
+}
+
+
+typedef std::vector<Niflib::Ref<Niflib::NiObject>> NifFileType;
+typedef std::vector<Niflib::Ref<Niflib::NiObject>> KFFileType;
+
+//skeleton blocks, additional meshes blocks, keyframes blocks
+typedef std::tuple<NifFileType, std::map<fs::path, NifFileType>, std::map<fs::path, KFFileType>> NifFolderType;
+
 
 class Skeleton : public Command<Skeleton>
 {
@@ -18,6 +38,7 @@ public:
 	virtual string GetHelp() const;
 	virtual string GetHelpShort() const;
 
+	static bool Convert(const NifFolderType& in, const string& outpath);
 	static bool Convert(const string& inpath, const string& animations_path, const string& outpath);
 
 protected:

@@ -2,6 +2,11 @@
 
 //1 SHU = 182.88 cm
 
+#include <src/Skyrim/TES5File.h>
+#include <src/Oblivion/TES4File.h>
+#include <src/Collection.h>
+#include <src/ModFile.h>
+
 #include "stdafx.h"
 #include <core/hkxcmd.h>
 #include <core/hkfutils.h>
@@ -14,6 +19,7 @@
 #include <core/bsa.h>
 #include <core/NifFile.h>
 #include <commands/NifScan.h>
+#include <commands/Skeleton.h>
 
 #include <spt/SPT.h>
 
@@ -30,6 +36,7 @@
 #include <limits>
 #include <array>
 #include <unordered_map>
+#include <regex>
 
 #ifdef HAVE_SPEEDTREE
 	#include <Core/Core.h>
@@ -4907,7 +4914,7 @@ Vector3 center_model(NiObjectRef root, vector<NiObjectRef>& blocks)
 	return translation;
 }
 
-int is_clutter_or_furniture(vector<NiObjectRef>& blocks, const string& path)
+int is_clutter_or_furniture(vector<NiObjectRef>& blocks)
 {
 	for (const auto& block : blocks)
 	{
@@ -4943,7 +4950,7 @@ void convert_blocks(
 	root = GetFirstRoot(blocks);
 
 	Vector3 translation = { 0., 0., 0. };
-	int is_clutter_or_furn = is_clutter_or_furniture(blocks, nif_file_path.string());
+	int is_clutter_or_furn = is_clutter_or_furniture(blocks);
 	if (is_clutter_or_furn)
 	{
 		translation = center_model(root, blocks);
@@ -5187,14 +5194,262 @@ void convert_blocks(
 	}
 }
 
+void findCreatures(std::map<fs::path, std::set<fs::path>>& skeletons, const std::string& oblivionData)
+{
+
+	Log::Info("Found Oblivion installation: %s", oblivionData.c_str());
+	//Load esms;
+	Collection oblivionCollection = Collection((char* const)(oblivionData.c_str()), 0);
+	ModFlags masterFlags = ModFlags(0xA);
+	ModFile* esm = oblivionCollection.AddMod("Oblivion.esm", masterFlags);
+	ModFile* SI = oblivionCollection.AddMod("DLCShiveringIsles.esp", masterFlags);
+	ModFile* Knights = oblivionCollection.AddMod("Knights.esp", masterFlags);
+
+	char* argvv[4];
+	argvv[0] = new char();
+	argvv[1] = new char();
+	argvv[2] = new char();
+	argvv[3] = new char();
+	logger.init(4, argvv);
+
+	oblivionCollection.Load();
+
+	for (auto record_it = oblivionCollection.FormID_ModFile_Record.begin(); record_it != oblivionCollection.FormID_ModFile_Record.end(); record_it++)
+	{
+		Record* record = record_it->second;
+		if (record->GetType() == REV32(CREA)) {
+			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
+			if (nullptr != creature && creature->MODL.value != nullptr)
+			{
+				std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
+				transform(skeleton.begin(), skeleton.end(), skeleton.begin(), ::tolower);
+				Log::Info("Found NPC entry: %s, skeleton to be converted: %s", creature->EDID.value, skeleton.c_str());
+				for (const auto& model : creature->NIFZ.value)
+				{
+					skeletons[skeleton].insert(model);
+				}
+			}
+		}
+	}
+}
+
+std::vector<Ref<NiObject>>  load_override_or_bsa_nif_file(const fs::path& path, const fs::path& overridePath, NifInfo& info)
+{
+	fs::path absolute = overridePath / path;
+
+	if (fs::exists(absolute)) {
+		return ReadNifList(absolute.string().c_str(), &info);
+	}
+	else {
+		if (games.bsa_files().empty())
+		{
+			games.loadBsas(Games::TES4);
+		}
+		for (const auto& bsa_file : games.bsa_files()) {
+			bool found = bsa_file.find(path.string());
+			if (found)
+			{
+				//get the shortest path
+				size_t size = -1;
+				const uint8_t* data = bsa_file.extract(path.string(), size);
+				std::string sdata((char*)data, size);
+				std::istringstream iss(sdata);
+				auto result = ReadNifList(iss, &info);
+				delete data;
+				return result;
+			}
+		}
+	}
+	throw runtime_error("File not found:" + path.string());
+	return {};
+}
+
+
+void replacepath(std::string& str, const std::string& from, const std::string& to) {
+	size_t start_pos = 0;
+	while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
+		str.replace(start_pos, from.length(), to);
+		start_pos += to.length(); // ...
+	}
+}
+
+NifFolderType load_override_or_bsa_nif_folder(const fs::path& skeleton_path, const fs::path& overridePath, NifInfo& info)
+{
+	NifFolderType out;
+	fs::path path = skeleton_path.parent_path();
+	if (games.bsa_files().empty())
+	{
+		games.loadBsas(Games::TES4);
+	}
+	for (const auto& bsa_file : games.bsa_files()) {
+		std::string ex = ".*" + path.string() + "\.*\.nif";
+		replacepath(ex, "\\", "\\\\");
+		auto assets = bsa_file.assets(ex);
+		for (const auto& asset : assets)
+		{
+			size_t size = -1;
+			const uint8_t* data = bsa_file.extract(asset, size);
+			std::string sdata((char*)data, size);
+			std::istringstream iss(sdata);
+			auto result = ReadNifList(iss, &info);
+			if (fs::path(asset) == skeleton_path)
+			{
+				std::get<0>(out) = result;
+			}
+			else {
+				std::get<1>(out)[asset] = (result);
+			}
+			delete data;
+		}
+		ex = ".*" + path.string() + "\.*\.kf";
+		replacepath(ex, "\\", "\\\\");
+		assets = bsa_file.assets(ex);
+		for (const auto& asset : assets)
+		{
+			size_t size = -1;
+			const uint8_t* data = bsa_file.extract(asset, size);
+			std::string sdata((char*)data, size);
+			std::istringstream iss(sdata);
+			auto result = ReadNifList(iss, &info);
+			std::get<2>(out)[asset] = (result);
+			delete data;
+		}
+	}
+	//replace overrides
+	fs::path absolute = overridePath / path;
+	if (fs::exists(absolute))
+	{
+		vector<fs::path> assets;
+		findFiles(absolute, ".nif", assets);
+		for (const auto& asset : assets)
+		{
+			auto result = ReadNifList(asset.string(), &info);
+			if (fs::path(asset) == skeleton_path)
+			{
+				std::get<0>(out) = result;
+			}
+			else {
+				std::get<1>(out)[asset] = (result);
+			}
+		}
+		assets.clear();
+		findFiles(absolute, ".kf", assets);
+		for (const auto& asset : assets)
+		{
+			auto result = ReadNifList(asset.string(), &info);
+			std::get<2>(out)[asset] = (result);
+		}
+	}
+	return out;
+}
+
+void ConvertCreatures(
+	const fs::path oblivionDataFolder,
+	std::map<fs::path, std::set<fs::path>>& skeletons,
+	const fs::path outputFolder,
+	HKXWrapperCollection& wrappers,
+	vector<pair<string, Vector3>>& metadata
+)
+{
+	int index = 0;
+	for (const auto& entry : skeletons)
+	{
+		Log::Info("Converting %d/%d: %s", ++index, skeletons.size(), entry.first.string().c_str());
+		fs::path creature_path = entry.first.parent_path();
+		NifInfo info;
+		auto assets = load_override_or_bsa_nif_folder(entry.first, oblivionDataFolder, info);
+
+		{
+			//Convert skeleton NIF
+			fs::path creature_output_skeleton = outputFolder / "Character Assets" / entry.first;
+			fs::create_directories(creature_output_skeleton.parent_path());		
+			NifInfo info;
+			info.userVersion = 12;
+			info.userVersion2 = 83;
+			info.version = Niflib::VER_20_2_0_7;
+			vector<NiObjectRef> new_blocks;
+			NiObjectRef root;
+			convert_blocks(
+				std::get<0>(assets),
+				new_blocks,
+				root,
+				wrappers,
+				info,
+				entry.first,
+				outputFolder,
+				metadata
+			);
+			WriteNifTree(creature_output_skeleton.string(), root, info);
+			material_controllers_map.clear();
+			material_alpha_controllers_map.clear();
+			material_flip_controllers_map.clear();
+			deferred_blends.clear();
+			material_transform_controllers_map.clear();
+		}
+
+		{
+			//Create skeleton.hkx
+			fs::path creature_output_skeleton = outputFolder / "Character Assets" / entry.first;
+			creature_output_skeleton.replace_extension(".hkx");
+			Skeleton::Convert(assets, creature_output_skeleton.string());
+		}
+
+
+		//fs::path creature_output_skeleton = outputFolder / entry.first;
+		//fs::create_directories(creature_output_skeleton.parent_path());		NifInfo info;
+		//vector<NiObjectRef> blocks = load_override_or_bsa_nif_file(entry.first, oblivionDataFolder, info);
+		//vector<NiObjectRef> new_blocks;
+		//NiObjectRef root;
+		//convert_blocks(
+		//	blocks,
+		//	new_blocks,
+		//	root,
+		//	wrappers,
+		//	info,
+		//	entry.first,
+		//	outputFolder,
+		//	metadata
+		//);
+		//WriteNifTree(creature_output_skeleton.string(), root, info);
+		//material_controllers_map.clear();
+		//material_alpha_controllers_map.clear();
+		//material_flip_controllers_map.clear();
+		//deferred_blends.clear();
+		//material_transform_controllers_map.clear();
+	}
+}
+
+
 bool BeginConversion(string importPath, string exportPath) {
 	char fullName[MAX_PATH], exeName[MAX_PATH];
 	GetModuleFileName(NULL, fullName, MAX_PATH);
 	_splitpath(fullName, NULL, NULL, exeName, NULL);
 
+
+
 	NifInfo info;
 	vector<fs::path> nifs;
 	vector<fs::path> spts;
+	std::map<fs::path, std::set<fs::path>> skeletons;
+	set<set<string>> sequences_groups;
+	HKXWrapperCollection wrappers;
+	std::vector<std::pair<std::string, Vector3>> metadata;
+
+	const Games::GamesPathMapT& installations = games.getGames();
+	auto oblivionData = games.data(Games::TES4).string();
+	if (!fs::exists(oblivionData))
+	{
+#ifndef _DEBUG
+		Log::Warn("Unable to find Oblivion Data directory, there WILL be errors and creatures won't be converted!");
+		return;
+#else 
+		oblivionData = "D:\\The Elder Scrolls IV Oblivion\\Data";
+#endif
+
+	}
+
+	findCreatures(skeletons, oblivionData);
+	ConvertCreatures(oblivionData, skeletons, exportPath, wrappers, metadata);
 
 //Script debug
 //	  
@@ -5250,9 +5505,7 @@ bool BeginConversion(string importPath, string exportPath) {
 
 	//D:\skywind\test\skyblivion\trees
 
-	set<set<string>> sequences_groups;
-	HKXWrapperCollection wrappers;
-	std::vector<std::pair<std::string, Vector3>> metadata;
+
 	fs::path out_path;
 	if (nifs.empty() && spts.empty()) {
 		Log::Info("No NIFs found.. trying BSAs");

@@ -34,7 +34,7 @@ set (TEST_SRC "${CMAKE_SOURCE_DIR}/test/main.cpp")
 
 ExternalProject_Add(zlib
                     PREFIX "external"
-                    URL "https://zlib.net/zlib-1.2.12.tar.gz"
+                    URL "https://zlib.net/zlib-1.2.13.tar.gz"
                     INSTALL_COMMAND "")
 ExternalProject_Get_Property(zlib SOURCE_DIR BINARY_DIR)
 set (ZLIB_INCLUDE_DIRS ${SOURCE_DIR} ${BINARY_DIR})
@@ -646,7 +646,7 @@ endif()
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src)
 
-#QT
+#QT 
 IF (PROJECT_GUI)
 	find_package(Qt5 COMPONENTS Widgets OpenGL 3DCore 3DExtras 3DRender 3DInput 3DAnimation REQUIRED)
 
