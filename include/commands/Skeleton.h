@@ -25,6 +25,11 @@ typedef std::vector<Niflib::Ref<Niflib::NiObject>> KFFileType;
 typedef std::tuple<NifFileType, std::map<fs::path, NifFileType>, std::map<fs::path, KFFileType>> NifFolderType;
 
 
+template <class TYPE>
+class hkRefPtr;
+
+class hkaSkeleton;
+
 class Skeleton : public Command<Skeleton>
 {
 	REGISTER_COMMAND_HEADER(Skeleton)
@@ -38,7 +43,7 @@ public:
 	virtual string GetHelp() const;
 	virtual string GetHelpShort() const;
 
-	static bool Convert(const NifFolderType& in, const string& outpath);
+	static bool Convert(const NifFolderType& in, const string& outpath, hkRefPtr<hkaSkeleton>& converted_skeleton);
 	static bool Convert(const string& inpath, const string& animations_path, const string& outpath);
 
 protected:

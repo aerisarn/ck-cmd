@@ -20,6 +20,7 @@
 #include <core/NifFile.h>
 #include <commands/NifScan.h>
 #include <commands/Skeleton.h>
+#include <commands/ImportKF.h>
 
 #include <spt/SPT.h>
 
@@ -5356,14 +5357,14 @@ void ConvertCreatures(
 	for (const auto& entry : skeletons)
 	{
 		Log::Info("Converting %d/%d: %s", ++index, skeletons.size(), entry.first.string().c_str());
-		fs::path creature_path = entry.first.parent_path();
+		std::string creature_path = entry.first.parent_path().string();
+		replacepath(creature_path, "meshes", "meshes\\tes4");
 		NifInfo info;
 		vector<Ref<NiObject>> skeleton_converted_blocks;
 		auto assets = load_override_or_bsa_nif_folder(entry.first, oblivionDataFolder, info);
 		{
-
 			//Convert skeleton NIF
-			fs::path creature_output_skeleton = outputFolder / "Character Assets" / entry.first;
+			fs::path creature_output_skeleton = outputFolder / creature_path / "Character Assets" / entry.first.filename();
 			fs::create_directories(creature_output_skeleton.parent_path());		
 			NifInfo info;
 			info.userVersion = 12;
@@ -5392,9 +5393,19 @@ void ConvertCreatures(
 
 		{
 			//Create skeleton.hkx
-			fs::path creature_output_skeleton = outputFolder / "Character Assets" / entry.first;
+			fs::path creature_output_skeleton = outputFolder / creature_path / "Character Assets" / entry.first.filename();
 			creature_output_skeleton.replace_extension(".hkx");
-			Skeleton::Convert(assets, creature_output_skeleton.string());
+			hkRefPtr<hkaSkeleton> hkx_skeleton;
+			Skeleton::Convert(assets, creature_output_skeleton.string(), hkx_skeleton);
+
+			//Use the converted skeleton to convert animations
+			std::map<fs::path, ckcmd::HKX::RootMovement> root_movements;
+			fs::path creature_output_animations_folder = outputFolder / creature_path / "Animations";
+			ImportKF::ExportAnimations(
+				assets, 
+				hkx_skeleton, 
+				creature_output_animations_folder.string(), 
+				root_movements);
 		}
 
 

@@ -885,7 +885,7 @@ std::set<std::pair<float, std::string>> convertOblivionAnnotations(const std::pa
 		out.insert({ note.first, "weaponSheathe" });
 	}
 	else if (note.second.find("Sound:") == 0) {
-		std::string old = "Sound:";
+		std::string old = "Sound: ";
 		std::string new_sound = note.second;
 		new_sound.replace(new_sound.find(old), old.length(), "SoundPlay.");
 		out.insert({ note.first, new_sound });
@@ -1125,8 +1125,8 @@ static void SetTransformRotationRange(hkArray<hkQsTransform>& transforms, int nu
 	hkRotation rot_y; rot_y.setAxisAngle(hkVector4(0., 1., 0.), y_first.data);
 	hkRotation rot_x; rot_x.setAxisAngle(hkVector4(1., 0., 0.), z_first.data);
 
-	hkRotation rot(rot_z); rot.setMul(rot, rot_y); rot.setMul(rot, rot_x);
-	::hkQuaternion q(rot);
+	hkRotation rot(rot_z), result; rot.mul(rot_y); rot.mul(rot_x);
+	::hkQuaternion q(result);
 
 	for (; COMPARE(currentTime, lastTime) <= 0 && frame < n; currentTime += FramesIncrement, ++frame)
 	{
@@ -1168,6 +1168,16 @@ void importVectorOfKeys(vector<Vector3Key>& keys, hkArray<hkQsTransform>& transf
 void importVectorOfKeys(const Niflib::array<3, KeyGroup<float > >& rotations, hkArray<hkQsTransform>& transforms, int nbones, int boneIdx, float duration) {
 	
 	int n = rotations[0].keys.size();
+	//check the others
+	if (rotations[1].keys.size() != n)
+	{
+		Log::Warn("Found XYZ key vector with different size between X (%d) and Y (%d)", n, rotations[1].keys.size());
+	}
+	if (rotations[2].keys.size() != n)
+	{
+		Log::Warn("Found XYZ key vector with different size between X (%d) and Z (%d)", n, rotations[2].keys.size());
+	}
+
 	if (n > 0)
 	{
 		int frame = 0;
@@ -1528,6 +1538,77 @@ bool AnimationExport::exportController()
 	}
 	
 	return true;
+}
+
+void ImportKF::ExportAnimations(const NifFolderType& in 
+	, const hkRefPtr<hkaSkeleton>& skeleton
+	, const string& outdir
+	, std::map<fs::path, ckcmd::HKX::RootMovement> rootMovements)
+{
+	auto& animlist = std::get<2>(in);
+	for (auto& itr = animlist.begin(); itr != animlist.end(); ++itr)
+	{
+		string animfile = itr->first.string();
+		string outfile = (fs::path(outdir) / itr->first.filename().replace_extension(".hkx")).string();
+		Log::Verbose("ExportAnimation Starting '%s'", animfile.c_str());
+
+
+		//Niflib::NifOptions options;
+		//options.exceptionOnErrors = false;
+		NifInfo info;
+		vector<NiControllerSequenceRef> blocks = DynamicCast<NiControllerSequence>(itr->second);
+
+		int nbindings = blocks.size();
+		if (nbindings == 0)
+		{
+			Log::Error("Animation file contains no animation bindings.  Not exporting.");
+		}
+		else if (nbindings != 1)
+		{
+			Log::Error("Animation file contains more than one animation binding.  Not exporting.");
+		}
+		else
+		{
+			for (int i = 0, n = nbindings; i < n; ++i)
+			{
+				char fname[MAX_PATH];
+				_splitpath(animfile.c_str(), NULL, NULL, fname, NULL);
+
+				NiControllerSequenceRef seq = blocks[i];
+				hkRootLevelContainer rootCont;
+				hkRefPtr<hkaAnimationContainer> skelAnimCont = new hkaAnimationContainer();
+				hkRefPtr<hkaAnimationBinding> newBinding = new hkaAnimationBinding();
+				skelAnimCont->m_bindings.append(&newBinding, 1);
+				rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Merged Animation Container", skelAnimCont.val(), &skelAnimCont->staticClass()));
+
+				Log::Verbose("ExportAnimation Exporting to '%s'", outfile.c_str());
+
+				AnimationExport exporter(seq, skeleton, newBinding, info);
+				if (exporter.doExport())
+				{
+
+					Log::Info("Exporting '%s'", outfile.c_str());
+					skelAnimCont->m_animations.pushBack(newBinding->m_animation);
+					fs::create_directories(fs::path(outfile).parent_path());
+					hkOstream stream(outfile.c_str());
+					hkVariant root = { &rootCont, &rootCont.staticClass() };
+					hkPackFormat pkFormat = HKPF_DEFAULT;
+					hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
+					auto flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT | hkSerializeUtil::SAVE_TEXT_NUMBERS);
+					hkResult res = hkSerializeUtilSave(pkFormat, root, stream, flags, packFileOptions);
+					if (res != HK_SUCCESS)
+					{
+						Log::Error("Havok reports save failed for file %s.", outfile.c_str());
+					}
+					rootMovements[itr->first] = exporter._root_info;
+				}
+				else
+				{
+					Log::Error("Export failed for '%s'", outfile.c_str());
+				}
+			}
+		}
+	}
 }
 
 void ImportKF::ExportAnimations(const string& rootdir, const fs::path& skelfile

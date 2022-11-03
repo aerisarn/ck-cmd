@@ -16,6 +16,9 @@
 #include <Common/Base/Memory/Allocator/Malloc/hkMallocAllocator.h>
 #include <Common/Base/System/Io/IStream/hkIStream.h>
 #include <Common/Base/Reflection/Registry/hkDynamicClassNameRegistry.h>
+#include <Common\Internal\ConvexHull\hkGeometryUtility.h>
+#include <Common\Base\Types\Geometry\hkGeometry.h>
+#include <Common\GeometryUtilities\Misc\hkGeometryUtils.h>
 
 // Scene
 #include <Common/SceneData/Scene/hkxScene.h>
@@ -40,6 +43,9 @@
 #include <Animation/Ragdoll/Instance/hkaRagdollInstance.h>
 #include <Physics\Dynamics\World\hkpPhysicsSystem.h>
 #include <Physics\Utilities\Serialize\hkpPhysicsData.h>
+#include <Physics\Collide\Shape\Convex\ConvexVertices\hkpConvexVerticesShape.h>
+#include <Common\Base\Types\Geometry\hkStridedVertices.h>
+#include <Physics\Collide\Shape\Convex\hkpConvexShape.h>
 
 // Animation
 #include <Animation/Animation/Rig/hkaSkeleton.h>
@@ -263,12 +269,16 @@ class ShapeVisitor {
 public:
 	virtual void visit(bhkSphereShape& shape, hkpRigidBodyCinfo& parent) = 0;
 	virtual void visit(bhkCapsuleShape& shape, hkpRigidBodyCinfo& parent) = 0;
+	virtual void visit(bhkConvexVerticesShape& shape, hkpRigidBodyCinfo& parent) = 0;
 
 	virtual void visitShape(bhkShapeRef shape, hkpRigidBodyCinfo& parent) {
 		if (shape->IsSameType(bhkSphereShape::TYPE))
 			visit(*Niflib::DynamicCast<bhkSphereShape>(shape), parent);
 		else if (shape->IsSameType(bhkCapsuleShape::TYPE))
 			visit(*Niflib::DynamicCast<bhkCapsuleShape>(shape), parent);
+		//bhkConvexVertices
+		else if (shape->IsSameType(bhkConvexVerticesShape::TYPE))
+			visit(*Niflib::DynamicCast<bhkConvexVerticesShape>(shape), parent);
 		else
 			throw new runtime_error("Unimplemented shape type!");
 	}
@@ -278,6 +288,23 @@ public:
 
 class ShapeBuilder : public ShapeVisitor {
 public:
+
+
+	virtual void visit(bhkConvexVerticesShape& shape, hkpRigidBodyCinfo& parent) {
+		hkStridedVertices stridedVertsIn;
+		auto& verts = shape.GetVertices();
+		for (auto& vert : verts)
+		{
+			vert = vert / bhkScaleFactorInverse;
+		}
+		stridedVertsIn.set(verts.data(), verts.size());
+		hkGeometry convex;
+		hkArray<hkVector4> planeEquationsOut;
+		hkGeometryUtility::createConvexGeometry(stridedVertsIn, convex, planeEquationsOut);
+		hkStridedVertices stridedVertsOut(convex.m_vertices);
+		parent.m_shape = new hkpConvexVerticesShape(convex.m_vertices, planeEquationsOut);
+	}
+
 	virtual void visit(bhkSphereShape& shape, hkpRigidBodyCinfo& parent) {
 		parent.m_shape = new hkpSphereShape(shape.GetRadius() / bhkScaleFactorInverse);
 	}
@@ -431,7 +458,13 @@ template <> struct Accessor<PaletteCollector>
 	StringPalette _palette;
 
 	Accessor(NiStringPaletteRef palette) {
-		_palette = palette->palette;
+		if (palette != nullptr)
+			_palette = palette->palette;
+		else
+		{
+			_palette.palette = "";
+			_palette.length = 0;
+		}
 	}
 };
 
@@ -458,16 +491,10 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 }
 
 
-bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
+bool Skeleton::Convert(const NifFolderType& in, const string& outpath, hkRefPtr<hkaSkeleton>& converted_skeleton)
 {
 
 	hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT | hkSerializeUtil::SAVE_TEXT_NUMBERS);
-
-	hkMallocAllocator baseMalloc;
-	// Need to have memory allocated for the solver. Allocate 1mb for it.
-	hkMemoryRouter* memoryRouter = hkMemoryInitUtil::initDefault(&baseMalloc, hkMemorySystem::FrameInfo(1024 * 1024));
-	hkBaseSystem::init(memoryRouter, errorReport);
-	LoadDefaultRegistry();
 
 	{
 		//Verify path:
@@ -489,9 +516,13 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 					for (auto& controlledBlock : controllerBlock->GetControlledBlocks()) {
 						int offset = controlledBlock.nodeNameOffset;
 						Accessor<PaletteCollector> accessor(controllerBlock->GetStringPalette());
-						int next_end = accessor._palette.palette.find('\0', offset);
-						std::string bone = accessor._palette.palette.substr(offset, next_end - offset);
-						bonesFoundIntoAnimations.insert(bone);
+						if (!accessor._palette.palette.empty() && accessor._palette.palette.size() > offset)
+						{
+							int next_end = accessor._palette.palette.find('\0', offset);
+							std::string bone = accessor._palette.palette.substr(offset, next_end - offset);
+							Log::Info("animation bone found: %s", bone.c_str());
+							bonesFoundIntoAnimations.insert(bone);
+						}
 					}
 				}
 			}
@@ -622,33 +653,34 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 						}
 					}
 
-					if (parentBoneName == "") throw runtime_error("Unable to find parent bone name");
-					//find the actual parent bone
-					for (vector<NiNodeRef>::iterator i = bones.begin(); i < bones.end(); i++) {
-						NiNodeRef bone = *i;
-						//create a fake bone and insert into the skeleton
-						if (bone->GetName() == parentBoneName) {
-							NiNodeRef fakeBone = DynamicCast<NiNode>(NiNode::Create());
-							fakeBone->SetName(node->GetName());
-							auto& children = bone->GetChildren();
-							children.push_back(StaticCast<NiAVObject>(fakeBone));
-							bone->SetChildren(children);
+					if (!parentBoneName.empty())
+					{
+						//find the actual parent bone
+						for (vector<NiNodeRef>::iterator i = bones.begin(); i < bones.end(); i++) {
+							NiNodeRef bone = *i;
+							//create a fake bone and insert into the skeleton
+							if (bone->GetName() == parentBoneName) {
+								NiNodeRef fakeBone = DynamicCast<NiNode>(NiNode::Create());
+								fakeBone->SetName(node->GetName());
+								auto& children = bone->GetChildren();
+								children.push_back(StaticCast<NiAVObject>(fakeBone));
+								bone->SetChildren(children);
 
-							NiNodeRef parent = bone;
-							fakeBone->SetTranslation(root->GetTranslation());
-							fakeBone->SetRotation(root->GetRotation());
-							fakeBone->SetScale(root->GetScale());
-							skeleton_blocks.push_back(StaticCast<NiObject>(fakeBone));
-							boneNames.push_back(node->GetName());
-							bones.push_back(fakeBone);
+								NiNodeRef parent = bone;
+								fakeBone->SetTranslation(root->GetTranslation());
+								fakeBone->SetRotation(root->GetRotation());
+								fakeBone->SetScale(root->GetScale());
+								skeleton_blocks.push_back(StaticCast<NiObject>(fakeBone));
+								boneNames.push_back(node->GetName());
+								bones.push_back(fakeBone);
+							}
 						}
+						Log::Info("Bone %s found in mesh %s", node->GetName().c_str(), itr->first.string().c_str());
+						bonesFoundIntoAnimations.erase(node->GetName());
 					}
-					bonesFoundIntoAnimations.erase(node->GetName());
 				}
 			}
 		}
-
-		const hkaSkeleton* original_ragdoll = NULL;
 
 		//check for original skeleton nodes
 
@@ -735,21 +767,21 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 
 		Log::Info("Parent map created, root bone: %s\n", skeleton_root->GetName().c_str());
 
-		hkRefPtr<hkaSkeleton> hkSkeleton = new hkaSkeleton();
-		hkSkeleton->m_name = skeleton_root->GetName().c_str();
+		converted_skeleton = new hkaSkeleton();
+		converted_skeleton->m_name = skeleton_root->GetName().c_str();
 
 		//Allocate
-		hkSkeleton->m_parentIndices.setSize(bones.size());
-		hkSkeleton->m_bones.setSize(bones.size());
-		hkSkeleton->m_referencePose.setSize(bones.size());
+		converted_skeleton->m_parentIndices.setSize(bones.size());
+		converted_skeleton->m_bones.setSize(bones.size());
+		converted_skeleton->m_referencePose.setSize(bones.size());
 
 		for (size_t i = 0; i < bones.size(); i++) {
 			NiNodeRef bone = bones[i];
 			//parent map
-			hkSkeleton->m_parentIndices[i] = parentMap[i];
+			converted_skeleton->m_parentIndices[i] = parentMap[i];
 
 			//bone track
-			hkaBone& hkBone = hkSkeleton->m_bones[i];
+			hkaBone& hkBone = converted_skeleton->m_bones[i];
 			hkBone.m_name = bone->GetName().c_str();
 			if (bone == skeleton_root)
 				hkBone.m_lockTranslation = false;
@@ -760,14 +792,14 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 
 			//TODO: SCALING
 			//reference pose
-			hkSkeleton->m_referencePose[i].setTranslation(TOVECTOR4(bone->GetTranslation() * scale));
-			hkSkeleton->m_referencePose[i].setRotation(TOQUAT(bone->GetRotation().AsQuaternion()));
-			hkSkeleton->m_referencePose[i].setScale(hkVector4(1., 1., 1.));
+			converted_skeleton->m_referencePose[i].setTranslation(TOVECTOR4(bone->GetTranslation() * scale));
+			converted_skeleton->m_referencePose[i].setRotation(TOQUAT(bone->GetRotation().AsQuaternion()));
+			converted_skeleton->m_referencePose[i].setScale(hkVector4(1., 1., 1.));
 		}
 
 		hkRootLevelContainer rootCont;
 		hkRefPtr<hkaAnimationContainer> skelAnimCont = new hkaAnimationContainer();
-		skelAnimCont->m_skeletons.append(&hkSkeleton, 1);
+		skelAnimCont->m_skeletons.append(&converted_skeleton, 1);
 		rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("Merged Animation Container", skelAnimCont.val(), &skelAnimCont->staticClass()));
 
 		Log::Info("Build ragdoll Skeleton\n");
@@ -775,7 +807,7 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 		//collect rigid bodies
 		vector<bhkBlendCollisionObjectRef> rigidBodies = DynamicCast<bhkBlendCollisionObject>(skeleton_blocks);
 
-		vector<string> rbNames(rigidBodies.size());
+		std::map<Niflib::bhkBlendCollisionObjectRef, string> rbNames;
 		//create ragdoll parentMap and bone maps
 		std::map<Niflib::bhkBlendCollisionObjectRef, Niflib::bhkBlendCollisionObjectRef> ragdollParentMap;
 		std::map<Niflib::bhkBlendCollisionObjectRef, Niflib::NiNodeRef> ragdollAnimationParentMap;
@@ -801,26 +833,10 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 			}
 			auto name = "Ragdoll_" + bone->GetName();
 			int rbIndex = std::distance(rigidBodies.begin(), rb_it);
-			if (original_ragdoll != NULL)
-			{
-				bool found = false;
-				for (rbIndex = 0; rbIndex < original_ragdoll->m_bones.getSize(); ++rbIndex)
-				{
-					if (original_ragdoll->m_bones[rbIndex].m_name.cString() == name)
-					{
-						found = true;
-						break;
-					}
-				}
-				if (!found)
-				{
-					Log::Error("Cannot find rigid body attached to bone %s into previously collected rigid bodies", bones[i]->GetName());
-					return -1;
-				}
-			}
+
 			//set the skeletal parent for this rigid body
 			ragdollAnimationParentMap[*rb_it] = bone;
-			rbNames[rbIndex] = "Ragdoll_" + bone->GetName();
+			rbNames[*rb_it] = "Ragdoll_" + bone->GetName();
 			//find rb parent
 			bool rbParent_found = false;
 			while (parent != NULL)
@@ -831,23 +847,6 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 				{
 					auto parent_name = "Ragdoll_" + parent->GetName();
 					int rbParentIndex = find(rigidBodies.begin(), rigidBodies.end(), rbParent) - rigidBodies.begin();
-					if (original_ragdoll != NULL)
-					{
-						bool found = false;
-						for (rbParentIndex = 0; rbParentIndex < original_ragdoll->m_bones.getSize(); ++rbParentIndex)
-						{
-							if (original_ragdoll->m_bones[rbParentIndex].m_name.cString() == parent_name)
-							{
-								found = true;
-								break;
-							}
-						}
-						if (!found)
-						{
-							Log::Error("Cannot find parent rigid body attached to bone %s into previously collected rigid bodies", bones[i]->GetName());
-							return -1;
-						}
-					}
 					ragdollParentMap[*rb_it] = rigidBodies[rbParentIndex];
 					rbParent_found = true;
 					break;
@@ -865,8 +864,6 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 			if (!rbParent_found)
 			{
 				ragdoll_root = rb;
-				//ragdoll_root_index = rbIndex;
-				//ragdollParentMap[rbIndex] = -1;
 			}
 		}
 		bool doRagdoll = !rbNames.empty() && ragdoll_root != NULL;
@@ -884,23 +881,8 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 		if (doRagdoll)
 		{
 
-
-			//Log::Info("Ragdoll Parent map created, root bone: %s\n", rbNames[ragdoll_root_index].c_str());
-			//sort by parent index
-			//auto p = sort_permutation(rigidBodies,
-			//	[&rigidBodies, &ragdollParentMap](Niflib::bhkBlendCollisionObjectRef const & a, Niflib::bhkBlendCollisionObjectRef const & b)
-			//	{ 
-			//		auto a_it = std::find(rigidBodies.begin(), rigidBodies.end(), a);
-			//		auto b_it = std::find(rigidBodies.begin(), rigidBodies.end(), b);
-			//		size_t a_index = std::distance(rigidBodies.begin(), a_it);
-			//		size_t b_index = std::distance(rigidBodies.begin(), b_it);
-			//		return ragdollParentMap.at(a_index) <
-			//			ragdollParentMap.at(b_index);
-			//	}
-			//);
-
 			hkRefPtr<hkaSkeleton> hkRagdollSkeleton = new hkaSkeleton();
-			//hkRagdollSkeleton->m_name = rbNames[ragdoll_root_index].c_str();
+			hkRagdollSkeleton->m_name = rbNames[ragdoll_root].c_str();
 
 			//Allocate
 			hkRagdollSkeleton->m_parentIndices.setSize(rigidBodies.size());
@@ -908,6 +890,25 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 			hkRagdollSkeleton->m_referencePose.setSize(rigidBodies.size());
 
 			auto& NIFParentMap = skeletonParentsMap;
+
+			//calculate parent chain length
+			std::map<bhkBlendCollisionObjectRef, int> parents_chain_size;
+			for (size_t i = 0; i < rigidBodies.size(); i++) {
+				bhkBlendCollisionObjectRef body = rigidBodies[i];
+				parents_chain_size[body] = 0;
+				auto parent_it = ragdollParentMap.find(body);
+				while (parent_it != ragdollParentMap.end())
+				{
+					parents_chain_size[body]++;
+					parent_it = ragdollParentMap.find(parent_it->second);
+				}
+			}
+			//sort bodies vector
+			std::sort(rigidBodies.begin(), rigidBodies.end(),
+				[&](const auto& a, const auto& b) -> bool
+				{
+					return parents_chain_size.at(a) < parents_chain_size.at(b);
+				});
 
 			std::function<void(hkQsTransform&, NiNodeRef)> getReferencePose = [&NIFParentMap](hkQsTransform& out, NiNodeRef bone)
 			{
@@ -948,7 +949,7 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 
 				//bone track
 				hkaBone& hkBone = hkRagdollSkeleton->m_bones[i];
-				hkBone.m_name = rbNames[i].c_str();
+				hkBone.m_name = rbNames[body].c_str();
 				if (ragdollParentMap.find(body) == ragdollParentMap.end()) {
 					hkBone.m_lockTranslation = false;
 					hkQsTransform nifRbTransform;
@@ -980,8 +981,6 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 					//hkQsTransform& previous = hkRagdollSkeleton->m_referencePose[ragdollParentMap[i]];
 					hkQsTransform& next = hkRagdollSkeleton->m_referencePose[i];
 
-					//hkQsTransform bone_next; getReferencePose(bone_next, bone);
-
 					hkQsTransform nifRbTransform;
 					nifRbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation() / bhkScaleFactorInverse));
 					nifRbTransform.setRotation(TOQUAT(rbody->GetRotation()));
@@ -997,7 +996,7 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 			hkaSkeletonMapperData* fromRagdollToSkeletonMapping = new hkaSkeletonMapperData();
 			fromRagdollToSkeletonMapping->m_simpleMappings.setSize(rigidBodies.size());
 			fromRagdollToSkeletonMapping->m_skeletonA = hkRagdollSkeleton;
-			fromRagdollToSkeletonMapping->m_skeletonB = hkSkeleton;
+			fromRagdollToSkeletonMapping->m_skeletonB = converted_skeleton;
 			fromRagdollToSkeletonMapping->m_mappingType = hkaSkeletonMapperData::HK_RAGDOLL_MAPPING;
 			set<int> mappedBones;
 			for (size_t i = 0; i < rigidBodies.size(); i++) {
@@ -1038,7 +1037,7 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 
 			hkaSkeletonMapperData* fromSkeletonToRagdollMapping = new hkaSkeletonMapperData();
 			fromSkeletonToRagdollMapping->m_simpleMappings.setSize(rigidBodies.size());
-			fromSkeletonToRagdollMapping->m_skeletonA = hkSkeleton;
+			fromSkeletonToRagdollMapping->m_skeletonA = converted_skeleton;
 			fromSkeletonToRagdollMapping->m_skeletonB = hkRagdollSkeleton;
 			fromSkeletonToRagdollMapping->m_mappingType = hkaSkeletonMapperData::HK_RAGDOLL_MAPPING;
 
@@ -1050,7 +1049,7 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 				mappedBones.insert(mapping.m_boneA);
 
 				string boneA_name = boneNames[mapping.m_boneA];
-				string boneB_name = rbNames[i];
+				string boneB_name = rbNames[body];
 
 				//Absolute transform
 				bhkBlendCollisionObjectRef findroot = ragdollParentMap.find(body) != ragdollParentMap.end() ? ragdollParentMap.at(body) : nullptr;
@@ -1079,6 +1078,7 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 
 			//Rigid Bodies
 			for (size_t i = 0; i < rigidBodies.size(); i++) {
+
 				bhkRigidBodyRef bhkRB = DynamicCast<bhkRigidBody>(rigidBodies[i]->GetBody());
 
 				//rigid body info
@@ -1121,7 +1121,7 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 				hkpRbInfo.m_timeFactor;
 
 				hkpBodies[i] = new hkpRigidBody(hkpRbInfo);
-				hkpBodies[i]->setName(rbNames[i].c_str());
+				hkpBodies[i]->setName(rbNames[rigidBodies[i]].c_str());
 				hkpBodies[i]->m_npData = 0;
 
 				auto bbody = hkpBodies[i];
@@ -1203,11 +1203,13 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 				Log::Warn("Character bumper not found!");
 			}
 
-			//hkaRagdollInstance ( const hkArrayBase<hkpRigidBody*>& rigidBodies, const hkArrayBase<hkpConstraintInstance*>& constraints, const hkaSkeleton* skeleton );
-			hkRefPtr<hkaRagdollInstance> ragdoll = new hkaRagdollInstance(hkpBodies, constraints, hkRagdollSkeleton.val());
+			if (hkpBodies.getSize() - 1 == constraints.getSize())
+			{
+				//hkaRagdollInstance ( const hkArrayBase<hkpRigidBody*>& rigidBodies, const hkArrayBase<hkpConstraintInstance*>& constraints, const hkaSkeleton* skeleton );
+				hkRefPtr<hkaRagdollInstance> ragdoll = new hkaRagdollInstance(hkpBodies, constraints, hkRagdollSkeleton.val());
 
-			rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("RagdollInstance", ragdoll.val(), &ragdoll->staticClass()));
-
+				rootCont.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("RagdollInstance", ragdoll.val(), &ragdoll->staticClass()));
+			}
 			//Physics system
 
 
@@ -1217,7 +1219,7 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 			}
 			if (cprb != NULL)
 				system->addRigidBody(cprb);
-			for (int i = 0; i < rigidBodies.size() - 1; i++) {
+			for (int i = 0; i < constraints.getSize(); i++) {
 				system->addConstraint(constraints[i]);
 			}
 
@@ -1230,9 +1232,9 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 		//hkRagdollSkeleton->m_name = skeleton_root->GetName().c_str();
 
 		//Allocate
-		hkSkeleton->m_parentIndices.setSize(bones.size());
-		hkSkeleton->m_bones.setSize(bones.size());
-		hkSkeleton->m_referencePose.setSize(bones.size());
+		converted_skeleton->m_parentIndices.setSize(bones.size());
+		converted_skeleton->m_bones.setSize(bones.size());
+		converted_skeleton->m_referencePose.setSize(bones.size());
 
 
 		Log::Info("Exporting %s", outpath.c_str());
@@ -1250,11 +1252,6 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath)
 			Log::Error("Havok reports save failed.");
 		}
 	}
-
-	hkBaseSystem::quit();
-	hkMemoryInitUtil::quit();
-
-
 	return true;
 }
 
