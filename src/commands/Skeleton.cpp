@@ -520,8 +520,10 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath, hkRefPtr<
 						{
 							int next_end = accessor._palette.palette.find('\0', offset);
 							std::string bone = accessor._palette.palette.substr(offset, next_end - offset);
-							Log::Info("animation bone found: %s", bone.c_str());
-							bonesFoundIntoAnimations.insert(bone);
+							if (bonesFoundIntoAnimations.insert(bone).second)
+							{
+								Log::Info("animation bone found: %s", bone.c_str());
+							}
 						}
 					}
 				}
@@ -620,10 +622,12 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath, hkRefPtr<
 
 		for (auto itr = meshes.begin(); itr != meshes.end(); ++itr) {
 			//Animation roots
-			Log::Info("Checking mesh %s ...", itr->first.string().c_str());
+			Log::Info("Checking mesh file %s ...", itr->first.string().c_str());
 			vector<NiNodeRef> meshes_nodes = DynamicCast<NiNode>(itr->second);
 			//build parents map
 			NiNodeRef root;
+			vector<NiNodeRef> bones_to_add;
+			std::map<std::string, NiNodeRef> prnHooks;
 			for (auto& ninode : meshes_nodes)
 			{
 				bool hasParent = false;
@@ -640,7 +644,17 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath, hkRefPtr<
 				}
 				if (!hasParent)
 					root = ninode;
+				if (bonesFoundIntoAnimations.find(ninode->GetName()) != bonesFoundIntoAnimations.end()) {
+					Log::Info("Found bone %s", ninode->GetName().c_str());
+					bones_to_add.push_back(ninode);
+				}
+				for (auto& stringdata : ninode->GetExtraDataList()) {
+					if (stringdata->GetName() == "Prn") {
+						prnHooks[Accessor<ExtraDataColector>(StaticCast<NiStringExtraData>(stringdata))._string] = ninode;
+					}
+				}
 			}
+
 			vector<NiTriBasedGeomRef> meshes = DynamicCast<NiTriBasedGeom>(itr->second);
 
 			for (auto& node : meshes) {
@@ -655,6 +669,7 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath, hkRefPtr<
 
 					if (!parentBoneName.empty())
 					{
+						bool attached = false;
 						//find the actual parent bone
 						for (vector<NiNodeRef>::iterator i = bones.begin(); i < bones.end(); i++) {
 							NiNodeRef bone = *i;
@@ -673,12 +688,70 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath, hkRefPtr<
 								skeleton_blocks.push_back(StaticCast<NiObject>(fakeBone));
 								boneNames.push_back(node->GetName());
 								bones.push_back(fakeBone);
+								attached = true;
 							}
 						}
-						Log::Info("Bone %s found in mesh %s", node->GetName().c_str(), itr->first.string().c_str());
-						bonesFoundIntoAnimations.erase(node->GetName());
+						if (attached)
+						{
+							Log::Info("Bone %s found in mesh %s attached", node->GetName().c_str(), itr->first.string().c_str());
+							bonesFoundIntoAnimations.erase(node->GetName());
+						}
+						else {
+							Log::Info("Unable to attach Bone %s found in mesh %s", node->GetName().c_str(), itr->first.string().c_str());
+							throw runtime_error("Unable to attach Bone found in mesh");
+						}
 					}
 				}
+			}
+		}
+
+		if (!bonesFoundIntoAnimations.empty())
+		{
+			bool ignore = false; //WTF exporters?
+
+			for (const auto& bone : bonesFoundIntoAnimations)
+			{
+				Log::Error("Animation Bone not found: %s", bone.c_str());
+				if (bone.find("ZBip01") == 0 )
+				{
+					ignore = true;
+				}
+				//TODO: can we animate Particle Nodes?
+				if (bone.find("PArray") == 0  || bone.find("SuperSpray") == 0)
+				{
+					ignore = true;
+				}
+				if (bone.find("Bip01 ectoplasm:0") == 0)
+				{
+					ignore = true;
+				}
+				//TODO: convert Oblivion bows
+				if (bone.find("Bow") == 0)
+				{
+					ignore = true;
+				}
+				if (bone.find("ArrowBone") == 0)
+				{
+					ignore = true;
+				}
+				if (bone.find("ArrowHelper") == 0)
+				{
+					ignore = true;
+				}
+				//I'm note even sure converting horses make any sense. However the animationsare paired
+				//and not supported
+				if (outpath.find("horse") != string::npos)
+				{
+					ignore = true;
+				}
+			}
+
+			if (ignore)
+			{
+				Log::Warn("Ignoring some malformed name export");
+			}
+			else {
+				throw runtime_error("Missing animation bones!");
 			}
 		}
 

@@ -1146,6 +1146,224 @@ static void SetTransformScaleRange( hkArray<hkQsTransform>& transforms, int numT
 	}
 }
 
+template <typename K>
+static bool timeIndex(float time, const K& keysArray, int& i, int& j, float& x)
+{
+	int count;
+
+	if ((count = keysArray.size()) > 0) {
+		if (time <= keysArray[0].time) {
+			i = j = 0;
+			x = 0.0;
+
+			return true;
+		}
+
+		if (time >= keysArray[count - 1].time /*nif->get<float>(array.child(count - 1, 0), "Time")*/) {
+			i = j = count - 1;
+			x = 0.0;
+
+			return true;
+		}
+
+		if (i < 0 || i >= count)
+			i = 0;
+
+		float tI = keysArray[i].time; // nif->get<float>(array.child(i, 0), "Time");
+
+		if (time > tI) {
+			j = i + 1;
+			float tJ;
+
+			while (time >= (tJ = keysArray[j].time /*nif->get<float>(array.child(j, 0), "Time")*/)) {
+				i = j++;
+				tI = tJ;
+			}
+
+			x = (time - tI) / (tJ - tI);
+
+			return true;
+		}
+		else if (time < tI) {
+			j = i - 1;
+			float tJ;
+
+			while (time <= (tJ = keysArray[j].time /*nif->get<float>(array.child(j, 0), "Time")*/)) {
+				i = j--;
+				tI = tJ;
+			}
+
+			x = (time - tI) / (tJ - tI);
+
+			// Quadratic Bug Fix
+
+			// Invert x
+			//	Previously, this branch was causing x to decrement from 1.0.
+			//	(This works fine for linear interpolation apparently)
+			x = 1.0 - x;
+
+			// Swap I and J
+			//	With x inverted, we must swap I and J or the animation will reverse.
+			auto tmpI = i;
+			i = j;
+			j = tmpI;
+
+			// End Bug Fix
+
+			return true;
+		}
+
+		j = i;
+		x = 0.0;
+
+		return true;
+	}
+
+	return false;
+}
+
+
+template <typename T, typename K> bool interpolate(int interpolation_type, T& value, const K& array, float time, int& last)
+{
+	//const NifModel * nif = static_cast<const NifModel *>( array.model() );
+
+	//if ( nif && array.isValid() ) {
+		//QModelIndex frames = nif->getIndex( array, "Keys" );
+	int next;
+	float x;
+
+	if (timeIndex(time, array, last, next, x)) {
+		T v1(array[last].data); // nif->get<T>(frames.child(last, 0), "Value");
+		T v2(array[next].data); // nif->get<T>( frames.child( next, 0 ), "Value" );
+
+		switch (interpolation_type) {
+
+		case 2:
+		{
+			// Quadratic
+			/*
+				In general, for keyframe values v1 = 0, v2 = 1 it appears that
+				setting v1's corresponding "Backward" value to 1 and v2's
+				corresponding "Forward" to 1 results in a linear interpolation.
+			*/
+
+			// Tangent 1
+			T t1(array[last].backward_tangent); // nif->get<float>( frames.child( last, 0 ), "Backward" );
+			// Tangent 2
+			T t2(array[next].forward_tangent); // nif->get<float>(frames.child(next, 0), "Forward");
+
+			float x2 = x * x;
+			float x3 = x2 * x;
+
+			// Cubic Hermite spline
+			//	x(t) = (2t^3 - 3t^2 + 1)P1  + (-2t^3 + 3t^2)P2 + (t^3 - 2t^2 + t)T1 + (t^3 - t^2)T2
+
+			value = v1 * (2.0f * x3 - 3.0f * x2 + 1.0f) + v2 * (-2.0f * x3 + 3.0f * x2) + t1 * (x3 - 2.0f * x2 + x) + t2 * (x3 - x2);
+
+		}	return true;
+
+		case 5:
+			// Constant
+			if (x < 0.5)
+				value = v1;
+			else
+				value = v2;
+
+			return true;
+		default:
+			value = v1 + (v2 - v1) * x;
+			return true;
+		}
+		//	}
+	}
+
+	return false;
+}
+
+//template <> bool interpolate(int interpolation_type, float& value, const KeyGroup<float>& array, float time, int& last)
+//{
+//	return ::interpolate(interpolation_type, value, array, time, last);
+//}
+//
+//template <> bool interpolate(int interpolation_type, ::Vector3& value, const KeyGroup<Niflib::Vector3>& array, float time, int& last)
+//{
+//	return ::interpolate(interpolation_type, value, array, time, last);
+//}
+
+//template <> bool interpolate(int interpolation_type, ::Color4& value, const KeyGroup<Niflib::Color4>& array, float time, int& last)
+//{
+//	return ::interpolate(interpolation_type, value, array, time, last);
+//}
+//
+//template <> bool interpolate(int interpolation_type, ::Color3& value, const KeyGroup<Niflib::Color3>& array, float time, int& last)
+//{
+//	return ::interpolate(interpolation_type, value, array, time, last);
+//}
+//
+//template <> bool interpolate(int interpolation_type, bool& value, const KeyGroup<bool>& array, float time, int& last)
+//{
+//	int next;
+//	float x;
+//	//const NifModel * nif = static_cast<const NifModel *>( iBlock.model() );
+//
+//	//if ( nif && array.isValid() ) {
+//		//QModelIndex frames = nif->getIndex( array, "Keys" );
+//
+//
+//	if (timeIndex(time, array, last, next, x)) {
+//		value = array.keys[last].data; //nif->get<int>( frames.child( last, 0 ), "Value" );
+//
+//		return true;
+//	}
+//	//}
+//
+//	return false;
+//}
+
+//XYZ rotations
+template <> bool interpolate(int interpolation_type, Niflib::Matrix33& value, const Niflib::array<3, KeyGroup<float > >& array, float time, int& last)
+{
+
+	int next;
+	float x;
+
+	if (!array.empty()) {
+		float r[3] = {};
+
+		for (int s = 0; s < 3 && s < array.size(); s++) {
+			r[s] = 0;
+			interpolate(interpolation_type, r[s], array[s].keys, time, last);
+		}
+
+		value = Niflib::Matrix33::euler(0, 0, r[2]) * Niflib::Matrix33::euler(0, r[1], 0) * Niflib::Matrix33::euler(r[0], 0, 0);
+
+		return true;
+	}
+
+	return false;
+}
+
+//Quaternion rotations
+template <> bool interpolate(int interpolation_type, Niflib::Quaternion& value, const vector<Key<Quaternion > >& array, float time, int& last)
+{
+
+	int next;
+	float x;
+
+	if (timeIndex(time, array, last, next, x)) {
+		Niflib::Quaternion v1 = array[last].data;
+		Niflib::Quaternion v2 = array[next].data;
+
+		if (v1.Dot(v2) < 0)
+			v1 = v1.Inverse(); // don't take the long path
+
+		value = Quaternion::slerp(x, v1, v2);
+
+		return true;
+	}
+
+	return false;
+}
 
 void importVectorOfKeys(vector<Vector3Key>& keys, hkArray<hkQsTransform>& transforms, int nbones, int boneIdx, float duration) {
 	int n = keys.size();
@@ -1153,9 +1371,9 @@ void importVectorOfKeys(vector<Vector3Key>& keys, hkArray<hkQsTransform>& transf
 	{
 		int frame = 0;
 		float currentTime = 0.0f;
-		Vector3Key* itr = &keys[0], *last = &keys[n - 1];
+		Vector3Key* itr = &keys[0], * last = &keys[n - 1];
 		SetTransformPositionRange(transforms, nbones, boneIdx, currentTime, (*itr).time, frame, *itr, *itr);
-		for (int i = 1; i<n; ++i)
+		for (int i = 1; i < n; ++i)
 		{
 			Vector3Key* next = &keys[i];
 			SetTransformPositionRange(transforms, nbones, boneIdx, currentTime, (*next).time, frame, *itr, *next);
@@ -1165,38 +1383,21 @@ void importVectorOfKeys(vector<Vector3Key>& keys, hkArray<hkQsTransform>& transf
 	}
 }
 
-void importVectorOfKeys(const Niflib::array<3, KeyGroup<float > >& rotations, hkArray<hkQsTransform>& transforms, int nbones, int boneIdx, float duration) {
-	
-	int n = rotations[0].keys.size();
-	//check the others
-	if (rotations[1].keys.size() != n)
-	{
-		Log::Warn("Found XYZ key vector with different size between X (%d) and Y (%d)", n, rotations[1].keys.size());
-	}
-	if (rotations[2].keys.size() != n)
-	{
-		Log::Warn("Found XYZ key vector with different size between X (%d) and Z (%d)", n, rotations[2].keys.size());
-	}
-
+void importVectorOfKeys(vector<FloatKey>& keys, hkArray<hkQsTransform>& transforms, int nbones, int boneIdx, float duration) {
+	int n = keys.size();
 	if (n > 0)
 	{
 		int frame = 0;
 		float currentTime = 0.0f;
-		const FloatKey* x_itr = &rotations[0].keys[0], * x_last = &rotations[0].keys[n - 1];
-		const FloatKey* y_itr = &rotations[1].keys[0], * y_last = &rotations[1].keys[n - 1];
-		const FloatKey* z_itr = &rotations[2].keys[0], * z_last = &rotations[2].keys[n - 1];
-		SetTransformRotationRange(transforms, nbones, boneIdx, currentTime, (*x_itr).time, frame, *x_itr, *x_itr, *y_itr, *y_itr, *z_itr, *z_itr);
+		FloatKey* itr = &keys[0], * last = &keys[n - 1];
+		SetTransformScaleRange(transforms, nbones, boneIdx, currentTime, itr->time, frame, *itr, *itr);
 		for (int i = 1; i < n; ++i)
 		{
-			const FloatKey* x_next = &rotations[0].keys[i];
-			const FloatKey* y_next = &rotations[1].keys[i];
-			const FloatKey* z_next = &rotations[2].keys[i];
-			SetTransformRotationRange(transforms, nbones, boneIdx, currentTime, (*x_next).time, frame, *x_itr, *x_next, *y_itr, *y_next, *z_itr, *z_next);
-			x_itr = x_next;
-			y_itr = y_next;
-			z_itr = z_next;
+			FloatKey* next = &keys[i];
+			SetTransformScaleRange(transforms, nbones, boneIdx, currentTime, next->time, frame, *itr, *next);
+			itr = next;
 		}
-		SetTransformRotationRange(transforms, nbones, boneIdx, currentTime, (*x_last).time, frame, *x_itr, *x_last, *y_itr, *y_last, *z_itr, *z_last);		
+		SetTransformScaleRange(transforms, nbones, boneIdx, currentTime, duration, frame, *last, *last);
 	}
 }
 
@@ -1206,9 +1407,9 @@ void importVectorOfKeys(vector<QuatKey>& keys, hkArray<hkQsTransform>& transform
 	{
 		int frame = 0;
 		float currentTime = 0.0f;
-		QuatKey* itr = &keys[0], *last = &keys[n - 1];
+		QuatKey* itr = &keys[0], * last = &keys[n - 1];
 		SetTransformRotationRange(transforms, nbones, boneIdx, currentTime, itr->time, frame, *itr, *itr);
-		for (int i = 1; i<n; ++i)
+		for (int i = 1; i < n; ++i)
 		{
 			QuatKey* next = &keys[i];
 			SetTransformRotationRange(transforms, nbones, boneIdx, currentTime, next->time, frame, *itr, *next);
@@ -1218,21 +1419,99 @@ void importVectorOfKeys(vector<QuatKey>& keys, hkArray<hkQsTransform>& transform
 	}
 }
 
-void importVectorOfKeys(vector<FloatKey>& keys, hkArray<hkQsTransform>& transforms, int nbones, int boneIdx, float duration) {
+
+
+void importVectorOfKeys(int interpolationType, vector<Vector3Key>& keys, hkArray<hkQsTransform>& transforms, int nbones, int boneIdx, float duration, int nframes) {
 	int n = keys.size();
 	if (n > 0)
 	{
-		int frame = 0;
-		float currentTime = 0.0f;
-		FloatKey* itr = &keys[0], *last = &keys[n - 1];
-		SetTransformScaleRange(transforms, nbones, boneIdx, currentTime, itr->time, frame, *itr, *itr);
-		for (int i = 1; i<n; ++i)
+		const float frameTime = duration / (nframes - 1);
+		int lastKey = 0;
+
+		for (int frame = 0; frame < nframes; frame++)
 		{
-			FloatKey* next = &keys[i];
-			SetTransformScaleRange(transforms, nbones, boneIdx, currentTime, next->time, frame, *itr, *next);
-			itr = next;
+			float time = frame * frameTime;
+			Vector3 value;
+			interpolate(interpolationType, value, keys, time, lastKey);
+			hkQsTransform& transform = transforms[frame * nbones + boneIdx];
+			hkVector4 v(value.x, value.y, value.z);
+			SetTransformPosition(transform, v);
 		}
-		SetTransformScaleRange(transforms, nbones, boneIdx, currentTime, duration, frame, *last, *last);
+	}
+}
+
+void importVectorOfKeys(int interpolationType, const Niflib::array<3, KeyGroup<float > >& rotations, hkArray<hkQsTransform>& transforms, int nbones, int boneIdx, float duration, int nframes) {
+
+	if (rotations[0].keys.size() > 0 && rotations[1].keys.size() > 0 && rotations[2].keys.size() > 0)
+	{
+
+		const float frameTime = duration / (nframes - 1);
+		int lastKeyX = 0;
+		int lastKeyY = 0;
+		int lastKeyZ = 0;
+
+		for (int frame = 0; frame < nframes; frame++)
+		{
+			float time = frame * frameTime;
+			float x = 0., y = 0., z = 0.;
+			interpolate(rotations[0].interpolation, x, rotations[0].keys, time, lastKeyX);
+			interpolate(rotations[1].interpolation, y, rotations[1].keys, time, lastKeyY);
+			interpolate(rotations[2].interpolation, z, rotations[2].keys, time, lastKeyZ);
+			hkQsTransform& transform = transforms[frame * nbones + boneIdx];
+
+			hkRotation rot_z; rot_z.setAxisAngle(hkVector4(0., 0., 1.), x);
+			hkRotation rot_y; rot_y.setAxisAngle(hkVector4(0., 1., 0.), y);
+			hkRotation rot_x; rot_x.setAxisAngle(hkVector4(1., 0., 0.), z);
+
+			hkRotation rot(rot_z), result; rot.mul(rot_y); rot.mul(rot_x);
+			::hkQuaternion q(result);
+
+			SetTransformRotation(transform, q);
+
+		}	
+	}
+	else {
+		Log::Warn("Found XYZ key vector with null keys component");
+	}
+}
+
+void importVectorOfKeys(int interpolationType, vector<QuatKey>& keys, hkArray<hkQsTransform>& transforms, int nbones, int boneIdx, float duration, int nframes) {
+	int n = keys.size();
+	if (n > 0)
+	{
+		const float frameTime = duration / (nframes - 1);
+		int lastKey = 0;
+
+		for (int frame = 0; frame < nframes; frame++)
+		{
+			float time = frame * frameTime;
+			Niflib::Quaternion value;
+			interpolate(interpolationType, value, keys, time, lastKey);
+			hkQsTransform& transform = transforms[frame * nbones + boneIdx];
+			::hkQuaternion q = TOQUAT(value);
+			SetTransformRotation(transform, q);
+		}
+	}
+}
+
+void importVectorOfKeys(int interpolationType, vector<FloatKey>& keys, hkArray<hkQsTransform>& transforms, int nbones, int boneIdx, float duration, int nframes) {
+	int n = keys.size();
+	if (n > 0)
+	{
+
+		const float frameTime = duration / (nframes - 1);
+		int lastKey = 0;
+
+		for (int frame = 0; frame < nframes; frame++)
+		{
+			float time = frame * frameTime;
+			float s;
+			interpolate(interpolationType, s, keys, time, lastKey);
+			hkQsTransform& transform = transforms[frame * nbones + boneIdx];
+
+			SetTransformScale(transform, s);
+
+		}
 	}
 }
 
@@ -1246,12 +1525,18 @@ bool getFieldIsValid(T* object, unsigned int field, const NifInfo& info) {
 //TODO: other key types?
 
 string getPalettedString(NiStringPaletteRef nipalette, unsigned int offset) {
-	StringPalette s_palette = nipalette->GetPalette();
-	const char* c_palette = s_palette.palette.c_str();
-	for (size_t i = offset; i < s_palette.length; i++)
+	if (nullptr != nipalette)
 	{
-		if (c_palette[i] == 0)
-			return string(&c_palette[offset], &c_palette[i]);
+		StringPalette s_palette = nipalette->GetPalette();
+		const char* c_palette = s_palette.palette.c_str();
+		for (size_t i = offset; i < s_palette.length; i++)
+		{
+			if (c_palette[i] == 0)
+				return string(&c_palette[offset], &c_palette[i]);
+		}
+	}
+	else {
+		Log::Warn("Null NiPalette!");
 	}
 	return "";
 }
@@ -1402,24 +1687,20 @@ bool AnimationExport::exportController()
 				importVectorOfKeys(SampleQuatRotateKeys(interp, nframes, 3), transforms, nbones, boneIdx, duration);
 				importVectorOfKeys(SampleScaleKeys(interp, nframes, 3), transforms, nbones, boneIdx, duration);
 			}
+			else if (npoints == 0)
+			{
+				Log::Warn("Found NiBSplineCompTransformInterpolator with no control points!");
+			}
 			else
 				throw runtime_error("Not enough points to calculate the spline");
 		}
-		//else if (NiBSplineTransformInterpolatorRef interp = DynamicCast<NiBSplineTransformInterpolator>((*bitr).interpolator))
-		//{
-		//	int npoints = GetNumControlPoints(interp);
-
-		//	if (npoints > 3)
-		//	{
-		//		importVectorOfKeys(SampleTranslateKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
-		//		importVectorOfKeys(SampleQuatRotateKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
-		//		importVectorOfKeys(SampleScaleKeys(interp, npoints, 3), transforms, nbones, boneIdx, duration);
-		//	}
-		//	else
-		//		throw runtime_error("Not enough points to calculate the spline");
-		//}
 		else if (NiTransformInterpolatorRef interp = DynamicCast<NiTransformInterpolator>((*bitr).interpolator))
 		{
+			// Havok animations are basically linear interpolated animations
+			// see hkaInterleavedUncompressedAnimation
+			// so for both constant and quadratic interpolation types
+			// we should really interpolate and sample them at least at 24hz 
+
 			if (NiTransformDataRef data = interp->GetData())
 			{
 				NiQuatTransform interp_local = interp->GetTransform();
@@ -1428,23 +1709,25 @@ bool AnimationExport::exportController()
 				if (data != NULL) {
 
 					//translations:
-					importVectorOfKeys(data->GetTranslations().keys, transforms, nbones, boneIdx, duration);
+					importVectorOfKeys(data->GetTranslations().interpolation, data->GetTranslations().keys, transforms, nbones, boneIdx, duration, nframes);
 
 					//rotations:
 					if (getFieldIsValid(&*data, NiKeyframeData::FIELDS::rotationType, _info)) {
 						if (data->GetRotationType() == XYZ_ROTATION_KEY) {
 							//single float groups with tangents
-							importVectorOfKeys(data->GetXyzRotations(), transforms, nbones, boneIdx, duration);
+							importVectorOfKeys(Niflib::XYZ_ROTATION_KEY, data->GetXyzRotations(), transforms, nbones, boneIdx, duration, nframes);
 						}
 						else {
 							//threat as quaternion?
-							importVectorOfKeys(data->GetQuaternionKeys(), transforms, nbones, boneIdx, duration);
+							importVectorOfKeys(data->GetRotationType(), data->GetQuaternionKeys(), transforms, nbones, boneIdx, duration, nframes);
 						}
 					}
 					else {
-						importVectorOfKeys(data->GetQuaternionKeys(), transforms, nbones, boneIdx, duration);
+						importVectorOfKeys(data->GetRotationType(), data->GetQuaternionKeys(), transforms, nbones, boneIdx, duration, nframes);
 					}
-					importVectorOfKeys(data->GetScales().keys, transforms, nbones, boneIdx, duration);
+
+					//scale
+					importVectorOfKeys(data->GetScales().interpolation, data->GetScales().keys, transforms, nbones, boneIdx, duration, nframes);
 				}
 			}
 		}
@@ -1549,7 +1832,14 @@ void ImportKF::ExportAnimations(const NifFolderType& in
 	for (auto& itr = animlist.begin(); itr != animlist.end(); ++itr)
 	{
 		string animfile = itr->first.string();
-		string outfile = (fs::path(outdir) / itr->first.filename().replace_extension(".hkx")).string();
+		string subfolder = itr->first.parent_path().filename().string();
+		string project_subfolder = fs::path(outdir).filename().string();
+		string creature_subfolder = fs::path(outdir).parent_path().filename().string();
+		if (subfolder == creature_subfolder)
+			subfolder = "";
+
+		string out_relative = (fs::path(project_subfolder) / subfolder / itr->first.filename().replace_extension(".hkx")).string();
+		string outfile = (fs::path(outdir).parent_path() / out_relative).string(); // / itr->first.filename().replace_extension(".hkx")).string();
 		Log::Verbose("ExportAnimation Starting '%s'", animfile.c_str());
 
 
@@ -1565,7 +1855,8 @@ void ImportKF::ExportAnimations(const NifFolderType& in
 		}
 		else if (nbindings != 1)
 		{
-			Log::Error("Animation file contains more than one animation binding.  Not exporting.");
+			Log::Warn("Animation file contains more than one animation binding.  Not exporting the additionals.");
+			nbindings = 1;
 		}
 		else
 		{
@@ -1600,7 +1891,7 @@ void ImportKF::ExportAnimations(const NifFolderType& in
 					{
 						Log::Error("Havok reports save failed for file %s.", outfile.c_str());
 					}
-					rootMovements[itr->first] = exporter._root_info;
+					rootMovements[out_relative] = exporter._root_info;
 				}
 				else
 				{

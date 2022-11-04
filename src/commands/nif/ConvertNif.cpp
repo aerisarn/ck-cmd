@@ -3388,20 +3388,26 @@ public:
 			NiSkinInstanceRef skinInstance = DynamicCast<NiSkinInstance>(obj.GetSkinInstance());
 			NiSkinDataRef skinData = DynamicCast<NiSkinData>(skinInstance->GetData());
 			NiSkinPartitionRef skinPartition = DynamicCast<NiSkinPartition>(skinInstance->GetSkinPartition());
-			vector<SkinPartition> partitionBlocks = skinPartition->GetSkinPartitionBlocks();
-			
-			
-			for (int i = 0; i != partitionBlocks.size(); i++) {
-				SkinPartition* block = &partitionBlocks[i];
-				block->triangles = triangulate(block->strips);
-				block->numStrips = 0;			
-				block->strips = vector<vector<unsigned short>>(0);
-				block->stripLengths = vector<unsigned short>(0);
-			}
+			if (skinPartition != NULL)
+			{
+				vector<SkinPartition> partitionBlocks = skinPartition->GetSkinPartitionBlocks();
 
-			skinPartition->SetSkinPartitionBlocks(partitionBlocks);
-			skinInstance->SetSkinPartition(skinPartition);
-			obj.SetSkinInstance(skinInstance);			
+
+				for (int i = 0; i != partitionBlocks.size(); i++) {
+					SkinPartition* block = &partitionBlocks[i];
+					block->triangles = triangulate(block->strips);
+					block->numStrips = 0;
+					block->strips = vector<vector<unsigned short>>(0);
+					block->stripLengths = vector<unsigned short>(0);
+				}
+
+				skinPartition->SetSkinPartitionBlocks(partitionBlocks);
+				skinInstance->SetSkinPartition(skinPartition);
+				obj.SetSkinInstance(skinInstance);
+			}
+			else {
+				Log::Error("Skin Instance without partitions!");
+			}
 		}
 
 		if (data->GetVertices().size() != 0 && data->GetTriangles().size() != 0 && data->GetUvSets().size() != 0) {
@@ -5345,6 +5351,9 @@ NifFolderType load_override_or_bsa_nif_folder(const fs::path& skeleton_path, con
 	return out;
 }
 
+
+
+
 void ConvertCreatures(
 	const fs::path oblivionDataFolder,
 	std::map<fs::path, std::set<fs::path>>& skeletons,
@@ -5354,6 +5363,7 @@ void ConvertCreatures(
 )
 {
 	int index = 0;
+	set<string> debug_animations;
 	for (const auto& entry : skeletons)
 	{
 		Log::Info("Converting %d/%d: %s", ++index, skeletons.size(), entry.first.string().c_str());
@@ -5361,7 +5371,412 @@ void ConvertCreatures(
 		replacepath(creature_path, "meshes", "meshes\\tes4");
 		NifInfo info;
 		vector<Ref<NiObject>> skeleton_converted_blocks;
+		std::map<fs::path, ckcmd::HKX::RootMovement> root_movements;
+
 		auto assets = load_override_or_bsa_nif_folder(entry.first, oblivionDataFolder, info);
+
+		{
+
+			/*
+			Animations\attackbow.hkx
+Animations\attackforwardpower.hkx
+Animations\attackpower.hkx
+Animations\backward.hkx
+Animations\backwardwalk.hkx
+Animations\block.hkx
+Animations\blockhit.hkx
+Animations\blockidle.hkx
+Animations\bowattack.hkx
+Animations\bowbackward.hkx
+Animations\bowblockhit.hkx
+Animations\bowblockidle.hkx
+Animations\bowequip.hkx
+Animations\bowfastforward.hkx
+Animations\bowforward.hkx
+Animations\bowidle.hkx
+Animations\bowleft.hkx
+Animations\bowright.hkx
+Animations\bowturnleft.hkx
+Animations\bowturnright.hkx
+Animations\bowunequip.hkx
+Animations\castself.hkx
+Animations\castself_a.hkx
+Animations\castself_b.hkx
+Animations\castself_c.hkx
+Animations\casttarget.hkx
+Animations\casttarget_a.hkx
+Animations\casttarget_b.hkx
+Animations\casttarget_c.hkx
+Animations\casttouch.hkx
+Animations\casttouch_a.hkx
+Animations\casttouch_b.hkx
+Animations\casttouch_c.hkx
+Animations\death.hkx
+Animations\equip.hkx
+Animations\fastbackward.hkx
+Animations\fastforward.hkx
+Animations\fastfoward.hkx
+Animations\forward.hkx
+Animations\forwardwalk.hkx
+Animations\handtohandattackbackpower.hkx
+Animations\handtohandattackequip.hkx
+Animations\handtohandattackforwardpower.hkx
+Animations\handtohandattackfowardpower.hkx
+Animations\handtohandattackleft.hkx
+Animations\handtohandattackleft_a.hkx
+Animations\handtohandattackleft_b.hkx
+Animations\handtohandattackleft_backhand.hkx
+Animations\handtohandattackleft_bite.hkx
+Animations\handtohandattackleft_c.hkx
+Animations\handtohandattackleft_chop.hkx
+Animations\handtohandattackleft_cross.hkx
+Animations\handtohandattackleft_scratch.hkx
+Animations\handtohandattackleft_swing.hkx
+Animations\handtohandattackleft_uppercut.hkx
+Animations\handtohandattacklefta.hkx
+Animations\handtohandattackleftb.hkx
+Animations\handtohandattackleftpower.hkx
+Animations\handtohandattackpower.hkx
+Animations\handtohandattackright.hkx
+Animations\handtohandattackright_a.hkx
+Animations\handtohandattackright_b.hkx
+Animations\handtohandattackright_backhand.hkx
+Animations\handtohandattackright_bite.hkx
+Animations\handtohandattackright_c.hkx
+Animations\handtohandattackright_chop.hkx
+Animations\handtohandattackright_cross.hkx
+Animations\handtohandattackright_overhead.hkx
+Animations\handtohandattackright_scratch.hkx
+Animations\handtohandattackright_swing.hkx
+Animations\handtohandattackright_uppercut.hkx
+Animations\handtohandattackrighta.hkx
+Animations\handtohandattackrightb.hkx
+Animations\handtohandattackrightpower.hkx
+Animations\handtohandattackunequip.hkx
+Animations\handtohandback.hkx
+Animations\handtohandbackward.hkx
+Animations\handtohandblock.hkx
+Animations\handtohandblockhit.hkx
+Animations\handtohandblockidle.hkx
+Animations\handtohandequip.hkx
+Animations\handtohandfastforward.hkx
+Animations\handtohandforward.hkx
+Animations\handtohandforwardwalk.hkx
+Animations\handtohandidle.hkx
+Animations\handtohandilde.hkx
+Animations\handtohandleft.hkx
+Animations\handtohandrecoil.hkx
+Animations\handtohandright.hkx
+Animations\handtohandstagger.hkx
+Animations\handtohandturnleft.hkx
+Animations\handtohandturnright.hkx
+Animations\handtohandunequip.hkx
+Animations\idle.hkx
+Animations\idleanims\agony.hkx
+Animations\idleanims\bah.hkx
+Animations\idleanims\check.hkx
+Animations\idleanims\cheer.hkx
+Animations\idleanims\croak.hkx
+Animations\idleanims\dig.hkx
+Animations\idleanims\dynamicidle_sleep.hkx
+Animations\idleanims\eat.hkx
+Animations\idleanims\gaze.hkx
+Animations\idleanims\getup_facedown.hkx
+Animations\idleanims\getup_faceup.hkx
+Animations\idleanims\getup_left.hkx
+Animations\idleanims\getup_right.hkx
+Animations\idleanims\getupfacedown.hkx
+Animations\idleanims\getupfaceup.hkx
+Animations\idleanims\getupleft.hkx
+Animations\idleanims\getupright.hkx
+Animations\idleanims\graze.hkx
+Animations\idleanims\grazes.hkx
+Animations\idleanims\horsedismount.hkx
+Animations\idleanims\horsemount.hkx
+Animations\idleanims\idle02.hkx
+Animations\idleanims\idleb.hkx
+Animations\idleanims\idlec.hkx
+Animations\idleanims\idleclench.hkx
+Animations\idleanims\idlecrouch.hkx
+Animations\idleanims\idledrool.hkx
+Animations\idleanims\idlelook.hkx
+Animations\idleanims\idlescowl.hkx
+Animations\idleanims\idlescratch.hkx
+Animations\idleanims\idleslack.hkx
+Animations\idleanims\idlesniff.hkx
+Animations\idleanims\idlestamp.hkx
+Animations\idleanims\idlesway.hkx
+Animations\idleanims\idlethump.hkx
+Animations\idleanims\land.hkx
+Animations\idleanims\look.hkx
+Animations\idleanims\lookleft.hkx
+Animations\idleanims\lookright.hkx
+Animations\idleanims\pathorse.hkx
+Animations\idleanims\paw.hkx
+Animations\idleanims\praise.hkx
+Animations\idleanims\rest.hkx
+Animations\idleanims\roar.hkx
+Animations\idleanims\scan.hkx
+Animations\idleanims\scratch.hkx
+Animations\idleanims\scratch2.hkx
+Animations\idleanims\search.hkx
+Animations\idleanims\sigh.hkx
+Animations\idleanims\sleep.hkx
+Animations\idleanims\snif.hkx
+Animations\idleanims\special idle_lookaround.hkx
+Animations\idleanims\special idle_twist.hkx
+Animations\idleanims\special_idle.hkx
+Animations\idleanims\special_reach.hkx
+Animations\idleanims\specialidel_cute1.hkx
+Animations\idleanims\specialidel_cute2.hkx
+Animations\idleanims\specialidle.hkx
+Animations\idleanims\specialidle_01noshield.hkx
+Animations\idleanims\specialidle__8.hkx
+Animations\idleanims\specialidle__jump.hkx
+Animations\idleanims\specialidle__side_to_side.hkx
+Animations\idleanims\specialidle_aware.hkx
+Animations\idleanims\specialidle_b.hkx
+Animations\idleanims\specialidle_c.hkx
+Animations\idleanims\specialidle_clean.hkx
+Animations\idleanims\specialidle_dance1.hkx
+Animations\idleanims\specialidle_dodge.hkx
+Animations\idleanims\specialidle_dogbark.hkx
+Animations\idleanims\specialidle_doge.hkx
+Animations\idleanims\specialidle_eat.hkx
+Animations\idleanims\specialidle_flee.hkx
+Animations\idleanims\specialidle_getupleft.hkx
+Animations\idleanims\specialidle_getuplift.hkx
+Animations\idleanims\specialidle_getupright.hkx
+Animations\idleanims\specialidle_howl.hkx
+Animations\idleanims\specialidle_intimidate.hkx
+Animations\idleanims\specialidle_intimidate2.hkx
+Animations\idleanims\specialidle_intimidate3.hkx
+Animations\idleanims\specialidle_look.hkx
+Animations\idleanims\specialidle_lookleft.hkx
+Animations\idleanims\specialidle_lookright.hkx
+Animations\idleanims\specialidle_praying1.hkx
+Animations\idleanims\specialidle_praying2.hkx
+Animations\idleanims\specialidle_rooting.hkx
+Animations\idleanims\specialidle_sandup.hkx
+Animations\idleanims\specialidle_scratch.hkx
+Animations\idleanims\specialidle_seep.hkx
+Animations\idleanims\specialidle_sit.hkx
+Animations\idleanims\specialidle_sitbark.hkx
+Animations\idleanims\specialidle_sleeplookaround.hkx
+Animations\idleanims\specialidle_smell.hkx
+Animations\idleanims\specialidle_starteat.hkx
+Animations\idleanims\specialidle_tracking.hkx
+Animations\idleanims\specialidle_whirlwind.hkx
+Animations\idleanims\specialldle_guard.hkx
+Animations\idleanims\srcatch.hkx
+Animations\idleanims\staggered.hkx
+Animations\idleanims\startle.hkx
+Animations\idleanims\stretch.hkx
+Animations\idleanims\swat.hkx
+Animations\idleanims\taunt.hkx
+Animations\jumpland.hkx
+Animations\jumploop.hkx
+Animations\jumpstart.hkx
+Animations\left.hkx
+Animations\onehandattackbackpower.hkx
+Animations\onehandattackforwardpower.hkx
+Animations\onehandattackleft.hkx
+Animations\onehandattackleft_1handslice.hkx
+Animations\onehandattackleft_a.hkx
+Animations\onehandattackleft_b.hkx
+Animations\onehandattackleft_chop.hkx
+Animations\onehandattackleft_slash.hkx
+Animations\onehandattackleft_slice.hkx
+Animations\onehandattackleftpower.hkx
+Animations\onehandattackpower.hkx
+Animations\onehandattackright.hkx
+Animations\onehandattackright_1handslice.hkx
+Animations\onehandattackright_a.hkx
+Animations\onehandattackright_b.hkx
+Animations\onehandattackright_chop.hkx
+Animations\onehandattackright_slash.hkx
+Animations\onehandattackright_slice.hkx
+Animations\onehandattackrightpower.hkx
+Animations\onehandbackward.hkx
+Animations\onehandblock.hkx
+Animations\onehandblockhit.hkx
+Animations\onehandblockidle.hkx
+Animations\onehandequip.hkx
+Animations\onehandfastforward.hkx
+Animations\onehandforward.hkx
+Animations\onehandforwardrun.hkx
+Animations\onehandidle.hkx
+Animations\onehandleft.hkx
+Animations\onehandrecoil.hkx
+Animations\onehandright.hkx
+Animations\onehandstagger.hkx
+Animations\onehandturnleft.hkx
+Animations\onehandturnright.hkx
+Animations\onehandunequip.hkx
+Animations\recoil.hkx
+Animations\right.hkx
+Animations\runforward.hkx
+Animations\specialanims\casttouch.hkx
+Animations\specialanims\casttouch_axe.hkx
+Animations\specialanims\casttouch_fist.hkx
+Animations\specialanims\casttouch_mace.hkx
+Animations\specialanims\casttouch_punch.hkx
+Animations\specialanims\casttouch_sword.hkx
+Animations\specialanims\forward_sharman.hkx
+Animations\specialanims\forward_wolf.hkx
+Animations\specialanims\handtohandattack_wolf.hkx
+Animations\specialanims\handtohandattackleft.hkx
+Animations\specialanims\handtohandattackleft_leftarm.hkx
+Animations\specialanims\handtohandattackleft_rightarm.hkx
+Animations\specialanims\handtohandattacklefta.hkx
+Animations\specialanims\handtohandattackleftb.hkx
+Animations\specialanims\handtohandattackleftc.hkx
+Animations\specialanims\handtohandattackleftpower.hkx
+Animations\specialanims\handtohandattackleftpower_rightarm.hkx
+Animations\specialanims\handtohandattackpower.hkx
+Animations\specialanims\handtohandattackpowera.hkx
+Animations\specialanims\handtohandattackpowerb.hkx
+Animations\specialanims\handtohandattackright.hkx
+Animations\specialanims\handtohandattackright_leftarm.hkx
+Animations\specialanims\handtohandattackright_rightarm.hkx
+Animations\specialanims\handtohandattackrighta.hkx
+Animations\specialanims\handtohandattackrightb.hkx
+Animations\specialanims\handtohandattackrightc.hkx
+Animations\specialanims\handtohandattackrightpower.hkx
+Animations\specialanims\handtohandattackrightpower_leftarm.hkx
+Animations\specialanims\handtohandcrouchequip.hkx
+Animations\specialanims\handtohandleanbackequip.hkx
+Animations\specialanims\handtohandswayequip.hkx
+Animations\specialanims\idle_sharman.hkx
+Animations\specialanims\idle_wolf.hkx
+Animations\specialanims\idlecrouch.hkx
+Animations\specialanims\idleleanback.hkx
+Animations\specialanims\runforwardarmsdown.hkx
+Animations\specialanims\runforwardarmsup.hkx
+Animations\specialanims\special_idle.hkx
+Animations\specialanims\special_reach.hkx
+Animations\specialanims\stafffastforward.hkx
+Animations\specialanims\staffforwardwalk.hkx
+Animations\specialanims\staffidle.hkx
+Animations\specialanims\sway.hkx
+Animations\specialanims\walk01armsup.hkx
+Animations\specialanims\walk02limp.hkx
+Animations\specialanims\walk03leanback.hkx
+Animations\staffattackright.hkx
+Animations\staffbackward.hkx
+Animations\staffblock.hkx
+Animations\staffblockhit.hkx
+Animations\staffequip.hkx
+Animations\stafffastforward.hkx
+Animations\staffforward.hkx
+Animations\staffidle.hkx
+Animations\staffleft.hkx
+Animations\staffright.hkx
+Animations\staffstagger.hkx
+Animations\staffturnleft.hkx
+Animations\staffturnright.hkx
+Animations\staffunequip.hkx
+Animations\stagger.hkx
+Animations\swimbackward.hkx
+Animations\swimblock.hkx
+Animations\swimblockhit.hkx
+Animations\swimequip.hkx
+Animations\swimfastforward.hkx
+Animations\swimforward.hkx
+Animations\swimhandtohandattackbackpower.hkx
+Animations\swimhandtohandattackequip.hkx
+Animations\swimhandtohandattackforwardpower.hkx
+Animations\swimhandtohandattackleft.hkx
+Animations\swimhandtohandattackleftpower.hkx
+Animations\swimhandtohandattackpower.hkx
+Animations\swimhandtohandattackright.hkx
+Animations\swimhandtohandattackrightpower.hkx
+Animations\swimhandtohandattackunequip.hkx
+Animations\swimhandtohandbackward.hkx
+Animations\swimhandtohandequip.hkx
+Animations\swimhandtohandfastforward.hkx
+Animations\swimhandtohandforward.hkx
+Animations\swimhandtohandidle.hkx
+Animations\swimhandtohandleft.hkx
+Animations\swimhandtohandrecoil.hkx
+Animations\swimhandtohandright.hkx
+Animations\swimhandtohandstagger.hkx
+Animations\swimhandtohandturnleft.hkx
+Animations\swimhandtohandturnright.hkx
+Animations\swimhandtohandunequip.hkx
+Animations\swimidle.hkx
+Animations\swimleft.hkx
+Animations\swimonehandattackleft.hkx
+Animations\swimonehandattackright.hkx
+Animations\swimonehandbackward.hkx
+Animations\swimonehandforward.hkx
+Animations\swimonehandidle.hkx
+Animations\swimonehandturnleft.hkx
+Animations\swimonehandturnright.hkx
+Animations\swimrecoil.hkx
+Animations\swimright.hkx
+Animations\swimstagger.hkx
+Animations\swimturnleft.hkx
+Animations\swimturnright.hkx
+Animations\swimunequip.hkx
+Animations\turnleft.hkx
+Animations\turnright.hkx
+Animations\twohandattackbackpower.hkx
+Animations\twohandattackequip.hkx
+Animations\twohandattackforwardpower.hkx
+Animations\twohandattackleft.hkx
+Animations\twohandattackleft_a.hkx
+Animations\twohandattackleft_b.hkx
+Animations\twohandattackleft_c.hkx
+Animations\twohandattackleftpower.hkx
+Animations\twohandattackpower.hkx
+Animations\twohandattackright.hkx
+Animations\twohandattackright_a.hkx
+Animations\twohandattackright_b.hkx
+Animations\twohandattackright_c.hkx
+Animations\twohandattackrightpower.hkx
+Animations\twohandattackunequip.hkx
+Animations\twohandbackward.hkx
+Animations\twohandblockhit.hkx
+Animations\twohandblockidle.hkx
+Animations\twohandequip.hkx
+Animations\twohandfastforward.hkx
+Animations\twohandforward.hkx
+Animations\twohandidle.hkx
+Animations\twohandleft.hkx
+Animations\twohandrecoil.hkx
+Animations\twohandright.hkx
+Animations\twohandstagger.hkx
+Animations\twohandturnleft.hkx
+Animations\twohandturnright.hkx
+Animations\twohandunequip.hkx
+Animations\unequip.hkx
+Animations\walkforward.hkx
+			
+			*/
+
+
+
+			auto& animations = std::get<2>(assets);
+			for (const auto& animation : animations)
+			{
+				fs::path outdir = outputFolder / creature_path / "Animations";
+
+				string animfile = animation.first.string();
+				string subfolder = animation.first.parent_path().filename().string();
+				string project_subfolder = fs::path(outdir).filename().string();
+				string creature_subfolder = fs::path(outdir).parent_path().filename().string();
+				if (subfolder == creature_subfolder)
+					subfolder = "";
+
+				string out_relative = (fs::path(project_subfolder) / subfolder / animation.first.filename().replace_extension(".hkx")).string();
+
+
+				debug_animations.insert(out_relative);
+			}
+			continue;
+		}
+
 		{
 			//Convert skeleton NIF
 			fs::path creature_output_skeleton = outputFolder / creature_path / "Character Assets" / entry.first.filename();
@@ -5392,6 +5807,39 @@ void ConvertCreatures(
 		}
 
 		{
+			//Convert meshes
+			auto& meshes = std::get<1>(assets);
+			for (auto& asset : meshes)
+			{
+				fs::path creature_output_mesh = outputFolder / creature_path / "Character Assets" / asset.first.filename();
+				fs::create_directories(creature_output_mesh.parent_path());
+				NifInfo info;
+				info.userVersion = 12;
+				info.userVersion2 = 83;
+				info.version = Niflib::VER_20_2_0_7;
+
+				NiObjectRef root;
+				vector<Ref<NiObject>> converted_blocks;
+				convert_blocks(
+					asset.second,
+					converted_blocks,
+					root,
+					wrappers,
+					info,
+					entry.first,
+					outputFolder,
+					metadata
+				);
+				WriteNifTree(creature_output_mesh.string(), root, info);
+				material_controllers_map.clear();
+				material_alpha_controllers_map.clear();
+				material_flip_controllers_map.clear();
+				deferred_blends.clear();
+				material_transform_controllers_map.clear();
+			}
+		}
+
+		{
 			//Create skeleton.hkx
 			fs::path creature_output_skeleton = outputFolder / creature_path / "Character Assets" / entry.first.filename();
 			creature_output_skeleton.replace_extension(".hkx");
@@ -5399,38 +5847,25 @@ void ConvertCreatures(
 			Skeleton::Convert(assets, creature_output_skeleton.string(), hkx_skeleton);
 
 			//Use the converted skeleton to convert animations
-			std::map<fs::path, ckcmd::HKX::RootMovement> root_movements;
 			fs::path creature_output_animations_folder = outputFolder / creature_path / "Animations";
 			ImportKF::ExportAnimations(
 				assets, 
 				hkx_skeleton, 
 				creature_output_animations_folder.string(), 
 				root_movements);
+
 		}
 
-
-		//fs::path creature_output_skeleton = outputFolder / entry.first;
-		//fs::create_directories(creature_output_skeleton.parent_path());		NifInfo info;
-		//vector<NiObjectRef> blocks = load_override_or_bsa_nif_file(entry.first, oblivionDataFolder, info);
-		//vector<NiObjectRef> new_blocks;
-		//NiObjectRef root;
-		//convert_blocks(
-		//	blocks,
-		//	new_blocks,
-		//	root,
-		//	wrappers,
-		//	info,
-		//	entry.first,
-		//	outputFolder,
-		//	metadata
-		//);
-		//WriteNifTree(creature_output_skeleton.string(), root, info);
-		//material_controllers_map.clear();
-		//material_alpha_controllers_map.clear();
-		//material_flip_controllers_map.clear();
-		//deferred_blends.clear();
-		//material_transform_controllers_map.clear();
+		{
+			//Assemble a behavior for the creature
+		}
 	}
+
+	for (const auto& animation : debug_animations)
+	{
+		Log::Warn(animation.c_str());
+	}
+
 }
 
 
@@ -5465,45 +5900,6 @@ bool BeginConversion(string importPath, string exportPath) {
 	findCreatures(skeletons, oblivionData);
 	ConvertCreatures(oblivionData, skeletons, exportPath, wrappers, metadata);
 
-//Script debug
-//	  
-//	double x = 0.000011 * 1.21;
-//	double y = 0.000001 * 1.21;
-//	double z = -13.542925 * 1.21;
-//	double rx = 251.7730;
-//	double ry = 484.3785;
-//	double rz = 86.6988;
-//
-//	double deg_to_rad = 0.0174533;
-//
-//	//Euler XYZ
-//	double r_alpha = -(-86.7472 * deg_to_rad);
-//	double r_beta = -(-18.8064 * deg_to_rad);
-//	double r_gamma = -(267.2364 * deg_to_rad);
-//
-//#define Cos cos
-//#define Sin sin
-//
-//	//Build Matrix
-//	double r11 = Cos(r_beta) * Cos(r_gamma);
-//	double r12 = -Cos(r_beta) * Sin(r_gamma);
-//	double r13 = Sin(r_beta);
-//	double r21 = Cos(r_alpha) * Sin(r_gamma) + Cos(r_gamma) * Sin(r_alpha) * Sin(r_beta);
-//	double r22 = Cos(r_alpha) * Cos(r_gamma) - Sin(r_alpha) * Sin(r_beta) * Sin(r_gamma);
-//	double r23 = -Cos(r_beta) * Sin(r_alpha);
-//	double r31 = Sin(r_alpha) * Sin(r_gamma) - Cos(r_alpha) * Cos(r_gamma) * Sin(r_beta);
-//	double r32 = Cos(r_gamma) * Sin(r_alpha) + Cos(r_alpha) * Sin(r_beta) * Sin(r_gamma);
-//	double r33 = Cos(r_alpha) * Cos(r_beta);
-//
-//	//Inverse transform, R^T * [x,y,z]
-//	double dx = r11 * x + r12 * y + r13 * z;
-//	double dy = r21 * x + r22 * y + r23 * z;
-//	double dz = r31 * x + r32 * y + r33 * z;
-//
-//	rx = rx + dx;
-//	ry = ry + dy;
-//	//rz := rz - z; // revert previous displacement
-//	rz = rz + dz;
 
 	if (fs::exists(importPath) && fs::is_directory(importPath))
 		findFiles(importPath, ".nif", nifs);
