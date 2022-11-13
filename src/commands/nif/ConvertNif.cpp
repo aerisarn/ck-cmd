@@ -6245,6 +6245,18 @@ void ConvertAssets(
 				outputFolder,
 				metadata
 			);
+			//add skeleton root
+			NiNodeRef rootn = DynamicCast<NiNode>(root);
+			NiNodeRef toor = new NiNode();
+			toor->SetName(std::string("NPC Root [Root]"));
+			toor->SetChildren(rootn->GetChildren());
+			toor->SetFlags(524302);
+			toor->SetTranslation({ 0., 0., 0. });
+			toor->SetRotation(Matrix33::IDENTITY);
+			toor->SetScale(1.);
+
+			rootn->SetChildren({StaticCast<NiAVObject>(toor)});
+
 			WriteNifTree(creature_output_skeleton.string(), root, info);
 			std::get<0>(assets) = skeleton_converted_blocks;
 			material_controllers_map.clear();
