@@ -50,7 +50,7 @@ public:
 
     static void ExportAnimations(const NifFolderType& in, const hkRefPtr<hkaSkeleton>& skeleton
         , const string& outdir
-        , std::map<fs::path, ckcmd::HKX::RootMovement> rootMovements);
+        , std::map<fs::path, ckcmd::HKX::RootMovement>& rootMovements);
 
     static void ExportAnimations(const string& rootdir, const fs::path& skelfile
         , const vector<fs::path>& animlist, const string& outdir

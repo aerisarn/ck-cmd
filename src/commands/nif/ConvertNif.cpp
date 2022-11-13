@@ -34,6 +34,40 @@
 
 #include <Physics\Collide\Util\hkpTriangleUtil.h>
 
+// Animation
+#include <Animation/Animation/hkaAnimationContainer.h>
+#include <Animation/Animation/Playback/Control/Default/hkaDefaultAnimationControl.h>
+#include <Animation/Animation/Playback/hkaAnimatedSkeleton.h>
+#include <Animation/Animation/Rig/hkaPose.h>
+#include <Animation/Ragdoll/Controller/PoweredConstraint/hkaRagdollPoweredConstraintController.h>
+#include <Animation/Ragdoll/Controller/RigidBody/hkaRagdollRigidBodyController.h>
+#include <Animation/Ragdoll/Utils/hkaRagdollUtils.h>
+#include <Animation/Animation/Animation/Deprecated/DeltaCompressed/hkaDeltaCompressedAnimation.h>
+#include <Animation/Animation/Animation/SplineCompressed/hkaSplineCompressedAnimation.h>
+#include <Animation/Animation/Animation/Quantized/hkaQuantizedAnimation.h>
+#include <Animation/Animation/Animation/Util/hkaAdditiveAnimationUtility.h>
+#include <Animation/Animation/Mapper/hkaSkeletonMapperUtils.h>
+
+#include <hkbProjectStringData_1.h>
+#include <hkbProjectData_2.h>
+#include <hkbCharacterData_7.h>
+#include <hkbVariableValueSet_0.h>
+#include <hkbCharacterStringData_5.h>
+#include <hkbMirroredSkeletonInfo_0.h>
+#include <hkbCharacterDataCharacterControllerInfo_0.h>
+#include <Common\Serialize\ResourceDatabase\hkResourceHandle.h>
+#include <Animation\Animation\hkaAnimationContainer.h>
+#include <hkbBehaviorGraph_1.h>
+#include <hkbStateMachine_4.h>
+#include <hkbBlendingTransitionEffect_1.h>
+#include <BGSGamebryoSequenceGenerator_2.h>
+#include <hkbClipGenerator_2.h>
+#include <hkbProjectData_2.h>
+#include <hkbCharacterData_7.h>
+#include <hkbClipGenerator_2.h>
+#include <hkbBehaviorReferenceGenerator_0.h>
+#include <Common/Base/Container/String/hkStringBuf.h>
+
 #include <limits>
 #include <array>
 #include <unordered_map>
@@ -4411,81 +4445,83 @@ public:
 			NiTriShapeDataRef shapeData = DynamicCast<NiTriShapeData>(obj.GetData());
 
 			vector<BoneData> boneList = skinData->GetBoneList();
-			SkinPartition skinBlock = skinPartition->GetSkinPartitionBlocks()[0];
+			if (skinPartition != nullptr)
+			{
+				SkinPartition skinBlock = skinPartition->GetSkinPartitionBlocks()[0];
 
-			for (int i = 0; i != skinInstance->GetBones().size(); i++) {
-				NiNodeRef bone = skinInstance->GetBones()[i];
+				for (int i = 0; i != skinInstance->GetBones().size(); i++) {
+					NiNodeRef bone = skinInstance->GetBones()[i];
 
-				//if (bone->GetName() == "NPC Pelvis [Pelv]") {
-				//	vector<BoneVertData> vertData = boneList[i].vertexWeights;
-				//	vector<Vector3> vertices = vector<Vector3>(vertData.size());
-				//	for (int i = 0; i != vertData.size(); i++) {
-				//		vertices[i] = shapeData->GetVertices()[skinBlock.vertexMap[vertData[i].index]];
-				//	}
-				//	Vector3 newPos = centeroid(vertices);
-				//	Vector3 bonePos = Vector3(-0.000003f, -0.000010f, 68.911301f);
-				//	bonePos.x = -bonePos.x;
-				//	bonePos.y = -bonePos.y;
-				//	bonePos.z = -bonePos.z;
-				//	boneList[i].skinTransform.translation = bonePos + newPos;
-				//	boneList[i].skinTransform.rotation = Matrix33();
-				//}
-				//if (bone->GetName() == "NPC L Thigh [LThg]") {
-				//	vector<BoneVertData> vertData = boneList[i].vertexWeights;
-				//	vector<Vector3> vertices = vector<Vector3>(vertData.size());
-				//	for (int i = 0; i != vertData.size(); i++) {
-				//		vertices[i] = shapeData->GetVertices()[skinBlock.vertexMap[vertData[i].index]];
-				//	}
-				//	//correct? dunno :D
-				//	Matrix44 matrix = Matrix44();
-				//	matrix.rows[0][0] = bone->GetRotation().rows[0][0];
-				//	matrix.rows[0][1] = bone->GetRotation().rows[0][1];
-				//	matrix.rows[0][2] = bone->GetRotation().rows[0][2];
-				//	matrix.rows[0][3] = bone->GetTranslation().x;
-				//	matrix.rows[1][0] = bone->GetRotation().rows[1][0];
-				//	matrix.rows[1][1] = bone->GetRotation().rows[1][1];
-				//	matrix.rows[1][2] = bone->GetRotation().rows[1][2];
-				//	matrix.rows[1][3] = bone->GetTranslation().y;
-				//	matrix.rows[2][0] = bone->GetRotation().rows[2][0];
-				//	matrix.rows[2][1] = bone->GetRotation().rows[2][1];
-				//	matrix.rows[2][2] = bone->GetRotation().rows[2][2];
-				//	matrix.rows[2][3] = bone->GetTranslation().z;
-
-
-
-
+					//if (bone->GetName() == "NPC Pelvis [Pelv]") {
+					//	vector<BoneVertData> vertData = boneList[i].vertexWeights;
+					//	vector<Vector3> vertices = vector<Vector3>(vertData.size());
+					//	for (int i = 0; i != vertData.size(); i++) {
+					//		vertices[i] = shapeData->GetVertices()[skinBlock.vertexMap[vertData[i].index]];
+					//	}
+					//	Vector3 newPos = centeroid(vertices);
+					//	Vector3 bonePos = Vector3(-0.000003f, -0.000010f, 68.911301f);
+					//	bonePos.x = -bonePos.x;
+					//	bonePos.y = -bonePos.y;
+					//	bonePos.z = -bonePos.z;
+					//	boneList[i].skinTransform.translation = bonePos + newPos;
+					//	boneList[i].skinTransform.rotation = Matrix33();
+					//}
+					//if (bone->GetName() == "NPC L Thigh [LThg]") {
+					//	vector<BoneVertData> vertData = boneList[i].vertexWeights;
+					//	vector<Vector3> vertices = vector<Vector3>(vertData.size());
+					//	for (int i = 0; i != vertData.size(); i++) {
+					//		vertices[i] = shapeData->GetVertices()[skinBlock.vertexMap[vertData[i].index]];
+					//	}
+					//	//correct? dunno :D
+					//	Matrix44 matrix = Matrix44();
+					//	matrix.rows[0][0] = bone->GetRotation().rows[0][0];
+					//	matrix.rows[0][1] = bone->GetRotation().rows[0][1];
+					//	matrix.rows[0][2] = bone->GetRotation().rows[0][2];
+					//	matrix.rows[0][3] = bone->GetTranslation().x;
+					//	matrix.rows[1][0] = bone->GetRotation().rows[1][0];
+					//	matrix.rows[1][1] = bone->GetRotation().rows[1][1];
+					//	matrix.rows[1][2] = bone->GetRotation().rows[1][2];
+					//	matrix.rows[1][3] = bone->GetTranslation().y;
+					//	matrix.rows[2][0] = bone->GetRotation().rows[2][0];
+					//	matrix.rows[2][1] = bone->GetRotation().rows[2][1];
+					//	matrix.rows[2][2] = bone->GetRotation().rows[2][2];
+					//	matrix.rows[2][3] = bone->GetTranslation().z;
 
 
-					//Vector3 newPos = centeroid(vertices);
-					//Vector3 bonePos = Vector3(-6.615073f, 0.000394f, 68.911301f);
-					//boneList[i].skinTransform.translation = bonePos + newPos;
-					//boneList[i].skinTransform.translation = Vector3(-13.517195f, 1.999292f, 67.866142f);
-					//boneList[i].skinTransform.rotation = Matrix33(
-					//	-0.9942f, -0.0410f, -0.0933f,
-					//	-0.0375f, 0.9986f, -0.0369f,
-					//	0.1007f, -0.0330f, -0.9944);
-				//}
-				//if (bone->GetName() == "NPC R Thigh [RThg]") {
-				//	vector<BoneVertData> vertData = boneList[i].vertexWeights;
-				//	vector<Vector3> vertices = vector<Vector3>(vertData.size());
-				//	for (int i = 0; i != vertData.size(); i++) {
-				//		vertices[i] = shapeData->GetVertices()[skinBlock.vertexMap[vertData[i].index]];
-				//	}
-				//	Vector3 newPos = centeroid(vertices);
-				//	Vector3 bonePos = Vector3(6.615068f, 0.000394f, 68.911301f);
-				//	boneList[i].skinTransform.translation = bonePos + newPos;
-				//	//boneList[i].skinTransform.translation = Vector3(13.461305f, 1.992750f, 67.877457f);
-				//	boneList[i].skinTransform.rotation = Matrix33(
-				//		-0.9943f, 0.0413f, 0.0985f,
-				//		0.0378f, 0.9986f, -0.0369f,
-				//		-0.0998f, -0.0330f, -0.9945f);
-				//}
-				//if (bone->GetName() == "NPC Spine [Spn0]") {
-				//	boneList[i].skinTransform.translation = Vector3(-0.000022f, 8.403816f, -72.405434f);
-				//	boneList[i].skinTransform.rotation = Matrix33(
-				//		1.0f, 0.0000f, -0.0000f,
-				//		-0.000f, 0.9990f, 0.0436f,
-				//		0.000f, -0.0436f, 0.9990f);
+
+
+
+
+						//Vector3 newPos = centeroid(vertices);
+						//Vector3 bonePos = Vector3(-6.615073f, 0.000394f, 68.911301f);
+						//boneList[i].skinTransform.translation = bonePos + newPos;
+						//boneList[i].skinTransform.translation = Vector3(-13.517195f, 1.999292f, 67.866142f);
+						//boneList[i].skinTransform.rotation = Matrix33(
+						//	-0.9942f, -0.0410f, -0.0933f,
+						//	-0.0375f, 0.9986f, -0.0369f,
+						//	0.1007f, -0.0330f, -0.9944);
+					//}
+					//if (bone->GetName() == "NPC R Thigh [RThg]") {
+					//	vector<BoneVertData> vertData = boneList[i].vertexWeights;
+					//	vector<Vector3> vertices = vector<Vector3>(vertData.size());
+					//	for (int i = 0; i != vertData.size(); i++) {
+					//		vertices[i] = shapeData->GetVertices()[skinBlock.vertexMap[vertData[i].index]];
+					//	}
+					//	Vector3 newPos = centeroid(vertices);
+					//	Vector3 bonePos = Vector3(6.615068f, 0.000394f, 68.911301f);
+					//	boneList[i].skinTransform.translation = bonePos + newPos;
+					//	//boneList[i].skinTransform.translation = Vector3(13.461305f, 1.992750f, 67.877457f);
+					//	boneList[i].skinTransform.rotation = Matrix33(
+					//		-0.9943f, 0.0413f, 0.0985f,
+					//		0.0378f, 0.9986f, -0.0369f,
+					//		-0.0998f, -0.0330f, -0.9945f);
+					//}
+					//if (bone->GetName() == "NPC Spine [Spn0]") {
+					//	boneList[i].skinTransform.translation = Vector3(-0.000022f, 8.403816f, -72.405434f);
+					//	boneList[i].skinTransform.rotation = Matrix33(
+					//		1.0f, 0.0000f, -0.0000f,
+					//		-0.000f, 0.9990f, 0.0436f,
+					//		0.000f, -0.0436f, 0.9990f);
 				}
 				//if (bone->GetName() == "NPC Spine1 [Spn1]") {
 				//	boneList[i].skinTransform.translation = Vector3(-0.000018f, -3.890695f, -81.495285f);
@@ -4520,7 +4556,7 @@ public:
 				//		0.8398f, -0.4921f, -0.2292f);
 				//}
 			//}
-
+			}
 
 			skinData->SetBoneList(boneList);
 			skinInstance->SetData(skinData);
@@ -4982,7 +5018,7 @@ void convert_blocks(
 	info.userVersion2 = 83;
 	info.version = Niflib::VER_20_2_0_7;
 	vector<string> sequences = fimpl.nisequences;
-	if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
+	//if (!NifFile::hasExternalSkinnedMesh(blocks, rootn)) {
 		root = convert_root(root);
 		BSFadeNodeRef bsroot = DynamicCast<BSFadeNode>(root);
 		//fixed?
@@ -5193,35 +5229,27 @@ void convert_blocks(
 			}
 		}
 		out_blocks = new_blocks;
-	}
-	else {
-		//TODO
-		//FixTargetsVisitor(root, info, blocks);
-		//Attach to skyrim skeleton
-		
-	}
+	//}
+	//else {
+	//	//TODO
+	//	//FixTargetsVisitor(root, info, blocks);
+	//	//Attach to skyrim skeleton
+	//	
+	//}
 }
 
-void findCreatures(std::map<fs::path, std::set<fs::path>>& skeletons, const std::string& oblivionData)
+// CREA entries were split
+// RACE(WNAM) -> ARMO {ARMA *} collect the physical properties
+
+void findCreatures
+(
+	std::map<fs::path, std::set<fs::path>>& skeletons,
+	std::map<fs::path, std::set<Ob::CREARecord*>>& actors,
+	map<fs::path, map<set<string>, set< Ob::CREARecord*>>>& skins,
+	Collection& oblivionCollection,
+	const std::string& oblivionData
+)
 {
-
-	Log::Info("Found Oblivion installation: %s", oblivionData.c_str());
-	//Load esms;
-	Collection oblivionCollection = Collection((char* const)(oblivionData.c_str()), 0);
-	ModFlags masterFlags = ModFlags(0xA);
-	ModFile* esm = oblivionCollection.AddMod("Oblivion.esm", masterFlags);
-	ModFile* SI = oblivionCollection.AddMod("DLCShiveringIsles.esp", masterFlags);
-	ModFile* Knights = oblivionCollection.AddMod("Knights.esp", masterFlags);
-
-	char* argvv[4];
-	argvv[0] = new char();
-	argvv[1] = new char();
-	argvv[2] = new char();
-	argvv[3] = new char();
-	logger.init(4, argvv);
-
-	oblivionCollection.Load();
-
 	for (auto record_it = oblivionCollection.FormID_ModFile_Record.begin(); record_it != oblivionCollection.FormID_ModFile_Record.end(); record_it++)
 	{
 		Record* record = record_it->second;
@@ -5229,15 +5257,122 @@ void findCreatures(std::map<fs::path, std::set<fs::path>>& skeletons, const std:
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
-				transform(skeleton.begin(), skeleton.end(), skeleton.begin(), ::tolower);
-				Log::Info("Found NPC entry: %s, skeleton to be converted: %s", creature->EDID.value, skeleton.c_str());
-				for (const auto& model : creature->NIFZ.value)
-				{
-					skeletons[skeleton].insert(model);
-				}
+				//if (std::string(creature->MODL.value->MODL.value).find("Goblin") != string::npos)
+				//{
+					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
+					if (skeleton.find("landdreugh") != string::npos)
+						int debug = 1;
+					transform(skeleton.begin(), skeleton.end(), skeleton.begin(), ::tolower);
+					actors[skeleton].insert(creature);
+					Log::Info("Found NPC entry: %s, skeleton to be converted: %s", creature->EDID.value, skeleton.c_str());
+					set<string> models;
+					set<string> models_lowercase;
+					for (const auto& model : creature->NIFZ.value)
+					{
+						std::string s_model_upper(model);
+						std::string s_model(model);
+						transform(s_model.begin(), s_model.end(), s_model.begin(), tolower);
+						//draugh.nif doesn't exist
+						if (s_model == "dreugh.nif")
+						{
+							continue;
+						}
+						//storm atronach uses skeleton.nif as mesh
+						if (s_model == "skeleton.nif")
+						{
+							continue;
+						}
+						//knighs missing some prefixes
+						if (s_model == "ayleid.nif")
+						{
+							s_model = "ndayleid.nif";
+							s_model_upper = "ndayleid.nif";
+						}
+						if (s_model == "ayleidlegs.nif")
+						{
+							s_model = "ndayleidlegs.nif";
+							s_model_upper = "ndayleidlegs.nif";
+						}
+						if (s_model == "greaves.nif")
+						{
+							s_model = "ndgreaves.nif";
+							s_model_upper = "ndgreaves.nif";
+						}
+						if (s_model == "minionhead.nif")
+						{
+							s_model = "ndminionhead.nif";
+							s_model_upper = "ndminionhead.nif";
+						}
+						if (s_model == "bosshead.nif")
+						{
+							s_model = "ndbosshead.nif";
+							s_model_upper = "ndbosshead.nif";
+						}
+						if (s_model == "wingpouldrons.nif")
+						{
+							s_model = "ndwingpouldrons.nif";
+							s_model_upper = "ndwingpouldrons.nif";
+						}
+						if (s_model == "minionhead.nif")
+						{
+							s_model = "ndminionhead.nif";
+							s_model_upper = "ndminionhead.nif";
+						}
+						if (std::string(creature->EDID.value) == "MQ07TestXivilaiAmorah")
+						{
+							s_model = "xivilai.nif";
+							s_model_upper = "xivilai.nif";
+						}
+						skeletons[skeleton].insert(s_model_upper);
+						models.insert(s_model_upper);
+						models_lowercase.insert(s_model);
+					}
+					skins[skeleton][models_lowercase].insert(creature);
+				//}
 			}
 		}
+	}
+}
+
+void ConvertCreatures
+(
+	const std::string& prefix,
+	std::map<fs::path, std::set<Ob::CREARecord*>>& actors,
+	std::map<fs::path, Sk::RACERecord*>& races,
+	map<fs::path, map<set<string>, set< Ob::CREARecord*>>>& skins,
+	Collection& oblivionCollection,
+	Collection& convertedCollection,
+	ModFile* convertedPlugin
+)
+{
+	for (const auto& entry : actors)
+	{
+		std::string creature_tag = entry.first.parent_path().filename().string();
+		creature_tag[0] = toupper(creature_tag[0]);
+		std::string RACE_EDID = prefix + creature_tag + "Race";
+		Sk::RACERecord* race = (Sk::RACERecord*)convertedCollection.CreateRecord(
+			convertedPlugin, 
+			REV32(RACE), 
+			NULL, 
+			(char* const)RACE_EDID.c_str(), 
+			NULL, 
+			0
+		);
+		race->EDID = RACE_EDID;
+		races[entry.first] = race;
+		//auto& ob_creatures = entry.second;
+		//for (const auto& ob_creature : ob_creatures)
+		//{
+		//	std::string NPC__EDID = prefix + ob_creature->EDID.value;
+		//	Sk::NPC_Record*  actor = (Sk::NPC_Record*)convertedCollection.CreateRecord(
+		//		convertedPlugin,
+		//		REV32(NPC_),
+		//		NULL,
+		//		(char* const)NPC__EDID.c_str(),
+		//		NULL,
+		//		0
+		//	);
+		//}
 	}
 }
 
@@ -5351,34 +5486,8 @@ NifFolderType load_override_or_bsa_nif_folder(const fs::path& skeleton_path, con
 	return out;
 }
 
-
-
-
-void ConvertCreatures(
-	const fs::path oblivionDataFolder,
-	std::map<fs::path, std::set<fs::path>>& skeletons,
-	const fs::path outputFolder,
-	HKXWrapperCollection& wrappers,
-	vector<pair<string, Vector3>>& metadata
-)
-{
-	int index = 0;
-	set<string> debug_animations;
-	for (const auto& entry : skeletons)
-	{
-		Log::Info("Converting %d/%d: %s", ++index, skeletons.size(), entry.first.string().c_str());
-		std::string creature_path = entry.first.parent_path().string();
-		replacepath(creature_path, "meshes", "meshes\\tes4");
-		NifInfo info;
-		vector<Ref<NiObject>> skeleton_converted_blocks;
-		std::map<fs::path, ckcmd::HKX::RootMovement> root_movements;
-
-		auto assets = load_override_or_bsa_nif_folder(entry.first, oblivionDataFolder, info);
-
-		{
-
-			/*
-			Animations\attackbow.hkx
+/*
+Animations\attackbow.hkx
 Animations\attackforwardpower.hkx
 Animations\attackpower.hkx
 Animations\backward.hkx
@@ -5752,30 +5861,369 @@ Animations\twohandturnright.hkx
 Animations\twohandunequip.hkx
 Animations\unequip.hkx
 Animations\walkforward.hkx
-			
+
 			*/
 
+void CreateDummyBehavior
+(
+	const std::string& prefix, 
+	const std::string& creature_tag, 
+	const std::string& output_file,
+	std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements
+)
+{
+	//Assemble a behavior for the creature
+	hkbBehaviorGraph graph;
+	hkbStateMachine root_fsm;
+	hkbBehaviorGraphData root_data;
+	hkbBehaviorGraphStringData root_string_data;
+	hkbVariableValueSet root_data_init_vars;
+	hkbBlendingTransitionEffect transition_effect;
 
+	size_t event_count = 0;
+	map<string, int> event_map;
+	vector<string> events;
+	//Default events: Start, End, Next
+	event_map[prefix + "Start"] = event_count++;
+	events.push_back(prefix + "Start");
+	event_map[prefix + "End"] = event_count++;
+	events.push_back(prefix + "End");
+	event_map[prefix + "Next"] = event_count++;
+	events.push_back(prefix + "Next");
 
-			auto& animations = std::get<2>(assets);
-			for (const auto& animation : animations)
-			{
-				fs::path outdir = outputFolder / creature_path / "Animations";
+	//String Data
+	root_string_data.m_eventNames.setSize(event_count);
+	int count = 0;
+	for (string event : events)
+		root_string_data.m_eventNames[count++] = event.c_str();
 
-				string animfile = animation.first.string();
-				string subfolder = animation.first.parent_path().filename().string();
-				string project_subfolder = fs::path(outdir).filename().string();
-				string creature_subfolder = fs::path(outdir).parent_path().filename().string();
-				if (subfolder == creature_subfolder)
-					subfolder = "";
+	//Data
+	root_data.m_eventInfos.setSize(event_count);
+	for (int e = 0; e < event_count; e++)
+		root_data.m_eventInfos[e].m_flags = 0;
 
-				string out_relative = (fs::path(project_subfolder) / subfolder / animation.first.filename().replace_extension(".hkx")).string();
+	root_data.m_variableInitialValues = &root_data_init_vars;
+	root_data.m_stringData = &root_string_data;
 
+	//prepare transition effect
+	transition_effect.m_name = "zero_duration";
+	transition_effect.m_userData = 0;
+	transition_effect.m_selfTransitionMode = hkbBlendingTransitionEffect::SELF_TRANSITION_MODE_CONTINUE_IF_CYCLIC_BLEND_IF_ACYCLIC;
+	transition_effect.m_eventMode = hkbBlendingTransitionEffect::EVENT_MODE_DEFAULT;
+	transition_effect.m_duration = 0.0;
+	transition_effect.m_toGeneratorStartTimeFraction = 0.0;
+	transition_effect.m_flags = 0;
+	transition_effect.m_endMode = hkbBlendingTransitionEffect::END_MODE_NONE;
+	transition_effect.m_blendCurve = hkbBlendCurveUtils::BLEND_CURVE_SMOOTH;
 
-				debug_animations.insert(out_relative);
-			}
-			continue;
+	//Root FSM
+	root_fsm.m_name = "RootBehavior";
+	root_fsm.m_startStateId = 0;
+	root_fsm.m_returnToPreviousStateEventId = -1;
+	root_fsm.m_randomTransitionEventId = -1;
+	root_fsm.m_transitionToNextHigherStateEventId = -1;
+	root_fsm.m_transitionToNextLowerStateEventId = -1;
+	root_fsm.m_syncVariableIndex = -1;
+	root_fsm.m_userData = 0;
+	root_fsm.m_eventToSendWhenStateOrTransitionChanges.m_id = -1;
+	root_fsm.m_eventToSendWhenStateOrTransitionChanges.m_payload = NULL;
+	root_fsm.m_wrapAroundStateId = false;
+	root_fsm.m_maxSimultaneousTransitions = 32;
+	root_fsm.m_startStateMode = hkbStateMachine::START_STATE_MODE_DEFAULT;
+	root_fsm.m_selfTransitionMode = hkbStateMachine::SELF_TRANSITION_MODE_NO_TRANSITION;
+
+	int state_index = -1;
+	for (const auto& entry : root_movements) {
+		hkRefPtr<hkbStateMachineStateInfo> state = new hkbStateMachineStateInfo(); state_index++;
+		//create notify events;
+		hkRefPtr<hkbStateMachineEventPropertyArray> enter_notification = new hkbStateMachineEventPropertyArray();
+		enter_notification->m_events.setSize(1);
+		enter_notification->m_events[0].m_id = event_map[prefix + "Start"];
+		enter_notification->m_events[0].m_payload = NULL;
+		state->m_enterNotifyEvents = enter_notification;
+
+		hkRefPtr<hkbStateMachineEventPropertyArray> exit_notification = new hkbStateMachineEventPropertyArray();
+		exit_notification->m_events.setSize(1);
+		exit_notification->m_events[0].m_id = event_map[prefix + "End"];
+		exit_notification->m_events[0].m_payload = NULL;
+		state->m_exitNotifyEvents = exit_notification;
+
+		if (state_index >= 0) {
+			//create transition to the next state;
+			hkRefPtr<hkbStateMachineTransitionInfoArray> transition = new hkbStateMachineTransitionInfoArray();
+			transition->m_transitions.setSize(1);
+			transition->m_transitions[0].m_triggerInterval.m_enterEventId = -1;
+			transition->m_transitions[0].m_triggerInterval.m_exitEventId = -1;
+			transition->m_transitions[0].m_triggerInterval.m_enterTime = 0.0;
+			transition->m_transitions[0].m_triggerInterval.m_exitTime = 0.0;
+
+			transition->m_transitions[0].m_initiateInterval.m_enterEventId = -1;
+			transition->m_transitions[0].m_initiateInterval.m_exitEventId = -1;
+			transition->m_transitions[0].m_initiateInterval.m_enterTime = 0.0;
+			transition->m_transitions[0].m_initiateInterval.m_exitTime = 0.0;
+
+			transition->m_transitions[0].m_transition = &transition_effect;
+			transition->m_transitions[0].m_eventId = event_map[prefix + "Next"];
+			int next_state_id = state_index + 1 != root_movements.size() ? state_index : 0;
+			transition->m_transitions[0].m_toStateId = next_state_id;
+			transition->m_transitions[0].m_fromNestedStateId = 0;
+			transition->m_transitions[0].m_toNestedStateId = 0;
+			transition->m_transitions[0].m_priority = 0;
+			transition->m_transitions[0].m_flags = hkbStateMachineTransitionInfo::FLAG_DISABLE_CONDITION;
+			state->m_transitions = transition;
 		}
+
+		//generator
+		std::string sequenceName = fs::path(entry.first).filename().replace_extension("").string();
+		hkRefPtr<hkbClipGenerator> generator = new hkbClipGenerator();
+		generator->m_name = sequenceName.c_str();
+		generator->m_userData = 0;
+		generator->m_animationName = fs::path(entry.first).string().c_str();
+		generator->m_cropStartAmountLocalTime = 0.0;
+		generator->m_cropEndAmountLocalTime = 0.0;
+		generator->m_startTime = 0.0;
+		generator->m_playbackSpeed = 1.0;
+		generator->m_enforcedDuration = 0.0;
+		generator->m_userControlledTimeFraction = 0.0;
+		generator->m_animationBindingIndex = -1;
+		generator->m_mode = hkbClipGenerator::PlaybackMode::MODE_LOOPING;
+		generator->m_flags = 0;
+		state->m_generator = generator;
+
+		//finish packing the state;
+		std::string stateName = sequenceName + "State";
+		state->m_name = stateName.c_str();
+		state->m_stateId = ++state_index;
+		state->m_probability = 1.000000;
+		state->m_enable = true;
+
+		root_fsm.m_states.pushBack(state);
+	}
+
+	std::string behavior_name = prefix + creature_tag + "Behavior";
+	graph.m_name = behavior_name.c_str();
+	graph.m_userData = 0;
+	graph.m_variableMode = hkbBehaviorGraph::VARIABLE_MODE_DISCARD_WHEN_INACTIVE;
+	graph.m_rootGenerator = &root_fsm;
+	graph.m_data = &root_data;
+
+	hkRootLevelContainer container;
+	container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("hkbBehaviorGraph", &graph, &graph.staticClass()));
+	HKXWrapper().write_xml(&container, output_file);
+}
+
+void CreateHavokProject(
+	const std::string& relative_character_file,
+	const std::string& output_file
+) {
+	hkbProjectStringData string_data;
+	string_data.m_characterFilenames.pushBack(relative_character_file.c_str());
+	hkbProjectData data;
+	data.m_worldUpWS = hkVector4(0.000000, 0.000000, 1.000000, 0.000000);
+	data.m_stringData = &string_data;
+	data.m_defaultEventMode = hkbTransitionEffect::EVENT_MODE_DEFAULT;
+
+	hkRootLevelContainer container;
+	container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("hkbProjectData", &data, &data.staticClass()));
+
+	HKXWrapper().write_xml(&container, output_file);
+}
+
+void CreateHavokCharacter(
+	const std::string& rig_relative_file,
+	const std::string& behavior_relative_file,
+	const std::string& output_file,
+	const std::map<fs::path, ckcmd::HKX::RootMovement>& animations_relative_files
+) {
+	hkbCharacterData data;
+	hkbVariableValueSet values;
+	hkbCharacterStringData string_data;
+	hkbMirroredSkeletonInfo skel_info;
+
+	skel_info.m_mirrorAxis = hkVector4(1.000000, 0.000000, 0.000000, 0.000000);
+
+	// hkbCharacterStringData
+	string_data.m_name = "character";
+	string_data.m_rigName = rig_relative_file.c_str();
+	string_data.m_ragdollName = rig_relative_file.c_str();
+	string_data.m_behaviorFilename = behavior_relative_file.c_str();
+
+	for (const auto& animation : animations_relative_files)
+	{
+		string_data.m_animationNames.pushBack(animation.first.string().c_str());
+	}
+
+	//data
+	hkbCharacterDataCharacterControllerInfo char_info;
+	char_info.m_capsuleHeight = 1.700000;
+	char_info.m_capsuleRadius = 0.400000;
+	char_info.m_collisionFilterInfo = 1;
+	char_info.m_characterControllerCinfo = NULL;
+	data.m_characterControllerInfo = char_info;
+
+	data.m_modelUpMS = hkVector4(0.000000, 0.000000, 1.000000, 0.000000);
+	data.m_modelForwardMS = hkVector4(1.000000, 0.000000, 0.000000, 0.000000);
+	data.m_modelRightMS = hkVector4(-0.000000, -1.000000, -0.000000, 0.000000);
+
+	data.m_characterPropertyValues = &values;
+	data.m_stringData = &string_data;
+	data.m_mirroredSkeletonInfo = &skel_info;
+	data.m_scale = 1.0;
+
+	hkRootLevelContainer container;
+	container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("hkbCharacterData", &data, &data.staticClass()));
+
+	HKXWrapper().write_xml(&container, output_file);
+}
+
+Sk::SKBOD2::BodyParts FindBodyPart(
+	const fs::path& file,
+	const std::string creature_tag,
+	vector<NiObjectRef>& out_blocks,
+	std::map<fs::path, std::string>& skeleton_body_parts,
+	vector<string>& slots
+)
+{
+	std::string part_name = "BODY";
+	Sk::SKBOD2::BodyParts out = Sk::SKBOD2::BodyParts::bpBody;
+	if (skeleton_body_parts.find(file) != skeleton_body_parts.end())
+	{
+		part_name = skeleton_body_parts[file];
+	}
+	std::transform(part_name.begin(), part_name.end(), part_name.begin(), toupper);
+	auto slot_it = std::find(slots.begin(), slots.end(), part_name);
+	int index = 0;
+	if (slot_it == slots.end())
+	{
+		slots.push_back(part_name);
+		index = slots.size() - 1;
+	}
+	else {
+		index = std::distance(slots.begin(), slot_it);
+	}
+	out = (Sk::SKBOD2::BodyParts)(1 << index);
+	int partition_index = 30 + index;
+	auto meshes = DynamicCast<NiTriShape>(out_blocks);
+	for (auto& geometry : meshes)
+	{
+		if (geometry->GetSkinInstance() != NULL)
+		{
+			BSDismemberSkinInstanceRef creature_skin = new BSDismemberSkinInstance();
+			creature_skin->SetBones(geometry->GetSkinInstance()->GetBones());
+			creature_skin->SetData(geometry->GetSkinInstance()->GetData());
+			creature_skin->SetSkeletonRoot(geometry->GetSkinInstance()->GetSkeletonRoot());
+			auto& partitions = geometry->GetSkinInstance()->GetSkinPartition();
+			creature_skin->SetSkinPartition(partitions);
+			if (partitions != NULL)
+			{
+				auto& blocks = partitions->GetSkinPartitionBlocks();
+				vector<BodyPartList >  value;
+				for (const auto& partition : blocks)
+				{
+					BodyPartList bodyPart;
+					bodyPart.partFlag = (BSPartFlag)(BSPartFlag::PF_EDITOR_VISIBLE | BSPartFlag::PF_START_NET_BONESET);
+					bodyPart.bodyPart = (BSDismemberBodyPartType)partition_index;
+					value.push_back(bodyPart);
+				}
+				creature_skin->SetPartitions(value);
+			}
+			geometry->SetSkinInstance(StaticCast<NiSkinInstance>(creature_skin));
+		}
+	}
+	return out;
+}
+
+string LCS(string X, string Y, int m, int n)
+{
+	int maxlen = 0;         // stores the max length of LCS
+	int endingIndex = m;    // stores the ending index of LCS in `X`
+
+	// `lookup[i][j]` stores the length of LCS of substring `X[0…i-1]`, `Y[0…j-1]`
+	vector<vector<int>> lookup;//[m + 1][n + 1];
+	lookup.resize(m + 1);
+	for (int i = 0; i < m + 1; ++i)
+	{
+		lookup[i].resize(n + 1, 0);
+	}
+
+	// initialize all cells of the lookup table to 0
+	// memset(lookup, 0, sizeof(lookup));
+
+	// fill the lookup table in a bottom-up manner
+	for (int i = 1; i <= m; i++)
+	{
+		for (int j = 1; j <= n; j++)
+		{
+			// if the current character of `X` and `Y` matches
+			if (X[i - 1] == Y[j - 1])
+			{
+				lookup[i][j] = lookup[i - 1][j - 1] + 1;
+
+				// update the maximum length and ending index
+				if (lookup[i][j] > maxlen)
+				{
+					maxlen = lookup[i][j];
+					endingIndex = i;
+				}
+			}
+		}
+	}
+
+	// return longest common substring having length `maxlen`
+	return X.substr(endingIndex - maxlen, maxlen);
+}
+
+void ConvertAssets(
+	const std::string& prefix,
+	const fs::path oblivionDataFolder,
+	std::map<fs::path, std::set<fs::path>>& skeletons,
+	std::map<fs::path, Sk::RACERecord*>& races,
+	std::map<fs::path, std::set<Ob::CREARecord*>> actors,
+	map<fs::path, map<set<string>, set< Ob::CREARecord*>>>& skins,
+	const fs::path outputFolder,
+	HKXWrapperCollection& wrappers,
+	vector<pair<string, Vector3>>& metadata,
+	Collection& conversionCollection,
+	ModFile*& conversionPlugin
+)
+{
+	int index = 0;
+	set<string> debug_animations;
+	for (const auto& entry : skeletons)
+	{
+		Log::Info("Converting %d/%d: %s", ++index, skeletons.size(), entry.first.string().c_str());
+		std::string creature_tag = entry.first.parent_path().filename().string();
+		std::string creature_path_no_meshes = entry.first.parent_path().string();
+		replacepath(creature_path_no_meshes, "meshes", "tes4");
+		std::string creature_path = entry.first.parent_path().string();
+		replacepath(creature_path, "meshes", "meshes\\tes4");
+		NifInfo info;
+		vector<Ref<NiObject>> skeleton_converted_blocks;
+		std::map<fs::path, ckcmd::HKX::RootMovement> root_movements;
+		std::map<fs::path, std::string> body_parts;
+		string creature_subfolder = fs::path(creature_path).filename().string();
+
+		auto assets = load_override_or_bsa_nif_folder(entry.first, oblivionDataFolder, info);
+
+		//	auto& animations = std::get<2>(assets);
+		//	for (const auto& animation : animations)
+		//	{
+		//		fs::path outdir = outputFolder / creature_path / "Animations";
+
+		//		string animfile = animation.first.string();
+		//		string subfolder = animation.first.parent_path().filename().string();
+		//		string project_subfolder = fs::path(outdir).filename().string();
+		//		string creature_subfolder = fs::path(outdir).parent_path().filename().string();
+		//		if (subfolder == creature_subfolder)
+		//			subfolder = "";
+
+		//		string out_relative = (fs::path(project_subfolder) / subfolder / animation.first.filename().replace_extension(".hkx")).string();
+
+
+		//		debug_animations.insert(out_relative);
+		//	}
+		//	continue;
+		//}
 
 		{
 			//Convert skeleton NIF
@@ -5806,12 +6254,36 @@ Animations\walkforward.hkx
 			material_transform_controllers_map.clear();
 		}
 
+		auto* race = races[entry.first];
+		fs::path rig_relative_havok_file = "Character Assets" / entry.first.filename().replace_extension(".hkx");
+		fs::path rig_relative_file = fs::path(creature_path) / "Character Assets" / entry.first.filename();
 		{
+			//Create skeleton.hkx
+			fs::path creature_output_skeleton = outputFolder / rig_relative_file;
+			creature_output_skeleton.replace_extension(".hkx");
+			hkRefPtr<hkaSkeleton> hkx_skeleton;
+			Skeleton::Convert(assets, creature_output_skeleton.string(), hkx_skeleton, body_parts);
+
+			//Use the converted skeleton to convert animations
+			fs::path creature_output_animations_folder = outputFolder / creature_path / "Animations";
+			ImportKF::ExportAnimations(
+				assets, 
+				hkx_skeleton, 
+				creature_output_animations_folder.string(), 
+				root_movements);
+		}
+
+		{
+			vector<string> slot_names;
+			std::map<std::string, Sk::ARMARecord*> armas_records;
+
 			//Convert meshes
 			auto& meshes = std::get<1>(assets);
 			for (auto& asset : meshes)
 			{
-				fs::path creature_output_mesh = outputFolder / creature_path / "Character Assets" / asset.first.filename();
+				std::string relative_output_mesh = (fs::path(creature_path) / "Character Assets" / asset.first.filename()).string();
+				replacepath(relative_output_mesh, "meshes\\", "");
+				fs::path creature_output_mesh = outputFolder / "meshes" / relative_output_mesh;
 				fs::create_directories(creature_output_mesh.parent_path());
 				NifInfo info;
 				info.userVersion = 12;
@@ -5830,6 +6302,20 @@ Animations\walkforward.hkx
 					outputFolder,
 					metadata
 				);
+				Sk::SKBOD2::BodyParts part = FindBodyPart(asset.first, creature_subfolder, converted_blocks, body_parts, slot_names);
+				//Create Armor Addon
+				std::string this_mesh_name = asset.first.filename().replace_extension("").string();
+				this_mesh_name[0] = toupper(this_mesh_name[0]);
+				std::string creature_subfolder_camel = creature_subfolder;
+				creature_subfolder_camel[0] = toupper(creature_subfolder_camel[0]);
+				std::string arma_EDID = prefix + creature_subfolder_camel + "Skin" + this_mesh_name;
+				Sk::ARMARecord* arma_record = (Sk::ARMARecord*)conversionCollection.CreateRecord(conversionPlugin, REV32(ARMA), NULL, (char*)arma_EDID.c_str(), NULL, 0);
+				arma_record->EDID = arma_EDID;
+				arma_record->RNAM.value = race->formID;
+				arma_record->BOD2.value.body_part = part;
+				arma_record->MO2.value.MODL = relative_output_mesh;
+				armas_records[asset.first.filename().string()] = arma_record;
+
 				WriteNifTree(creature_output_mesh.string(), root, info);
 				material_controllers_map.clear();
 				material_alpha_controllers_map.clear();
@@ -5837,27 +6323,136 @@ Animations\walkforward.hkx
 				deferred_blends.clear();
 				material_transform_controllers_map.clear();
 			}
+
+			Sk::ARMORecord* most_common_armo = nullptr;
+			int most_common_armo_actors = 0;
+
+			//Assemble armors
+			{
+				auto& this_skeleton_skin = skins[entry.first];
+				for (auto& skin : this_skeleton_skin)
+				{
+					set<string> ob_edids;
+					for (const auto* edid : skin.second)
+					{
+						ob_edids.insert(edid->EDID.value);
+					}
+
+					//these are flawed, the whole group
+					//SEBlackrootLairPatrol01TEMPLATE
+					//SEFetidPatrol01TEMPLATE
+
+					if (ob_edids.find("SEBlackrootLairPatrol01TEMPLATE") != ob_edids.end() ||
+						ob_edids.find("SEFetidPatrol01TEMPLATE") != ob_edids.end())
+					{
+						continue;
+					}
+
+					std::map<string, int> possible_names;
+
+					for (const auto& name1 : ob_edids)
+					{
+						for (const auto& name2 : ob_edids)
+						{
+							auto string = LCS(name1, name2, name1.length(), name2.length());
+							if (possible_names.find(string) == possible_names.end())
+								possible_names[string] = 0;
+							possible_names[string]++;
+						}
+					}
+
+					std::string skin_name = possible_names.begin()->first;
+					std::string skin_lower_name = possible_names.begin()->first;
+					std::transform(skin_lower_name.begin(), skin_lower_name.end(), skin_lower_name.begin(), tolower);
+					if (skin_lower_name == creature_subfolder && possible_names.size() > 1)
+					{
+						skin_name = (possible_names.begin()++)->first;
+					}
+					if (skin_lower_name.find(creature_subfolder) == string::npos)
+					{
+						std::string prefix = creature_subfolder;
+						prefix[0] = toupper(prefix[0]);
+						skin_name = prefix + skin_name;
+					}
+
+					std::string armo_EDID = prefix + skin_name + "Skin";
+					Sk::ARMORecord* armo_record = (Sk::ARMORecord*)conversionCollection.CreateRecord(conversionPlugin, REV32(ARMO), NULL, (char*)armo_EDID.c_str(), NULL, 0);
+					armo_record->EDID = armo_EDID;
+					for (const auto& model : skin.first)
+					{
+						auto* arma_record = armas_records[model];
+
+						armo_record->RNAM.value = race->formID;
+						armo_record->BOD2.value.body_part |= arma_record->BOD2.value.body_part;
+						armo_record->MODL.value.push_back(arma_record->formID);
+					}
+					if (skin.second.size() > most_common_armo_actors)
+					{
+						most_common_armo_actors = skin.second.size();
+						most_common_armo = armo_record;
+					}
+				}
+			}
+
+			race->WNAM.value = most_common_armo->formID;
+			race->BOD2->body_part = most_common_armo->BOD2.value.body_part;
+
+			//Slots
+			Log::Info("Race %s", race->EDID.value);
+			race->NAME.clear();
+			for (const auto& name : slot_names)
+			{
+				Log::Info("Slot %s", name.c_str());
+				StringRecord n; n = name;
+				race->NAME.push_back(n);
+			}
+
 		}
 
+		//HAVOK
 		{
-			//Create skeleton.hkx
-			fs::path creature_output_skeleton = outputFolder / creature_path / "Character Assets" / entry.first.filename();
-			creature_output_skeleton.replace_extension(".hkx");
-			hkRefPtr<hkaSkeleton> hkx_skeleton;
-			Skeleton::Convert(assets, creature_output_skeleton.string(), hkx_skeleton);
+			//Behavior
+			fs::path behavior_relative_file = fs::path("Behaviors") / (creature_subfolder + "Behavior.hkx");
+			fs::path creature_output_behavior = outputFolder / creature_path / behavior_relative_file;
+			fs::create_directories(creature_output_behavior.parent_path());
+			CreateDummyBehavior
+			(
+				prefix,
+				creature_subfolder,
+				creature_output_behavior.string(),
+				root_movements
+			);
 
-			//Use the converted skeleton to convert animations
-			fs::path creature_output_animations_folder = outputFolder / creature_path / "Animations";
-			ImportKF::ExportAnimations(
-				assets, 
-				hkx_skeleton, 
-				creature_output_animations_folder.string(), 
-				root_movements);
+			//Character
+			fs::path character_relative_file = fs::path("Character") / (creature_subfolder + "Character.hkx");
+			fs::path creature_output_character = outputFolder / creature_path / character_relative_file;
+			fs::create_directories(creature_output_character.parent_path());
+			
+			set<string> animations_relative_files;
+			CreateHavokCharacter(
+				rig_relative_havok_file.string(),
+				behavior_relative_file.string(),
+				creature_output_character.string(),
+				root_movements
+			);
 
-		}
+			//project
+			fs::path project_relative_file = fs::path(creature_path) / (prefix + creature_subfolder + "Project.hkx");
+			fs::path creature_output_project = outputFolder / project_relative_file;
+			fs::create_directories(creature_output_project.parent_path());
+			CreateHavokProject(
+				character_relative_file.string(),
+				creature_output_project.string()
+			);
 
-		{
-			//Assemble a behavior for the creature
+			Sk::GenericModel behavior_entry; behavior_entry.MODL = (fs::path(creature_path_no_meshes) / (prefix + creature_subfolder + "Project.hkx")).string();
+			race->behaviors.maleGraph.value.push_back(behavior_entry);
+			race->behaviors.femaleGraph.value.push_back(behavior_entry);
+
+			fs::path nif_skeleton_entry = creature_path_no_meshes / rig_relative_havok_file.replace_extension(".nif");
+
+			race->MNAM_ANAM = nif_skeleton_entry.string();
+			race->FNAM_ANAM = nif_skeleton_entry.string();
 		}
 	}
 
@@ -5869,17 +6464,19 @@ Animations\walkforward.hkx
 }
 
 
-bool BeginConversion(string importPath, string exportPath) {
+bool BeginConversion(string importPath, string exportPath) 
+{
 	char fullName[MAX_PATH], exeName[MAX_PATH];
 	GetModuleFileName(NULL, fullName, MAX_PATH);
 	_splitpath(fullName, NULL, NULL, exeName, NULL);
-
-
 
 	NifInfo info;
 	vector<fs::path> nifs;
 	vector<fs::path> spts;
 	std::map<fs::path, std::set<fs::path>> skeletons;
+	std::map<fs::path, std::set<Ob::CREARecord*>> actors;
+	std::map<fs::path, Sk::RACERecord*>	races;
+	map<fs::path, map<set<string>, set< Ob::CREARecord*>>> skins;
 	set<set<string>> sequences_groups;
 	HKXWrapperCollection wrappers;
 	std::vector<std::pair<std::string, Vector3>> metadata;
@@ -5897,9 +6494,55 @@ bool BeginConversion(string importPath, string exportPath) {
 
 	}
 
-	findCreatures(skeletons, oblivionData);
-	ConvertCreatures(oblivionData, skeletons, exportPath, wrappers, metadata);
 
+	char* argvv[4];
+	argvv[0] = new char();
+	argvv[1] = new char();
+	argvv[2] = new char();
+	argvv[3] = new char();
+	logger.init(4, argvv);
+
+	char* conversionPluginName = "SkyblivionCreatures.esp";
+	exportPath = "D:\\SteamLibrary\\steamapps\\common\\Skyrim Special Edition\\Data";
+
+	Collection conversionCollection = Collection((char* const)exportPath.c_str(), 3);
+	ModFlags masterSkFlags = ModFlags(0xA);
+	masterSkFlags.IsCreateNew = true;
+	masterSkFlags.IsSaveable = true;
+	ModFile* conversionPlugin = conversionCollection.AddMod(conversionPluginName, masterSkFlags);
+	conversionCollection.Load();
+
+	Log::Info("Found Oblivion installation: %s", oblivionData.c_str());
+	//Load esms;
+	Collection oblivionCollection = Collection((char* const)(oblivionData.c_str()), 0);
+	ModFlags masterFlags = ModFlags(0xA);
+	ModFile* esm = oblivionCollection.AddMod("Oblivion.esm", masterFlags);
+	ModFile* SI = oblivionCollection.AddMod("DLCShiveringIsles.esp", masterFlags);
+	ModFile* Knights = oblivionCollection.AddMod("Knights.esp", masterFlags);
+	oblivionCollection.Load();
+
+	std::string prefix = "TES4";
+
+	findCreatures(skeletons, actors, skins, oblivionCollection, oblivionData);
+	ConvertCreatures(prefix, actors, races, skins, oblivionCollection, conversionCollection, conversionPlugin);
+	ConvertAssets
+	(
+		prefix,
+		oblivionData, 
+		skeletons,
+		races,
+		actors,
+		skins,
+		exportPath, 
+		wrappers, 
+		metadata, 
+		conversionCollection, 
+		conversionPlugin
+	);
+
+	ModSaveFlags skSaveFlags = ModSaveFlags(2);
+	skSaveFlags.IsCleanMasters = true;
+	conversionCollection.SaveMod(conversionPlugin, skSaveFlags, conversionPluginName);
 
 	if (fs::exists(importPath) && fs::is_directory(importPath))
 		findFiles(importPath, ".nif", nifs);
@@ -5912,8 +6555,6 @@ bool BeginConversion(string importPath, string exportPath) {
 
 	if (fs::exists(importPath) && fs::is_directory(importPath))
 		findFiles(importPath, ".spt", spts);
-
-	//D:\skywind\test\skyblivion\trees
 
 
 	fs::path out_path;

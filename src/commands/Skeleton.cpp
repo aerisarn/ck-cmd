@@ -491,7 +491,12 @@ bool Skeleton::InternalRunCommand(map<string, docopt::value> parsedArgs)
 }
 
 
-bool Skeleton::Convert(const NifFolderType& in, const string& outpath, hkRefPtr<hkaSkeleton>& converted_skeleton)
+bool Skeleton::Convert(
+	const NifFolderType& in, 
+	const string& outpath, 
+	hkRefPtr<hkaSkeleton>& converted_skeleton,
+	std::map<fs::path, std::string>& body_parts 
+)
 {
 
 	hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT | hkSerializeUtil::SAVE_TEXT_NUMBERS);
@@ -617,17 +622,18 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath, hkRefPtr<
 
 		Log::Info("Load Meshes and search for missing bones\n");
 
-		const auto& meshes = std::get<1>(in);
+		auto& in_meshes = std::get<1>(in);
 		map<string, vector<NiObjectRef>> meshesBlocksMap;
 
-		for (auto itr = meshes.begin(); itr != meshes.end(); ++itr) {
+		//std::map<std::string, NiNodeRef> prnHooks;
+		for (auto itr = in_meshes.begin(); itr != in_meshes.end(); ++itr) {
 			//Animation roots
 			Log::Info("Checking mesh file %s ...", itr->first.string().c_str());
 			vector<NiNodeRef> meshes_nodes = DynamicCast<NiNode>(itr->second);
 			//build parents map
 			NiNodeRef root;
 			vector<NiNodeRef> bones_to_add;
-			std::map<std::string, NiNodeRef> prnHooks;
+
 			for (auto& ninode : meshes_nodes)
 			{
 				bool hasParent = false;
@@ -650,7 +656,7 @@ bool Skeleton::Convert(const NifFolderType& in, const string& outpath, hkRefPtr<
 				}
 				for (auto& stringdata : ninode->GetExtraDataList()) {
 					if (stringdata->GetName() == "Prn") {
-						prnHooks[Accessor<ExtraDataColector>(StaticCast<NiStringExtraData>(stringdata))._string] = ninode;
+						body_parts[itr->first] = Accessor<ExtraDataColector>(StaticCast<NiStringExtraData>(stringdata))._string;
 					}
 				}
 			}

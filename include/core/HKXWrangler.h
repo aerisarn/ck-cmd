@@ -152,15 +152,6 @@ namespace ckcmd {
 			void write(hkRootLevelContainer& rootCont, string subfolder = "", string name = "");
 
 
-
-			//hkRefPtr<hkbProjectData> load_project(const fs::path& path);
-			//hkRefPtr<hkbProjectData> load_project(const uint8_t* data, const size_t& size);
-
-			//void retarget_project(hkRootLevelContainer* root, hkRefPtr<hkbProjectData>, const string& output_project_name, const fs::path& output_dir)
-			//{
-
-			//}
-
 			void create_project(const set<string>& havok_sequences_names = {});
 
 			void create_character(const set<string>& havok_sequences_names);
@@ -179,7 +170,6 @@ namespace ckcmd {
 			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix);
 			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix, const set<string>& sequences_names);
 			HKXWrapper(const string& out_name, const string& out_path, const string& out_path_abs, const string& prefix, const DefaultBehaviors& sequences_names);
-
 
 			hkRootLevelContainer* read(const fs::path& path, hkArray<hkVariant>& objects);
 			hkRootLevelContainer* read(const fs::path& path);
@@ -277,6 +267,7 @@ namespace ckcmd {
 			);
 
 			void write(hkRootLevelContainer* rootCont, const fs::path& out);
+			void write_xml(hkRootLevelContainer* rootCont, const fs::path& out);
 			void write_se_only(hkRootLevelContainer* rootCont, const fs::path& out);
 			void write_le_se(hkRootLevelContainer* rootCont, const fs::path& out);
 		};

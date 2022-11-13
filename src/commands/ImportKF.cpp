@@ -1826,7 +1826,7 @@ bool AnimationExport::exportController()
 void ImportKF::ExportAnimations(const NifFolderType& in 
 	, const hkRefPtr<hkaSkeleton>& skeleton
 	, const string& outdir
-	, std::map<fs::path, ckcmd::HKX::RootMovement> rootMovements)
+	, std::map<fs::path, ckcmd::HKX::RootMovement>& rootMovements)
 {
 	auto& animlist = std::get<2>(in);
 	for (auto& itr = animlist.begin(); itr != animlist.end(); ++itr)
