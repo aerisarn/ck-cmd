@@ -93,6 +93,8 @@
 
 #include <algorithm>
 
+#include <core\HKXWrangler.h>
+
 using namespace std;
 
 static float bhkScaleFactorInverse = 0.01428f; // 1 skyrim unit = 0,01428m
@@ -677,8 +679,8 @@ bool Skeleton::Convert(
 					{
 						bool attached = false;
 						//find the actual parent bone
-						for (vector<NiNodeRef>::iterator i = bones.begin(); i < bones.end(); i++) {
-							NiNodeRef bone = *i;
+						for (int i = 0; i < bones.size(); i++) {
+							NiNodeRef bone = bones[i];
 							//create a fake bone and insert into the skeleton
 							if (bone->GetName() == parentBoneName) {
 								NiNodeRef fakeBone = DynamicCast<NiNode>(NiNode::Create());
@@ -1318,18 +1320,19 @@ bool Skeleton::Convert(
 
 		Log::Info("Exporting %s", outpath.c_str());
 		fs::create_directories(fs::path(outpath).parent_path());
+		ckcmd::HKX::HKXWrapper().write_xml(&rootCont, outpath);
 
-		hkPackFormat pkFormat = HKPF_DEFAULT;
-		//hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
-		hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
+		//hkPackFormat pkFormat = HKPF_DEFAULT;
+		////hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
+		//hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
 
-		hkOstream stream(outpath.c_str());
-		hkVariant root = { &rootCont, &rootCont.staticClass() };
-		hkResult res = hkSerializeUtilSave(pkFormat, root, stream, flags, packFileOptions);
-		if (res != HK_SUCCESS)
-		{
-			Log::Error("Havok reports save failed.");
-		}
+		//hkOstream stream(outpath.c_str());
+		//hkVariant root = { &rootCont, &rootCont.staticClass() };
+		//hkResult res = hkSerializeUtilSave(pkFormat, root, stream, flags, packFileOptions);
+		//if (res != HK_SUCCESS)
+		//{
+		//	Log::Error("Havok reports save failed.");
+		//}
 	}
 	return true;
 }

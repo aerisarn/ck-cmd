@@ -5486,12 +5486,45 @@ NifFolderType load_override_or_bsa_nif_folder(const fs::path& skeleton_path, con
 	return out;
 }
 
+//Movement Cycles:
+//Default
+//Animations\idle.hkx
+
+// WALK
+//Animations\walkforward.hkx / Animations\forward.hkx / Animations\forwardwalk.hkx
+//Animations\backward.hkx / Animations\backwardwalk.hkx
+//Animations\left.hkx
+//Animations\right.hkx
+
+// TURN
+//Animations\turnleft.hkx
+//Animations\turnright.hkx
+
+// FAST
+//Animations\fastbackward.hkx
+//Animations\fastforward.hkx
+//Animations\fastfoward.hkx
+
+// RUN
+//Animations\runforward.hkx
+
+// JUMP
+//Animations\jumpland.hkx
+//Animations\jumploop.hkx
+//Animations\jumpstart.hkx
+
+// DEATH (special case that doesn't ragdoll
+//Animations\death.hkx
+
+// EQUIP
+//Animations\equip.hkx
+//Animations\unequip.hkx
+
 /*
 Animations\attackbow.hkx
 Animations\attackforwardpower.hkx
 Animations\attackpower.hkx
-Animations\backward.hkx
-Animations\backwardwalk.hkx
+
 Animations\block.hkx
 Animations\blockhit.hkx
 Animations\blockidle.hkx
@@ -5520,13 +5553,10 @@ Animations\casttouch.hkx
 Animations\casttouch_a.hkx
 Animations\casttouch_b.hkx
 Animations\casttouch_c.hkx
-Animations\death.hkx
-Animations\equip.hkx
-Animations\fastbackward.hkx
-Animations\fastforward.hkx
-Animations\fastfoward.hkx
-Animations\forward.hkx
-Animations\forwardwalk.hkx
+
+
+
+
 Animations\handtohandattackbackpower.hkx
 Animations\handtohandattackequip.hkx
 Animations\handtohandattackforwardpower.hkx
@@ -5580,7 +5610,7 @@ Animations\handtohandstagger.hkx
 Animations\handtohandturnleft.hkx
 Animations\handtohandturnright.hkx
 Animations\handtohandunequip.hkx
-Animations\idle.hkx
+
 Animations\idleanims\agony.hkx
 Animations\idleanims\bah.hkx
 Animations\idleanims\check.hkx
@@ -5683,10 +5713,8 @@ Animations\idleanims\startle.hkx
 Animations\idleanims\stretch.hkx
 Animations\idleanims\swat.hkx
 Animations\idleanims\taunt.hkx
-Animations\jumpland.hkx
-Animations\jumploop.hkx
-Animations\jumpstart.hkx
-Animations\left.hkx
+
+
 Animations\onehandattackbackpower.hkx
 Animations\onehandattackforwardpower.hkx
 Animations\onehandattackleft.hkx
@@ -5723,8 +5751,8 @@ Animations\onehandturnleft.hkx
 Animations\onehandturnright.hkx
 Animations\onehandunequip.hkx
 Animations\recoil.hkx
-Animations\right.hkx
-Animations\runforward.hkx
+
+
 Animations\specialanims\casttouch.hkx
 Animations\specialanims\casttouch_axe.hkx
 Animations\specialanims\casttouch_fist.hkx
@@ -5828,8 +5856,7 @@ Animations\swimstagger.hkx
 Animations\swimturnleft.hkx
 Animations\swimturnright.hkx
 Animations\swimunequip.hkx
-Animations\turnleft.hkx
-Animations\turnright.hkx
+
 Animations\twohandattackbackpower.hkx
 Animations\twohandattackequip.hkx
 Animations\twohandattackforwardpower.hkx
@@ -5859,8 +5886,8 @@ Animations\twohandstagger.hkx
 Animations\twohandturnleft.hkx
 Animations\twohandturnright.hkx
 Animations\twohandunequip.hkx
-Animations\unequip.hkx
-Animations\walkforward.hkx
+
+
 
 			*/
 
@@ -5909,7 +5936,7 @@ void CreateDummyBehavior
 	transition_effect.m_name = "zero_duration";
 	transition_effect.m_userData = 0;
 	transition_effect.m_selfTransitionMode = hkbBlendingTransitionEffect::SELF_TRANSITION_MODE_CONTINUE_IF_CYCLIC_BLEND_IF_ACYCLIC;
-	transition_effect.m_eventMode = hkbBlendingTransitionEffect::EVENT_MODE_DEFAULT;
+	transition_effect.m_eventMode = hkbBlendingTransitionEffect::EVENT_MODE_IGNORE_FROM_GENERATOR;
 	transition_effect.m_duration = 0.0;
 	transition_effect.m_toGeneratorStartTimeFraction = 0.0;
 	transition_effect.m_flags = 0;
@@ -6030,6 +6057,7 @@ void CreateHavokProject(
 }
 
 void CreateHavokCharacter(
+	const std::string& character_name,
 	const std::string& rig_relative_file,
 	const std::string& behavior_relative_file,
 	const std::string& output_file,
@@ -6043,7 +6071,7 @@ void CreateHavokCharacter(
 	skel_info.m_mirrorAxis = hkVector4(1.000000, 0.000000, 0.000000, 0.000000);
 
 	// hkbCharacterStringData
-	string_data.m_name = "character";
+	string_data.m_name = character_name.c_str();
 	string_data.m_rigName = rig_relative_file.c_str();
 	string_data.m_ragdollName = rig_relative_file.c_str();
 	string_data.m_behaviorFilename = behavior_relative_file.c_str();
@@ -6080,15 +6108,40 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 	const fs::path& file,
 	const std::string creature_tag,
 	vector<NiObjectRef>& out_blocks,
+	NiObjectRef& out_root,
 	std::map<fs::path, std::string>& skeleton_body_parts,
-	vector<string>& slots
+	vector<string>& slots,
+	std::map<std::set<std::string>, std::string>& bodySlots
 )
 {
-	std::string part_name = "BODY";
+	auto meshes = DynamicCast<NiTriShape>(out_blocks);
+	std::string part_name = file.filename().replace_extension("").string();
 	Sk::SKBOD2::BodyParts out = Sk::SKBOD2::BodyParts::bpBody;
 	if (skeleton_body_parts.find(file) != skeleton_body_parts.end())
 	{
 		part_name = skeleton_body_parts[file];
+	}
+	else {
+		std::set<std::string> skin_bones;
+		for (auto& geometry : meshes)
+		{
+			if (geometry->GetSkinInstance() != NULL)
+			{
+				auto skin = geometry->GetSkinInstance();
+				auto& bones = skin->GetBones();
+				for (const auto& bone : bones)
+				{
+					skin_bones.insert(bone->GetName());
+				}
+			}
+		}
+		if (bodySlots.find(skin_bones) != bodySlots.end())
+		{
+			part_name = bodySlots.at(skin_bones);
+		}
+		else {
+			bodySlots[skin_bones] = part_name;
+		}
 	}
 	std::transform(part_name.begin(), part_name.end(), part_name.begin(), toupper);
 	auto slot_it = std::find(slots.begin(), slots.end(), part_name);
@@ -6103,7 +6156,8 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 	}
 	out = (Sk::SKBOD2::BodyParts)(1 << index);
 	int partition_index = 30 + index;
-	auto meshes = DynamicCast<NiTriShape>(out_blocks);
+
+	bool isBody = DynamicCast<NiNode>(out_root)->GetExtraDataList().size() == 0; // no prn
 	for (auto& geometry : meshes)
 	{
 		if (geometry->GetSkinInstance() != NULL)
@@ -6129,6 +6183,18 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 			}
 			geometry->SetSkinInstance(StaticCast<NiSkinInstance>(creature_skin));
 		}
+	}
+	if (isBody)
+	{
+		NiNodeRef newRoot = new NiNode();
+		newRoot->SetName(std::string("Scene Root"));
+		newRoot->SetChildren(StaticCast<NiNode>(out_root)->GetChildren());
+		newRoot->SetFlags(524302);
+		newRoot->SetTranslation({ 0., 0., 0. });
+		newRoot->SetRotation(Matrix33::IDENTITY);
+		newRoot->SetScale(1.);
+		
+		out_root = StaticCast<NiObject>(newRoot);
 	}
 	return out;
 }
@@ -6256,6 +6322,7 @@ void ConvertAssets(
 			toor->SetScale(1.);
 
 			rootn->SetChildren({StaticCast<NiAVObject>(toor)});
+			skeleton_converted_blocks.push_back(StaticCast<NiObject>(toor));
 
 			WriteNifTree(creature_output_skeleton.string(), root, info);
 			std::get<0>(assets) = skeleton_converted_blocks;
@@ -6291,6 +6358,7 @@ void ConvertAssets(
 
 			//Convert meshes
 			auto& meshes = std::get<1>(assets);
+			std::map<std::set<std::string>, std::string> bodySlots;
 			for (auto& asset : meshes)
 			{
 				std::string relative_output_mesh = (fs::path(creature_path) / "Character Assets" / asset.first.filename()).string();
@@ -6314,7 +6382,7 @@ void ConvertAssets(
 					outputFolder,
 					metadata
 				);
-				Sk::SKBOD2::BodyParts part = FindBodyPart(asset.first, creature_subfolder, converted_blocks, body_parts, slot_names);
+				Sk::SKBOD2::BodyParts part = FindBodyPart(asset.first, creature_subfolder, converted_blocks, root, body_parts, slot_names, bodySlots);
 				//Create Armor Addon
 				std::string this_mesh_name = asset.first.filename().replace_extension("").string();
 				this_mesh_name[0] = toupper(this_mesh_name[0]);
@@ -6342,6 +6410,8 @@ void ConvertAssets(
 			//Assemble armors
 			{
 				auto& this_skeleton_skin = skins[entry.first];
+				std::set<string> already_used_edid;
+				int edid_index = 0;
 				for (auto& skin : this_skeleton_skin)
 				{
 					set<string> ob_edids;
@@ -6388,6 +6458,12 @@ void ConvertAssets(
 					}
 
 					std::string armo_EDID = prefix + skin_name + "Skin";
+					while (!already_used_edid.insert(armo_EDID).second)
+					{
+						Log::Warn("EDID Collision %s", armo_EDID.c_str());
+						armo_EDID = prefix + skin_name + "Skin" + to_string(++edid_index);
+					}
+					edid_index = 0;
 					Sk::ARMORecord* armo_record = (Sk::ARMORecord*)conversionCollection.CreateRecord(conversionPlugin, REV32(ARMO), NULL, (char*)armo_EDID.c_str(), NULL, 0);
 					armo_record->EDID = armo_EDID;
 					for (const auto& model : skin.first)
@@ -6423,8 +6499,10 @@ void ConvertAssets(
 
 		//HAVOK
 		{
+			std::string creature_name = creature_subfolder;
+			creature_name[0] = toupper(creature_name[0]);
 			//Behavior
-			fs::path behavior_relative_file = fs::path("Behaviors") / (creature_subfolder + "Behavior.hkx");
+			fs::path behavior_relative_file = fs::path("Behaviors") / (prefix + creature_name + "Behavior.hkx");
 			fs::path creature_output_behavior = outputFolder / creature_path / behavior_relative_file;
 			fs::create_directories(creature_output_behavior.parent_path());
 			CreateDummyBehavior
@@ -6436,12 +6514,14 @@ void ConvertAssets(
 			);
 
 			//Character
-			fs::path character_relative_file = fs::path("Character") / (creature_subfolder + "Character.hkx");
+			
+			fs::path character_relative_file = fs::path("Characters") / (prefix + creature_name + "Character.hkx");
 			fs::path creature_output_character = outputFolder / creature_path / character_relative_file;
 			fs::create_directories(creature_output_character.parent_path());
 			
 			set<string> animations_relative_files;
 			CreateHavokCharacter(
+				creature_name,
 				rig_relative_havok_file.string(),
 				behavior_relative_file.string(),
 				creature_output_character.string(),
@@ -6449,7 +6529,7 @@ void ConvertAssets(
 			);
 
 			//project
-			fs::path project_relative_file = fs::path(creature_path) / (prefix + creature_subfolder + "Project.hkx");
+			fs::path project_relative_file = fs::path(creature_path) / (prefix + creature_name + "Project.hkx");
 			fs::path creature_output_project = outputFolder / project_relative_file;
 			fs::create_directories(creature_output_project.parent_path());
 			CreateHavokProject(
@@ -6457,7 +6537,7 @@ void ConvertAssets(
 				creature_output_project.string()
 			);
 
-			Sk::GenericModel behavior_entry; behavior_entry.MODL = (fs::path(creature_path_no_meshes) / (prefix + creature_subfolder + "Project.hkx")).string();
+			Sk::GenericModel behavior_entry; behavior_entry.MODL = (fs::path(creature_path_no_meshes) / (prefix + creature_name + "Project.hkx")).string();
 			race->behaviors.maleGraph.value.push_back(behavior_entry);
 			race->behaviors.femaleGraph.value.push_back(behavior_entry);
 
@@ -6515,7 +6595,7 @@ bool BeginConversion(string importPath, string exportPath)
 	logger.init(4, argvv);
 
 	char* conversionPluginName = "SkyblivionCreatures.esp";
-	exportPath = "D:\\SteamLibrary\\steamapps\\common\\Skyrim Special Edition\\Data";
+	exportPath = "D:\\conversion";
 
 	Collection conversionCollection = Collection((char* const)exportPath.c_str(), 3);
 	ModFlags masterSkFlags = ModFlags(0xA);

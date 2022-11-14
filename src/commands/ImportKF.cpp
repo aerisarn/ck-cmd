@@ -1881,7 +1881,10 @@ void ImportKF::ExportAnimations(const NifFolderType& in
 					Log::Info("Exporting '%s'", outfile.c_str());
 					skelAnimCont->m_animations.pushBack(newBinding->m_animation);
 					fs::create_directories(fs::path(outfile).parent_path());
-					hkOstream stream(outfile.c_str());
+					ckcmd::HKX::HKXWrapper().write_xml(&rootCont, outfile);
+
+
+/*					hkOstream stream(outfile.c_str());
 					hkVariant root = { &rootCont, &rootCont.staticClass() };
 					hkPackFormat pkFormat = HKPF_DEFAULT;
 					hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
@@ -1890,7 +1893,7 @@ void ImportKF::ExportAnimations(const NifFolderType& in
 					if (res != HK_SUCCESS)
 					{
 						Log::Error("Havok reports save failed for file %s.", outfile.c_str());
-					}
+					}*/
 					rootMovements[out_relative] = exporter._root_info;
 				}
 				else
