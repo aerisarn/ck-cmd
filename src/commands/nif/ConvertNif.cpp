@@ -5898,13 +5898,17 @@ void CreateTES4Behavior
 	const std::string& prefix,
 	const std::string& creature_tag,
 	const std::string& output_file,
-	std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements
+	std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements,
 	Collection& conversionCollection,
 	ModFile*& conversionPlugin
 )
 {
 	//Skyrim requires a MOVT entry for each kind of moving set of animations
-	
+	// for the AI to decide how to move the creature, when bAnimationDriven is not set
+	// otherwise the movements are decided by the animation itself
+
+	//the speed and possible movements are decided by the SPED structure.
+	//the MOVT are switched by the behavior using the iState variables and state tagging modifiers
 
 }
 
