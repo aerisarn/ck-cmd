@@ -5257,8 +5257,8 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				//if (std::string(creature->MODL.value->MODL.value).find("Goblin") != string::npos)
-				//{
+				if (std::string(creature->MODL.value->MODL.value).find("Zombie") != string::npos)
+				{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					if (skeleton.find("landdreugh") != string::npos)
 						int debug = 1;
@@ -5328,7 +5328,7 @@ void findCreatures
 						models_lowercase.insert(s_model);
 					}
 					skins[skeleton][models_lowercase].insert(creature);
-				//}
+				}
 			}
 		}
 	}
@@ -5495,6 +5495,8 @@ NifFolderType load_override_or_bsa_nif_folder(const fs::path& skeleton_path, con
 //Animations\backward.hkx / Animations\backwardwalk.hkx
 //Animations\left.hkx
 //Animations\right.hkx
+//h2h
+
 
 // TURN
 //Animations\turnleft.hkx
@@ -5519,6 +5521,9 @@ NifFolderType load_override_or_bsa_nif_folder(const fs::path& skeleton_path, con
 // EQUIP
 //Animations\equip.hkx
 //Animations\unequip.hkx
+
+// HANDTOHAND
+
 
 /*
 Animations\attackbow.hkx
@@ -5886,10 +5891,22 @@ Animations\twohandstagger.hkx
 Animations\twohandturnleft.hkx
 Animations\twohandturnright.hkx
 Animations\twohandunequip.hkx
+*/
 
+void CreateTES4Behavior
+(
+	const std::string& prefix,
+	const std::string& creature_tag,
+	const std::string& output_file,
+	std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements
+	Collection& conversionCollection,
+	ModFile*& conversionPlugin
+)
+{
+	//Skyrim requires a MOVT entry for each kind of moving set of animations
+	
 
-
-			*/
+}
 
 void CreateDummyBehavior
 (
@@ -6160,6 +6177,26 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 	bool isBody = DynamicCast<NiNode>(out_root)->GetExtraDataList().size() == 0; // no prn
 	for (auto& geometry : meshes)
 	{
+		//Transforms on meshes are not taken into account in skyrim. need to adjust skinning
+		//also the global transform seems to be ignored
+		auto translation = geometry->GetTranslation();
+		auto rotation = geometry->GetRotation();
+		Matrix44 GeometryTransform(translation, rotation, 1.);
+
+		if (NULL != geometry->GetData())
+		{
+			auto vertexData = geometry->GetData()->GetVertices();
+			for (auto& vertex : vertexData)
+			{
+				vertex = GeometryTransform * vertex;
+			}
+			geometry->GetData()->SetVertices(vertexData);
+		}
+
+		geometry->SetTranslation({ 0., 0., 0. });
+		geometry->SetRotation(Matrix33::IDENTITY);
+		geometry->SetScale(1.);
+
 		if (geometry->GetSkinInstance() != NULL)
 		{
 			BSDismemberSkinInstanceRef creature_skin = new BSDismemberSkinInstance();
@@ -6181,6 +6218,41 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 				}
 				creature_skin->SetPartitions(value);
 			}
+
+			auto data = DynamicCast<NiSkinData>(creature_skin->GetData());
+			auto instanceBones = geometry->GetSkinInstance()->GetBones();
+
+			if (data != NULL)
+			{
+				//global mesh transform has been reset, so this must be adjusted as well.
+				//I think this is the transformation between the skeleton root and the skin,
+				//assuming the root is in 0,0,0
+				NiTransform identity;
+				identity.translation = { 0., 0., 0. };
+				identity.rotation = Matrix33::IDENTITY;
+				identity.scale = 1.;
+				data->SetSkinTransform(identity);
+				
+				auto bones = data->GetBoneList();
+				for (int b = 0; b < bones.size(); ++b)
+				{
+					//Adjust the mesh position in the bone local reference
+					//As the skin was moved in 0.0.0., this is the inverse of the absolute bone transform
+					Matrix44 absoluteBoneTransform(
+						instanceBones[b]->GetTranslation(),
+						instanceBones[b]->GetRotation(),
+						1.
+					);
+					absoluteBoneTransform = absoluteBoneTransform.Inverse();
+					NiTransform boneTransform;
+					boneTransform.translation = absoluteBoneTransform.GetTranslation();
+					boneTransform.rotation = absoluteBoneTransform.GetRotation();
+					boneTransform.scale = 1.;
+					bones[b].skinTransform = boneTransform;
+				}
+				data->SetBoneList(bones);
+			}
+
 			geometry->SetSkinInstance(StaticCast<NiSkinInstance>(creature_skin));
 		}
 	}
@@ -6254,7 +6326,7 @@ void ConvertAssets(
 )
 {
 	int index = 0;
-	set<string> debug_animations;
+	//set<string> debug_animations;
 	for (const auto& entry : skeletons)
 	{
 		Log::Info("Converting %d/%d: %s", ++index, skeletons.size(), entry.first.string().c_str());
@@ -6548,10 +6620,10 @@ void ConvertAssets(
 		}
 	}
 
-	for (const auto& animation : debug_animations)
-	{
-		Log::Warn(animation.c_str());
-	}
+	//for (const auto& animation : debug_animations)
+	//{
+	//	Log::Warn(animation.c_str());
+	//}
 
 }
 
@@ -6650,7 +6722,7 @@ bool BeginConversion(string importPath, string exportPath)
 
 
 	fs::path out_path;
-	if (nifs.empty() && spts.empty()) {
+ 	if (nifs.empty() && spts.empty()) {
 		Log::Info("No NIFs found.. trying BSAs");
 		const Games::GamesPathMapT& installations = games.getGames();
 		games.loadBsas(Games::TES4);
