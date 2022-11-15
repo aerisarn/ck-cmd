@@ -4982,7 +4982,8 @@ void convert_blocks(
 	NifInfo& info,
 	fs::path nif_file_path,
 	fs::path exportPath,
-	vector<pair<string, Vector3>>& metadata)
+	vector<pair<string, Vector3>>& metadata,
+	bool doProxyRoot)
 {
 
 	//this is all hacky but ehhhh.
@@ -5116,7 +5117,7 @@ void convert_blocks(
 			//bsroot->SetTranslation(displacement);
 
 			if (bsroot->GetTranslation().Magnitude() != 0 ||
-				!bsroot->GetRotation().isIdentity())
+				!bsroot->GetRotation().isIdentity() && doProxyRoot)
 			{
 				NiNode* proxyRoot = new NiNode();
 				proxyRoot->SetName(IndexString("ProxyRoot"));
@@ -5257,8 +5258,8 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				if (std::string(creature->MODL.value->MODL.value).find("Zombie") != string::npos)
-				{
+				//if (std::string(creature->MODL.value->MODL.value).find("Zombie") != string::npos)
+				//{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					if (skeleton.find("landdreugh") != string::npos)
 						int debug = 1;
@@ -5328,7 +5329,7 @@ void findCreatures
 						models_lowercase.insert(s_model);
 					}
 					skins[skeleton][models_lowercase].insert(creature);
-				}
+				//}
 			}
 		}
 	}
@@ -6138,7 +6139,19 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 	auto meshes = DynamicCast<NiTriShape>(out_blocks);
 	std::string part_name = file.filename().replace_extension("").string();
 	Sk::SKBOD2::BodyParts out = Sk::SKBOD2::BodyParts::bpBody;
-	if (skeleton_body_parts.find(file) != skeleton_body_parts.end())
+	//Dog has multiple attachments on the same node, horse even single eye slot, sigh
+	if (part_name.find("eye") != string::npos)
+	{
+		part_name = "EYES";
+		if (part_name.find("left") != string::npos)
+		{
+			part_name = "LEFT EYE";
+		} else if (part_name.find("right") != string::npos)
+		{
+			part_name = "RIGHT EYE";
+		}
+	}
+	else if (skeleton_body_parts.find(file) != skeleton_body_parts.end())
 	{
 		part_name = skeleton_body_parts[file];
 	}
@@ -6178,28 +6191,41 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 	out = (Sk::SKBOD2::BodyParts)(1 << index);
 	int partition_index = 30 + index;
 
-	bool isBody = DynamicCast<NiNode>(out_root)->GetExtraDataList().size() == 0; // no prn
+	bool isBody = true; // DynamicCast<NiNode>(out_root)->GetExtraDataList().size() == 0; // no prn
+	for (auto& block : out_blocks)
+	{
+		if (block->IsDerivedType(NiStringExtraData::TYPE))
+		{
+			NiStringExtraDataRef ed = DynamicCast<NiStringExtraData>(block);
+			if (ed->GetName().find("Prn") != string::npos)
+			{
+				isBody = false;
+				break;
+			}
+		}
+	}
+
 	for (auto& geometry : meshes)
 	{
-		//Transforms on meshes are not taken into account in skyrim. need to adjust skinning
-		//also the global transform seems to be ignored
-		auto translation = geometry->GetTranslation();
-		auto rotation = geometry->GetRotation();
-		Matrix44 GeometryTransform(translation, rotation, 1.);
+		////Transforms on meshes are not taken into account in skyrim. need to adjust skinning
+		////also the global transform seems to be ignored
+		//auto translation = geometry->GetTranslation();
+		//auto rotation = geometry->GetRotation();
+		//Matrix44 GeometryTransform(translation, rotation, 1.);
 
-		if (NULL != geometry->GetData())
-		{
-			auto vertexData = geometry->GetData()->GetVertices();
-			for (auto& vertex : vertexData)
-			{
-				vertex = GeometryTransform * vertex;
-			}
-			geometry->GetData()->SetVertices(vertexData);
-		}
+		//if (NULL != geometry->GetData())
+		//{
+		//	auto vertexData = geometry->GetData()->GetVertices();
+		//	for (auto& vertex : vertexData)
+		//	{
+		//		vertex = GeometryTransform * vertex;
+		//	}
+		//	geometry->GetData()->SetVertices(vertexData);
+		//}
 
-		geometry->SetTranslation({ 0., 0., 0. });
-		geometry->SetRotation(Matrix33::IDENTITY);
-		geometry->SetScale(1.);
+		//geometry->SetTranslation({ 0., 0., 0. });
+		//geometry->SetRotation(Matrix33::IDENTITY);
+		//geometry->SetScale(1.);
 
 		if (geometry->GetSkinInstance() != NULL)
 		{
@@ -6223,39 +6249,39 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 				creature_skin->SetPartitions(value);
 			}
 
-			auto data = DynamicCast<NiSkinData>(creature_skin->GetData());
-			auto instanceBones = geometry->GetSkinInstance()->GetBones();
+			//auto data = DynamicCast<NiSkinData>(creature_skin->GetData());
+			//auto instanceBones = geometry->GetSkinInstance()->GetBones();
 
-			if (data != NULL)
-			{
-				//global mesh transform has been reset, so this must be adjusted as well.
-				//I think this is the transformation between the skeleton root and the skin,
-				//assuming the root is in 0,0,0
-				NiTransform identity;
-				identity.translation = { 0., 0., 0. };
-				identity.rotation = Matrix33::IDENTITY;
-				identity.scale = 1.;
-				data->SetSkinTransform(identity);
-				
-				auto bones = data->GetBoneList();
-				for (int b = 0; b < bones.size(); ++b)
-				{
-					//Adjust the mesh position in the bone local reference
-					//As the skin was moved in 0.0.0., this is the inverse of the absolute bone transform
-					Matrix44 absoluteBoneTransform(
-						instanceBones[b]->GetTranslation(),
-						instanceBones[b]->GetRotation(),
-						1.
-					);
-					absoluteBoneTransform = absoluteBoneTransform.Inverse();
-					NiTransform boneTransform;
-					boneTransform.translation = absoluteBoneTransform.GetTranslation();
-					boneTransform.rotation = absoluteBoneTransform.GetRotation();
-					boneTransform.scale = 1.;
-					bones[b].skinTransform = boneTransform;
-				}
-				data->SetBoneList(bones);
-			}
+			//if (data != NULL)
+			//{
+			//	//global mesh transform has been reset, so this must be adjusted as well.
+			//	//I think this is the transformation between the skeleton root and the skin,
+			//	//assuming the root is in 0,0,0
+			//	NiTransform identity;
+			//	identity.translation = { 0., 0., 0. };
+			//	identity.rotation = Matrix33::IDENTITY;
+			//	identity.scale = 1.;
+			//	data->SetSkinTransform(identity);
+			//	
+			//	auto bones = data->GetBoneList();
+			//	for (int b = 0; b < bones.size(); ++b)
+			//	{
+			//		//Adjust the mesh position in the bone local reference
+			//		//As the skin was moved in 0.0.0., this is the inverse of the absolute bone transform
+			//		Matrix44 absoluteBoneTransform(
+			//			instanceBones[b]->GetTranslation(),
+			//			instanceBones[b]->GetRotation(),
+			//			1.
+			//		);
+			//		absoluteBoneTransform = absoluteBoneTransform.Inverse();
+			//		NiTransform boneTransform;
+			//		boneTransform.translation = absoluteBoneTransform.GetTranslation();
+			//		boneTransform.rotation = absoluteBoneTransform.GetRotation();
+			//		boneTransform.scale = 1.;
+			//		bones[b].skinTransform = boneTransform;
+			//	}
+			//	data->SetBoneList(bones);
+			//}
 
 			geometry->SetSkinInstance(StaticCast<NiSkinInstance>(creature_skin));
 		}
@@ -6385,7 +6411,8 @@ void ConvertAssets(
 				info,
 				entry.first,
 				outputFolder,
-				metadata
+				metadata,
+				true
 			);
 			//add skeleton root
 			NiNodeRef rootn = DynamicCast<NiNode>(root);
@@ -6456,7 +6483,8 @@ void ConvertAssets(
 					info,
 					entry.first,
 					outputFolder,
-					metadata
+					metadata,
+					true
 				);
 				Sk::SKBOD2::BodyParts part = FindBodyPart(asset.first, creature_subfolder, converted_blocks, root, body_parts, slot_names, bodySlots);
 				//Create Armor Addon
@@ -6671,7 +6699,7 @@ bool BeginConversion(string importPath, string exportPath)
 	logger.init(4, argvv);
 
 	char* conversionPluginName = "SkyblivionCreatures.esp";
-	exportPath = "D:\\conversion";
+	exportPath = "D:\\SteamLibrary\\steamapps\\common\\Skyrim Special Edition\\Data";
 
 	Collection conversionCollection = Collection((char* const)exportPath.c_str(), 3);
 	ModFlags masterSkFlags = ModFlags(0xA);
@@ -6790,7 +6818,8 @@ bool BeginConversion(string importPath, string exportPath)
 					info,
 					nif,
 					exportPath,
-					metadata
+					metadata,
+					true
 				);
 
 				//out_path = nif_out / nif;
@@ -6904,7 +6933,8 @@ bool BeginConversion(string importPath, string exportPath)
 				info,
 				nifs[i],
 				exportPath,
-				metadata
+				metadata,
+				true
 			);
 
 			size_t offset = nifs[i].parent_path().string().find("meshes", 0);

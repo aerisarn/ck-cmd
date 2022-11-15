@@ -1454,19 +1454,26 @@ void importVectorOfKeys(int interpolationType, const Niflib::array<3, KeyGroup<f
 		{
 			float time = frame * frameTime;
 			float x = 0., y = 0., z = 0.;
-			interpolate(rotations[0].interpolation, x, rotations[0].keys, time, lastKeyX);
-			interpolate(rotations[1].interpolation, y, rotations[1].keys, time, lastKeyY);
-			interpolate(rotations[2].interpolation, z, rotations[2].keys, time, lastKeyZ);
+			bool interpolateX = interpolate(rotations[0].interpolation, x, rotations[0].keys, time, lastKeyX);
+			bool interpolateY = interpolate(rotations[1].interpolation, y, rotations[1].keys, time, lastKeyY);
+			bool interpolateZ = interpolate(rotations[2].interpolation, z, rotations[2].keys, time, lastKeyZ);
 			hkQsTransform& transform = transforms[frame * nbones + boneIdx];
 
-			hkRotation rot_z; rot_z.setAxisAngle(hkVector4(0., 0., 1.), x);
-			hkRotation rot_y; rot_y.setAxisAngle(hkVector4(0., 1., 0.), y);
-			hkRotation rot_x; rot_x.setAxisAngle(hkVector4(1., 0., 0.), z);
+			hkRotation rot_z; rot_z.setIdentity();
+			if (interpolateZ)
+				rot_z.setAxisAngle(hkVector4(0., 0., 1.), z);
+			hkRotation rot_y; rot_y.setIdentity();
+			if (interpolateY)
+				rot_y.setAxisAngle(hkVector4(0., 1., 0.), y);
+			hkRotation rot_x; rot_x.setIdentity();
+			if (interpolateX)
+				rot_x.setAxisAngle(hkVector4(1., 0., 0.), x);
 
-			hkRotation rot(rot_z), result; rot.mul(rot_y); rot.mul(rot_x);
-			::hkQuaternion q(result);
+			hkRotation rot(rot_z); rot.mul(rot_y); rot.mul(rot_x);
+			::hkQuaternion q(rot);
 
-			SetTransformRotation(transform, q);
+			if (interpolateX || interpolateY || interpolateZ)
+				SetTransformRotation(transform, q);
 
 		}	
 	}
@@ -1703,8 +1710,17 @@ bool AnimationExport::exportController()
 
 			if (NiTransformDataRef data = interp->GetData())
 			{
-				NiQuatTransform interp_local = interp->GetTransform();
-				//TODO: check these;
+				auto translation = TOVECTOR4(interp->GetTransform().translation);
+				SetTransformPosition(localTransform, translation);
+				if (interp->GetTransform().rotation.x != FloatNegINF)
+				{
+					auto rotation = TOQUAT(interp->GetTransform().rotation);
+					SetTransformRotation(localTransform, rotation);
+				}
+				auto scale = interp->GetTransform().scale;
+				SetTransformScale(localTransform, scale);
+
+				FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with bindpose
 
 				if (data != NULL) {
 
