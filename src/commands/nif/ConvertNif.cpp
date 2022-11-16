@@ -3452,11 +3452,13 @@ public:
 					SkinPartition* block = &partitionBlocks[i];
 					if (block->numStrips > 0)
 					{
-						if (block->numTriangles > 0)
-						{
-							throw runtime_error("Found mixed strips and triangles, unsupported!");
-						}
-						block->triangles = triangulate(block->strips);
+						//if (block->numTriangles > 0)
+						//{
+						//	throw runtime_error("Found mixed strips and triangles, unsupported!");
+						//}
+						auto triangles = triangulate(block->strips);
+						block->triangles.insert(block->triangles.end(), triangles.begin(), triangles.end());
+						block->numTriangles = block->triangles.size();
 						block->numStrips = 0;
 						block->strips = vector<vector<unsigned short>>(0);
 						block->stripLengths = vector<unsigned short>(0);
@@ -5286,8 +5288,8 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				if (std::string(creature->MODL.value->MODL.value).find("Ghost") != string::npos)
-				{
+				//if (std::string(creature->MODL.value->MODL.value).find("Spider") != string::npos)
+				//{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					if (skeleton.find("landdreugh") != string::npos)
 						int debug = 1;
@@ -5357,7 +5359,7 @@ void findCreatures
 						models_lowercase.insert(s_model);
 					}
 					skins[skeleton][models_lowercase].insert(creature);
-				}
+				//}
 			}
 		}
 	}
@@ -6282,7 +6284,7 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 	std::string part_name = file.filename().replace_extension("").string();
 	Sk::SKBOD2::BodyParts out = Sk::SKBOD2::BodyParts::bpBody;
 	//Dog has multiple attachments on the same node, horse even single eye slot, sigh
-	if (part_name.find("eye") != string::npos)
+	/*if (part_name.find("eye") != string::npos)
 	{
 		part_name = "EYES";
 		if (part_name.find("left") != string::npos)
@@ -6293,9 +6295,10 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 			part_name = "RIGHT EYE";
 		}
 	}
-	else if (skeleton_body_parts.find(file) != skeleton_body_parts.end())
+	else */
+	if (skeleton_body_parts.find(file) != skeleton_body_parts.end())
 	{
-		part_name = skeleton_body_parts[file];
+		//part_name = skeleton_body_parts[file];
 	}
 	else {
 		std::set<std::string> skin_bones;
@@ -6799,7 +6802,7 @@ bool BeginConversion(string importPath, string exportPath)
 	{
 #ifndef _DEBUG
 		Log::Warn("Unable to find Oblivion Data directory, there WILL be errors and creatures won't be converted!");
-		return;
+		return false;
 #else 
 		oblivionData = "D:\\The Elder Scrolls IV Oblivion\\Data";
 #endif
