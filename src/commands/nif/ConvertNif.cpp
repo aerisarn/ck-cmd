@@ -2980,6 +2980,12 @@ public:
 		return result;
 	}
 
+	void convertTexturingProperies()
+	{
+
+	}
+
+
 	template<>
 	inline void visit_object(NiTriShape& obj) {
 		bool hasSpecular = false;
@@ -3321,8 +3327,17 @@ public:
 					shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_VERTEX_ALPHA);
 			}
 			else {
-				data->SetHasVertexColors(false);
-				shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS);
+				if (hasOwnEmit || hasGlow)
+				{
+					data->SetHasVertexColors(true);
+					shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 | SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS);
+					std::vector<Niflib::Color4>  value(data->GetVertices().size(), { 1.,1.,1.,1. });
+					data->SetVertexColors(value);
+				}
+				else {
+					data->SetHasVertexColors(false);
+					shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 & ~SkyrimShaderPropertyFlags2::SLSF2_VERTEX_COLORS);
+				}
 			}
 		}
 		if (!hasSpecular)
@@ -3352,6 +3367,12 @@ public:
 		else {
 			shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 | SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP);
 			shader1 = static_cast<SkyrimShaderPropertyFlags1>(shader1 | SkyrimShaderPropertyFlags1::SLSF1_EXTERNAL_EMITTANCE);
+		}
+
+		if (hasOwnEmit)
+		{
+			//Own emission need glow map shader flaf even if it is not a glow
+			shader2 = static_cast<SkyrimShaderPropertyFlags2>(shader2 | SkyrimShaderPropertyFlags2::SLSF2_GLOW_MAP);
 		}
 
 		if (hasOwnEmit || hasGlow) {
@@ -3387,7 +3408,7 @@ public:
 			}
 
 			if (hasOwnEmit) {
-				ls->SetSkyrimShaderType(ST_GLOW_SHADER);
+				ls->SetSkyrimShaderType(ST_GLOW_SHADER);		
 			}
 
 			if (!hasGlow && !hasOwnEmit && hasEnv) {
@@ -3429,10 +3450,17 @@ public:
 
 				for (int i = 0; i != partitionBlocks.size(); i++) {
 					SkinPartition* block = &partitionBlocks[i];
-					block->triangles = triangulate(block->strips);
-					block->numStrips = 0;
-					block->strips = vector<vector<unsigned short>>(0);
-					block->stripLengths = vector<unsigned short>(0);
+					if (block->numStrips > 0)
+					{
+						if (block->numTriangles > 0)
+						{
+							throw runtime_error("Found mixed strips and triangles, unsupported!");
+						}
+						block->triangles = triangulate(block->strips);
+						block->numStrips = 0;
+						block->strips = vector<vector<unsigned short>>(0);
+						block->stripLengths = vector<unsigned short>(0);
+					}
 				}
 
 				skinPartition->SetSkinPartitionBlocks(partitionBlocks);
@@ -5258,8 +5286,8 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				//if (std::string(creature->MODL.value->MODL.value).find("Zombie") != string::npos)
-				//{
+				if (std::string(creature->MODL.value->MODL.value).find("Ghost") != string::npos)
+				{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					if (skeleton.find("landdreugh") != string::npos)
 						int debug = 1;
@@ -5329,7 +5357,7 @@ void findCreatures
 						models_lowercase.insert(s_model);
 					}
 					skins[skeleton][models_lowercase].insert(creature);
-				//}
+				}
 			}
 		}
 	}
@@ -5491,131 +5519,256 @@ NifFolderType load_override_or_bsa_nif_folder(const fs::path& skeleton_path, con
 //Default
 //Animations\idle.hkx
 
-// WALK
-//Animations\walkforward.hkx / Animations\forward.hkx / Animations\forwardwalk.hkx
-//Animations\backward.hkx / Animations\backwardwalk.hkx
-//Animations\left.hkx
-//Animations\right.hkx
-//h2h
 
 
-// TURN
-//Animations\turnleft.hkx
-//Animations\turnright.hkx
+class AnimationSetAnalyzer
+{
+	const std::map<fs::path, ckcmd::HKX::RootMovement>& animations;
 
-// FAST
-//Animations\fastbackward.hkx
-//Animations\fastforward.hkx
-//Animations\fastfoward.hkx
+	enum class MOVE_DIRECTION {
+		idle = 0,
+		forward,
+		backward,
+		left,
+		right,
+		all
+	};
 
-// RUN
-//Animations\runforward.hkx
+	enum class TURN_DIRECTION {
+		left = 0,
+		right,
+		all
+	};
 
-// JUMP
-//Animations\jumpland.hkx
-//Animations\jumploop.hkx
-//Animations\jumpstart.hkx
+	std::map<MOVE_DIRECTION, fs::path> default_move;
+	std::map<TURN_DIRECTION, fs::path> default_turn;
 
-// DEATH (special case that doesn't ragdoll
-//Animations\death.hkx
+	std::map<MOVE_DIRECTION, fs::path> bow_move;
+	std::map<TURN_DIRECTION, fs::path> bow_turn;
 
-// EQUIP
-//Animations\equip.hkx
-//Animations\unequip.hkx
+	void analyzeWalking()
+	{
+		// WALK DEFAULT
+		//Animations\idle.hkx
+		//Animations\walkforward.hkx / Animations\forward.hkx / Animations\forwardwalk.hkx
+		//Animations\backward.hkx / Animations\backwardwalk.hkx
+		//Animations\left.hkx
+		//Animations\right.hkx
+		if (hasAnimation("Animations\idle.hkx"))
+			default_move[MOVE_DIRECTION::idle] = "Animations\idle.hkx";
 
-// HANDTOHAND
+		if (hasAnimation("Animations\walkforward.hkx"))
+			default_move[MOVE_DIRECTION::forward] = "Animations\walkforward.hkx";
+		if (hasAnimation("Animations\forward.hkx"))
+			default_move[MOVE_DIRECTION::forward] = "Animations\forward.hkx";
+		if (hasAnimation("Animations\forwardwalk.hkx"))
+			default_move[MOVE_DIRECTION::forward] = "Animations\forwardwalk.hkx";
 
+		if (hasAnimation("Animations\backward.hkx"))
+			default_move[MOVE_DIRECTION::backward] = "Animations\backward.hkx";
+		if (hasAnimation("Animations\backwardwalk.hkx"))
+			default_move[MOVE_DIRECTION::backward] = "Animations\backwardwalk.hkx";
+
+		if (hasAnimation("Animations\left.hkx"))
+			default_move[MOVE_DIRECTION::left] = "Animations\left.hkx";
+
+		if (hasAnimation("Animations\right.hkx"))
+			default_move[MOVE_DIRECTION::right] = "Animations\right.hkx";
+
+		//BOW
+		//	Animations\bowidle.hkx
+		//	Animations\bowforward.hkx
+		//	Animations\bowbackward.hkx
+		//	Animations\bowleft.hkx
+		//	Animations\bowright.hkx
+		if (hasAnimation("Animations\bowidle.hkx"))
+			bow_move[MOVE_DIRECTION::idle] = "Animations\bowidle.hkx";
+
+		if (hasAnimation("Animations\bowforward.hkx"))
+			default_move[MOVE_DIRECTION::forward] = "Animations\bowforward.hkx";
+
+		if (hasAnimation("Animations\bowforward.hkx"))
+			default_move[MOVE_DIRECTION::forward] = "Animations\bowforward.hkx";
+
+	}
+
+
+	//	Animations\bowturnleft.hkx
+//	Animations\bowturnright.hkx
+
+public:
+
+	AnimationSetAnalyzer(const std::map<fs::path, ckcmd::HKX::RootMovement>& animations) : animations(animations) {}
+
+	inline bool hasAnimation(const std::string& name)
+	{
+		return animations.find(name) != animations.end();
+	}
+
+
+
+
+	bool hasWalking()
+	{
+		return
+			(hasAnimation("walkforward.hkx") || hasAnimation("forward.hkx") || hasAnimation("forwardwalk.hkx")) &&
+				hasAnimation("left.hkx") &&
+				hasAnimation("right.hkx") &&
+				(hasAnimation("backward.hkx") || hasAnimation("backwardwalk.hkx"));
+	}
+
+	// TURN
+	//Animations\turnleft.hkx
+	//Animations\turnright.hkx
+	bool hasTurning()
+	{
+		return hasAnimation("turnleft.hkx") && hasAnimation("turnright.hkx");
+	}
+
+	// RUN
+	//Animations\fastbackward.hkx
+	//Animations\fastforward.hkx
+	//Animations\fastfoward.hkx
+	//Animations\runforward.hkx
+	bool hasRunning()
+	{
+		return hasAnimation("fastbackward.hkx") &&
+			(hasAnimation("fastforward.hkx") || hasAnimation("fastfoward.hkx") || hasAnimation("runforward.hkx"));
+	}
+
+	// JUMP
+	//Animations\jumpland.hkx
+	//Animations\jumploop.hkx
+	//Animations\jumpstart.hkx
+	bool hasJumping()
+	{
+		return hasAnimation("jumpland.hkx") &&
+			hasAnimation("jumploop.hkx") && 
+			hasAnimation("jumpstart.hkx");
+	}
+
+	// DEATH (special case that doesn't ragdoll
+	//Animations\death.hkx
+	bool hasDeath()
+	{
+		return hasAnimation("death.hkx");
+	}
+
+	// BOW
+	//Animations\bowattack.hkx / Animations\attackbow.hkx
+	//	Animations\bowblockhit.hkx
+	//	Animations\bowblockidle.hkx
+	//	Animations\bowequip.hkx
+	//	Animations\bowfastforward.hkx
+
+	//	Animations\bowunequip.hkx
+
+	//CAST
+	//  Animations\castself.hkx
+	//	Animations\castself_a.hkx
+	//	Animations\castself_b.hkx
+	//	Animations\castself_c.hkx
+	//	Animations\casttarget.hkx
+	//	Animations\casttarget_a.hkx
+	//	Animations\casttarget_b.hkx
+	//	Animations\casttarget_c.hkx
+	//	Animations\casttouch.hkx
+	//	Animations\casttouch_a.hkx
+	//	Animations\casttouch_b.hkx
+	//	Animations\casttouch_c.hkx
+
+	//HAND 2 HAND
+	//	Animations\handtohandback.hkx
+	//	Animations\handtohandbackward.hkx
+	//	Animations\handtohandfastforward.hkx / Animations\handtohandforward.hkx /Animations\handtohandforwardwalk.hkx
+	//	Animations\handtohandidle.hkx /Animations\handtohandilde.hkx
+	//	Animations\handtohandleft.hkx
+	//	Animations\handtohandright.hkx
+	
+	//	Animations\handtohandturnleft.hkx
+	//	Animations\handtohandturnright.hkx
+
+	//Animations\equip.hkx / Animations\handtohandattackequip.hkx / Animations\handtohandequip.hkx
+	//Animations\unequip.hkx / Animations\handtohandattackunequip.hkx / Animations\handtohandunequip.hkx
+	//Animations\block.hkx / Animations\handtohandblock.hkx
+	//Animations\blockhit.hkx / Animations\handtohandblockhit.hkx
+	//Animations\blockidle.hkx / Animations\handtohandblockidle.hkx
+	//Animations\stagger.hkx / Animations\handtohandstagger.hkx
+	//Animations\recoil.hkx /Animations\handtohandrecoil.hkx
+
+	//  Animations\handtohandattackbackpower.hkx
+	//	Animations\attackforwardpower.hkx / Animations\handtohandattackfowardpower.hkx / Animations\handtohandattackforwardpower.hkx
+	//	Animations\attackpower.hkx / Animations\handtohandattackpower.hkx
+
+	
+	//	Animations\handtohandattackleft.hkx
+	//	Animations\handtohandattackleft_a.hkx
+	//	Animations\handtohandattackleft_b.hkx
+	//	Animations\handtohandattackleft_backhand.hkx
+	//	Animations\handtohandattackleft_bite.hkx
+	//	Animations\handtohandattackleft_c.hkx
+	//	Animations\handtohandattackleft_chop.hkx
+	//	Animations\handtohandattackleft_cross.hkx
+	//	Animations\handtohandattackleft_scratch.hkx
+	//	Animations\handtohandattackleft_swing.hkx
+	//	Animations\handtohandattackleft_uppercut.hkx
+	//	Animations\handtohandattacklefta.hkx
+	//	Animations\handtohandattackleftb.hkx
+	//	Animations\handtohandattackleftpower.hkx
+
+	//	Animations\handtohandattackright.hkx
+	//	Animations\handtohandattackright_a.hkx
+	//	Animations\handtohandattackright_b.hkx
+	//	Animations\handtohandattackright_backhand.hkx
+	//	Animations\handtohandattackright_bite.hkx
+	//	Animations\handtohandattackright_c.hkx
+	//	Animations\handtohandattackright_chop.hkx
+	//	Animations\handtohandattackright_cross.hkx
+	//	Animations\handtohandattackright_overhead.hkx
+	//	Animations\handtohandattackright_scratch.hkx
+	//	Animations\handtohandattackright_swing.hkx
+	//	Animations\handtohandattackright_uppercut.hkx
+	//	Animations\handtohandattackrighta.hkx
+	//	Animations\handtohandattackrightb.hkx
+	//	Animations\handtohandattackrightpower.hkx
+
+	// SWIM
+	//  Animations\swimbackward.hkx
+	//	Animations\swimblock.hkx
+	//	Animations\swimblockhit.hkx
+	//	Animations\swimequip.hkx
+	//	Animations\swimfastforward.hkx
+	//	Animations\swimforward.hkx
+	//	Animations\swimidle.hkx
+	//	Animations\swimleft.hkx
+	//	Animations\swimrecoil.hkx
+	//	Animations\swimright.hkx
+	//	Animations\swimstagger.hkx
+	//	Animations\swimturnleft.hkx
+	//	Animations\swimturnright.hkx
+	//	Animations\swimunequip.hkx
+
+
+
+	//	
+	bool hasH2H()
+	{
+	}
+
+};
 
 /*
-Animations\attackbow.hkx
-Animations\attackforwardpower.hkx
-Animations\attackpower.hkx
-
-Animations\block.hkx
-Animations\blockhit.hkx
-Animations\blockidle.hkx
-Animations\bowattack.hkx
-Animations\bowbackward.hkx
-Animations\bowblockhit.hkx
-Animations\bowblockidle.hkx
-Animations\bowequip.hkx
-Animations\bowfastforward.hkx
-Animations\bowforward.hkx
-Animations\bowidle.hkx
-Animations\bowleft.hkx
-Animations\bowright.hkx
-Animations\bowturnleft.hkx
-Animations\bowturnright.hkx
-Animations\bowunequip.hkx
-Animations\castself.hkx
-Animations\castself_a.hkx
-Animations\castself_b.hkx
-Animations\castself_c.hkx
-Animations\casttarget.hkx
-Animations\casttarget_a.hkx
-Animations\casttarget_b.hkx
-Animations\casttarget_c.hkx
-Animations\casttouch.hkx
-Animations\casttouch_a.hkx
-Animations\casttouch_b.hkx
-Animations\casttouch_c.hkx
 
 
 
 
-Animations\handtohandattackbackpower.hkx
-Animations\handtohandattackequip.hkx
-Animations\handtohandattackforwardpower.hkx
-Animations\handtohandattackfowardpower.hkx
-Animations\handtohandattackleft.hkx
-Animations\handtohandattackleft_a.hkx
-Animations\handtohandattackleft_b.hkx
-Animations\handtohandattackleft_backhand.hkx
-Animations\handtohandattackleft_bite.hkx
-Animations\handtohandattackleft_c.hkx
-Animations\handtohandattackleft_chop.hkx
-Animations\handtohandattackleft_cross.hkx
-Animations\handtohandattackleft_scratch.hkx
-Animations\handtohandattackleft_swing.hkx
-Animations\handtohandattackleft_uppercut.hkx
-Animations\handtohandattacklefta.hkx
-Animations\handtohandattackleftb.hkx
-Animations\handtohandattackleftpower.hkx
-Animations\handtohandattackpower.hkx
-Animations\handtohandattackright.hkx
-Animations\handtohandattackright_a.hkx
-Animations\handtohandattackright_b.hkx
-Animations\handtohandattackright_backhand.hkx
-Animations\handtohandattackright_bite.hkx
-Animations\handtohandattackright_c.hkx
-Animations\handtohandattackright_chop.hkx
-Animations\handtohandattackright_cross.hkx
-Animations\handtohandattackright_overhead.hkx
-Animations\handtohandattackright_scratch.hkx
-Animations\handtohandattackright_swing.hkx
-Animations\handtohandattackright_uppercut.hkx
-Animations\handtohandattackrighta.hkx
-Animations\handtohandattackrightb.hkx
-Animations\handtohandattackrightpower.hkx
-Animations\handtohandattackunequip.hkx
-Animations\handtohandback.hkx
-Animations\handtohandbackward.hkx
-Animations\handtohandblock.hkx
-Animations\handtohandblockhit.hkx
-Animations\handtohandblockidle.hkx
-Animations\handtohandequip.hkx
-Animations\handtohandfastforward.hkx
-Animations\handtohandforward.hkx
-Animations\handtohandforwardwalk.hkx
-Animations\handtohandidle.hkx
-Animations\handtohandilde.hkx
-Animations\handtohandleft.hkx
-Animations\handtohandrecoil.hkx
-Animations\handtohandright.hkx
-Animations\handtohandstagger.hkx
-Animations\handtohandturnleft.hkx
-Animations\handtohandturnright.hkx
-Animations\handtohandunequip.hkx
+
+
+
+
+
+
+
 
 Animations\idleanims\agony.hkx
 Animations\idleanims\bah.hkx
@@ -5756,7 +5909,7 @@ Animations\onehandstagger.hkx
 Animations\onehandturnleft.hkx
 Animations\onehandturnright.hkx
 Animations\onehandunequip.hkx
-Animations\recoil.hkx
+
 
 
 Animations\specialanims\casttouch.hkx
@@ -5805,6 +5958,8 @@ Animations\specialanims\sway.hkx
 Animations\specialanims\walk01armsup.hkx
 Animations\specialanims\walk02limp.hkx
 Animations\specialanims\walk03leanback.hkx
+
+
 Animations\staffattackright.hkx
 Animations\staffbackward.hkx
 Animations\staffblock.hkx
@@ -5819,13 +5974,7 @@ Animations\staffstagger.hkx
 Animations\staffturnleft.hkx
 Animations\staffturnright.hkx
 Animations\staffunequip.hkx
-Animations\stagger.hkx
-Animations\swimbackward.hkx
-Animations\swimblock.hkx
-Animations\swimblockhit.hkx
-Animations\swimequip.hkx
-Animations\swimfastforward.hkx
-Animations\swimforward.hkx
+
 Animations\swimhandtohandattackbackpower.hkx
 Animations\swimhandtohandattackequip.hkx
 Animations\swimhandtohandattackforwardpower.hkx
@@ -5847,8 +5996,7 @@ Animations\swimhandtohandstagger.hkx
 Animations\swimhandtohandturnleft.hkx
 Animations\swimhandtohandturnright.hkx
 Animations\swimhandtohandunequip.hkx
-Animations\swimidle.hkx
-Animations\swimleft.hkx
+
 Animations\swimonehandattackleft.hkx
 Animations\swimonehandattackright.hkx
 Animations\swimonehandbackward.hkx
@@ -5856,12 +6004,6 @@ Animations\swimonehandforward.hkx
 Animations\swimonehandidle.hkx
 Animations\swimonehandturnleft.hkx
 Animations\swimonehandturnright.hkx
-Animations\swimrecoil.hkx
-Animations\swimright.hkx
-Animations\swimstagger.hkx
-Animations\swimturnleft.hkx
-Animations\swimturnright.hkx
-Animations\swimunequip.hkx
 
 Animations\twohandattackbackpower.hkx
 Animations\twohandattackequip.hkx
@@ -6373,26 +6515,6 @@ void ConvertAssets(
 
 		auto assets = load_override_or_bsa_nif_folder(entry.first, oblivionDataFolder, info);
 
-		//	auto& animations = std::get<2>(assets);
-		//	for (const auto& animation : animations)
-		//	{
-		//		fs::path outdir = outputFolder / creature_path / "Animations";
-
-		//		string animfile = animation.first.string();
-		//		string subfolder = animation.first.parent_path().filename().string();
-		//		string project_subfolder = fs::path(outdir).filename().string();
-		//		string creature_subfolder = fs::path(outdir).parent_path().filename().string();
-		//		if (subfolder == creature_subfolder)
-		//			subfolder = "";
-
-		//		string out_relative = (fs::path(project_subfolder) / subfolder / animation.first.filename().replace_extension(".hkx")).string();
-
-
-		//		debug_animations.insert(out_relative);
-		//	}
-		//	continue;
-		//}
-
 		{
 			//Convert skeleton NIF
 			fs::path creature_output_skeleton = outputFolder / creature_path / "Character Assets" / entry.first.filename();
@@ -6652,13 +6774,7 @@ void ConvertAssets(
 		}
 	}
 
-	//for (const auto& animation : debug_animations)
-	//{
-	//	Log::Warn(animation.c_str());
-	//}
-
 }
-
 
 bool BeginConversion(string importPath, string exportPath) 
 {
