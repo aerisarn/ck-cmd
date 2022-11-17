@@ -5544,11 +5544,34 @@ class AnimationSetAnalyzer
 		all
 	};
 
+	enum class RUN_DIRECTION {
+		forward = 0,
+		backward,
+		all
+	};
+
+	enum class JUMP_STATE {
+		start = 0,
+		loop,
+		land
+	};
+
+	enum class STANCE_STATE {
+		equip = 0,
+		block,
+		blockidle,
+		blockhit,
+		stagger,
+		recoil,
+		unequip
+	};
+
 	std::map<MOVE_DIRECTION, fs::path> default_move;
 	std::map<MOVE_DIRECTION, fs::path> bow_move;
 	std::map<MOVE_DIRECTION, fs::path> swim_move;
 	std::map<MOVE_DIRECTION, fs::path> h2h_move;
 	std::map<MOVE_DIRECTION, fs::path> swimh2h_move;
+	std::map<MOVE_DIRECTION, fs::path> swim1h_move;
 	std::map<MOVE_DIRECTION, fs::path> oneh_move;
 	std::map<MOVE_DIRECTION, fs::path> staff_move;
 	std::map<MOVE_DIRECTION, fs::path> twoh_move;
@@ -5558,9 +5581,31 @@ class AnimationSetAnalyzer
 	std::map<TURN_DIRECTION, fs::path> swim_turn;
 	std::map<TURN_DIRECTION, fs::path> h2h_turn;
 	std::map<TURN_DIRECTION, fs::path> swimh2h_turn;
+	std::map<TURN_DIRECTION, fs::path> swim1h_turn;
 	std::map<TURN_DIRECTION, fs::path> oneh_turn;
 	std::map<TURN_DIRECTION, fs::path> staff_turn;
 	std::map<TURN_DIRECTION, fs::path> twoh_turn;
+
+	std::map<RUN_DIRECTION, fs::path> default_run;
+	std::map<RUN_DIRECTION, fs::path> bow_run;
+	std::map<RUN_DIRECTION, fs::path> swim_run;
+	std::map<RUN_DIRECTION, fs::path> h2h_run;
+	std::map<RUN_DIRECTION, fs::path> swimh2h_run;
+	//std::map<RUN_DIRECTION, fs::path> swim1h_run;
+	std::map<RUN_DIRECTION, fs::path> oneh_run;
+	std::map<RUN_DIRECTION, fs::path> staff_run;
+	std::map<RUN_DIRECTION, fs::path> twoh_run;
+
+	std::map<JUMP_STATE, fs::path> jump;
+
+	std::map<STANCE_STATE, fs::path> h2h_stance;
+	std::map<STANCE_STATE, fs::path> bow_stance;
+	std::map<STANCE_STATE, fs::path> swim_stance;
+	std::map<STANCE_STATE, fs::path> swimh2h_stance;
+	std::map<STANCE_STATE, fs::path> swim1h_stance;
+	std::map<STANCE_STATE, fs::path> oneh_stance;
+	std::map<STANCE_STATE, fs::path> staff_turn;
+	std::map<STANCE_STATE, fs::path> twoh_turn;
 
 	void analyzeWalking()
 	{
@@ -5703,6 +5748,19 @@ class AnimationSetAnalyzer
 		if (hasAnimation("Animations\\onehandright.hkx"))
 			oneh_move[MOVE_DIRECTION::right] = "Animations\\onehandright.hkx";
 
+		//SWIM 1H
+		//	Animations\swimonehandidle.hkx
+		//	Animations\swimonehandforward.hkx
+		//  Animations\swimonehandbackward.hkx
+		if (hasAnimation("Animations\\swimonehandidle.hkx"))
+			swim1h_move[MOVE_DIRECTION::idle] = "Animations\\swimonehandidle.hkx";
+
+		if (hasAnimation("Animations\\swimonehandforward.hkx"))
+			swim1h_move[MOVE_DIRECTION::forward] = "Animations\\swimonehandforward.hkx";
+
+		if (hasAnimation("Animations\\swimonehandbackward.hkx"))
+			swim1h_move[MOVE_DIRECTION::backward] = "Animations\\swimonehandbackward.hkx";
+
 		//STAFF
 		//  Animations\staffidle.hkx
 		//	Animations\staffforward.hkx
@@ -5767,12 +5825,189 @@ class AnimationSetAnalyzer
 		if (hasAnimation("Animations\\bowturnright.hkx"))
 			bow_turn[TURN_DIRECTION::right] = "Animations\\bowturnright.hkx";
 
-		//std::map<TURN_DIRECTION, fs::path> swim_turn;
-		//std::map<TURN_DIRECTION, fs::path> h2h_turn;
-		//std::map<TURN_DIRECTION, fs::path> swimh2h_turn;
-		//std::map<TURN_DIRECTION, fs::path> oneh_turn;
-		//std::map<TURN_DIRECTION, fs::path> staff_turn;
-		//std::map<TURN_DIRECTION, fs::path> twoh_turn;
+		//TURN SWIM
+		//	Animations\swimturnleft.hkx
+		//	Animations\swimturnright.hkx
+		if (hasAnimation("Animations\\swimturnleft.hkx"))
+			swim_turn[TURN_DIRECTION::left] = "Animations\\swimturnleft.hkx";
+
+		if (hasAnimation("Animations\\swimturnright.hkx"))
+			swim_turn[TURN_DIRECTION::right] = "Animations\\swimturnright.hkx";
+
+		//H2H TURN
+		//	Animations\handtohandturnleft.hkx
+		//	Animations\handtohandturnright.hkx
+		if (hasAnimation("Animations\\handtohandturnleft.hkx"))
+			h2h_turn[TURN_DIRECTION::left] = "Animations\\handtohandturnleft.hkx";
+
+		if (hasAnimation("Animations\\handtohandturnright.hkx"))
+			h2h_turn[TURN_DIRECTION::right] = "Animations\\handtohandturnright.hkx";
+
+		//SWIM H2H TURN
+		//  Animations\swimhandtohandturnleft.hkx
+		//	Animations\swimhandtohandturnright.hkx
+		if (hasAnimation("Animations\\swimhandtohandturnleft.hkx"))
+			swimh2h_turn[TURN_DIRECTION::left] = "Animations\\swimhandtohandturnleft.hkx";
+
+		if (hasAnimation("Animations\\swimhandtohandturnright.hkx"))
+			swimh2h_turn[TURN_DIRECTION::right] = "Animations\\swimhandtohandturnright.hkx";
+
+		//1H TURN
+		//  Animations\onehandturnleft.hkx
+		//	Animations\onehandturnright.hkx
+		if (hasAnimation("Animations\\onehandturnleft.hkx"))
+			oneh_turn[TURN_DIRECTION::left] = "Animations\\onehandturnleft.hkx";
+
+		if (hasAnimation("Animations\\onehandturnright.hkx"))
+			oneh_turn[TURN_DIRECTION::right] = "Animations\\onehandturnright.hkx";
+
+		//SWIM 1H TURN
+		//	Animations\swimonehandturnleft.hkx
+		//	Animations\swimonehandturnright.hkx
+		if (hasAnimation("Animations\\swimonehandturnleft.hkx"))
+			swim1h_turn[TURN_DIRECTION::left] = "Animations\\swimonehandturnleft.hkx";
+
+		if (hasAnimation("Animations\\swimonehandturnright.hkx"))
+			swim1h_turn[TURN_DIRECTION::right] = "Animations\\swimonehandturnright.hkx";
+
+		//STAFF TURN
+		// Animations\staffturnleft.hkx
+		// Animations\staffturnright.hkx
+		if (hasAnimation("Animations\\staffturnleft.hkx"))
+			staff_turn[TURN_DIRECTION::left] = "Animations\\staffturnleft.hkx";
+
+		if (hasAnimation("Animations\\staffturnright.hkx"))
+			staff_turn[TURN_DIRECTION::right] = "Animations\\staffturnright.hkx";
+
+		//TURN 2H
+		//  Animations\twohandturnleft.hkx
+		//	Animations\twohandturnright.hkx
+		if (hasAnimation("Animations\\twohandturnleft.hkx"))
+			staff_turn[TURN_DIRECTION::left] = "Animations\\twohandturnleft.hkx";
+
+		if (hasAnimation("Animations\\twohandturnright.hkx"))
+			staff_turn[TURN_DIRECTION::right] = "Animations\\twohandturnright.hkx";
+	}
+
+	void analyzeRunning()
+	{
+		// DEFAUT RUN
+		//Animations\fastforward.hkx
+		//Animations\fastfoward.hkx
+		//Animations\runforward.hkx
+		//Animations\fastbackward.hkx
+		if (hasAnimation("Animations\\fastforward.hkx"))
+			default_run[RUN_DIRECTION::forward] = "Animations\\fastforward.hkx";
+		if (hasAnimation("Animations\\fastfoward.hkx"))
+			default_run[RUN_DIRECTION::forward] = "Animations\\fastfoward.hkx";
+		if (hasAnimation("Animations\\runforward.hkx"))
+			default_run[RUN_DIRECTION::forward] = "Animations\\runforward.hkx";
+
+		if (hasAnimation("Animations\\fastbackward.hkx"))
+			default_run[RUN_DIRECTION::backward] = "Animations\\fastbackward.hkx";
+
+		// BOW  
+		//	Animations\bowfastforward.hkx
+		if (hasAnimation("Animations\\bowfastforward.hkx"))
+			bow_run[RUN_DIRECTION::forward] = "Animations\\bowfastforward.hkx";
+		
+		// SWIM
+		//	Animations\swimfastforward.hkx
+		if (hasAnimation("Animations\\swimfastforward.hkx"))
+			swim_run[RUN_DIRECTION::forward] = "Animations\\swimfastforward.hkx";
+
+		// H2H
+		//	Animations\handtohandfastforward.hkx
+		if (hasAnimation("Animations\\handtohandfastforward.hkx"))
+			h2h_run[RUN_DIRECTION::forward] = "Animations\\handtohandfastforward.hkx";
+		
+		// SWIM H2H
+		//  Animations\swimhandtohandfastforward.hkx
+		if (hasAnimation("Animations\\swimhandtohandfastforward.hkx"))
+			swimh2h_run[RUN_DIRECTION::forward] = "Animations\\swimhandtohandfastforward.hkx";
+
+		//std::map<RUN_DIRECTION, fs::path> swim1h_run;
+
+		// 1H
+		//  Animations\onehandfastforward.hkx
+		//	Animations\onehandforwardrun.hkx
+		if (hasAnimation("Animations\\onehandfastforward.hkx"))
+			oneh_run[RUN_DIRECTION::forward] = "Animations\\onehandfastforward.hkx";
+
+		// STAFF
+		// Animations\stafffastforward.hkx
+		if (hasAnimation("Animations\\stafffastforward.hkx"))
+			staff_run[RUN_DIRECTION::forward] = "Animations\\stafffastforward.hkx";
+
+		// 2H
+		// Animations\twohandfastforward.hkx
+		if (hasAnimation("Animations\\twohandfastforward.hkx"))
+			twoh_run[RUN_DIRECTION::forward] = "Animations\\twohandfastforward.hkx";
+	}
+
+	void analyzeJump()
+	{
+		// JUMP
+		//Animations\jumpstart.hkx
+		//Animations\jumploop.hkx
+		//Animations\jumpland.hkx
+		if (hasAnimation("Animations\\jumpstart.hkx"))
+			jump[JUMP_STATE::start] = "Animations\\jumpstart.hkx";
+		if (hasAnimation("Animations\\jumploop.hkx"))
+			jump[JUMP_STATE::loop] = "Animations\\jumploop.hkx";
+		if (hasAnimation("Animations\\jumpland.hkx"))
+			jump[JUMP_STATE::land] = "Animations\\jumpland.hkx";
+	}
+
+	void analyzeStance() {
+
+		//H2H
+		//Animations\equip.hkx / Animations\handtohandattackequip.hkx / Animations\handtohandequip.hkx
+		//Animations\unequip.hkx / Animations\handtohandattackunequip.hkx / Animations\handtohandunequip.hkx
+		//Animations\block.hkx / Animations\handtohandblock.hkx
+		//Animations\blockhit.hkx / Animations\handtohandblockhit.hkx
+		//Animations\blockidle.hkx / Animations\handtohandblockidle.hkx
+		//Animations\stagger.hkx / Animations\handtohandstagger.hkx
+		//Animations\recoil.hkx /Animations\handtohandrecoil.hkx
+		if (hasAnimation("Animations\\equip.hkx"))
+			h2h_stance[STANCE_STATE::equip] = "Animations\\equip.hkx";
+		if (hasAnimation("Animations\\handtohandattackequip.hkx"))
+			h2h_stance[STANCE_STATE::equip] = "Animations\\handtohandattackequip.hkx";
+		if (hasAnimation("Animations\\handtohandequip.hkx"))
+			h2h_stance[STANCE_STATE::equip] = "Animations\\handtohandequip.hkx";
+
+		if (hasAnimation("Animations\\unequip.hkx"))
+			h2h_stance[STANCE_STATE::unequip] = "Animations\\unequip.hkx";
+		if (hasAnimation("Animations\\handtohandattackunequip.hkx"))
+			h2h_stance[STANCE_STATE::unequip] = "Animations\\handtohandattackunequip.hkx";
+		if (hasAnimation("Animations\\handtohandunequip.hkx"))
+			h2h_stance[STANCE_STATE::unequip] = "Animations\\handtohandunequip.hkx";
+
+		if (hasAnimation("Animations\\block.hkx"))
+			h2h_stance[STANCE_STATE::block] = "Animations\\block.hkx";
+		if (hasAnimation("Animations\\handtohandblock.hkx"))
+			h2h_stance[STANCE_STATE::block] = "Animations\\handtohandblock.hkx";
+
+		if (hasAnimation("Animations\\blockhit.hkx"))
+			h2h_stance[STANCE_STATE::blockhit] = "Animations\\blockhit.hkx";
+		if (hasAnimation("Animations\\handtohandblockhit.hkx"))
+			h2h_stance[STANCE_STATE::blockhit] = "Animations\\handtohandblockhit.hkx";
+
+		if (hasAnimation("Animations\\blockidle.hkx"))
+			h2h_stance[STANCE_STATE::blockidle] = "Animations\\blockidle.hkx";
+		if (hasAnimation("Animations\\handtohandblockidle.hkx"))
+			h2h_stance[STANCE_STATE::blockidle] = "Animations\\handtohandblockidle.hkx";
+
+		if (hasAnimation("Animations\\stagger.hkx"))
+			h2h_stance[STANCE_STATE::stagger] = "Animations\\stagger.hkx";
+		if (hasAnimation("Animations\\handtohandstagger.hkx"))
+			h2h_stance[STANCE_STATE::stagger] = "Animations\\handtohandstagger.hkx";
+
+		if (hasAnimation("Animations\\recoil.hkx"))
+			h2h_stance[STANCE_STATE::recoil] = "Animations\\recoil.hkx";
+		if (hasAnimation("Animations\\handtohandrecoil.hkx"))
+			h2h_stance[STANCE_STATE::recoil] = "Animations\\handtohandrecoil.hkx";
+
 	}
 
 public:
@@ -5785,38 +6020,6 @@ public:
 	}
 
 
-
-
-	bool hasWalking()
-	{
-		return
-			(hasAnimation("walkforward.hkx") || hasAnimation("forward.hkx") || hasAnimation("forwardwalk.hkx")) &&
-				hasAnimation("left.hkx") &&
-				hasAnimation("right.hkx") &&
-				(hasAnimation("backward.hkx") || hasAnimation("backwardwalk.hkx"));
-	}
-
-
-	bool hasTurning()
-	{
-		return hasAnimation("turnleft.hkx") && hasAnimation("turnright.hkx");
-	}
-
-	// RUN
-	//Animations\fastbackward.hkx
-	//Animations\fastforward.hkx
-	//Animations\fastfoward.hkx
-	//Animations\runforward.hkx
-	bool hasRunning()
-	{
-		return hasAnimation("fastbackward.hkx") &&
-			(hasAnimation("fastforward.hkx") || hasAnimation("fastfoward.hkx") || hasAnimation("runforward.hkx"));
-	}
-
-	// JUMP
-	//Animations\jumpland.hkx
-	//Animations\jumploop.hkx
-	//Animations\jumpstart.hkx
 	bool hasJumping()
 	{
 		return hasAnimation("jumpland.hkx") &&
@@ -5832,12 +6035,10 @@ public:
 	}
 
 	// BOW
-	//Animations\bowattack.hkx / Animations\attackbow.hkx
+	//  Animations\bowattack.hkx / Animations\attackbow.hkx
 	//	Animations\bowblockhit.hkx
 	//	Animations\bowblockidle.hkx
 	//	Animations\bowequip.hkx
-	//	Animations\bowfastforward.hkx
-
 	//	Animations\bowunequip.hkx
 
 	//CAST
@@ -5856,18 +6057,10 @@ public:
 
 	//HAND 2 HAND
 
-	//	Animations\handtohandfastforward.hkx
 	
-	//	Animations\handtohandturnleft.hkx
-	//	Animations\handtohandturnright.hkx
 
-	//Animations\equip.hkx / Animations\handtohandattackequip.hkx / Animations\handtohandequip.hkx
-	//Animations\unequip.hkx / Animations\handtohandattackunequip.hkx / Animations\handtohandunequip.hkx
-	//Animations\block.hkx / Animations\handtohandblock.hkx
-	//Animations\blockhit.hkx / Animations\handtohandblockhit.hkx
-	//Animations\blockidle.hkx / Animations\handtohandblockidle.hkx
-	//Animations\stagger.hkx / Animations\handtohandstagger.hkx
-	//Animations\recoil.hkx /Animations\handtohandrecoil.hkx
+
+
 
 	//  Animations\handtohandattackbackpower.hkx
 	//	Animations\attackforwardpower.hkx / Animations\handtohandattackfowardpower.hkx / Animations\handtohandattackforwardpower.hkx
@@ -5909,7 +6102,7 @@ public:
 
 
 	// SWIM
-		//	Animations\swimfastforward.hkx	
+
 
 	//	Animations\swimblock.hkx
 	//	Animations\swimblockhit.hkx
@@ -5921,8 +6114,7 @@ public:
 	//	Animations\swimrecoil.hkx
 
 	//	Animations\swimstagger.hkx
-	//	Animations\swimturnleft.hkx
-	//	Animations\swimturnright.hkx
+
 	//	Animations\swimunequip.hkx
 
 
@@ -6078,16 +6270,13 @@ Animations\onehandblock.hkx
 Animations\onehandblockhit.hkx
 Animations\onehandblockidle.hkx
 Animations\onehandequip.hkx
-Animations\onehandfastforward.hkx
 
-Animations\onehandforwardrun.hkx
 
 
 Animations\onehandrecoil.hkx
 
 Animations\onehandstagger.hkx
-Animations\onehandturnleft.hkx
-Animations\onehandturnright.hkx
+
 Animations\onehandunequip.hkx
 
 
@@ -6146,14 +6335,13 @@ Animations\staffattackright.hkx
 Animations\staffblock.hkx
 Animations\staffblockhit.hkx
 Animations\staffequip.hkx
-Animations\stafffastforward.hkx
+
 
 
 
 
 Animations\staffstagger.hkx
-Animations\staffturnleft.hkx
-Animations\staffturnright.hkx
+
 Animations\staffunequip.hkx
 
 
@@ -6169,24 +6357,18 @@ Animations\swimhandtohandattackrightpower.hkx
 Animations\swimhandtohandattackunequip.hkx
 
 Animations\swimhandtohandequip.hkx
-Animations\swimhandtohandfastforward.hkx
+
 
 
 
 Animations\swimhandtohandrecoil.hkx
 
 Animations\swimhandtohandstagger.hkx
-Animations\swimhandtohandturnleft.hkx
-Animations\swimhandtohandturnright.hkx
+
 Animations\swimhandtohandunequip.hkx
 
 Animations\swimonehandattackleft.hkx
 Animations\swimonehandattackright.hkx
-Animations\swimonehandbackward.hkx
-Animations\swimonehandforward.hkx
-Animations\swimonehandidle.hkx
-Animations\swimonehandturnleft.hkx
-Animations\swimonehandturnright.hkx
 
 
 
@@ -6209,15 +6391,14 @@ Animations\twohandattackunequip.hkx
 Animations\twohandblockhit.hkx
 Animations\twohandblockidle.hkx
 Animations\twohandequip.hkx
-Animations\twohandfastforward.hkx
+
 
 
 
 Animations\twohandrecoil.hkx
 
 Animations\twohandstagger.hkx
-Animations\twohandturnleft.hkx
-Animations\twohandturnright.hkx
+
 Animations\twohandunequip.hkx
 */
 
