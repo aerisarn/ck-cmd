@@ -490,7 +490,7 @@ vector< Key<Quaternion> > SampleQuatRotateKeys(NiBSplineCompTransformInterpolato
 
 		// copy to key
 		float time = interpolator->GetStartTime();
-		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints);
+		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints - 1);
 		value.reserve(npoints);
 		for (int i = 0, j = 0; i < npoints; i++) {
 			Key<Quaternion> key;
@@ -527,7 +527,7 @@ vector< Key<Vector3> > SampleTranslateKeys(NiBSplineCompTransformInterpolatorRef
 
 		// copy to key
 		float time = interpolator->GetStartTime();
-		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints);
+		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints - 1);
 		value.reserve(npoints);
 		for (int i = 0, j = 0; i < npoints; i++) {
 			Key<Vector3> key;
@@ -563,7 +563,7 @@ vector< Key<float> > SampleScaleKeys(NiBSplineCompTransformInterpolatorRef inter
 
 		// copy to key
 		float time = interpolator->GetStartTime();
-		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints);
+		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints - 1);
 		value.reserve(npoints);
 		for (int i = 0, j = 0; i < npoints; i++) {
 			Key<float> key;
@@ -603,7 +603,7 @@ vector< Key<Quaternion> > SampleQuatRotateKeys(NiBSplineTransformInterpolatorRef
 
 		// copy to key
 		float time = interpolator->GetStartTime();
-		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints);
+		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints - 1);
 		value.reserve(npoints);
 		for (int i = 0, j = 0; i < npoints; i++) {
 			Key<Quaternion> key;
@@ -640,7 +640,7 @@ vector< Key<Vector3> > SampleTranslateKeys(NiBSplineTransformInterpolatorRef& in
 
 		// copy to key
 		float time = interpolator->GetStartTime();
-		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints);
+		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints - 1);
 		value.reserve(npoints);
 		for (int i = 0, j = 0; i < npoints; i++) {
 			Key<Vector3> key;
@@ -677,7 +677,7 @@ vector< Key<float> > SampleScaleKeys(NiBSplineTransformInterpolatorRef& interpol
 
 		// copy to key
 		float time = interpolator->GetStartTime();
-		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints);
+		float incr = (interpolator->GetStopTime() - interpolator->GetStartTime()) / float(npoints - 1);
 		value.reserve(npoints);
 		for (int i = 0, j = 0; i < npoints; i++) {
 			Key<float> key;
@@ -1684,7 +1684,7 @@ bool AnimationExport::exportController()
 			auto scale = interp->GetTransform().scale;
 			SetTransformScale(localTransform, scale);
 
-			FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with bindpose
+			FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with animation pose
 
 			int npoints = GetNumControlPoints(interp);
 
@@ -1707,44 +1707,42 @@ bool AnimationExport::exportController()
 			// see hkaInterleavedUncompressedAnimation
 			// so for both constant and quadratic interpolation types
 			// we should really interpolate and sample them at least at 24hz 
+			auto translation = TOVECTOR4(interp->GetTransform().translation);
+			SetTransformPosition(localTransform, translation);
+			if (interp->GetTransform().rotation.x != FloatNegINF)
+			{
+				auto rotation = TOQUAT(interp->GetTransform().rotation);
+				SetTransformRotation(localTransform, rotation);
+			}
+			auto scale = interp->GetTransform().scale;
+			SetTransformScale(localTransform, scale);
+
+			FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with animation pose
 
 			if (NiTransformDataRef data = interp->GetData())
 			{
-				auto translation = TOVECTOR4(interp->GetTransform().translation);
-				SetTransformPosition(localTransform, translation);
-				if (interp->GetTransform().rotation.x != FloatNegINF)
-				{
-					auto rotation = TOQUAT(interp->GetTransform().rotation);
-					SetTransformRotation(localTransform, rotation);
-				}
-				auto scale = interp->GetTransform().scale;
-				SetTransformScale(localTransform, scale);
 
-				FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with bindpose
+				//translations:
+				importVectorOfKeys(data->GetTranslations().interpolation, data->GetTranslations().keys, transforms, nbones, boneIdx, duration, nframes);
 
-				if (data != NULL) {
-
-					//translations:
-					importVectorOfKeys(data->GetTranslations().interpolation, data->GetTranslations().keys, transforms, nbones, boneIdx, duration, nframes);
-
-					//rotations:
-					if (getFieldIsValid(&*data, NiKeyframeData::FIELDS::rotationType, _info)) {
-						if (data->GetRotationType() == XYZ_ROTATION_KEY) {
-							//single float groups with tangents
-							importVectorOfKeys(Niflib::XYZ_ROTATION_KEY, data->GetXyzRotations(), transforms, nbones, boneIdx, duration, nframes);
-						}
-						else {
-							//threat as quaternion?
-							importVectorOfKeys(data->GetRotationType(), data->GetQuaternionKeys(), transforms, nbones, boneIdx, duration, nframes);
-						}
+				//rotations:
+				if (getFieldIsValid(&*data, NiKeyframeData::FIELDS::rotationType, _info)) {
+					if (data->GetRotationType() == XYZ_ROTATION_KEY) {
+						//single float groups with tangents
+						importVectorOfKeys(Niflib::XYZ_ROTATION_KEY, data->GetXyzRotations(), transforms, nbones, boneIdx, duration, nframes);
 					}
 					else {
+						//threat as quaternion?
 						importVectorOfKeys(data->GetRotationType(), data->GetQuaternionKeys(), transforms, nbones, boneIdx, duration, nframes);
 					}
-
-					//scale
-					importVectorOfKeys(data->GetScales().interpolation, data->GetScales().keys, transforms, nbones, boneIdx, duration, nframes);
 				}
+				else {
+					importVectorOfKeys(data->GetRotationType(), data->GetQuaternionKeys(), transforms, nbones, boneIdx, duration, nframes);
+				}
+
+				//scale
+				importVectorOfKeys(data->GetScales().interpolation, data->GetScales().keys, transforms, nbones, boneIdx, duration, nframes);
+
 			}
 		}
 		//else if (NiKeyBasedInterpolatorRef interp = DynamicCast<NiKeyBasedInterpolator>((*bitr).interpolator)) {

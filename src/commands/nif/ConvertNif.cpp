@@ -5146,8 +5146,8 @@ void convert_blocks(
 		{
 			//bsroot->SetTranslation(displacement);
 
-			if (bsroot->GetTranslation().Magnitude() != 0 ||
-				!bsroot->GetRotation().isIdentity() && doProxyRoot)
+			if ((bsroot->GetTranslation().Magnitude() != 0 ||
+				!bsroot->GetRotation().isIdentity()) && doProxyRoot)
 			{
 				NiNode* proxyRoot = new NiNode();
 				proxyRoot->SetName(IndexString("ProxyRoot"));
@@ -5163,11 +5163,13 @@ void convert_blocks(
 				children.push_back(proxyRoot);
 				bsroot->SetChildren(children);
 				bsroot->SetCollisionObject(NULL);
+
+				bsroot->SetRotation(Matrix33());
+				bsroot->SetTranslation(Vector3());
 			}
 		}
 
-		bsroot->SetRotation(Matrix33());
-		bsroot->SetTranslation(Vector3());
+
 
 
 
@@ -5288,8 +5290,8 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				//if (std::string(creature->MODL.value->MODL.value).find("Spider") != string::npos)
-				//{
+				if (std::string(creature->MODL.value->MODL.value).find("Minotaur") != string::npos)
+				{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					if (skeleton.find("landdreugh") != string::npos)
 						int debug = 1;
@@ -5359,7 +5361,7 @@ void findCreatures
 						models_lowercase.insert(s_model);
 					}
 					skins[skeleton][models_lowercase].insert(creature);
-				//}
+				}
 			}
 		}
 	}
@@ -5543,10 +5545,22 @@ class AnimationSetAnalyzer
 	};
 
 	std::map<MOVE_DIRECTION, fs::path> default_move;
-	std::map<TURN_DIRECTION, fs::path> default_turn;
-
 	std::map<MOVE_DIRECTION, fs::path> bow_move;
+	std::map<MOVE_DIRECTION, fs::path> swim_move;
+	std::map<MOVE_DIRECTION, fs::path> h2h_move;
+	std::map<MOVE_DIRECTION, fs::path> swimh2h_move;
+	std::map<MOVE_DIRECTION, fs::path> oneh_move;
+	std::map<MOVE_DIRECTION, fs::path> staff_move;
+	std::map<MOVE_DIRECTION, fs::path> twoh_move;
+
+	std::map<TURN_DIRECTION, fs::path> default_turn;
 	std::map<TURN_DIRECTION, fs::path> bow_turn;
+	std::map<TURN_DIRECTION, fs::path> swim_turn;
+	std::map<TURN_DIRECTION, fs::path> h2h_turn;
+	std::map<TURN_DIRECTION, fs::path> swimh2h_turn;
+	std::map<TURN_DIRECTION, fs::path> oneh_turn;
+	std::map<TURN_DIRECTION, fs::path> staff_turn;
+	std::map<TURN_DIRECTION, fs::path> twoh_turn;
 
 	void analyzeWalking()
 	{
@@ -5556,26 +5570,48 @@ class AnimationSetAnalyzer
 		//Animations\backward.hkx / Animations\backwardwalk.hkx
 		//Animations\left.hkx
 		//Animations\right.hkx
-		if (hasAnimation("Animations\idle.hkx"))
-			default_move[MOVE_DIRECTION::idle] = "Animations\idle.hkx";
+		if (hasAnimation("Animations\\idle.hkx"))
+			default_move[MOVE_DIRECTION::idle] = "Animations\\idle.hkx";
 
-		if (hasAnimation("Animations\walkforward.hkx"))
-			default_move[MOVE_DIRECTION::forward] = "Animations\walkforward.hkx";
-		if (hasAnimation("Animations\forward.hkx"))
-			default_move[MOVE_DIRECTION::forward] = "Animations\forward.hkx";
-		if (hasAnimation("Animations\forwardwalk.hkx"))
-			default_move[MOVE_DIRECTION::forward] = "Animations\forwardwalk.hkx";
+		if (hasAnimation("Animations\\walkforward.hkx"))
+			default_move[MOVE_DIRECTION::forward] = "Animations\\walkforward.hkx";
+		if (hasAnimation("Animations\\forward.hkx"))
+			default_move[MOVE_DIRECTION::forward] = "Animations\\forward.hkx";
+		if (hasAnimation("Animations\\forwardwalk.hkx"))
+			default_move[MOVE_DIRECTION::forward] = "Animations\\forwardwalk.hkx";
 
 		if (hasAnimation("Animations\backward.hkx"))
-			default_move[MOVE_DIRECTION::backward] = "Animations\backward.hkx";
-		if (hasAnimation("Animations\backwardwalk.hkx"))
-			default_move[MOVE_DIRECTION::backward] = "Animations\backwardwalk.hkx";
+			default_move[MOVE_DIRECTION::backward] = "Animations\\backward.hkx";
+		if (hasAnimation("Animations\\backwardwalk.hkx"))
+			default_move[MOVE_DIRECTION::backward] = "Animations\\backwardwalk.hkx";
 
-		if (hasAnimation("Animations\left.hkx"))
-			default_move[MOVE_DIRECTION::left] = "Animations\left.hkx";
+		if (hasAnimation("Animations\\left.hkx"))
+			default_move[MOVE_DIRECTION::left] = "Animations\\left.hkx";
 
-		if (hasAnimation("Animations\right.hkx"))
-			default_move[MOVE_DIRECTION::right] = "Animations\right.hkx";
+		if (hasAnimation("Animations\\right.hkx"))
+			default_move[MOVE_DIRECTION::right] = "Animations\\right.hkx";
+
+		// SWIM
+		//	Animations\swimidle.hkx
+		//	Animations\swimforward.hkx
+		//  Animations\swimbackward.hkx
+		//	Animations\swimleft.hkx
+		//	Animations\swimright.hkx
+		if (hasAnimation("Animations\\swimidle.hkx"))
+			swim_move[MOVE_DIRECTION::idle] = "Animations\\swimidle.hkx";
+
+		if (hasAnimation("Animations\\swimforward.hkx"))
+			swim_move[MOVE_DIRECTION::forward] = "Animations\\swimforward.hkx";
+
+		if (hasAnimation("Animations\\swimbackward.hkx"))
+			swim_move[MOVE_DIRECTION::backward] = "Animations\\swimbackward.hkx";
+
+		if (hasAnimation("Animations\\swimleft.hkx"))
+			swim_move[MOVE_DIRECTION::left] = "Animations\\swimleft.hkx";
+
+		if (hasAnimation("Animations\\swimright.hkx"))
+			swim_move[MOVE_DIRECTION::right] = "Animations\\swimright.hkx";
+
 
 		//BOW
 		//	Animations\bowidle.hkx
@@ -5583,20 +5619,161 @@ class AnimationSetAnalyzer
 		//	Animations\bowbackward.hkx
 		//	Animations\bowleft.hkx
 		//	Animations\bowright.hkx
-		if (hasAnimation("Animations\bowidle.hkx"))
-			bow_move[MOVE_DIRECTION::idle] = "Animations\bowidle.hkx";
+		if (hasAnimation("Animations\\bowidle.hkx"))
+			bow_move[MOVE_DIRECTION::idle] = "Animations\\bowidle.hkx";
 
-		if (hasAnimation("Animations\bowforward.hkx"))
-			default_move[MOVE_DIRECTION::forward] = "Animations\bowforward.hkx";
+		if (hasAnimation("Animations\\bowforward.hkx"))
+			bow_move[MOVE_DIRECTION::forward] = "Animations\\bowforward.hkx";
 
-		if (hasAnimation("Animations\bowforward.hkx"))
-			default_move[MOVE_DIRECTION::forward] = "Animations\bowforward.hkx";
+		if (hasAnimation("Animations\\bowbackward.hkx"))
+			bow_move[MOVE_DIRECTION::backward] = "Animations\\bowbackward.hkx";
+
+		if (hasAnimation("Animations\\bowleft.hkx"))
+			bow_move[MOVE_DIRECTION::left] = "Animations\\bowleft.hkx";
+
+		if (hasAnimation("Animations\\bowright.hkx"))
+			bow_move[MOVE_DIRECTION::right] = "Animations\\bowright.hkx";
+
+		// H2H
+		//	Animations\handtohandidle.hkx /Animations\handtohandilde.hkx
+		//	Animations\handtohandforward.hkx /Animations\handtohandforwardwalk.hkx
+		//	Animations\handtohandback.hkx / Animations\handtohandbackward.hkx
+		//	Animations\handtohandleft.hkx
+		//	Animations\handtohandright.hkx
+		if (hasAnimation("Animations\\handtohandidle.hkx"))
+			h2h_move[MOVE_DIRECTION::idle] = "Animations\\handtohandidle.hkx";
+		if (hasAnimation("Animations\\handtohandilde.hkx"))
+			h2h_move[MOVE_DIRECTION::idle] = "Animations\\handtohandilde.hkx";
+
+		if (hasAnimation("Animations\\handtohandforward.hkx"))
+			h2h_move[MOVE_DIRECTION::forward] = "Animations\\handtohandforward.hkx";
+		if (hasAnimation("Animations\\handtohandforwardwalk.hkx"))
+			h2h_move[MOVE_DIRECTION::forward] = "Animations\\handtohandforwardwalk.hkx";
+
+		if (hasAnimation("Animations\\handtohandback.hkx"))
+			h2h_move[MOVE_DIRECTION::backward] = "Animations\\handtohandback.hkx";
+		if (hasAnimation("Animations\\handtohandbackward.hkx"))
+			h2h_move[MOVE_DIRECTION::backward] = "Animations\\handtohandbackward.hkx";
+
+		if (hasAnimation("Animations\\handtohandleft.hkx"))
+			h2h_move[MOVE_DIRECTION::left] = "Animations\\handtohandleft.hkx";
+
+		if (hasAnimation("Animations\\handtohandright.hkx"))
+			h2h_move[MOVE_DIRECTION::right] = "Animations\\handtohandright.hkx";
+
+		//SWIM H2H
+		//  Animations\swimhandtohandidle.hkx
+		//	Animations\swimhandtohandforward.hkx
+		//	Animations\swimhandtohandbackward.hkx
+		//	Animations\swimhandtohandleft.hkx
+		//	Animations\swimhandtohandright.hkx
+		if (hasAnimation("Animations\\swimhandtohandidle.hkx"))
+			swimh2h_move[MOVE_DIRECTION::idle] = "Animations\\swimhandtohandidle.hkx";
+
+		if (hasAnimation("Animations\\swimhandtohandforward.hkx"))
+			swimh2h_move[MOVE_DIRECTION::forward] = "Animations\\swimhandtohandforward.hkx";
+
+		if (hasAnimation("Animations\\swimhandtohandbackward.hkx"))
+			swimh2h_move[MOVE_DIRECTION::backward] = "Animations\\swimhandtohandbackward.hkx";
+
+		if (hasAnimation("Animations\\swimhandtohandleft.hkx"))
+			swimh2h_move[MOVE_DIRECTION::left] = "Animations\\swimhandtohandleft.hkx";
+
+		if (hasAnimation("Animations\\swimhandtohandright.hkx"))
+			swimh2h_move[MOVE_DIRECTION::right] = "Animations\\swimhandtohandright.hkx";
+
+		// 1H
+		//  Animations\onehandidle.hkx
+		//	Animations\onehandforward.hkx
+		//	Animations\onehandbackward.hkx
+		//	Animations\onehandleft.hkx
+		//	Animations\onehandright.hkx
+		if (hasAnimation("Animations\\onehandidle.hkx"))
+			oneh_move[MOVE_DIRECTION::idle] = "Animations\\onehandidle.hkx";
+
+		if (hasAnimation("Animations\\onehandforward.hkx"))
+			oneh_move[MOVE_DIRECTION::forward] = "Animations\\onehandforward.hkx";
+
+		if (hasAnimation("Animations\\onehandbackward.hkx"))
+			oneh_move[MOVE_DIRECTION::backward] = "Animations\\onehandbackward.hkx";
+
+		if (hasAnimation("Animations\\onehandleft.hkx"))
+			oneh_move[MOVE_DIRECTION::left] = "Animations\\onehandleft.hkx";
+
+		if (hasAnimation("Animations\\onehandright.hkx"))
+			oneh_move[MOVE_DIRECTION::right] = "Animations\\onehandright.hkx";
+
+		//STAFF
+		//  Animations\staffidle.hkx
+		//	Animations\staffforward.hkx
+		//	Animations\staffbackward.hkx
+		//	Animations\staffleft.hkx
+		//	Animations\staffright.hkx
+		if (hasAnimation("Animations\\staffidle.hkx"))
+			staff_move[MOVE_DIRECTION::idle] = "Animations\\staffidle.hkx";
+
+		if (hasAnimation("Animations\\staffforward.hkx"))
+			staff_move[MOVE_DIRECTION::forward] = "Animations\\staffforward.hkx";
+
+		if (hasAnimation("Animations\\staffbackward.hkx"))
+			staff_move[MOVE_DIRECTION::backward] = "Animations\\staffbackward.hkx";
+
+		if (hasAnimation("Animations\\staffleft.hkx"))
+			staff_move[MOVE_DIRECTION::left] = "Animations\\staffleft.hkx";
+
+		if (hasAnimation("Animations\\staffright.hkx"))
+			staff_move[MOVE_DIRECTION::right] = "Animations\\staffright.hkx";
+
+		//2H
+		//  Animations\twohandidle.hkx
+		//	Animations\twohandforward.hkx
+		//	Animations\twohandbackward.hkx
+		//	Animations\twohandleft.hkx
+		//	Animations\twohandright.hkx
+		if (hasAnimation("Animations\\twohandidle.hkx"))
+			twoh_move[MOVE_DIRECTION::idle] = "Animations\\twohandidle.hkx";
+
+		if (hasAnimation("Animations\\twohandforward.hkx"))
+			twoh_move[MOVE_DIRECTION::forward] = "Animations\\twohandforward.hkx";
+
+		if (hasAnimation("Animations\\twohandbackward.hkx"))
+			twoh_move[MOVE_DIRECTION::backward] = "Animations\\twohandbackward.hkx";
+
+		if (hasAnimation("Animations\\twohandleft.hkx"))
+			twoh_move[MOVE_DIRECTION::left] = "Animations\\twohandleft.hkx";
+
+		if (hasAnimation("Animations\\twohandright.hkx"))
+			twoh_move[MOVE_DIRECTION::right] = "Animations\\twohandright.hkx";
 
 	}
 
+	void analyzeTurning()
+	{
+		//TURN DEFAULT
+		//  Animations\turnleft.hkx
+		//  Animations\turnright.hkx
+		if (hasAnimation("Animations\\turnleft.hkx"))
+			default_turn[TURN_DIRECTION::left] = "Animations\\turnleft.hkx";
 
-	//	Animations\bowturnleft.hkx
-//	Animations\bowturnright.hkx
+		if (hasAnimation("Animations\\turnright.hkx"))
+			default_turn[TURN_DIRECTION::right] = "Animations\\turnright.hkx";
+
+		//TURN BOW
+		//  Animations\bowturnleft.hkx
+		//  Animations\bowturnright.hkx
+		if (hasAnimation("Animations\\bowturnleft.hkx"))
+			bow_turn[TURN_DIRECTION::left] = "Animations\\bowturnleft.hkx";
+
+		if (hasAnimation("Animations\\bowturnright.hkx"))
+			bow_turn[TURN_DIRECTION::right] = "Animations\\bowturnright.hkx";
+
+		//std::map<TURN_DIRECTION, fs::path> swim_turn;
+		//std::map<TURN_DIRECTION, fs::path> h2h_turn;
+		//std::map<TURN_DIRECTION, fs::path> swimh2h_turn;
+		//std::map<TURN_DIRECTION, fs::path> oneh_turn;
+		//std::map<TURN_DIRECTION, fs::path> staff_turn;
+		//std::map<TURN_DIRECTION, fs::path> twoh_turn;
+	}
 
 public:
 
@@ -5619,9 +5796,7 @@ public:
 				(hasAnimation("backward.hkx") || hasAnimation("backwardwalk.hkx"));
 	}
 
-	// TURN
-	//Animations\turnleft.hkx
-	//Animations\turnright.hkx
+
 	bool hasTurning()
 	{
 		return hasAnimation("turnleft.hkx") && hasAnimation("turnright.hkx");
@@ -5680,12 +5855,8 @@ public:
 	//	Animations\casttouch_c.hkx
 
 	//HAND 2 HAND
-	//	Animations\handtohandback.hkx
-	//	Animations\handtohandbackward.hkx
-	//	Animations\handtohandfastforward.hkx / Animations\handtohandforward.hkx /Animations\handtohandforwardwalk.hkx
-	//	Animations\handtohandidle.hkx /Animations\handtohandilde.hkx
-	//	Animations\handtohandleft.hkx
-	//	Animations\handtohandright.hkx
+
+	//	Animations\handtohandfastforward.hkx
 	
 	//	Animations\handtohandturnleft.hkx
 	//	Animations\handtohandturnright.hkx
@@ -5734,17 +5905,21 @@ public:
 	//	Animations\handtohandattackrightb.hkx
 	//	Animations\handtohandattackrightpower.hkx
 
+
+
+
 	// SWIM
-	//  Animations\swimbackward.hkx
+		//	Animations\swimfastforward.hkx	
+
 	//	Animations\swimblock.hkx
 	//	Animations\swimblockhit.hkx
 	//	Animations\swimequip.hkx
-	//	Animations\swimfastforward.hkx
-	//	Animations\swimforward.hkx
-	//	Animations\swimidle.hkx
-	//	Animations\swimleft.hkx
+
+
+
+
 	//	Animations\swimrecoil.hkx
-	//	Animations\swimright.hkx
+
 	//	Animations\swimstagger.hkx
 	//	Animations\swimturnleft.hkx
 	//	Animations\swimturnright.hkx
@@ -5895,18 +6070,21 @@ Animations\onehandattackright_chop.hkx
 Animations\onehandattackright_slash.hkx
 Animations\onehandattackright_slice.hkx
 Animations\onehandattackrightpower.hkx
-Animations\onehandbackward.hkx
+
+
+
+
 Animations\onehandblock.hkx
 Animations\onehandblockhit.hkx
 Animations\onehandblockidle.hkx
 Animations\onehandequip.hkx
 Animations\onehandfastforward.hkx
-Animations\onehandforward.hkx
+
 Animations\onehandforwardrun.hkx
-Animations\onehandidle.hkx
-Animations\onehandleft.hkx
+
+
 Animations\onehandrecoil.hkx
-Animations\onehandright.hkx
+
 Animations\onehandstagger.hkx
 Animations\onehandturnleft.hkx
 Animations\onehandturnright.hkx
@@ -5962,20 +6140,23 @@ Animations\specialanims\walk02limp.hkx
 Animations\specialanims\walk03leanback.hkx
 
 
+
 Animations\staffattackright.hkx
-Animations\staffbackward.hkx
+
 Animations\staffblock.hkx
 Animations\staffblockhit.hkx
 Animations\staffequip.hkx
 Animations\stafffastforward.hkx
-Animations\staffforward.hkx
-Animations\staffidle.hkx
-Animations\staffleft.hkx
-Animations\staffright.hkx
+
+
+
+
 Animations\staffstagger.hkx
 Animations\staffturnleft.hkx
 Animations\staffturnright.hkx
 Animations\staffunequip.hkx
+
+
 
 Animations\swimhandtohandattackbackpower.hkx
 Animations\swimhandtohandattackequip.hkx
@@ -5986,14 +6167,14 @@ Animations\swimhandtohandattackpower.hkx
 Animations\swimhandtohandattackright.hkx
 Animations\swimhandtohandattackrightpower.hkx
 Animations\swimhandtohandattackunequip.hkx
-Animations\swimhandtohandbackward.hkx
+
 Animations\swimhandtohandequip.hkx
 Animations\swimhandtohandfastforward.hkx
-Animations\swimhandtohandforward.hkx
-Animations\swimhandtohandidle.hkx
-Animations\swimhandtohandleft.hkx
+
+
+
 Animations\swimhandtohandrecoil.hkx
-Animations\swimhandtohandright.hkx
+
 Animations\swimhandtohandstagger.hkx
 Animations\swimhandtohandturnleft.hkx
 Animations\swimhandtohandturnright.hkx
@@ -6006,6 +6187,8 @@ Animations\swimonehandforward.hkx
 Animations\swimonehandidle.hkx
 Animations\swimonehandturnleft.hkx
 Animations\swimonehandturnright.hkx
+
+
 
 Animations\twohandattackbackpower.hkx
 Animations\twohandattackequip.hkx
@@ -6022,16 +6205,16 @@ Animations\twohandattackright_b.hkx
 Animations\twohandattackright_c.hkx
 Animations\twohandattackrightpower.hkx
 Animations\twohandattackunequip.hkx
-Animations\twohandbackward.hkx
+
 Animations\twohandblockhit.hkx
 Animations\twohandblockidle.hkx
 Animations\twohandequip.hkx
 Animations\twohandfastforward.hkx
-Animations\twohandforward.hkx
-Animations\twohandidle.hkx
-Animations\twohandleft.hkx
+
+
+
 Animations\twohandrecoil.hkx
-Animations\twohandright.hkx
+
 Animations\twohandstagger.hkx
 Animations\twohandturnleft.hkx
 Animations\twohandturnright.hkx
@@ -6350,27 +6533,50 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 		}
 	}
 
+	if (!isBody)
+	{
+		//bake transforms on shapes
+		auto niroot = DynamicCast<NiNode>(out_root);
+		hkQsTransform root_transform; root_transform.setIdentity();
+		root_transform.setTranslation(TOVECTOR4(niroot->GetTranslation()));
+		root_transform.setRotation(TOQUAT(niroot->GetRotation().AsQuaternion()));
+		niroot->SetTranslation({ 0., 0., 0. });
+		niroot->SetRotation(Matrix33::IDENTITY);
+		//root_transform.setScale({ 1., 1., 1. });
+		auto shapes = DynamicCast<NiTriShape>(out_blocks);
+		for (auto& shape : shapes)
+		{
+			if (auto data = DynamicCast<NiTriShapeData>(shape->GetData()))
+			{
+				hkQsTransform shape_transform;
+				shape_transform.setTranslation(TOVECTOR4(shape->GetTranslation()));
+				shape_transform.setRotation(TOQUAT(shape->GetRotation().AsQuaternion()));
+				shape_transform.setScale({ 1., 1., 1. });
+
+				hkQsTransform transform(root_transform); transform.setMulEq(shape_transform);
+				auto& vertices = data->GetVertices();
+				{
+					for (auto& vertex : vertices)
+					{
+						hkVector4 vector4 = TOVECTOR4(vertex);
+						vector4.setTransformedPos(transform, vector4);
+						vertex = TOVECTOR3(vector4);
+					}
+				}
+
+				hkVector4 vector4 = TOVECTOR4(data->GetCenter());
+				vector4.setTransformedPos(transform, vector4);
+				data->SetCenter(TOVECTOR3(vector4));
+
+				shape->SetTranslation({ 0., 0., 0. });
+				shape->SetRotation(Matrix33::IDENTITY);
+				data->SetVertices(vertices);
+			}
+		}
+	}
+
 	for (auto& geometry : meshes)
 	{
-		////Transforms on meshes are not taken into account in skyrim. need to adjust skinning
-		////also the global transform seems to be ignored
-		//auto translation = geometry->GetTranslation();
-		//auto rotation = geometry->GetRotation();
-		//Matrix44 GeometryTransform(translation, rotation, 1.);
-
-		//if (NULL != geometry->GetData())
-		//{
-		//	auto vertexData = geometry->GetData()->GetVertices();
-		//	for (auto& vertex : vertexData)
-		//	{
-		//		vertex = GeometryTransform * vertex;
-		//	}
-		//	geometry->GetData()->SetVertices(vertexData);
-		//}
-
-		//geometry->SetTranslation({ 0., 0., 0. });
-		//geometry->SetRotation(Matrix33::IDENTITY);
-		//geometry->SetScale(1.);
 
 		if (geometry->GetSkinInstance() != NULL)
 		{
@@ -6393,40 +6599,6 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 				}
 				creature_skin->SetPartitions(value);
 			}
-
-			//auto data = DynamicCast<NiSkinData>(creature_skin->GetData());
-			//auto instanceBones = geometry->GetSkinInstance()->GetBones();
-
-			//if (data != NULL)
-			//{
-			//	//global mesh transform has been reset, so this must be adjusted as well.
-			//	//I think this is the transformation between the skeleton root and the skin,
-			//	//assuming the root is in 0,0,0
-			//	NiTransform identity;
-			//	identity.translation = { 0., 0., 0. };
-			//	identity.rotation = Matrix33::IDENTITY;
-			//	identity.scale = 1.;
-			//	data->SetSkinTransform(identity);
-			//	
-			//	auto bones = data->GetBoneList();
-			//	for (int b = 0; b < bones.size(); ++b)
-			//	{
-			//		//Adjust the mesh position in the bone local reference
-			//		//As the skin was moved in 0.0.0., this is the inverse of the absolute bone transform
-			//		Matrix44 absoluteBoneTransform(
-			//			instanceBones[b]->GetTranslation(),
-			//			instanceBones[b]->GetRotation(),
-			//			1.
-			//		);
-			//		absoluteBoneTransform = absoluteBoneTransform.Inverse();
-			//		NiTransform boneTransform;
-			//		boneTransform.translation = absoluteBoneTransform.GetTranslation();
-			//		boneTransform.rotation = absoluteBoneTransform.GetRotation();
-			//		boneTransform.scale = 1.;
-			//		bones[b].skinTransform = boneTransform;
-			//	}
-			//	data->SetBoneList(bones);
-			//}
 
 			geometry->SetSkinInstance(StaticCast<NiSkinInstance>(creature_skin));
 		}
@@ -6609,7 +6781,7 @@ void ConvertAssets(
 					entry.first,
 					outputFolder,
 					metadata,
-					true
+					false
 				);
 				Sk::SKBOD2::BodyParts part = FindBodyPart(asset.first, creature_subfolder, converted_blocks, root, body_parts, slot_names, bodySlots);
 				//Create Armor Addon
@@ -6723,6 +6895,15 @@ void ConvertAssets(
 				StringRecord n; n = name;
 				race->NAME.push_back(n);
 			}
+
+			//Create a test actor for this RACE
+			std::string npc_test_EDID = std::string(race->EDID.value) + "Test";
+			Sk::NPC_Record* race_test_record = (Sk::NPC_Record*)conversionCollection.CreateRecord(conversionPlugin, REV32(NPC_), NULL, (char*)npc_test_EDID.c_str(), NULL, 0);
+			race_test_record->EDID = npc_test_EDID;
+			race_test_record->RNAM.Load();
+			race_test_record->RNAM.value = race->formID;
+			race_test_record->WNAM.Load();
+			race_test_record->WNAM.value = most_common_armo->formID;
 
 		}
 
@@ -6858,6 +7039,8 @@ bool BeginConversion(string importPath, string exportPath)
 	ModSaveFlags skSaveFlags = ModSaveFlags(2);
 	skSaveFlags.IsCleanMasters = true;
 	conversionCollection.SaveMod(conversionPlugin, skSaveFlags, conversionPluginName);
+
+	return true;
 
 	if (fs::exists(importPath) && fs::is_directory(importPath))
 		findFiles(importPath, ".nif", nifs);
