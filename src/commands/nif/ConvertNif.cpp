@@ -5290,8 +5290,8 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				if (std::string(creature->MODL.value->MODL.value).find("Minotaur") != string::npos)
-				{
+				//if (std::string(creature->MODL.value->MODL.value).find("Clannfear") != string::npos)
+				//{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					if (skeleton.find("landdreugh") != string::npos)
 						int debug = 1;
@@ -5361,7 +5361,7 @@ void findCreatures
 						models_lowercase.insert(s_model);
 					}
 					skins[skeleton][models_lowercase].insert(creature);
-				}
+				//}
 			}
 		}
 	}
@@ -5604,8 +5604,8 @@ class AnimationSetAnalyzer
 	std::map<STANCE_STATE, fs::path> swimh2h_stance;
 	std::map<STANCE_STATE, fs::path> swim1h_stance;
 	std::map<STANCE_STATE, fs::path> oneh_stance;
-	std::map<STANCE_STATE, fs::path> staff_turn;
-	std::map<STANCE_STATE, fs::path> twoh_turn;
+	std::map<STANCE_STATE, fs::path> staff_stance;
+	std::map<STANCE_STATE, fs::path> twoh_stance;
 
 	void analyzeWalking()
 	{
@@ -6756,10 +6756,175 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 		}
 	}
 
+	auto nodes = DynamicCast<NiNode>(out_blocks);
+	for (auto& node : nodes)
+	{
+		auto shape_children = DynamicCast<NiTriShape>(node->GetChildren());
+		std::vector<NiTriShapeRef> split;
+		for (auto& shape : shape_children)
+		{
+			if (auto skin = shape->GetSkinInstance())
+			{
+				if (skin->GetBones().size() > 80)
+				{
+					auto old_shape_data = DynamicCast<NiTriShapeData>(shape->GetData());
+					auto old_shaders = DynamicCast<BSLightingShaderProperty>(shape->GetShaderProperty());
+					auto old_alpha = DynamicCast<NiAlphaProperty>(shape->GetAlphaProperty());
+					auto old_shape_triangles = old_shape_data->GetTriangles();
+					auto old_shape_vertices = old_shape_data->GetVertices();
+					auto old_shape_normals = old_shape_data->GetNormals();
+					auto old_shape_tangents = old_shape_data->GetTangents();
+					auto old_shape_bitangents = old_shape_data->GetBitangents();
+					auto old_shape_uvs = old_shape_data->GetUvSets()[0];
+					auto old_shape_vcs = old_shape_data->GetVertexColors();
+
+					int new_meshes_size = skin->GetBones().size() / 80 + skin->GetBones().size() % 80 > 0 ? 1 : 0;
+					split.resize(new_meshes_size);
+					for (int i = 0; i < new_meshes_size; ++i)
+					{
+						NiTriShapeRef new_shape = new NiTriShape();
+						NiTriShapeDataRef new_data = new NiTriShapeData();
+						NiSkinDataRef new_skin_data = new NiSkinData();
+						NiSkinPartitionRef new_skin_partition = new NiSkinPartition();
+						NiSkinInstanceRef new_skin_instance = new NiSkinInstance();
+						BSLightingShaderPropertyRef new_shader = new BSLightingShaderProperty();
+						BSShaderTextureSetRef new_textures = new BSShaderTextureSet();
+						new_shape->SetSkinInstance(new_skin_instance);
+						new_shape->SetData(StaticCast<NiGeometryData>(new_data));
+						new_shape->SetShaderProperty(StaticCast<BSShaderProperty>(new_shader));
+						new_skin_instance->SetSkinPartition(new_skin_partition);
+						new_skin_instance->SetData(new_skin_data);
+
+						new_shape->SetName(shape->GetName() + ":" + to_string(i));
+						new_shape->SetFlags(shape->GetFlags());
+						new_shape->SetTranslation(shape->GetTranslation());
+						new_shape->SetRotation(shape->GetRotation());
+						new_shape->SetScale(shape->GetScale());
+
+						new_data->SetVectorFlags(old_shape_data->GetVectorFlags());
+						new_data->SetConsistencyFlags(old_shape_data->GetConsistencyFlags());
+						
+						new_shader->SetSkyrimShaderType(old_shaders->GetSkyrimShaderType());
+						new_shader->SetName(old_shaders->GetName());
+						new_shader->SetExtraDataList(old_shaders->GetExtraDataList());
+						new_shader->SetShaderFlags1_sk(old_shaders->GetShaderFlags1_sk());
+						new_shader->SetShaderFlags2_sk(old_shaders->GetShaderFlags2_sk());
+						new_shader->SetUvOffset(old_shaders->GetUvOffset());
+						new_shader->SetUvScale(old_shaders->GetUvScale());
+
+						new_textures->SetTextures(old_shaders->GetTextureSet()->GetTextures());
+						new_shader->SetTextureSet(new_textures);
+						new_shader->SetEmissiveColor(old_shaders->GetEmissiveColor());
+						new_shader->SetEmissiveMultiple(old_shaders->GetEmissiveMultiple());
+						new_shader->SetTextureClampMode(old_shaders->GetTextureClampMode());
+						new_shader->SetAlpha(old_shaders->GetAlpha());
+						new_shader->SetRefractionStrength(old_shaders->GetRefractionStrength());
+						new_shader->SetGlossiness(old_shaders->GetGlossiness());
+						new_shader->SetSpecularColor(old_shaders->GetSpecularColor());
+						new_shader->SetSpecularStrength(old_shaders->GetSpecularStrength());
+						new_shader->SetLightingEffect1(old_shaders->GetLightingEffect1());
+						new_shader->SetLightingEffect2(old_shaders->GetLightingEffect2());
+
+						split[i] = new_shape;
+					}
+
+
+
+					float min_z = numeric_limits<float>::max();
+					float max_z = numeric_limits<float>::min();
+					for (const auto& vertex : old_shape_data->GetVertices())
+					{
+						if (vertex[2] > max_z)
+							max_z = vertex[2];
+						if (vertex[2] < min_z)
+							min_z = vertex[2];
+					}
+					float height = max_z - min_z;
+					float step = height / (float)new_meshes_size;
+
+					for (const auto& triangle : old_shape_triangles)
+					{
+						float tris_max_z = numeric_limits<float>::min();
+						for (int i = 0; i < 3; ++i)
+						{
+							auto vertex = old_shape_vertices[triangle[i]];
+							if (vertex[2] > tris_max_z)
+								tris_max_z = vertex[2];
+						}
+
+						//find this triangle mesh
+						NiTriShapeRef new_shape = split[0];
+						NiTriShapeDataRef new_data = StaticCast<NiTriShapeData>(split[0]->GetData());
+						NiSkinInstanceRef new_skin_instance = split[0]->GetSkinInstance();
+						NiSkinDataRef new_skin_data = new_skin_instance->GetData();
+						NiSkinPartitionRef new_skin_partition = new_skin_instance->GetSkinPartition();
+						for (int i = 0; i < new_meshes_size; ++i)
+						{
+							if (tris_max_z < min_z + step * i)
+							{
+								new_shape = split[i];
+								new_data = StaticCast<NiTriShapeData>(split[i]->GetData());
+								new_skin_instance = split[0]->GetSkinInstance();
+								new_skin_data = new_skin_instance->GetData();
+								new_skin_partition = new_skin_instance->GetSkinPartition();
+								break;
+							}
+						}
+
+						auto& new_shape_triangles = new_data->GetTriangles();
+						auto& new_shape_vertices = new_data->GetVertices();
+						auto& new_shape_normals = new_data->GetNormals();
+						auto& new_shape_tangents = new_data->GetTangents();
+						auto& new_shape_bitangents = new_data->GetBitangents();
+						auto& new_shape_uvs = new_data->GetUvSets()[0];
+						auto& new_shape_vcs = new_data->GetVertexColors();
+
+						for (int i = 0; i < 3; ++i)
+						{
+							auto vertex = old_shape_vertices[triangle[i]];
+							
+							new_shape_vertices.push_back(old_shape_vertices[triangle[i]]);
+							new_shape_normals.push_back(old_shape_normals[triangle[i]]);
+							new_shape_tangents.push_back(old_shape_tangents[triangle[i]]);
+							new_shape_bitangents.push_back(old_shape_bitangents[triangle[i]]);
+							new_shape_uvs.push_back(old_shape_uvs[triangle[i]]);
+
+							if (old_shape_data->GetVertexColors().size())
+							{
+								new_shape_vcs.push_back(old_shape_vcs[triangle[i]]);
+							}
+						}
+
+						new_shape_triangles.push_back(Triangle(new_shape_vertices.size() - 3, new_shape_vertices.size() - 2, new_shape_vertices.size() - 1));
+
+						new_data->SetNumTriangles(new_shape_triangles.size());
+						new_data->SetNumTrianglePoints(new_shape_triangles.size() * 3);
+						new_data->SetHasTriangles(true);
+						new_data->SetHasVertices(true);
+						new_data->SetHasNormals(true);
+
+						new_data->SetTriangles(new_shape_triangles);
+						new_data->SetVertices(new_shape_vertices);
+						new_data->SetNormals(new_shape_normals);
+						new_data->SetTangents(new_shape_tangents);
+						new_data->SetBitangents(new_shape_bitangents);
+						new_data->SetUvSets({ new_shape_uvs });
+						if (old_shape_data->GetVertexColors().size())
+						{
+							new_data->SetVertexColors(new_shape_vcs);
+							new_data->SetHasVertexColors(true);
+						}
+					}
+
+				}
+			}
+		}
+	}
+
 	for (auto& geometry : meshes)
 	{
 
-		if (geometry->GetSkinInstance() != NULL)
+		if (auto skin = geometry->GetSkinInstance())
 		{
 			BSDismemberSkinInstanceRef creature_skin = new BSDismemberSkinInstance();
 			creature_skin->SetBones(geometry->GetSkinInstance()->GetBones());

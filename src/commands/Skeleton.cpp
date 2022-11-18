@@ -690,9 +690,9 @@ bool Skeleton::Convert(
 								bone->SetChildren(children);
 
 								NiNodeRef parent = bone;
-								fakeBone->SetTranslation(root->GetTranslation());
-								fakeBone->SetRotation(root->GetRotation());
-								fakeBone->SetScale(root->GetScale());
+								fakeBone->SetTranslation({ 0.,0.,0. });
+								fakeBone->SetRotation(Matrix33::IDENTITY);
+								fakeBone->SetScale(1.);
 								skeleton_blocks.push_back(StaticCast<NiObject>(fakeBone));
 								boneNames.push_back(node->GetName());
 								bones.push_back(fakeBone);

@@ -886,23 +886,27 @@ std::set<std::pair<float, std::string>> convertOblivionAnnotations(const std::pa
 	}
 	else if (note.second.find("Sound:") == 0) {
 		std::string old = "Sound: ";
+		std::string old1 = "Sound:";
 		std::string new_sound = note.second;
-		new_sound.replace(new_sound.find(old), old.length(), "SoundPlay.");
+		if (new_sound.find(old) != string::npos)
+			new_sound.replace(new_sound.find(old), old.length(), "SoundPlay.TES4");
+		if (new_sound.find(old1) != string::npos)
+			new_sound.replace(new_sound.find(old1), old1.length(), "SoundPlay.TES4");
 		out.insert({ note.first, new_sound });
 	}
-	else if (note.second.find("Enum:Left") == 0) {
+	else if (note.second.find("Enum:Left") == 0 || note.second.find("Enum: Left")) {
 		out.insert({ note.first, "FootLeft" });
 	}
-	else if (note.second.find("Enum:Right") == 0) {
+	else if (note.second.find("Enum:Right") == 0 || note.second.find("Enum: Right")) {
 		out.insert({ note.first, "FootRight" });
 	}
-	else if (note.second.find("Enum:BackLeft") == 0) {
+	else if (note.second.find("Enum:BackLeft") == 0 || note.second.find("Enum: BackLeft")) {
 		out.insert({ note.first, "FootFront" });
 	}
-	else if (note.second.find("Enum:BackRight") == 0) {
+	else if (note.second.find("Enum:BackRight") == 0 || note.second.find("Enum: BackRight")) {
 		out.insert({ note.first, "FootBack" });
 	}
-	else if (note.second.find("Enum:Attack") == 0) {
+	else if (note.second.find("Enum:Attack") == 0 || note.second.find("Enum: Attack")) {
 		out.insert({ note.first, "weaponSwing" });
 	}
 	else if (note.second.find("Hit") == 0) {
@@ -1090,34 +1094,28 @@ static void PosRotScaleNode(hkQsTransform& transform, hkVector4& p, ::hkQuaterni
 	if (prs & prsPos) SetTransformPosition(transform, p);
 }
 static void SetTransformPositionRange( hkArray<hkQsTransform>& transforms, int numTracks, int boneIdx
-						   , float &currentTime, float lastTime, int &frame
-						   , Vector3Key &first, Vector3Key &last)
+						   , int &frame
+						   , Vector3Key &first)
 {
 	int n = transforms.getSize()/numTracks;
 	hkVector4 p = TOVECTOR4(first.data);
-	for ( ; COMPARE(currentTime, lastTime) <= 0 && frame < n; currentTime += FramesIncrement, ++frame)
-	{
-		hkQsTransform& transform = transforms[frame*numTracks + boneIdx];
-		SetTransformPosition(transform, p);
-	}
+	hkQsTransform& transform = transforms[frame*numTracks + boneIdx];
+	SetTransformPosition(transform, p);
 }
 static void SetTransformRotationRange( hkArray<hkQsTransform>& transforms, int numTracks, int boneIdx
-									  , float &currentTime, float lastTime, int &frame
-									  , QuatKey &first, QuatKey &last)
+									  , int &frame
+									  , QuatKey &first)
 {
 	int n = transforms.getSize()/numTracks;
 	::hkQuaternion q = TOQUAT(first.data);
-	for ( ; COMPARE(currentTime, lastTime) <= 0&& frame < n; currentTime += FramesIncrement, ++frame)
-	{
-		hkQsTransform& transform = transforms[frame*numTracks + boneIdx];
-		SetTransformRotation(transform, q);
-	}
+	hkQsTransform& transform = transforms[frame*numTracks + boneIdx];
+	SetTransformRotation(transform, q);
 }
 static void SetTransformRotationRange(hkArray<hkQsTransform>& transforms, int numTracks, int boneIdx
-	, float& currentTime, float lastTime, int& frame
-	, const FloatKey& x_first, const FloatKey& x_last
-	, const FloatKey& y_first, const FloatKey& y_last
-	, const FloatKey& z_first, const FloatKey& z_last
+	, int& frame
+	, const FloatKey& x_first
+	, const FloatKey& y_first
+	, const FloatKey& z_first
 	)
 {
 	int n = transforms.getSize() / numTracks;
@@ -1128,22 +1126,16 @@ static void SetTransformRotationRange(hkArray<hkQsTransform>& transforms, int nu
 	hkRotation rot(rot_z), result; rot.mul(rot_y); rot.mul(rot_x);
 	::hkQuaternion q(result);
 
-	for (; COMPARE(currentTime, lastTime) <= 0 && frame < n; currentTime += FramesIncrement, ++frame)
-	{
-		hkQsTransform& transform = transforms[frame * numTracks + boneIdx];
-		SetTransformRotation(transform, q);
-	}
+	hkQsTransform& transform = transforms[frame * numTracks + boneIdx];
+	SetTransformRotation(transform, q);
 }
 static void SetTransformScaleRange( hkArray<hkQsTransform>& transforms, int numTracks, int boneIdx
-									  , float &currentTime, float lastTime, int &frame
-									  , FloatKey &first, FloatKey &last)
+									  , int &frame
+									  , FloatKey &first)
 {
 	int n = transforms.getSize()/numTracks;
-	for ( ; COMPARE(currentTime, lastTime) <= 0 && frame < n; currentTime += FramesIncrement, ++frame)
-	{
-		hkQsTransform& transform = transforms[frame*numTracks + boneIdx];
-		SetTransformScale(transform, first.data);
-	}
+	hkQsTransform& transform = transforms[frame*numTracks + boneIdx];
+	SetTransformScale(transform, first.data);
 }
 
 template <typename K>
@@ -1369,17 +1361,10 @@ void importVectorOfKeys(vector<Vector3Key>& keys, hkArray<hkQsTransform>& transf
 	int n = keys.size();
 	if (n > 0)
 	{
-		int frame = 0;
-		float currentTime = 0.0f;
-		Vector3Key* itr = &keys[0], * last = &keys[n - 1];
-		SetTransformPositionRange(transforms, nbones, boneIdx, currentTime, (*itr).time, frame, *itr, *itr);
-		for (int i = 1; i < n; ++i)
+		for (int i = 0; i < n; ++i)
 		{
-			Vector3Key* next = &keys[i];
-			SetTransformPositionRange(transforms, nbones, boneIdx, currentTime, (*next).time, frame, *itr, *next);
-			itr = next;
+			SetTransformPositionRange(transforms, nbones, boneIdx, i, keys[i]);
 		}
-		SetTransformPositionRange(transforms, nbones, boneIdx, currentTime, duration, frame, *last, *last);
 	}
 }
 
@@ -1387,17 +1372,10 @@ void importVectorOfKeys(vector<FloatKey>& keys, hkArray<hkQsTransform>& transfor
 	int n = keys.size();
 	if (n > 0)
 	{
-		int frame = 0;
-		float currentTime = 0.0f;
-		FloatKey* itr = &keys[0], * last = &keys[n - 1];
-		SetTransformScaleRange(transforms, nbones, boneIdx, currentTime, itr->time, frame, *itr, *itr);
-		for (int i = 1; i < n; ++i)
+		for (int i = 0; i < n; ++i)
 		{
-			FloatKey* next = &keys[i];
-			SetTransformScaleRange(transforms, nbones, boneIdx, currentTime, next->time, frame, *itr, *next);
-			itr = next;
+			SetTransformScaleRange(transforms, nbones, boneIdx, i, keys[i]);
 		}
-		SetTransformScaleRange(transforms, nbones, boneIdx, currentTime, duration, frame, *last, *last);
 	}
 }
 
@@ -1405,17 +1383,10 @@ void importVectorOfKeys(vector<QuatKey>& keys, hkArray<hkQsTransform>& transform
 	int n = keys.size();
 	if (n > 0)
 	{
-		int frame = 0;
-		float currentTime = 0.0f;
-		QuatKey* itr = &keys[0], * last = &keys[n - 1];
-		SetTransformRotationRange(transforms, nbones, boneIdx, currentTime, itr->time, frame, *itr, *itr);
-		for (int i = 1; i < n; ++i)
+		for (int i = 0; i < n; ++i)
 		{
-			QuatKey* next = &keys[i];
-			SetTransformRotationRange(transforms, nbones, boneIdx, currentTime, next->time, frame, *itr, *next);
-			itr = next;
+			SetTransformRotationRange(transforms, nbones, boneIdx, i, keys[i]);
 		}
-		SetTransformRotationRange(transforms, nbones, boneIdx, currentTime, duration, frame, *last, *last);
 	}
 }
 
@@ -1674,17 +1645,20 @@ bool AnimationExport::exportController()
 
 		if (NiBSplineCompTransformInterpolatorRef interp = DynamicCast<NiBSplineCompTransformInterpolator>((*bitr).interpolator))
 		{
-			auto translation = TOVECTOR4(interp->GetTransform().translation);
-			SetTransformPosition(localTransform, translation);
-			if (interp->GetTransform().rotation.x != FloatNegINF)
+			if (NULL != interp)
 			{
-				auto rotation = TOQUAT(interp->GetTransform().rotation);
-				SetTransformRotation(localTransform, rotation);
+				auto translation = TOVECTOR4(interp->GetTransform().translation);
+				SetTransformPosition(localTransform, translation);
+				if (interp->GetTransform().rotation.x != FloatNegINF)
+				{
+					auto rotation = TOQUAT(interp->GetTransform().rotation);
+					SetTransformRotation(localTransform, rotation);
+				}
+				auto scale = interp->GetTransform().scale;
+				SetTransformScale(localTransform, scale);
 			}
-			auto scale = interp->GetTransform().scale;
-			SetTransformScale(localTransform, scale);
 
-			FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with animation pose
+			FillTransforms(transforms, boneIdx, nbones, localTransform);
 
 			int npoints = GetNumControlPoints(interp);
 
@@ -1707,18 +1681,6 @@ bool AnimationExport::exportController()
 			// see hkaInterleavedUncompressedAnimation
 			// so for both constant and quadratic interpolation types
 			// we should really interpolate and sample them at least at 24hz 
-			auto translation = TOVECTOR4(interp->GetTransform().translation);
-			SetTransformPosition(localTransform, translation);
-			if (interp->GetTransform().rotation.x != FloatNegINF)
-			{
-				auto rotation = TOQUAT(interp->GetTransform().rotation);
-				SetTransformRotation(localTransform, rotation);
-			}
-			auto scale = interp->GetTransform().scale;
-			SetTransformScale(localTransform, scale);
-
-			FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with animation pose
-
 			if (NiTransformDataRef data = interp->GetData())
 			{
 
@@ -1753,23 +1715,56 @@ bool AnimationExport::exportController()
 		//}
 	}
 
+	// Non accum index
+	int nonaccum_index = 1;
+	bool found = false;
+	hkQsTransform current_transform; current_transform.setIdentity();
+	for (int i = 1; i < nbones; i++)
+	{
+		string name = skeleton->m_bones[i].m_name;
+		if (name.find("NonAccum") != string::npos)
+		{
+			nonaccum_index = i;
+			break;
+			found = true;
+		}
+	}
+	if (!found)
+		int debug = 1;
+
 	//Extract Motion
 	for (int f = 0; f < nframes; f++)
 	{
-		hkQsTransform& root_transform = tempAnim->m_transforms[nbones * f];
-		hkQsTransform& pelvis_transform = tempAnim->m_transforms[nbones * f + 1]; //assume pelvis is the second bone
+		hkQsTransform motionTransform; motionTransform.setIdentity();
+		for (int i = 0; i <= nonaccum_index; i++)
+		{
+			motionTransform.setMulEq(tempAnim->m_transforms[nbones * f + i]);
+		}
 
-		hkQsTransform pelvis_world_transform; pelvis_world_transform.setMul(root_transform, pelvis_transform);
-		
+		//hkQsTransform& root_transform = tempAnim->m_transforms[nbones * f];
+		//hkQsTransform& pelvis_transform = tempAnim->m_transforms[nbones * f + pelvis_index]; //assume pelvis is the second bone
+
+		//hkQsTransform pelvis_world_transform; pelvis_world_transform.setMul(root_transform, pelvis_transform);
+		//
 		// the root movement is x, y, rotation round z
-		root_transform.setTranslation(
-			hkVector4(
-				0.,//pelvis_world_transform.getTranslation()(0),
-				0.,//pelvis_world_transform.getTranslation()(1),
-				0.
-			)
-		);
-		auto quat = pelvis_world_transform.getRotation();
+		//root_transform.setTranslation(
+		//	hkVector4(
+		//		0.,//pelvis_world_transform.getTranslation()(0),
+		//		0.,//pelvis_world_transform.getTranslation()(1),
+		//		0.
+		//	)
+		//);
+
+		// the root movement is x, y, rotation round z, extract everything before the accumulation,
+		// zeroing out the rest. The NonAccum will elevate Z
+		for (int i = 0; i < nonaccum_index; i++)
+		{
+			tempAnim->m_transforms[nbones * f + i].setTranslation(hkVector4(0., 0., 0.));
+			tempAnim->m_transforms[nbones * f + i].setRotation({ 0., 0., 0., 1. });
+		}
+		tempAnim->m_transforms[nbones * f + nonaccum_index].setTranslation(hkVector4(0., 0., motionTransform.getTranslation()(2)));
+
+		auto quat = motionTransform.getRotation();
 		Quat QuatRotNew = { quat(0), quat(1), quat(2), quat(3) };
 		EulerAngles z_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
 		z_eul.x = 0; z_eul.y = 0;
@@ -1781,7 +1776,7 @@ bool AnimationExport::exportController()
 		_root_info.translations.push_back
 		({
 			f * (frameTime),
-			hkVector4(pelvis_world_transform.getTranslation()(0), pelvis_world_transform.getTranslation()(1), 0.0)
+			hkVector4(motionTransform.getTranslation()(0), motionTransform.getTranslation()(1), 0.0)
 			});
 
 		_root_info.rotations.push_back
@@ -1791,17 +1786,17 @@ bool AnimationExport::exportController()
 		});
 
 
-		rootTransform.setRotation({0., 0., 0., 1.});
+		//rootTransform.setRotation({0., 0., 0., 1.});
 
 		//Pelvis Movement gets the rest;
-		pelvis_transform.setTranslation(
-			hkVector4(
-				0.,
-				0.,
-				pelvis_world_transform.getTranslation()(2)
-			)
-		);
-		pelvis_transform.setRotation({ (float)xy_quat.x, (float)xy_quat.y, (float)xy_quat.z, (float)xy_quat.w });
+		//pelvis_transform.setTranslation(
+		//	hkVector4(
+		//		0.,
+		//		0.,
+		//		pelvis_world_transform.getTranslation()(2)
+		//	)
+		//);
+		tempAnim->m_transforms[nbones * f + nonaccum_index].setRotation({ (float)xy_quat.x, (float)xy_quat.y, (float)xy_quat.z, (float)xy_quat.w });
 	}
 
 	if (_root_info.translations.empty()) {
