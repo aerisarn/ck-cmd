@@ -756,8 +756,17 @@ namespace {
 }
 bool AnimationExport::noRootSiblings = true;
 
-AnimationExport::AnimationExport(NiControllerSequenceRef seq, hkRefPtr<hkaSkeleton> skeleton, hkRefPtr<hkaAnimationBinding> binding, const NifInfo& info) :
-_info(info)
+AnimationExport::AnimationExport(
+	NiControllerSequenceRef seq, 
+	hkRefPtr<hkaSkeleton> skeleton, 
+	hkRefPtr<hkaAnimationBinding> binding, 
+	const NifInfo& info,
+	const set<NiNodeRef>& other_bones_in_accum,
+	const hkTransform& pelvis_local
+) :
+_other_bones_in_accum(other_bones_in_accum),
+_pelvis_local(pelvis_local),
+_info(info) 
 {
 	this->seq = seq;
 	this->binding = binding;
@@ -1525,22 +1534,6 @@ bool AnimationExport::exportController()
 	vector<Niflib::ControlledBlock> blocks = seq->GetControlledBlocks();
 	int nbones = skeleton->m_bones.getSize();
 
-	//Find accum bone
-
-   //if (AnimationExport::noRootSiblings)
-   //{
-	  // // Remove bones not children of root.  This is a bit of a kludge.  
-	  // //  Basically search for the first node after the root which also has no parent
-	  // //  This is typically Camera3. We then truncate tracks to exclude nodes appearing after.
-	  // for (int i=1; i<nbones; ++i)
-	  // {
-		 //  if (skeleton->m_parentIndices[i] < 0)
-		 //  {
-			//   nbones = i;
-			//   break;
-		 //  }
-	  // }
-   //}
 	int numTracks = nbones;
 
 	float duration = seq->GetStopTime() - seq->GetStartTime();
@@ -1609,9 +1602,44 @@ bool AnimationExport::exportController()
 		Log::Error("Unable to find sequence accumulation root into the skeleton!");
 		return false;
 	}
-	int accum_root_index = boneMap.at(seq->GetAccumRootName());
-	hkQsTransform rootTransform = skeleton->m_referencePose[accum_root_index];
-	//rootTransform.setInverse(rootTransform);
+
+	// Pelvis index
+	int nonaccum_index = 1;
+	int pelvis_index = 1;
+	bool found = false;
+	hkQsTransform current_transform; current_transform.setIdentity();
+	for (int i = 1; i < nbones; i++)
+	{
+		string name = skeleton->m_bones[i].m_name;
+		if (name.find("NonAccum") != string::npos)
+		{
+			pelvis_index = i;
+			nonaccum_index = i;
+			found = true;
+			break;
+		}
+	}
+	if (!found)
+		int debug = 1;
+	else
+		pelvis_index += 1;
+
+	hkQsTransform bindTransform; bindTransform.setIdentity();
+	for (int i = 0; i <= pelvis_index; i++)
+	{
+		hkQsTransform localTransform = skeleton->m_referencePose[i];
+		bindTransform.setMulEq(localTransform);
+	}
+	hkRotation bindRotation; bindRotation.set(bindTransform.getRotation());
+
+	//Some animations do not have the entire bind pose
+	for (int boneIdx = 0; boneIdx < skeleton->m_bones.getSize(); ++boneIdx)
+	{
+		hkQsTransform localTransform = skeleton->m_referencePose[boneIdx];
+		FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with bindpose
+	}
+
+	std::set<int> animated_bones;
 
 	//Controlled links
 	for ( vector<Niflib::ControlledBlock>::iterator bitr = blocks.begin(); bitr != blocks.end(); ++bitr)
@@ -1626,22 +1654,8 @@ bool AnimationExport::exportController()
 		}
 
 		int boneIdx = boneitr->second;
+		animated_bones.insert(boneIdx);
 		hkQsTransform localTransform = skeleton->m_referencePose[boneIdx];
-		NiTransformInterpolatorRef generic_interp = DynamicCast<NiTransformInterpolator>((*bitr).interpolator);
-		if (NULL != generic_interp)
-		{
-			auto translation = TOVECTOR4(generic_interp->GetTransform().translation);
-			SetTransformPosition(localTransform, translation);
-			if (generic_interp->GetTransform().rotation.x != FloatNegINF)
-			{
-				auto rotation = TOQUAT(generic_interp->GetTransform().rotation);
-				SetTransformRotation(localTransform, rotation);
-			}
-			auto scale = generic_interp->GetTransform().scale;
-			SetTransformScale(localTransform, scale);
-		}
-
-		FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with bindpose
 
 		if (NiBSplineCompTransformInterpolatorRef interp = DynamicCast<NiBSplineCompTransformInterpolator>((*bitr).interpolator))
 		{
@@ -1677,6 +1691,22 @@ bool AnimationExport::exportController()
 		}
 		else if (NiTransformInterpolatorRef interp = DynamicCast<NiTransformInterpolator>((*bitr).interpolator))
 		{
+			if (NULL != interp)
+			{
+				auto translation = TOVECTOR4(interp->GetTransform().translation);
+				SetTransformPosition(localTransform, translation);
+				if (interp->GetTransform().rotation.x != FloatNegINF)
+				{
+					auto rotation = TOQUAT(interp->GetTransform().rotation);
+					SetTransformRotation(localTransform, rotation);
+				}
+				auto scale = interp->GetTransform().scale;
+				SetTransformScale(localTransform, scale);
+			}
+
+			FillTransforms(transforms, boneIdx, nbones, localTransform);
+
+
 			// Havok animations are basically linear interpolated animations
 			// see hkaInterleavedUncompressedAnimation
 			// so for both constant and quadratic interpolation types
@@ -1715,31 +1745,51 @@ bool AnimationExport::exportController()
 		//}
 	}
 
-	// Non accum index
-	int nonaccum_index = 1;
-	bool found = false;
-	hkQsTransform current_transform; current_transform.setIdentity();
-	for (int i = 1; i < nbones; i++)
+	if (!_other_bones_in_accum.empty())
 	{
-		string name = skeleton->m_bones[i].m_name;
-		if (name.find("NonAccum") != string::npos)
+		//adjust transforms that were moved
+		for (auto& bone : _other_bones_in_accum)
 		{
-			nonaccum_index = i;
-			break;
-			found = true;
+			int bone_index = -1;
+			for (int i = 0; i < nbones; ++i)
+			{
+				string name = skeleton->m_bones[i].m_name;
+				if (bone->GetName() == name)
+				{
+					bone_index = i;
+					break;
+				}
+			}
+			if (bone_index != -1 && animated_bones.find(bone_index) != animated_bones.end())
+			{
+				//fix transforms
+				if (nonaccum_index != -1)
+				{
+					for (int f = 0; f < nframes; ++f)
+					{
+						hkQsTransform parent_local = transforms[nbones * f + pelvis_index];
+						hkQsTransform local = transforms[nbones * f + bone_index];
+						hkQsTransform local_inv;  local_inv.setMul(parent_local, local);
+						transforms[nbones * f + bone_index] = local_inv;
+					}
+				}
+			}
 		}
 	}
-	if (!found)
-		int debug = 1;
+
+	std::vector<hkRotation> rotations;
 
 	//Extract Motion
 	for (int f = 0; f < nframes; f++)
 	{
 		hkQsTransform motionTransform; motionTransform.setIdentity();
-		for (int i = 0; i <= nonaccum_index; i++)
+		for (int i = 0; i <= pelvis_index; i++)
 		{
+			hkRotation r; r.set(tempAnim->m_transforms[nbones * f + i].getRotation());
+			rotations.push_back(r);
 			motionTransform.setMulEq(tempAnim->m_transforms[nbones * f + i]);
 		}
+		hkRotation r; r.set(motionTransform.getRotation());
 
 		//hkQsTransform& root_transform = tempAnim->m_transforms[nbones * f];
 		//hkQsTransform& pelvis_transform = tempAnim->m_transforms[nbones * f + pelvis_index]; //assume pelvis is the second bone
@@ -1757,19 +1807,20 @@ bool AnimationExport::exportController()
 
 		// the root movement is x, y, rotation round z, extract everything before the accumulation,
 		// zeroing out the rest. The NonAccum will elevate Z
-		for (int i = 0; i < nonaccum_index; i++)
+		for (int i = 0; i < pelvis_index; i++)
 		{
 			tempAnim->m_transforms[nbones * f + i].setTranslation(hkVector4(0., 0., 0.));
 			tempAnim->m_transforms[nbones * f + i].setRotation({ 0., 0., 0., 1. });
 		}
-		tempAnim->m_transforms[nbones * f + nonaccum_index].setTranslation(hkVector4(0., 0., motionTransform.getTranslation()(2)));
+		tempAnim->m_transforms[nbones * f + pelvis_index].setTranslation(hkVector4(0., 0., motionTransform.getTranslation()(2)));
 
 		auto quat = motionTransform.getRotation();
 		Quat QuatRotNew = { quat(0), quat(1), quat(2), quat(3) };
-		EulerAngles z_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
-		z_eul.x = 0; z_eul.y = 0;
-		EulerAngles xy_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
-		xy_eul.z = 0;
+		//XVZ depends on the order
+		EulerAngles z_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYr);
+		z_eul.z = 0; z_eul.y = 0;
+		EulerAngles xy_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYr);
+		xy_eul.x = 0;
 		auto z_quat = Eul_ToQuat(z_eul);
 		auto xy_quat = Eul_ToQuat(xy_eul);
 
@@ -1796,7 +1847,7 @@ bool AnimationExport::exportController()
 		//		pelvis_world_transform.getTranslation()(2)
 		//	)
 		//);
-		tempAnim->m_transforms[nbones * f + nonaccum_index].setRotation({ (float)xy_quat.x, (float)xy_quat.y, (float)xy_quat.z, (float)xy_quat.w });
+		tempAnim->m_transforms[nbones * f + pelvis_index].setRotation({ (float)QuatRotNew.x, (float)QuatRotNew.y, (float)QuatRotNew.z, (float)QuatRotNew.w });
 	}
 
 	if (_root_info.translations.empty()) {
@@ -1835,7 +1886,9 @@ bool AnimationExport::exportController()
 void ImportKF::ExportAnimations(const NifFolderType& in 
 	, const hkRefPtr<hkaSkeleton>& skeleton
 	, const string& outdir
-	, std::map<fs::path, ckcmd::HKX::RootMovement>& rootMovements)
+	, std::map<fs::path, ckcmd::HKX::RootMovement>& rootMovements
+	, const set<NiNodeRef>& other_bones_in_accum
+	, const hkTransform& pelvis_local)
 {
 	auto& animlist = std::get<2>(in);
 	for (auto& itr = animlist.begin(); itr != animlist.end(); ++itr)
@@ -1883,7 +1936,14 @@ void ImportKF::ExportAnimations(const NifFolderType& in
 
 				Log::Verbose("ExportAnimation Exporting to '%s'", outfile.c_str());
 
-				AnimationExport exporter(seq, skeleton, newBinding, info);
+				AnimationExport exporter(
+					seq, 
+					skeleton, 
+					newBinding, 
+					info,
+					other_bones_in_accum,
+					pelvis_local
+				);
 				if (exporter.doExport())
 				{
 
@@ -2012,7 +2072,14 @@ void ImportKF::ExportAnimations(const string& rootdir, const fs::path& skelfile
 
 					Log::Verbose("ExportAnimation Exporting '%s'", outfile);
 
-					AnimationExport exporter(seq, skeleton, newBinding, info);
+					AnimationExport exporter(
+						seq, 
+						skeleton, 
+						newBinding, 
+						info,
+						{},
+						hkTransform()
+					);
 					if ( exporter.doExport() )
 					{
 						char outfiledir[MAX_PATH];

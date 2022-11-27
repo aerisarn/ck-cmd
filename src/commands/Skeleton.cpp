@@ -916,6 +916,10 @@ bool Skeleton::Convert(
 			int rbIndex = std::distance(rigidBodies.begin(), rb_it);
 
 			//set the skeletal parent for this rigid body
+			if (bone->GetName().find("NonAccum") != string::npos)
+			{
+				int debug = 1;
+			}
 			ragdollAnimationParentMap[*rb_it] = bone;
 			rbNames[*rb_it] = "Ragdoll_" + bone->GetName();
 			//find rb parent
@@ -1213,6 +1217,8 @@ bool Skeleton::Convert(
 			//contraints
 			hkArray<hkpConstraintInstance*> constraints;
 
+			set<string> constraint_names;
+
 			for (int i = 0; i < rigidBodies.size(); i++) {
 				bhkRigidBodyRef bhkRB = DynamicCast<bhkRigidBody>(rigidBodies[i]->GetBody());
 				vector<bhkSerializableRef> bhkConstraints = bhkRB->GetConstraints();
@@ -1223,7 +1229,9 @@ bool Skeleton::Convert(
 					auto constraint_name = hkpBodies[i]->getName();
 					auto* constraint = ConstraintBuilder(rigidBodies, hkpBodies).visitConstraint(DynamicCast<bhkConstraint>(bhkConstraints[j]));
 					constraint->setName(hkpBodies[i]->getName());
-					constraints.pushBack(constraint);
+					if(constraint_names.insert(hkpBodies[i]->getName()).second)
+						constraints.pushBack(constraint);
+					//constraint_names.push_back(hkpBodies[i]->getName());
 				}
 
 			}

@@ -5290,11 +5290,9 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				//if (std::string(creature->MODL.value->MODL.value).find("Clannfear") != string::npos)
-				//{
+				if (std::string(creature->MODL.value->MODL.value).find("Storm") != string::npos)
+				{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
-					if (skeleton.find("landdreugh") != string::npos)
-						int debug = 1;
 					transform(skeleton.begin(), skeleton.end(), skeleton.begin(), ::tolower);
 					actors[skeleton].insert(creature);
 					Log::Info("Found NPC entry: %s, skeleton to be converted: %s", creature->EDID.value, skeleton.c_str());
@@ -5361,7 +5359,7 @@ void findCreatures
 						models_lowercase.insert(s_model);
 					}
 					skins[skeleton][models_lowercase].insert(creature);
-				//}
+				}
 			}
 		}
 	}
@@ -6647,22 +6645,9 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 	auto meshes = DynamicCast<NiTriShape>(out_blocks);
 	std::string part_name = file.filename().replace_extension("").string();
 	Sk::SKBOD2::BodyParts out = Sk::SKBOD2::BodyParts::bpBody;
-	//Dog has multiple attachments on the same node, horse even single eye slot, sigh
-	/*if (part_name.find("eye") != string::npos)
-	{
-		part_name = "EYES";
-		if (part_name.find("left") != string::npos)
-		{
-			part_name = "LEFT EYE";
-		} else if (part_name.find("right") != string::npos)
-		{
-			part_name = "RIGHT EYE";
-		}
-	}
-	else */
 	if (skeleton_body_parts.find(file) != skeleton_body_parts.end())
 	{
-		//part_name = skeleton_body_parts[file];
+		//NTD;
 	}
 	else {
 		std::set<std::string> skin_bones;
@@ -6732,7 +6717,7 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 				hkQsTransform shape_transform;
 				shape_transform.setTranslation(TOVECTOR4(shape->GetTranslation()));
 				shape_transform.setRotation(TOQUAT(shape->GetRotation().AsQuaternion()));
-				shape_transform.setScale({ 1., 1., 1. });
+				shape_transform.setScale({ shape->GetScale(), shape->GetScale(), shape->GetScale() });
 
 				hkQsTransform transform(root_transform); transform.setMulEq(shape_transform);
 				auto& vertices = data->GetVertices();
@@ -6751,6 +6736,7 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 
 				shape->SetTranslation({ 0., 0., 0. });
 				shape->SetRotation(Matrix33::IDENTITY);
+				shape->SetScale(1.);
 				data->SetVertices(vertices);
 			}
 		}
@@ -6761,12 +6747,16 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 	{
 		auto shape_children = DynamicCast<NiTriShape>(node->GetChildren());
 		std::vector<NiTriShapeRef> split;
+		std::set<NiTriShapeRef> to_delete;
 		for (auto& shape : shape_children)
 		{
 			if (auto skin = shape->GetSkinInstance())
 			{
 				if (skin->GetBones().size() > 80)
 				{
+					int bones = skin->GetBones().size();
+
+					to_delete.insert(shape);
 					auto old_shape_data = DynamicCast<NiTriShapeData>(shape->GetData());
 					auto old_shaders = DynamicCast<BSLightingShaderProperty>(shape->GetShaderProperty());
 					auto old_alpha = DynamicCast<NiAlphaProperty>(shape->GetAlphaProperty());
@@ -6778,11 +6768,18 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 					auto old_shape_uvs = old_shape_data->GetUvSets()[0];
 					auto old_shape_vcs = old_shape_data->GetVertexColors();
 
-					int new_meshes_size = skin->GetBones().size() / 80 + skin->GetBones().size() % 80 > 0 ? 1 : 0;
+					auto old_shape_bones = skin->GetBones();
+					auto old_shape_bonelist = skin->GetData()->GetBoneList();
+
+					int new_meshes_size = bones / 80;
+					if (bones % 80 > 0) {
+						new_meshes_size++;
+					}
 					split.resize(new_meshes_size);
 					for (int i = 0; i < new_meshes_size; ++i)
 					{
 						NiTriShapeRef new_shape = new NiTriShape();
+						meshes.push_back(new_shape);
 						NiTriShapeDataRef new_data = new NiTriShapeData();
 						NiSkinDataRef new_skin_data = new NiSkinData();
 						NiSkinPartitionRef new_skin_partition = new NiSkinPartition();
@@ -6794,6 +6791,7 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 						new_shape->SetShaderProperty(StaticCast<BSShaderProperty>(new_shader));
 						new_skin_instance->SetSkinPartition(new_skin_partition);
 						new_skin_instance->SetData(new_skin_data);
+						new_skin_instance->SetSkeletonRoot(skin->GetSkeletonRoot());
 
 						new_shape->SetName(shape->GetName() + ":" + to_string(i));
 						new_shape->SetFlags(shape->GetFlags());
@@ -6802,7 +6800,10 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 						new_shape->SetScale(shape->GetScale());
 
 						new_data->SetVectorFlags(old_shape_data->GetVectorFlags());
+						new_data->SetBsVectorFlags(old_shape_data->GetBsVectorFlags());
 						new_data->SetConsistencyFlags(old_shape_data->GetConsistencyFlags());
+						new_data->SetUvSets({vector<TexCoord>()});
+						new_data->SetHasVertexColors(false);
 						
 						new_shader->SetSkyrimShaderType(old_shaders->GetSkyrimShaderType());
 						new_shader->SetName(old_shaders->GetName());
@@ -6825,10 +6826,10 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 						new_shader->SetLightingEffect1(old_shaders->GetLightingEffect1());
 						new_shader->SetLightingEffect2(old_shaders->GetLightingEffect2());
 
+						new_skin_partition->SetSkinPartitionBlocks({ SkinPartition() });
+
 						split[i] = new_shape;
 					}
-
-
 
 					float min_z = numeric_limits<float>::max();
 					float max_z = numeric_limits<float>::min();
@@ -6842,6 +6843,8 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 					float height = max_z - min_z;
 					float step = height / (float)new_meshes_size;
 
+					vector<vector<Triangle>> triangles_by_z(new_meshes_size);
+
 					for (const auto& triangle : old_shape_triangles)
 					{
 						float tris_max_z = numeric_limits<float>::min();
@@ -6852,50 +6855,161 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 								tris_max_z = vertex[2];
 						}
 
-						//find this triangle mesh
-						NiTriShapeRef new_shape = split[0];
-						NiTriShapeDataRef new_data = StaticCast<NiTriShapeData>(split[0]->GetData());
-						NiSkinInstanceRef new_skin_instance = split[0]->GetSkinInstance();
-						NiSkinDataRef new_skin_data = new_skin_instance->GetData();
-						NiSkinPartitionRef new_skin_partition = new_skin_instance->GetSkinPartition();
 						for (int i = 0; i < new_meshes_size; ++i)
 						{
-							if (tris_max_z < min_z + step * i)
+							if (tris_max_z <= min_z + step * (i + 1))
 							{
-								new_shape = split[i];
-								new_data = StaticCast<NiTriShapeData>(split[i]->GetData());
-								new_skin_instance = split[0]->GetSkinInstance();
-								new_skin_data = new_skin_instance->GetData();
-								new_skin_partition = new_skin_instance->GetSkinPartition();
+								triangles_by_z[i].push_back(triangle);
 								break;
 							}
 						}
+					}
+
+					for (int i = 0; i < new_meshes_size; ++i)
+					{ 
+						map<int, int> old_to_new_vertices;
+
+						NiTriShapeRef new_shape = split[i];
+						NiTriShapeDataRef new_data = StaticCast<NiTriShapeData>(split[i]->GetData());
+						NiSkinInstanceRef new_skin_instance = split[i]->GetSkinInstance();
+						NiSkinDataRef new_skin_data = new_skin_instance->GetData();
+						NiSkinPartitionRef new_skin_partition = new_skin_instance->GetSkinPartition();
 
 						auto& new_shape_triangles = new_data->GetTriangles();
 						auto& new_shape_vertices = new_data->GetVertices();
 						auto& new_shape_normals = new_data->GetNormals();
 						auto& new_shape_tangents = new_data->GetTangents();
 						auto& new_shape_bitangents = new_data->GetBitangents();
-						auto& new_shape_uvs = new_data->GetUvSets()[0];
+						auto new_shape_uvs = new_data->GetUvSets()[0];
 						auto& new_shape_vcs = new_data->GetVertexColors();
 
-						for (int i = 0; i < 3; ++i)
-						{
-							auto vertex = old_shape_vertices[triangle[i]];
-							
-							new_shape_vertices.push_back(old_shape_vertices[triangle[i]]);
-							new_shape_normals.push_back(old_shape_normals[triangle[i]]);
-							new_shape_tangents.push_back(old_shape_tangents[triangle[i]]);
-							new_shape_bitangents.push_back(old_shape_bitangents[triangle[i]]);
-							new_shape_uvs.push_back(old_shape_uvs[triangle[i]]);
+						vector<NiNode* > new_shape_bones;
+						auto& new_shape_bonelist = new_skin_data->GetBoneList();
+						SkinPartition new_shape_partition;
+						new_shape_partition.hasVertexMap = true;
+						new_shape_partition.hasFaces = true;
+						new_shape_partition.numWeightsPerVertex = 4;
+						new_shape_partition.hasVertexWeights = true;
+						new_shape_partition.hasBoneIndices = true;
 
-							if (old_shape_data->GetVertexColors().size())
+						for (const auto& triangle : triangles_by_z[i])
+						{
+							Triangle new_triangle;
+
+							for (int i = 0; i < 3; ++i)
 							{
-								new_shape_vcs.push_back(old_shape_vcs[triangle[i]]);
+								int old_index = triangle[i];
+								int new_index = new_shape_vertices.size();
+								if (old_to_new_vertices.find(old_index) == old_to_new_vertices.end())
+								{
+									auto vertex = old_shape_vertices[old_index];
+
+									new_shape_partition.vertexMap.push_back(new_index);
+									new_shape_vertices.push_back(old_shape_vertices[triangle[i]]);
+									new_shape_normals.push_back(old_shape_normals[triangle[i]]);
+									new_shape_tangents.push_back(old_shape_tangents[triangle[i]]);
+									new_shape_bitangents.push_back(old_shape_bitangents[triangle[i]]);
+									new_shape_uvs.push_back(old_shape_uvs[triangle[i]]);
+
+									if (old_shape_data->GetHasVertexColors())
+									{
+										new_shape_vcs.push_back(old_shape_vcs[triangle[i]]);
+									}
+
+									old_to_new_vertices[old_index] = new_index;
+								}
+								else {
+									new_index = old_to_new_vertices.at(old_index);
+								}
+								
+								new_triangle[i] = new_index;
+
+								//add bones
+								vector<BoneVertData >::const_iterator BoneVertData_it;
+								auto bone_data_it = find_if(old_shape_bonelist.begin(), old_shape_bonelist.end(),
+									[old_index, &BoneVertData_it](const BoneData& bonedata) {
+										BoneVertData_it = find_if(
+											bonedata.vertexWeights.begin(),
+											bonedata.vertexWeights.end(),
+											[old_index, &BoneVertData_it](const BoneVertData& data) {return data.index == old_index; });
+										return BoneVertData_it != bonedata.vertexWeights.end();
+									});
+								if (bone_data_it != old_shape_bonelist.end())
+								{
+									auto old_bone = old_shape_bones[distance(old_shape_bonelist.begin(), bone_data_it)];
+									auto new_bone_index = find_if(new_shape_bones.begin(), new_shape_bones.end(),
+										[old_bone](const NiNode* bone) {return bone->GetName() == old_bone->GetName(); });
+									int new_bonelist_index;
+									if (new_bone_index == new_shape_bones.end())
+									{
+										new_bonelist_index = new_shape_bonelist.size();
+										new_shape_bones.push_back(old_bone);
+										new_shape_bonelist.push_back(*bone_data_it);
+										new_shape_partition.bones.push_back(new_bonelist_index);
+									}
+								}
+							}
+
+							new_shape_triangles.push_back(new_triangle);
+							new_shape_partition.triangles.push_back(new_triangle);
+						}
+						//Prune other partition weights
+						for (int b = 0; b < new_shape_bonelist.size(); ++b)
+						{
+							for (auto it = new_shape_bonelist[b].vertexWeights.begin(); it != new_shape_bonelist[b].vertexWeights.end(); )
+							{
+								if (old_to_new_vertices.find(it->index) == old_to_new_vertices.end())
+								{
+									it = new_shape_bonelist[b].vertexWeights.erase(it);
+								}
+								else {
+									it->index = old_to_new_vertices.at(it->index);
+									it++;
+								}
 							}
 						}
 
-						new_shape_triangles.push_back(Triangle(new_shape_vertices.size() - 3, new_shape_vertices.size() - 2, new_shape_vertices.size() - 1));
+						//Rebuild partition
+						for (int b = 0; b < new_shape_bonelist.size(); ++b)
+						{
+							for (const BoneVertData& vertexData : new_shape_bonelist[b].vertexWeights)
+							{
+								if (new_shape_partition.vertexWeights.size() <= vertexData.index)
+									new_shape_partition.vertexWeights.resize(vertexData.index + 1);
+								new_shape_partition.vertexWeights[vertexData.index].push_back(vertexData.weight);
+
+								if (new_shape_partition.boneIndices.size() <= vertexData.index)
+									new_shape_partition.boneIndices.resize(vertexData.index + 1);
+								new_shape_partition.boneIndices[vertexData.index].push_back(b);
+							}
+						}
+
+						//Set sizes
+						for (int b = 0; b < new_shape_bonelist.size(); ++b)
+						{
+							for (const BoneVertData& vertexData : new_shape_bonelist[b].vertexWeights)
+							{
+								new_shape_partition.vertexWeights[vertexData.index].resize(4);
+
+								float sum = 0.;
+								for (int i = 0; i < 4; ++i)
+								{
+									sum += new_shape_partition.vertexWeights[vertexData.index][i];
+								}
+								for (int i = 0; i < 4; ++i)
+								{
+									new_shape_partition.vertexWeights[vertexData.index][i] /= sum;
+								}
+
+								new_shape_partition.boneIndices[vertexData.index].resize(4);
+							}
+							
+						}
+						
+						new_skin_data->SetBoneList(new_shape_bonelist);
+						new_skin_instance->SetBones(new_shape_bones);						
+
+						new_skin_partition->SetSkinPartitionBlocks({ new_shape_partition });
 
 						new_data->SetNumTriangles(new_shape_triangles.size());
 						new_data->SetNumTrianglePoints(new_shape_triangles.size() * 3);
@@ -6909,27 +7023,54 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 						new_data->SetTangents(new_shape_tangents);
 						new_data->SetBitangents(new_shape_bitangents);
 						new_data->SetUvSets({ new_shape_uvs });
-						if (old_shape_data->GetVertexColors().size())
+						if (old_shape_data->GetHasVertexColors())
 						{
 							new_data->SetVertexColors(new_shape_vcs);
 							new_data->SetHasVertexColors(true);
 						}
 					}
-
 				}
 			}
 		}
+	
+		if (!to_delete.empty())
+		{
+			auto children = node->GetChildren();
+			for (auto& shape : to_delete)
+			{
+				auto it = find(children.begin(), children.end(), shape);
+				if (it != children.end())
+					children.erase(it);
+			}
+			for (auto& shape : split)
+			{
+				children.push_back(DynamicCast<NiAVObject>(shape));
+			}
+			node->SetChildren(children);
+		}
+	}
+
+	if (isBody)
+	{
+		NiNodeRef newRoot = new NiNode();
+		newRoot->SetName(std::string("Scene Root"));
+		newRoot->SetChildren(StaticCast<NiNode>(out_root)->GetChildren());
+		newRoot->SetFlags(524302);
+		newRoot->SetTranslation({ 0., 0., 0. });
+		newRoot->SetRotation(Matrix33::IDENTITY);
+		newRoot->SetScale(1.);
+		
+		out_root = StaticCast<NiObject>(newRoot);
 	}
 
 	for (auto& geometry : meshes)
 	{
-
 		if (auto skin = geometry->GetSkinInstance())
 		{
 			BSDismemberSkinInstanceRef creature_skin = new BSDismemberSkinInstance();
 			creature_skin->SetBones(geometry->GetSkinInstance()->GetBones());
 			creature_skin->SetData(geometry->GetSkinInstance()->GetData());
-			creature_skin->SetSkeletonRoot(geometry->GetSkinInstance()->GetSkeletonRoot());
+			creature_skin->SetSkeletonRoot(DynamicCast<NiNode>(out_root));
 			auto& partitions = geometry->GetSkinInstance()->GetSkinPartition();
 			creature_skin->SetSkinPartition(partitions);
 			if (partitions != NULL)
@@ -6949,18 +7090,7 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 			geometry->SetSkinInstance(StaticCast<NiSkinInstance>(creature_skin));
 		}
 	}
-	if (isBody)
-	{
-		NiNodeRef newRoot = new NiNode();
-		newRoot->SetName(std::string("Scene Root"));
-		newRoot->SetChildren(StaticCast<NiNode>(out_root)->GetChildren());
-		newRoot->SetFlags(524302);
-		newRoot->SetTranslation({ 0., 0., 0. });
-		newRoot->SetRotation(Matrix33::IDENTITY);
-		newRoot->SetScale(1.);
-		
-		out_root = StaticCast<NiObject>(newRoot);
-	}
+
 	return out;
 }
 
@@ -7035,6 +7165,8 @@ void ConvertAssets(
 		string creature_subfolder = fs::path(creature_path).filename().string();
 
 		auto assets = load_override_or_bsa_nif_folder(entry.first, oblivionDataFolder, info);
+		set<NiNodeRef> other_bones_in_accum;;
+		hkTransform pelvis_local;
 
 		{
 			//Convert skeleton NIF
@@ -7070,6 +7202,114 @@ void ConvertAssets(
 			rootn->SetChildren({StaticCast<NiAVObject>(toor)});
 			skeleton_converted_blocks.push_back(StaticCast<NiObject>(toor));
 
+			//Move ragdoll on the right node
+			auto nodes = DynamicCast<NiNode>(skeleton_converted_blocks);
+			NiNodeRef pelvis = NULL;
+			std::map< NiNodeRef, NiNodeRef> parent_map;
+			for (auto& node : nodes)
+			{
+				if (node->GetName().find("NonAccum") != string::npos)
+				{
+					auto ragdoll = DynamicCast<bhkBlendCollisionObject>(node->GetCollisionObject());
+					auto bones = DynamicCast<NiNode>(node->GetChildren());
+					pelvis = bones[0];
+	
+					for (auto& bone : bones)
+					{
+						if (bone != pelvis && bone->GetName().find("Bip") != string::npos)
+						{
+							other_bones_in_accum.insert(bone);
+						}
+					}
+					if (NULL != ragdoll)
+					{
+						if (pelvis->GetCollisionObject() != NULL)
+						{
+							int debug = 1;
+						}
+						else {
+							pelvis->SetCollisionObject(StaticCast<NiCollisionObject>(ragdoll));
+							node->SetCollisionObject(NULL);
+						}
+					}
+				}
+				auto children = DynamicCast<NiNode>(node->GetChildren());
+				for (auto child : children)
+				{
+					parent_map[child] = node;
+				}
+			}
+	
+			hkTransform accum_t; accum_t.setIdentity();
+			std::vector< hkTransform> transforms;
+			//collapse transforms on pelvis
+			if (NULL != pelvis)
+			{
+				auto pelvis_translation = pelvis->GetTranslation();
+				auto pelvis_rotaton = pelvis->GetRotation();
+				auto pelvis_scale = pelvis->GetScale();
+				NiNodeRef parent = pelvis;
+				while (parent_map.find(parent) != parent_map.end()) {
+					auto translation = parent->GetTranslation();
+					auto rotaton = parent->GetRotation();
+					auto scale = parent->GetScale();
+					hkTransform local; // = TOHKTRANSFORM(rotaton, translation);
+					local.setRotation(TOQUAT(rotaton.AsQuaternion()));
+					local.setTranslation(TOVECTOR4(translation));
+					transforms.insert(transforms.begin(),local);
+					accum_t.setMul(local, accum_t);
+					parent->SetTranslation({ 0., 0., 0. });
+					parent->SetRotation(Matrix33::IDENTITY);
+					parent->SetScale(1.);
+					parent = parent_map.at(parent);
+				}
+				//adjust wrong parenting in land dreugh
+				if (!other_bones_in_accum.empty())
+				{
+					NiNodeRef nonaccum = parent_map.at(pelvis);
+					vector<NiAVObjectRef> children;
+					auto actual_children = nonaccum->GetChildren();
+					for (auto& child : actual_children)
+					{
+						if (other_bones_in_accum.find(DynamicCast<NiNode>(child)) == other_bones_in_accum.end())
+						{
+							children.push_back(child);
+						}
+					}
+					nonaccum->SetChildren(children);
+					auto pelvis_children = pelvis->GetChildren();
+					pelvis_local.setRotation(TOQUAT(pelvis_rotaton.AsQuaternion()));
+					pelvis_local.setTranslation(TOVECTOR4(pelvis_translation));
+					for (auto& fix_bone : other_bones_in_accum)
+					{
+						auto translation = fix_bone->GetTranslation();
+						auto rotaton = fix_bone->GetRotation();
+						auto scale = fix_bone->GetScale();
+						hkTransform local; // = TOHKTRANSFORM(rotaton, translation);
+						local.setRotation(TOQUAT(rotaton.AsQuaternion()));
+						local.setTranslation(TOVECTOR4(translation));
+						transforms.insert(transforms.begin(), local);
+						local.setMulInverseMul(pelvis_local, local);
+						fix_bone->SetTranslation(TOVECTOR3(local.getTranslation()));
+						auto local_r = local.getRotation();
+						::hkQuaternion rr; rr.set(local_r);
+						fix_bone->SetRotation(
+							TOQUAT(rr).AsMatrix().Transpose()
+						);
+						fix_bone->SetScale(1.);
+						pelvis_children.push_back(StaticCast<NiAVObject>(fix_bone));
+					}
+					pelvis->SetChildren(pelvis_children);
+				}
+				pelvis->SetTranslation(TOVECTOR3(accum_t.getTranslation()));
+				auto accum_r = accum_t.getRotation();
+				::hkQuaternion rr; rr.set(accum_r);
+				pelvis->SetRotation(
+					TOQUAT(rr).AsMatrix().Transpose()
+				);
+				pelvis->SetScale(1.);
+			}
+
 			WriteNifTree(creature_output_skeleton.string(), root, info);
 			std::get<0>(assets) = skeleton_converted_blocks;
 			material_controllers_map.clear();
@@ -7095,7 +7335,10 @@ void ConvertAssets(
 				assets, 
 				hkx_skeleton, 
 				creature_output_animations_folder.string(), 
-				root_movements);
+				root_movements,
+				other_bones_in_accum,
+				pelvis_local
+			);
 		}
 
 		{
@@ -7129,7 +7372,15 @@ void ConvertAssets(
 					metadata,
 					false
 				);
-				Sk::SKBOD2::BodyParts part = FindBodyPart(asset.first, creature_subfolder, converted_blocks, root, body_parts, slot_names, bodySlots);
+				Sk::SKBOD2::BodyParts part = FindBodyPart(
+					asset.first, 
+					creature_subfolder, 
+					converted_blocks, 
+					root, 
+					body_parts, 
+					slot_names, 
+					bodySlots
+				);
 				//Create Armor Addon
 				std::string this_mesh_name = asset.first.filename().replace_extension("").string();
 				this_mesh_name[0] = toupper(this_mesh_name[0]);
@@ -7381,6 +7632,8 @@ bool BeginConversion(string importPath, string exportPath)
 		conversionCollection, 
 		conversionPlugin
 	);
+
+	return true;
 
 	ModSaveFlags skSaveFlags = ModSaveFlags(2);
 	skSaveFlags.IsCleanMasters = true;

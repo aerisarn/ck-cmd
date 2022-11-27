@@ -111,14 +111,28 @@ typedef Niflib::Key<string> StringKey;
 #include <float.h>
 #include <cstdio>
 #include <sys/stat.h>
+#include <set>
 
 #include <core/HKXWrangler.h>
+
+namespace Niflib {
+	template<class T> class Ref;
+	class NiObject;
+	class NiNode;
+}
 
 namespace ConvertKF {
 
 	struct AnimationExport
 	{
-		AnimationExport(Niflib::NiControllerSequenceRef seq, hkRefPtr<hkaSkeleton> skeleton, hkRefPtr<hkaAnimationBinding> binding, const Niflib::NifInfo& info);
+		AnimationExport(
+			Niflib::NiControllerSequenceRef seq, 
+			hkRefPtr<hkaSkeleton> skeleton, 
+			hkRefPtr<hkaAnimationBinding> binding, 
+			const Niflib::NifInfo& info,
+			const std::set<Niflib::Ref<Niflib::NiNode>>& other_bones_in_accum,
+			const hkTransform& pelvis_local
+		);
 
 		bool doExport();
 		bool exportNotes();
@@ -131,6 +145,8 @@ namespace ConvertKF {
 		static bool noRootSiblings;
 		const Niflib::NifInfo& _info;
 		ckcmd::HKX::RootMovement _root_info;
+		const std::set<Niflib::Ref<Niflib::NiNode>>& _other_bones_in_accum;
+		const hkTransform& _pelvis_local;
 	};
 
 }

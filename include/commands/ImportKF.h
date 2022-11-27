@@ -21,6 +21,7 @@ namespace fs = std::filesystem;
 namespace Niflib {
     template<class T> class Ref;
     class NiObject;
+    class NiNode;
 }
 
 
@@ -32,7 +33,7 @@ typedef std::tuple<NifFileType, std::map<fs::path, NifFileType>, std::map<fs::pa
 
 template <class TYPE>
 class hkRefPtr;
-
+class hkTransform;
 class hkaSkeleton;
 
 class ImportKF : public Command<ImportKF>
@@ -50,7 +51,10 @@ public:
 
     static void ExportAnimations(const NifFolderType& in, const hkRefPtr<hkaSkeleton>& skeleton
         , const string& outdir
-        , std::map<fs::path, ckcmd::HKX::RootMovement>& rootMovements);
+        , std::map<fs::path, ckcmd::HKX::RootMovement>& rootMovements
+        , const set<Niflib::Ref<Niflib::NiNode>>& other_bones_in_accum
+        , const hkTransform& pelvis_local
+    );
 
     static void ExportAnimations(const string& rootdir, const fs::path& skelfile
         , const vector<fs::path>& animlist, const string& outdir
