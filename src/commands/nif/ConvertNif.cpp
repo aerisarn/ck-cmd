@@ -5290,7 +5290,7 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				if (std::string(creature->MODL.value->MODL.value).find("Storm") != string::npos)
+				if (std::string(creature->MODL.value->MODL.value).find("Imp") != string::npos)
 				{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					transform(skeleton.begin(), skeleton.end(), skeleton.begin(), ::tolower);
@@ -6771,10 +6771,10 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 					auto old_shape_bones = skin->GetBones();
 					auto old_shape_bonelist = skin->GetData()->GetBoneList();
 
-					int new_meshes_size = bones / 80;
-					if (bones % 80 > 0) {
-						new_meshes_size++;
-					}
+					int new_meshes_size = 2; // = bones / 80;
+					//if (bones % 80 > 0) {
+					//	new_meshes_size++;
+					//}
 					split.resize(new_meshes_size);
 					for (int i = 0; i < new_meshes_size; ++i)
 					{
@@ -6831,37 +6831,36 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 						split[i] = new_shape;
 					}
 
-					float min_z = numeric_limits<float>::max();
-					float max_z = numeric_limits<float>::min();
-					for (const auto& vertex : old_shape_data->GetVertices())
-					{
-						if (vertex[2] > max_z)
-							max_z = vertex[2];
-						if (vertex[2] < min_z)
-							min_z = vertex[2];
-					}
-					float height = max_z - min_z;
-					float step = height / (float)new_meshes_size;
+					//float min_z = numeric_limits<float>::max();
+					//float max_z = numeric_limits<float>::min();
+					//for (const auto& vertex : old_shape_data->GetVertices())
+					//{
+					//	if (vertex[2] > max_z)
+					//		max_z = vertex[2];
+					//	if (vertex[2] < min_z)
+					//		min_z = vertex[2];
+					//}
+					//float height = max_z - min_z;
+					//float step = height / (float)new_meshes_size;
 
 					vector<vector<Triangle>> triangles_by_z(new_meshes_size);
 
 					for (const auto& triangle : old_shape_triangles)
 					{
-						float tris_max_z = numeric_limits<float>::min();
+						float tris_min_x = numeric_limits<float>::max();
 						for (int i = 0; i < 3; ++i)
 						{
 							auto vertex = old_shape_vertices[triangle[i]];
-							if (vertex[2] > tris_max_z)
-								tris_max_z = vertex[2];
+							if (vertex[0] < tris_min_x)
+								tris_min_x = vertex[0];
 						}
 
-						for (int i = 0; i < new_meshes_size; ++i)
+						if (tris_min_x <= 0.)
 						{
-							if (tris_max_z <= min_z + step * (i + 1))
-							{
-								triangles_by_z[i].push_back(triangle);
-								break;
-							}
+							triangles_by_z[0].push_back(triangle);
+						}
+						else {
+							triangles_by_z[1].push_back(triangle);
 						}
 					}
 
