@@ -1818,8 +1818,6 @@ bool AnimationExport::exportController()
 		}
 	}
 
-	std::vector<hkRotation> rotations;
-
 	//Extract Motion
 	for (int f = 0; f < nframes; f++)
 	{
@@ -1827,8 +1825,6 @@ bool AnimationExport::exportController()
 		hkQsTransform motionTransform; motionTransform.setIdentity();
 		for (int i = 0; i <= pelvis_index; i++)
 		{
-			hkRotation r; r.set(tempAnim->m_transforms[nbones * f + i].getRotation());
-			rotations.push_back(r);
 			motionTransform.setMulEq(tempAnim->m_transforms[nbones * f + i]);
 		}
 		motionTransform.fastRenormalize();

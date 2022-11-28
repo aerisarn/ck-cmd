@@ -5290,8 +5290,8 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				if (std::string(creature->MODL.value->MODL.value).find("Storm") != string::npos)
-				{
+				//if (std::string(creature->MODL.value->MODL.value).find("Storm") != string::npos)
+				//{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					transform(skeleton.begin(), skeleton.end(), skeleton.begin(), ::tolower);
 					actors[skeleton].insert(creature);
@@ -5359,7 +5359,7 @@ void findCreatures
 						models_lowercase.insert(s_model);
 					}
 					skins[skeleton][models_lowercase].insert(creature);
-				}
+				//}
 			}
 		}
 	}
@@ -7148,7 +7148,7 @@ void ConvertAssets(
 )
 {
 	int index = 0;
-	//set<string> debug_animations;
+
 	for (const auto& entry : skeletons)
 	{
 		Log::Info("Converting %d/%d: %s", ++index, skeletons.size(), entry.first.string().c_str());
@@ -7176,6 +7176,18 @@ void ConvertAssets(
 			info.userVersion = 12;
 			info.userVersion2 = 83;
 			info.version = Niflib::VER_20_2_0_7;
+
+			auto& original_nodes = DynamicCast<NiNode>(std::get<0>(assets));
+
+			//Convert special nodes
+			for (auto& node : original_nodes)
+			{
+				auto name = node->GetName();
+				if (name.find("magicnode") != string::npos || name.find("magicNode") != string::npos)
+				{
+					node->SetName(std::string("MagicEffectsNode"));
+				}
+			}
 
 			NiObjectRef root;
 			convert_blocks(
