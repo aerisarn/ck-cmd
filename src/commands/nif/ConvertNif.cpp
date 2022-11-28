@@ -5290,7 +5290,7 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				if (std::string(creature->MODL.value->MODL.value).find("Imp") != string::npos)
+				if (std::string(creature->MODL.value->MODL.value).find("Storm") != string::npos)
 				{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					transform(skeleton.begin(), skeleton.end(), skeleton.begin(), ::tolower);
@@ -7166,6 +7166,7 @@ void ConvertAssets(
 		auto assets = load_override_or_bsa_nif_folder(entry.first, oblivionDataFolder, info);
 		set<NiNodeRef> other_bones_in_accum;;
 		hkTransform pelvis_local;
+		std::map<std::string, hkTransform> original_local_pre_pelvis_transforms;
 
 		{
 			//Convert skeleton NIF
@@ -7239,6 +7240,8 @@ void ConvertAssets(
 				}
 			}
 	
+
+
 			hkTransform accum_t; accum_t.setIdentity();
 			std::vector< hkTransform> transforms;
 			//collapse transforms on pelvis
@@ -7256,6 +7259,7 @@ void ConvertAssets(
 					local.setRotation(TOQUAT(rotaton.AsQuaternion()));
 					local.setTranslation(TOVECTOR4(translation));
 					transforms.insert(transforms.begin(),local);
+					original_local_pre_pelvis_transforms[parent->GetName()] = local;
 					accum_t.setMul(local, accum_t);
 					parent->SetTranslation({ 0., 0., 0. });
 					parent->SetRotation(Matrix33::IDENTITY);
@@ -7336,7 +7340,8 @@ void ConvertAssets(
 				creature_output_animations_folder.string(), 
 				root_movements,
 				other_bones_in_accum,
-				pelvis_local
+				pelvis_local,
+				original_local_pre_pelvis_transforms
 			);
 		}
 

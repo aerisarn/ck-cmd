@@ -54,6 +54,7 @@ public:
         , std::map<fs::path, ckcmd::HKX::RootMovement>& rootMovements
         , const set<Niflib::Ref<Niflib::NiNode>>& other_bones_in_accum
         , const hkTransform& pelvis_local
+        , const std::map<std::string, hkTransform>& original_skeleton_pose
     );
 
     static void ExportAnimations(const string& rootdir, const fs::path& skelfile

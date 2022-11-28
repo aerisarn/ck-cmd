@@ -131,7 +131,8 @@ namespace ConvertKF {
 			hkRefPtr<hkaAnimationBinding> binding, 
 			const Niflib::NifInfo& info,
 			const std::set<Niflib::Ref<Niflib::NiNode>>& other_bones_in_accum,
-			const hkTransform& pelvis_local
+			const hkTransform& pelvis_local,
+			const std::map<std::string, hkTransform>& original_skeleton_pose
 		);
 
 		bool doExport();
@@ -147,6 +148,7 @@ namespace ConvertKF {
 		ckcmd::HKX::RootMovement _root_info;
 		const std::set<Niflib::Ref<Niflib::NiNode>>& _other_bones_in_accum;
 		const hkTransform& _pelvis_local;
+		const std::map<std::string, hkTransform>& _original_skeleton_pose;
 	};
 
 }

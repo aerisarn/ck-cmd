@@ -762,10 +762,12 @@ AnimationExport::AnimationExport(
 	hkRefPtr<hkaAnimationBinding> binding, 
 	const NifInfo& info,
 	const set<NiNodeRef>& other_bones_in_accum,
-	const hkTransform& pelvis_local
+	const hkTransform& pelvis_local,
+	const std::map<std::string, hkTransform>& original_skeleton_pose
 ) :
 _other_bones_in_accum(other_bones_in_accum),
 _pelvis_local(pelvis_local),
+_original_skeleton_pose(original_skeleton_pose),
 _info(info) 
 {
 	this->seq = seq;
@@ -1635,7 +1637,41 @@ bool AnimationExport::exportController()
 	//Some animations do not have the entire bind pose
 	for (int boneIdx = 0; boneIdx < skeleton->m_bones.getSize(); ++boneIdx)
 	{
+		string name = skeleton->m_bones[boneIdx].m_name;
 		hkQsTransform localTransform = skeleton->m_referencePose[boneIdx];
+		if (_original_skeleton_pose.find(name) != _original_skeleton_pose.end())
+		{
+			localTransform.setFromTransformNoScale(_original_skeleton_pose.at(name));
+		}
+		if (boneIdx == pelvis_index)
+		{
+			localTransform.setFromTransformNoScale(_pelvis_local);
+		}
+
+		//If the bone changed hierarchy, put the original transform
+		if (!_other_bones_in_accum.empty())
+		{
+			//adjust transforms that were moved
+			for (auto& bone : _other_bones_in_accum)
+			{
+				int bone_index = -1;
+				for (int i = 0; i < nbones; ++i)
+				{
+					
+					if (bone->GetName() == name)
+					{
+						bone_index = i;
+						break;
+					}
+				}
+				if (bone_index != -1)
+				{
+					hkQsTransform pelvis_local; pelvis_local.setFromTransformNoScale(_pelvis_local);
+					localTransform.setMul(pelvis_local, localTransform);
+				}
+			}
+		}
+
 		FillTransforms(transforms, boneIdx, nbones, localTransform); // prefill transforms with bindpose
 	}
 
@@ -1655,7 +1691,7 @@ bool AnimationExport::exportController()
 
 		int boneIdx = boneitr->second;
 		animated_bones.insert(boneIdx);
-		hkQsTransform localTransform = skeleton->m_referencePose[boneIdx];
+		hkQsTransform localTransform = transforms[boneIdx];
 
 		if (NiBSplineCompTransformInterpolatorRef interp = DynamicCast<NiBSplineCompTransformInterpolator>((*bitr).interpolator))
 		{
@@ -1745,6 +1781,10 @@ bool AnimationExport::exportController()
 		//}
 	}
 
+	hkQsTransform local_inv;
+	hkQsTransform local_notinv;
+	int lastBoneIndex = -1;
+
 	if (!_other_bones_in_accum.empty())
 	{
 		//adjust transforms that were moved
@@ -1757,6 +1797,7 @@ bool AnimationExport::exportController()
 				if (bone->GetName() == name)
 				{
 					bone_index = i;
+					lastBoneIndex = i;
 					break;
 				}
 			}
@@ -1769,8 +1810,8 @@ bool AnimationExport::exportController()
 					{
 						hkQsTransform parent_local = transforms[nbones * f + pelvis_index];
 						hkQsTransform local = transforms[nbones * f + bone_index];
-						hkQsTransform local_inv;  local_inv.setMul(parent_local, local);
-						transforms[nbones * f + bone_index] = local_inv;
+						local_notinv;  local_notinv.setMulInverseMul(parent_local, local);
+						transforms[nbones * f + bone_index] = local_notinv;
 					}
 				}
 			}
@@ -1782,6 +1823,7 @@ bool AnimationExport::exportController()
 	//Extract Motion
 	for (int f = 0; f < nframes; f++)
 	{
+
 		hkQsTransform motionTransform; motionTransform.setIdentity();
 		for (int i = 0; i <= pelvis_index; i++)
 		{
@@ -1789,6 +1831,7 @@ bool AnimationExport::exportController()
 			rotations.push_back(r);
 			motionTransform.setMulEq(tempAnim->m_transforms[nbones * f + i]);
 		}
+		motionTransform.fastRenormalize();
 		hkRotation r; r.set(motionTransform.getRotation());
 
 		//hkQsTransform& root_transform = tempAnim->m_transforms[nbones * f];
@@ -1888,7 +1931,9 @@ void ImportKF::ExportAnimations(const NifFolderType& in
 	, const string& outdir
 	, std::map<fs::path, ckcmd::HKX::RootMovement>& rootMovements
 	, const set<NiNodeRef>& other_bones_in_accum
-	, const hkTransform& pelvis_local)
+	, const hkTransform& pelvis_local
+	, const std::map<std::string, hkTransform>& original_skeleton_pose
+)
 {
 	auto& animlist = std::get<2>(in);
 	for (auto& itr = animlist.begin(); itr != animlist.end(); ++itr)
@@ -1942,7 +1987,8 @@ void ImportKF::ExportAnimations(const NifFolderType& in
 					newBinding, 
 					info,
 					other_bones_in_accum,
-					pelvis_local
+					pelvis_local,
+					original_skeleton_pose
 				);
 				if (exporter.doExport())
 				{
@@ -2078,7 +2124,8 @@ void ImportKF::ExportAnimations(const string& rootdir, const fs::path& skelfile
 						newBinding, 
 						info,
 						{},
-						hkTransform()
+						hkTransform(),
+						{}
 					);
 					if ( exporter.doExport() )
 					{
