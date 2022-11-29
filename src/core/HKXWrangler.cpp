@@ -1940,8 +1940,8 @@ void HKXWrapper::add_skeleton(const fs::path& path, FbxNode* scene_root, vector<
 	vector<string> ordered_tracks;
 	hkArray<hkVariant> objects;
 	read(path, objects);
-	hkaAnimationContainer* anim_container;
-	hkaRagdollInstance* ragdoll_instance;
+	hkaAnimationContainer* anim_container = NULL;
+	hkaRagdollInstance* ragdoll_instance = NULL;
 	vector<hkaSkeleton*> skeletons;
 	vector<hkaSkeletonMapper*> mappers;
 
