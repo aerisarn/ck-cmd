@@ -906,9 +906,9 @@ bool Skeleton::Convert(
 
 		std::map<Niflib::bhkBlendCollisionObjectRef, string> rbNames;
 		//create ragdoll parentMap and bone maps
-		std::map<Niflib::bhkBlendCollisionObjectRef, Niflib::bhkBlendCollisionObjectRef> ragdollParentMap;
-		std::map<Niflib::bhkBlendCollisionObjectRef, Niflib::NiNodeRef> ragdollAnimationParentMap;
-		vector<int> animationRagdollParentMap;
+		//std::map<Niflib::bhkBlendCollisionObjectRef, Niflib::bhkBlendCollisionObjectRef> ragdollParentMap;
+		//std::map<Niflib::bhkBlendCollisionObjectRef, Niflib::NiNodeRef> ragdollAnimationParentMap;
+		//vector<int> animationRagdollParentMap;
 
 		//bhkBlendCollisionObjectRef ragdoll_root = NULL;
 		//int ragdoll_root_index = -1;
@@ -929,39 +929,39 @@ bool Skeleton::Convert(
 				return -1;
 			}
 			auto name = "Ragdoll_" + bone->GetName();
-			int rbIndex = std::distance(rigidBodies.begin(), rb_it);
+			//int rbIndex = std::distance(rigidBodies.begin(), rb_it);
 
 			//set the skeletal parent for this rigid body
-			if (bone->GetName().find("NonAccum") != string::npos)
-			{
-				int debug = 1;
-			}
-			ragdollAnimationParentMap[*rb_it] = bone;
+			//if (bone->GetName().find("NonAccum") != string::npos)
+			//{
+			//	int debug = 1;
+			//}
+			//ragdollAnimationParentMap[*rb_it] = bone;
 			rbNames[*rb_it] = "Ragdoll_" + bone->GetName();
 			//find rb parent
-			bool rbParent_found = false;
-			while (parent != NULL)
-			{
-				bhkBlendCollisionObjectRef rbParent = NULL;
-				rbParent = DynamicCast<bhkBlendCollisionObject>(parent->GetCollisionObject());
-				if (rbParent != NULL)
-				{
-					auto parent_name = "Ragdoll_" + parent->GetName();
-					int rbParentIndex = find(rigidBodies.begin(), rigidBodies.end(), rbParent) - rigidBodies.begin();
-					ragdollParentMap[*rb_it] = rigidBodies[rbParentIndex];
-					rbParent_found = true;
-					break;
-				}
-				if (parent != skeleton_root)
-				{
-					auto parent_it = find(bones.begin(), bones.end(), parent);
-					auto parent_index = std::distance(bones.begin(), parent_it);
-					parent = bones[parentMap[parent_index]];
-				}
-				else {
-					break;
-				}
-			}
+			//bool rbParent_found = false;
+			//while (parent != NULL)
+			//{
+			//	bhkBlendCollisionObjectRef rbParent = NULL;
+			//	rbParent = DynamicCast<bhkBlendCollisionObject>(parent->GetCollisionObject());
+			//	if (rbParent != NULL)
+			//	{
+			//		auto parent_name = "Ragdoll_" + parent->GetName();
+			//		//int rbParentIndex = find(rigidBodies.begin(), rigidBodies.end(), rbParent) - rigidBodies.begin();
+			//		//ragdollParentMap[*rb_it] = rigidBodies[rbParentIndex];
+			//		//rbParent_found = true;
+			//		break;
+			//	}
+			//	if (parent != skeleton_root)
+			//	{
+			//		auto parent_it = find(bones.begin(), bones.end(), parent);
+			//		auto parent_index = std::distance(bones.begin(), parent_it);
+			//		parent = bones[parentMap[parent_index]];
+			//	}
+			//	else {
+			//		break;
+			//	}
+			//}
 			//if (!rbParent_found)
 			//{
 			//	ragdoll_root = rb;
@@ -1108,6 +1108,12 @@ bool Skeleton::Convert(
 
 		//Ragdoll
 		{
+			std::map<bhkBlendCollisionObjectRef, bhkBlendCollisionObjectRef> ragdollParentMap;
+			std::map<bhkBlendCollisionObjectRef, NiNodeRef> ragdollAnimationParentMap;
+
+			std::deque<bhkBlendCollisionObjectRef> collision_stack;
+			std::deque<NiNodeRef> node_stack;
+
 			//Separate Physics systems
 			std::deque<bhkPhysics> physics_systems_queue(1);
 			std::vector<bhkPhysics> physics;
@@ -1117,9 +1123,18 @@ bool Skeleton::Convert(
 					{
 						if (auto node = DynamicCast<NiNode>(object))
 						{
+							node_stack.push_front(node);
 							bool start = false;
+							bool has_collision = false;
 							if (auto collision = DynamicCast<bhkBlendCollisionObject>(node->GetCollisionObject()))
 							{
+								has_collision = true;
+								if (!collision_stack.empty())
+								{
+									ragdollParentMap[collision] = collision_stack.front();
+								}
+								ragdollAnimationParentMap[collision] = node;
+								collision_stack.push_front(collision);
 								if (auto body = DynamicCast<bhkRigidBody>(collision->GetBody()))
 								{
 									auto& current_physics = *physics_systems_queue.begin();
@@ -1140,6 +1155,11 @@ bool Skeleton::Convert(
 							{
 								skeleton_visitor(child);
 							}
+							if (has_collision)
+							{
+								collision_stack.pop_front();
+							}
+							node_stack.pop_front();
 							if (start)
 							{
 								auto& current_physics = *physics_systems_queue.begin();
