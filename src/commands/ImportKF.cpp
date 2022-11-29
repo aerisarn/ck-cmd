@@ -763,11 +763,13 @@ AnimationExport::AnimationExport(
 	const NifInfo& info,
 	const set<NiNodeRef>& other_bones_in_accum,
 	const hkTransform& pelvis_local,
-	const std::map<std::string, hkTransform>& original_skeleton_pose
+	const std::map<std::string, hkTransform>& original_skeleton_pose,
+	const std::map<std::string, std::string>& renamed_nodes
 ) :
 _other_bones_in_accum(other_bones_in_accum),
 _pelvis_local(pelvis_local),
 _original_skeleton_pose(original_skeleton_pose),
+_renamed_nodes(renamed_nodes),
 _info(info) 
 {
 	this->seq = seq;
@@ -1685,8 +1687,19 @@ bool AnimationExport::exportController()
 		StringIntMap::iterator boneitr = boneMap.find(nodename);
 		if (boneitr == boneMap.end())
 		{
-			Log::Warn("Unknown bone '%s' found in animation. Skipping.", nodename.c_str());
-			continue;
+			//check if it was renamed
+			if (_renamed_nodes.find(nodename) != _renamed_nodes.end())
+			{
+				std::string renamed = _renamed_nodes.at(nodename);
+				Log::Info("Animated renamed node: %s -> %s", nodename.c_str(), renamed.c_str());
+				boneitr = boneMap.find(renamed);
+
+			}		
+			if (boneitr == boneMap.end())
+			{
+				Log::Warn("Unknown bone '%s' found in animation. Skipping.", nodename.c_str());
+				continue;
+			}
 		}
 
 		int boneIdx = boneitr->second;
@@ -1929,6 +1942,7 @@ void ImportKF::ExportAnimations(const NifFolderType& in
 	, const set<NiNodeRef>& other_bones_in_accum
 	, const hkTransform& pelvis_local
 	, const std::map<std::string, hkTransform>& original_skeleton_pose
+	, const std::map<std::string, std::string>& renamed_nodes
 )
 {
 	auto& animlist = std::get<2>(in);
@@ -1978,13 +1992,14 @@ void ImportKF::ExportAnimations(const NifFolderType& in
 				Log::Verbose("ExportAnimation Exporting to '%s'", outfile.c_str());
 
 				AnimationExport exporter(
-					seq, 
-					skeleton, 
-					newBinding, 
+					seq,
+					skeleton,
+					newBinding,
 					info,
 					other_bones_in_accum,
 					pelvis_local,
-					original_skeleton_pose
+					original_skeleton_pose,
+					renamed_nodes
 				);
 				if (exporter.doExport())
 				{
@@ -2121,6 +2136,7 @@ void ImportKF::ExportAnimations(const string& rootdir, const fs::path& skelfile
 						info,
 						{},
 						hkTransform(),
+						{},
 						{}
 					);
 					if ( exporter.doExport() )

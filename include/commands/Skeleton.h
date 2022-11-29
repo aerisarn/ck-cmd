@@ -43,7 +43,13 @@ public:
 	virtual string GetHelp() const;
 	virtual string GetHelpShort() const;
 
-	static bool Convert(const NifFolderType& in, const string& outpath, hkRefPtr<hkaSkeleton>& converted_skeleton, std::map<fs::path, std::string>& body_parts);
+	static bool Convert(
+		const NifFolderType& in, 
+		const string& outpath, 
+		hkRefPtr<hkaSkeleton>& converted_skeleton, 
+		std::map<fs::path, std::string>& body_parts,
+		const std::map<std::string, std::string>& renamed_nodes
+	);
 	static bool Convert(const string& inpath, const string& animations_path, const string& outpath);
 
 protected:

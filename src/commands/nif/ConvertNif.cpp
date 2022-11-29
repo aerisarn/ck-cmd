@@ -5290,7 +5290,7 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				//if (std::string(creature->MODL.value->MODL.value).find("Storm") != string::npos)
+				//if (std::string(creature->MODL.value->MODL.value).find("Skeleton\\") != string::npos)
 				//{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					transform(skeleton.begin(), skeleton.end(), skeleton.begin(), ::tolower);
@@ -6831,18 +6831,6 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 						split[i] = new_shape;
 					}
 
-					//float min_z = numeric_limits<float>::max();
-					//float max_z = numeric_limits<float>::min();
-					//for (const auto& vertex : old_shape_data->GetVertices())
-					//{
-					//	if (vertex[2] > max_z)
-					//		max_z = vertex[2];
-					//	if (vertex[2] < min_z)
-					//		min_z = vertex[2];
-					//}
-					//float height = max_z - min_z;
-					//float step = height / (float)new_meshes_size;
-
 					vector<vector<Triangle>> triangles_by_z(new_meshes_size);
 
 					for (const auto& triangle : old_shape_triangles)
@@ -7167,6 +7155,7 @@ void ConvertAssets(
 		set<NiNodeRef> other_bones_in_accum;;
 		hkTransform pelvis_local;
 		std::map<std::string, hkTransform> original_local_pre_pelvis_transforms;
+		std::map<std::string, std::string> renamed_specials;
 
 		{
 			//Convert skeleton NIF
@@ -7185,6 +7174,7 @@ void ConvertAssets(
 				auto name = node->GetName();
 				if (name.find("magicnode") != string::npos || name.find("magicNode") != string::npos)
 				{
+					renamed_specials[node->GetName()] = "MagicEffectsNode";
 					node->SetName(std::string("MagicEffectsNode"));
 				}
 			}
@@ -7225,14 +7215,32 @@ void ConvertAssets(
 					auto ragdoll = DynamicCast<bhkBlendCollisionObject>(node->GetCollisionObject());
 					auto bones = DynamicCast<NiNode>(node->GetChildren());
 					pelvis = bones[0];
-	
 					for (auto& bone : bones)
 					{
-						if (bone != pelvis && bone->GetName().find("Bip") != string::npos)
+						//The real pelvis is the start of the ragdoll, if any
+						if (bone->GetName().find("Bip") != string::npos)
 						{
 							other_bones_in_accum.insert(bone);
 						}
 					}
+					if (other_bones_in_accum.size() > 1)
+					{
+						for (const auto& bone : other_bones_in_accum)
+						{
+							if (auto collision = DynamicCast<bhkCollisionObject>(bone->GetCollisionObject()))
+							{
+								if (auto body  = DynamicCast<bhkRigidBody>(collision->GetBody()))
+								{
+									if (body->GetConstraints().empty())
+										pelvis = bone;
+									break;
+								}
+							}
+						}
+					}
+					other_bones_in_accum.erase(pelvis);
+
+
 					if (NULL != ragdoll)
 					{
 						if (pelvis->GetCollisionObject() != NULL)
@@ -7252,7 +7260,47 @@ void ConvertAssets(
 				}
 			}
 	
+			//check constraints
+			auto bodies = DynamicCast<bhkRigidBody>(skeleton_converted_blocks);
+			vector<bhkSerializableRef> constraints;
+			set<bhkRigidBodyRef> constrained_bodies;
+			for (auto& body : bodies)
+			{
+				if (body->GetConstraints().size() > 1)
+				{
+					Log::Warn("Found multiple constrained body. Cutting out additional ones");
+					body->SetConstraints({ body->GetConstraints()[0] });
+				}
+				for (auto& constraint : body->GetConstraints())
+				{
+					if (bhkConstraintRef cc = DynamicCast<bhkConstraint>(constraint))
+					{
+						if (cc->GetEntities().size() != 2)
+						{
+							int debug = 1;
+						}
+						bhkRigidBodyRef cbody = (bhkRigidBody*)cc->GetEntities()[0];
+						if (cbody != body)
+						{
+							int debug = 1;
+						}
+						for (auto* entity : cc->GetEntities())
+						{
 
+							constrained_bodies.insert((bhkRigidBody*)entity);
+						}
+					}
+					constraints.push_back(constraint);
+				}
+			}
+
+			if (!bodies.empty() && constraints.size() + 1 != bodies.size())
+			{
+				if (constrained_bodies.size() == bodies.size())
+				{
+					Log::Info("Disconnected Ragdoll found!");
+				}
+			}
 
 			hkTransform accum_t; accum_t.setIdentity();
 			std::vector< hkTransform> transforms;
@@ -7342,7 +7390,7 @@ void ConvertAssets(
 			fs::path creature_output_skeleton = outputFolder / rig_relative_file;
 			creature_output_skeleton.replace_extension(".hkx");
 			hkRefPtr<hkaSkeleton> hkx_skeleton;
-			Skeleton::Convert(assets, creature_output_skeleton.string(), hkx_skeleton, body_parts);
+			Skeleton::Convert(assets, creature_output_skeleton.string(), hkx_skeleton, body_parts, renamed_specials);
 
 			//Use the converted skeleton to convert animations
 			fs::path creature_output_animations_folder = outputFolder / creature_path / "Animations";
@@ -7353,7 +7401,8 @@ void ConvertAssets(
 				root_movements,
 				other_bones_in_accum,
 				pelvis_local,
-				original_local_pre_pelvis_transforms
+				original_local_pre_pelvis_transforms,
+				renamed_specials
 			);
 		}
 
@@ -7570,7 +7619,6 @@ void ConvertAssets(
 			race->FNAM_ANAM = nif_skeleton_entry.string();
 		}
 	}
-
 }
 
 bool BeginConversion(string importPath, string exportPath) 

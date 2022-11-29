@@ -132,7 +132,8 @@ namespace ConvertKF {
 			const Niflib::NifInfo& info,
 			const std::set<Niflib::Ref<Niflib::NiNode>>& other_bones_in_accum,
 			const hkTransform& pelvis_local,
-			const std::map<std::string, hkTransform>& original_skeleton_pose
+			const std::map<std::string, hkTransform>& original_skeleton_pose,
+			const std::map<std::string, std::string>& renamed_nodes
 		);
 
 		bool doExport();
@@ -149,6 +150,7 @@ namespace ConvertKF {
 		const std::set<Niflib::Ref<Niflib::NiNode>>& _other_bones_in_accum;
 		const hkTransform& _pelvis_local;
 		const std::map<std::string, hkTransform>& _original_skeleton_pose;
+		const std::map<std::string, std::string>& _renamed_nodes;
 	};
 
 }
