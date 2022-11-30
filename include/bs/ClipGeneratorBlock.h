@@ -21,7 +21,7 @@ namespace AnimData {
 			this->name = name;
 		}
 
-		int getCacheIndex() {
+		int getCacheIndex() const {
 			return cacheIndex;
 		}
 		

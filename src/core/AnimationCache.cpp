@@ -115,7 +115,7 @@ std::string HkCRC::compute(std::string input) {
 	return output;
 }
 
-CacheEntry* AnimationCache::find(const string & name) {
+std::shared_ptr<CacheEntry> AnimationCache::find(const string & name) {
 	string lower = name;
 	transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return tolower(c); });
 	if (projects_index.find(lower) != projects_index.end())
@@ -160,11 +160,11 @@ AnimationCache::AnimationCache(const string& animationDataContent, const string&
 	build(animationDataContent, animationSetDataContent);
 }
 
-CreatureCacheEntry* AnimationCache::cloneCreature(const std::string& source_project, const std::string& destination_project)
+std::shared_ptr<CreatureCacheEntry> AnimationCache::cloneCreature(const std::string& source_project, const std::string& destination_project)
 {
-	CacheEntry* source = find(source_project);
+	auto source = find(source_project);
 	if (source == NULL) return NULL;
-	CreatureCacheEntry* creature = dynamic_cast<CreatureCacheEntry*>(source);
+	auto creature = dynamic_pointer_cast<CreatureCacheEntry>(source);
 	if (creature == NULL) return NULL;
 	AnimData::ProjectBlock block = creature->block;
 	AnimData::ProjectDataBlock movements = creature->movements;
@@ -174,7 +174,7 @@ CreatureCacheEntry* AnimationCache::cloneCreature(const std::string& source_proj
 	auto creature_index = animationSetData.putProjectAttackBlock(destination_project + "Data\\" + destination_project + ".txt", sets);
 
 	creature_entries.push_back(
-		CreatureCacheEntry(
+		make_shared<CreatureCacheEntry>(
 			destination_project,
 			animationData.getProjectBlock(index),
 			animationData.getprojectMovementBlock(index),
@@ -182,7 +182,7 @@ CreatureCacheEntry* AnimationCache::cloneCreature(const std::string& source_proj
 		)
 	);
 	rebuildIndex();
-	return dynamic_cast<CreatureCacheEntry*>(find(destination_project));
+	return dynamic_pointer_cast<CreatureCacheEntry>(find(destination_project));
 }
 
 void AnimationCache::save(const fs::path& animationDataPath, const  fs::path& animationSetDataPath) {
@@ -195,13 +195,13 @@ void AnimationCache::save(const fs::path& animationDataPath, const  fs::path& an
 	outstream.close();
 	for (auto& creature : creature_entries)
 	{
-		save_creature(creature.name, &creature, animationDataPath, animationSetDataPath, animationDataPath.parent_path(), false);
+		save_creature(creature->name, creature, animationDataPath, animationSetDataPath, animationDataPath.parent_path(), false);
 	}
 }
 
 void AnimationCache::save_creature(
 	const string& project, 
-	CacheEntry* project_entry, 
+	std::shared_ptr<CacheEntry> project_entry, 
 	const fs::path& animationDataPath, 
 	const  fs::path& animationSetDataPath, 
 	const fs::path& root_folder,
@@ -225,7 +225,7 @@ void AnimationCache::save_creature(
 			outstream << project_entry->movements.getBlock();
 			outstream.close();
 		}
-		auto creature_ptr = dynamic_cast<CreatureCacheEntry*>(project_entry);
+		auto creature_ptr = dynamic_pointer_cast<CreatureCacheEntry>(project_entry);
 		if (NULL != creature_ptr)
 		{
 			fs::path set_data_directory = root_folder / fs::path(animation_set_data_folder) / string(project + "data");
@@ -264,15 +264,15 @@ void AnimationCache::rebuildIndex()
 {
 	for (auto& entry : creature_entries)
 	{
-		string lower = entry.name;
+		string lower = entry->name;
 		transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return tolower(c); });
-		projects_index[lower] = &entry;
+		projects_index[lower] = entry;
 	}
 	for (auto& entry : misc_entries)
 	{
-		string lower = entry.name;
+		string lower = entry->name;
 		transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return tolower(c); });
-		projects_index[lower] = &entry;
+		projects_index[lower] = entry;
 	}
 
 	movements_map.clear();
@@ -280,10 +280,10 @@ void AnimationCache::rebuildIndex()
 
 	for (const auto& creature : creature_entries)
 	{
-		string project_name = creature.name;
+		string project_name = creature->name;
 		transform(project_name.begin(), project_name.end(), project_name.begin(), [](unsigned char c) { return tolower(c); });
-		auto& movements = creature.movements.getMovementData();
-		for (auto& clip : creature.block.getClips()) {
+		auto& movements = creature->movements.getMovementData();
+		for (const auto& clip : creature->block.getClips()) {
 			//Bethesda fuck up this
 			if (clip.getCacheIndex() < movements.size())
 			{
@@ -294,7 +294,7 @@ void AnimationCache::rebuildIndex()
 				}
 			}
 		}
-		for (auto& set : creature.sets.getProjectAttackBlocks()) {
+		for (auto set : creature->sets.getProjectAttackBlocks()) {
 			if (set.getHandVariableData().getVariables().size() == 0)
 			{
 				for (auto& idle_event : set.getSwapEventsList().getStrings()) {
@@ -302,7 +302,7 @@ void AnimationCache::rebuildIndex()
 				}
 			}
 
-			for (auto& attack_data : set.getAttackData().getAttackData()) {
+			for (auto attack_data : set.getAttackData().getAttackData()) {
 				events_map.insert({ {project_name, attack_data.getEventName()},
 					{ event_type_t::attack,
 					attack_data.getUnk1() > 0,
@@ -326,7 +326,7 @@ void AnimationCache::build(const string& animationDataContent, const string& ani
 		if (creature_index != -1)
 		{
 			creature_entries.push_back(
-				CreatureCacheEntry(
+				make_shared<CreatureCacheEntry>(
 					sanitized_project_name,
 					animationData.getProjectBlock(index),
 					animationData.getprojectMovementBlock(index),
@@ -337,7 +337,7 @@ void AnimationCache::build(const string& animationDataContent, const string& ani
 		}
 		else {
 			misc_entries.push_back(
-				CacheEntry(
+				make_shared<CacheEntry>(
 					sanitized_project_name,
 					animationData.getProjectBlock(index),
 					animationData.getprojectMovementBlock(index)
@@ -512,12 +512,12 @@ void AnimationCache::check_from_bsa(const ckcmd::BSA::BSAFile& bsa_file, const s
 	for (size_t i = 0; i < actors.size(); i++)
 	{
 		CreatureCacheEntry entry;
-		CreatureCacheEntry& default_entry = creature_entries[i];
+		auto default_entry = creature_entries[i];
 		create_creature_entry(entry, bsa_file, fs::path(actors[i]).filename().replace_extension("").string());
-		if (!iequals(entry.name, default_entry.name) ||
-			entry.block.getBlock() != default_entry.block.getBlock() ||
-			entry.movements.getBlock() != default_entry.movements.getBlock() ||
-			entry.sets.getBlock() != default_entry.sets.getBlock())
+		if (!iequals(entry.name, default_entry->name) ||
+			entry.block.getBlock() != default_entry->block.getBlock() ||
+			entry.movements.getBlock() != default_entry->movements.getBlock() ||
+			entry.sets.getBlock() != default_entry->sets.getBlock())
 			Log::Info("Error");
 
 
@@ -559,11 +559,11 @@ void AnimationCache::check_from_bsa(const ckcmd::BSA::BSAFile& bsa_file, const s
 	for (size_t i = 0; i < misc.size(); i++)
 	{
 		CacheEntry entry;
-		CacheEntry& default_entry = misc_entries[i];
+		auto default_entry = misc_entries[i];
 		create_entry(entry, bsa_file, fs::path(misc[i]).filename().replace_extension("").string());
-		if (!iequals(entry.name, default_entry.name) ||
-			entry.block.getBlock() != default_entry.block.getBlock() ||
-			entry.movements.getBlock() != default_entry.movements.getBlock())
+		if (!iequals(entry.name, default_entry->name) ||
+			entry.block.getBlock() != default_entry->block.getBlock() ||
+			entry.movements.getBlock() != default_entry->movements.getBlock())
 			Log::Info("Error");
 	}
 }

@@ -12,6 +12,9 @@ namespace AnimData {
 		std::map<int, ProjectDataBlock> projectMovementBlockList; // = new HashMap<>();
 
 	public: 
+
+		AnimDataFile() : projectsList(1000) { projectBlockList.reserve(1000); }
+
 		StringListBlock getProjectList() {
 			return projectsList;
 		}

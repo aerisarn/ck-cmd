@@ -1576,6 +1576,7 @@ bool AnimationExport::exportController()
 
 	hkRefPtr<hkaInterleavedUncompressedAnimation> tempAnim = new hkaInterleavedUncompressedAnimation();
 	tempAnim->m_duration = duration;
+	_root_info.duration = duration;
 	tempAnim->m_numberOfTransformTracks = numTracks;
 	tempAnim->m_numberOfFloatTracks = 0;//anim->m_numberOfFloatTracks;
 	tempAnim->m_transforms.setSize(numTracks*nframes, hkQsTransform::getIdentity());
@@ -1891,7 +1892,7 @@ bool AnimationExport::exportController()
 			tempAnim->m_transforms[nbones * f + i].setTranslation(hkVector4(0., 0., 0.));
 			tempAnim->m_transforms[nbones * f + i].setRotation({ 0., 0., 0., 1. });
 		}
-		tempAnim->m_transforms[nbones * f + pelvis_index].setTranslation(hkVector4(0., 0., motionTransform.getTranslation()(2)));
+		
 
 		auto quat = motionTransform.getRotation();
 		Quat QuatRotNew = { quat(0), quat(1), quat(2), quat(3) };
@@ -1915,18 +1916,8 @@ bool AnimationExport::exportController()
 			{(float)z_quat.x, (float)z_quat.y, (float)z_quat.z, (float)z_quat.w}
 		});
 
-
-		//rootTransform.setRotation({0., 0., 0., 1.});
-
-		//Pelvis Movement gets the rest;
-		//pelvis_transform.setTranslation(
-		//	hkVector4(
-		//		0.,
-		//		0.,
-		//		pelvis_world_transform.getTranslation()(2)
-		//	)
-		//);
-		tempAnim->m_transforms[nbones * f + pelvis_index].setRotation({ (float)QuatRotNew.x, (float)QuatRotNew.y, (float)QuatRotNew.z, (float)QuatRotNew.w });
+		tempAnim->m_transforms[nbones * f + pelvis_index].setTranslation(hkVector4(0., 0., motionTransform.getTranslation()(2)));
+		tempAnim->m_transforms[nbones * f + pelvis_index].setRotation({ (float)xy_quat.x, (float)xy_quat.y, (float)xy_quat.z, (float)xy_quat.w });
 	}
 
 	if (_root_info.translations.empty()) {

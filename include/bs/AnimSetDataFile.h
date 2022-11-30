@@ -10,6 +10,9 @@ namespace AnimData {
 		StringListBlock projectsList;
 		std::vector<ProjectAttackListBlock> projectAttacks;
 	public:
+
+		AnimSetDataFile() : projectsList(1000) { projectAttacks.reserve(1000); }
+
 		StringListBlock getProjectsList() { return projectsList; }
 		std::vector<ProjectAttackListBlock> getProjectAttackList() { return projectAttacks; }
 

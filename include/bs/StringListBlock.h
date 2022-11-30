@@ -11,6 +11,8 @@ namespace AnimData {
 	public:
 
 		StringListBlock() {}
+
+		StringListBlock(size_t size) { strings.reserve(size); }
 		
 		StringListBlock(const std::vector<std::string>& _strings) :
 			strings(_strings)

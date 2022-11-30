@@ -5290,7 +5290,7 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				if (std::string(creature->MODL.value->MODL.value).find("Land") != string::npos)
+				if (std::string(creature->MODL.value->MODL.value).find("Meh") != string::npos)
 				{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					transform(skeleton.begin(), skeleton.end(), skeleton.begin(), ::tolower);
@@ -5620,41 +5620,41 @@ class AnimationSetAnalyzer
 	{
 		//	Animations\idleanims\getupfaceup.hkx
 		//	Animations\idleanims\getup_faceup.hkx
-		if (hasAnimation("Animations\idleanims\getupfaceup.hkx"))
+		if (hasAnimation("Animations\\idleanims\\getupfaceup.hkx"))
 			getup[GETUP_DIRECTION::face_up] = "Animations\idleanims\getupfaceup.hkx";
-		if (hasAnimation("Animations\idleanims\getupfaceup.hkx"))
+		if (hasAnimation("Animations\\idleanims\\getupfaceup.hkx"))
 			getup[GETUP_DIRECTION::face_up] = "Animations\idleanims\getupfaceup.hkx";
 		
 		//	Animations\idleanims\getupfacedown.hkx
 		//  Animations\idleanims\getup_facedown.hkx
-		if (hasAnimation("Animations\idleanims\getupfacedown.hkx"))
+		if (hasAnimation("Animations\\idleanims\\getupfacedown.hkx"))
 			getup[GETUP_DIRECTION::face_down] = "Animations\idleanims\getupfacedown.hkx";
-		if (hasAnimation("Animations\idleanims\getup_facedown.hkx"))
+		if (hasAnimation("Animations\\idleanims\\getup_facedown.hkx"))
 			getup[GETUP_DIRECTION::face_down] = "Animations\idleanims\getup_facedown.hkx";
 		
 		//	Animations\idleanims\getupleft.hkx
 		//	Animations\idleanims\getup_left.hkx
 		//  Animations\idleanims\specialidle_getupleft.hkx
-		if (hasAnimation("Animations\idleanims\getupleft.hkx"))
-			getup[GETUP_DIRECTION::left] = "Animations\idleanims\getupleft.hkx";
-		if (hasAnimation("Animations\idleanims\getup_left.hkx"))
-			getup[GETUP_DIRECTION::left] = "Animations\idleanims\getup_left.hkx";
-		if (hasAnimation("Animations\idleanims\specialidle_getupleft.hkx"))
-			getup[GETUP_DIRECTION::left] = "Animations\idleanims\specialidle_getupleft.hkx";
+		if (hasAnimation("Animations\\idleanims\\getupleft.hkx"))
+			getup[GETUP_DIRECTION::left] = "Animations\\idleanims\getupleft.hkx";
+		if (hasAnimation("Animations\\idleanims\getup_left.hkx"))
+			getup[GETUP_DIRECTION::left] = "Animations\\idleanims\getup_left.hkx";
+		if (hasAnimation("Animations\\idleanims\specialidle_getupleft.hkx"))
+			getup[GETUP_DIRECTION::left] = "Animations\\idleanims\specialidle_getupleft.hkx";
 		
 		//	Animations\idleanims\getupright.hkx
 		//	Animations\idleanims\getup_right.hkx
 		//	Animations\idleanims\specialidle_getupright.hkx
-		if (hasAnimation("Animations\idleanims\getupright.hkx"))
-			getup[GETUP_DIRECTION::right] = "Animations\idleanims\getupright.hkx";
-		if (hasAnimation("Animations\idleanims\getup_right.hkx"))
-			getup[GETUP_DIRECTION::right] = "Animations\idleanims\getup_right.hkx";
-		if (hasAnimation("Animations\idleanims\specialidle_getupright.hkx"))
-			getup[GETUP_DIRECTION::right] = "Animations\idleanims\specialidle_getupright.hkx";
+		if (hasAnimation("Animations\\idleanims\\getupright.hkx"))
+			getup[GETUP_DIRECTION::right] = "Animations\\idleanims\\getupright.hkx";
+		if (hasAnimation("Animations\\idleanims\\getup_right.hkx"))
+			getup[GETUP_DIRECTION::right] = "Animations\\idleanims\\getup_right.hkx";
+		if (hasAnimation("Animations\\idleanims\\specialidle_getupright.hkx"))
+			getup[GETUP_DIRECTION::right] = "Animations\\idleanims\\specialidle_getupright.hkx";
 
 		//	Animations\idleanims\specialidle_getuplift.hkx
-		if (hasAnimation("Animations\idleanims\specialidle_getuplift.hkx"))
-			getup[GETUP_DIRECTION::lift] = "Animations\idleanims\specialidle_getuplift.hkx";
+		if (hasAnimation("Animations\\idleanims\\specialidle_getuplift.hkx"))
+			getup[GETUP_DIRECTION::lift] = "Animations\\idleanims\\specialidle_getuplift.hkx";
 	}
 
 	void analyzeWalking()
@@ -6632,7 +6632,7 @@ void CreateDummyBehavior
 
 			transition->m_transitions[0].m_transition = &transition_effect;
 			transition->m_transitions[0].m_eventId = event_map[prefix + "Next"];
-			int next_state_id = state_index + 1 != root_movements.size() ? state_index : 0;
+			int next_state_id = state_index + 1 != root_movements.size() ? state_index + 1 : 0;
 			transition->m_transitions[0].m_toStateId = next_state_id;
 			transition->m_transitions[0].m_fromNestedStateId = 0;
 			transition->m_transitions[0].m_toNestedStateId = 0;
@@ -6663,7 +6663,7 @@ void CreateDummyBehavior
 		//finish packing the state;
 		std::string stateName = sequenceName + "State";
 		state->m_name = stateName.c_str();
-		state->m_stateId = ++state_index;
+		state->m_stateId = state_index;
 		state->m_probability = 1.000000;
 		state->m_enable = true;
 
@@ -7766,7 +7766,7 @@ void ConvertAssets(
 			race->FNAM_ANAM = nif_skeleton_entry.string();
 
 			//CACHE
-			CreatureCacheEntry* entry = dynamic_cast<CreatureCacheEntry*>(cache.findOrCreate(prefix + creature_name + +"Project", true));
+			auto entry = dynamic_pointer_cast<CreatureCacheEntry>(cache.findOrCreate(prefix + creature_name + +"Project", true));
 
 			//create movement data first
 			std::map<fs::path, int> movements_index_map;
@@ -7858,7 +7858,7 @@ void ConvertAssets(
 		}
 	}
 
-	cache.save(animdata, animsetdata);
+	//cache.save(animdata, animsetdata);
 }
 
 bool BeginConversion(string importPath, string exportPath) 

@@ -222,16 +222,16 @@ struct AnimationCache {
 			});
 	}
 
-	vector<CreatureCacheEntry> creature_entries;
-	vector<CacheEntry>		   misc_entries;
+	vector<std::shared_ptr<CreatureCacheEntry>> creature_entries;
+	vector< std::shared_ptr<CacheEntry>>		   misc_entries;
 
 	AnimData::AnimDataFile animationData;
 	AnimData::AnimSetDataFile animationSetData;
 
-	map<string, CacheEntry*> projects_index;
+	map<string, std::shared_ptr<CacheEntry>> projects_index;
 
-	CacheEntry* findOrCreate(const string& name, bool creature) {
-		CacheEntry* out = find(name);
+	std::shared_ptr<CacheEntry> findOrCreate(const string& name, bool creature) {
+		std::shared_ptr<CacheEntry> out = find(name);
 		if (NULL == out) {
 
 			auto index = animationData.putProject(name + ".txt", AnimData::ProjectBlock(), AnimData::ProjectDataBlock());
@@ -241,7 +241,7 @@ struct AnimationCache {
 				auto creature_index = animationSetData.putProjectAttackBlock(name + "Data\\" + name + ".txt", AnimData::ProjectAttackListBlock());
 
 				creature_entries.push_back(
-					CreatureCacheEntry(
+				std::make_shared<CreatureCacheEntry>(
 						name,
 						animationData.getProjectBlock(index),
 						animationData.getprojectMovementBlock(index),
@@ -251,7 +251,7 @@ struct AnimationCache {
 			}
 			else {
 				misc_entries.push_back(
-					CacheEntry(
+					std::make_shared<CacheEntry>(
 						name,
 						animationData.getProjectBlock(index),
 						animationData.getprojectMovementBlock(index)
@@ -264,7 +264,7 @@ struct AnimationCache {
 		return out;
 	}
 
-	CacheEntry* find(const string& name);
+	std::shared_ptr<CacheEntry> find(const string& name);
 	string project_at(size_t index) const;
 	size_t getNumCreatureProjects();
 	size_t getNumProjects();
@@ -273,11 +273,11 @@ struct AnimationCache {
 	AnimationCache(const fs::path& animationDataPath, const  fs::path& animationSetDataPath);
 	AnimationCache(const string& animationDataContent, const string& animationSetDataContent);
 
-	CreatureCacheEntry* cloneCreature(const std::string& source_project, const std::string& destination_project);
+	std::shared_ptr<CreatureCacheEntry> cloneCreature(const std::string& source_project, const std::string& destination_project);
 
 	void save(const fs::path& animationDataPath, const  fs::path& animationSetDataPath);
 	void save_creature(const string& project, 
-		CacheEntry* project_entry, 
+		std::shared_ptr<CacheEntry> project_entry, 
 		const fs::path& animationDataPath, 
 		const  fs::path& animationSetDataPath, 
 		const fs::path& root_folder = ".",

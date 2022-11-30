@@ -16,7 +16,7 @@ namespace AnimData {
 		ClipAttacksBlock attackData;
 		ClipFilesCRC32Block crc32Data;
 	public:
-		StringListBlock getSwapEventsList() {
+		StringListBlock getSwapEventsList() const {
 			return swapEventsList;
 		}
 
@@ -48,7 +48,7 @@ namespace AnimData {
 			this->handVariableData = handVariableData;
 		}
 
-		ClipAttacksBlock getAttackData() {
+		ClipAttacksBlock getAttackData() const {
 			return attackData;
 		}
 

@@ -129,7 +129,7 @@ bool BeginConversion(const string& importSkeleton, const string& importFBX, cons
 			AnimationCache cache(animDataPath, animDataSetPath);
 			Log::Info("Loaded");
 			string project = fs::path(cacheFilePath).filename().replace_extension("").string();
-			CacheEntry* entry = cache.find(project);
+			auto entry = cache.find(project);
 			if (entry)
 			{
 				Log::Info("Found Project %s", entry->name.c_str());
@@ -149,7 +149,7 @@ bool BeginConversion(const string& importSkeleton, const string& importFBX, cons
 		vector<fs::path> fbxs;
 		find_files(importFBX, ".fbx", fbxs);
 		AnimationCache * cache = NULL;
-		CacheEntry* entry = NULL;
+		std::shared_ptr<CacheEntry> entry = NULL;
 		string project;
 		if (fs::exists(cacheFilePath) && !fs::is_directory(cacheFilePath) &&
 			fs::exists(behaviorFolder) && fs::is_directory(behaviorFolder))
