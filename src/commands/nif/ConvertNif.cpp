@@ -5290,8 +5290,8 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				//if (std::string(creature->MODL.value->MODL.value).find("Land") != string::npos)
-				//{
+				if (std::string(creature->MODL.value->MODL.value).find("Land") != string::npos)
+				{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					transform(skeleton.begin(), skeleton.end(), skeleton.begin(), ::tolower);
 					actors[skeleton].insert(creature);
@@ -5359,7 +5359,7 @@ void findCreatures
 						models_lowercase.insert(s_model);
 					}
 					skins[skeleton][models_lowercase].insert(creature);
-				//}
+				}
 			}
 		}
 	}
@@ -5527,6 +5527,14 @@ class AnimationSetAnalyzer
 {
 	const std::map<fs::path, ckcmd::HKX::RootMovement>& animations;
 
+	enum class GETUP_DIRECTION {
+		face_up = 0,
+		face_down,
+		left,
+		right,
+		lift
+	};
+
 	enum class MOVE_DIRECTION {
 		idle = 0,
 		forward,
@@ -5561,8 +5569,11 @@ class AnimationSetAnalyzer
 		blockhit,
 		stagger,
 		recoil,
-		unequip
+		unequip,
+		death
 	};
+
+	std::map<GETUP_DIRECTION, fs::path> getup;
 
 	std::map<MOVE_DIRECTION, fs::path> default_move;
 	std::map<MOVE_DIRECTION, fs::path> bow_move;
@@ -5584,12 +5595,12 @@ class AnimationSetAnalyzer
 	std::map<TURN_DIRECTION, fs::path> staff_turn;
 	std::map<TURN_DIRECTION, fs::path> twoh_turn;
 
-	std::map<RUN_DIRECTION, fs::path> default_run;
+	std::map<RUN_DIRECTION, fs::path> default_run; // h2h for multiple stances
 	std::map<RUN_DIRECTION, fs::path> bow_run;
 	std::map<RUN_DIRECTION, fs::path> swim_run;
 	std::map<RUN_DIRECTION, fs::path> h2h_run;
 	std::map<RUN_DIRECTION, fs::path> swimh2h_run;
-	//std::map<RUN_DIRECTION, fs::path> swim1h_run;
+	std::map<RUN_DIRECTION, fs::path> swim1h_run;
 	std::map<RUN_DIRECTION, fs::path> oneh_run;
 	std::map<RUN_DIRECTION, fs::path> staff_run;
 	std::map<RUN_DIRECTION, fs::path> twoh_run;
@@ -5600,10 +5611,51 @@ class AnimationSetAnalyzer
 	std::map<STANCE_STATE, fs::path> bow_stance;
 	std::map<STANCE_STATE, fs::path> swim_stance;
 	std::map<STANCE_STATE, fs::path> swimh2h_stance;
-	std::map<STANCE_STATE, fs::path> swim1h_stance;
+	//std::map<STANCE_STATE, fs::path> swim1h_stance;
 	std::map<STANCE_STATE, fs::path> oneh_stance;
 	std::map<STANCE_STATE, fs::path> staff_stance;
 	std::map<STANCE_STATE, fs::path> twoh_stance;
+
+	void analyzeGetUp()
+	{
+		//	Animations\idleanims\getupfaceup.hkx
+		//	Animations\idleanims\getup_faceup.hkx
+		if (hasAnimation("Animations\idleanims\getupfaceup.hkx"))
+			getup[GETUP_DIRECTION::face_up] = "Animations\idleanims\getupfaceup.hkx";
+		if (hasAnimation("Animations\idleanims\getupfaceup.hkx"))
+			getup[GETUP_DIRECTION::face_up] = "Animations\idleanims\getupfaceup.hkx";
+		
+		//	Animations\idleanims\getupfacedown.hkx
+		//  Animations\idleanims\getup_facedown.hkx
+		if (hasAnimation("Animations\idleanims\getupfacedown.hkx"))
+			getup[GETUP_DIRECTION::face_down] = "Animations\idleanims\getupfacedown.hkx";
+		if (hasAnimation("Animations\idleanims\getup_facedown.hkx"))
+			getup[GETUP_DIRECTION::face_down] = "Animations\idleanims\getup_facedown.hkx";
+		
+		//	Animations\idleanims\getupleft.hkx
+		//	Animations\idleanims\getup_left.hkx
+		//  Animations\idleanims\specialidle_getupleft.hkx
+		if (hasAnimation("Animations\idleanims\getupleft.hkx"))
+			getup[GETUP_DIRECTION::left] = "Animations\idleanims\getupleft.hkx";
+		if (hasAnimation("Animations\idleanims\getup_left.hkx"))
+			getup[GETUP_DIRECTION::left] = "Animations\idleanims\getup_left.hkx";
+		if (hasAnimation("Animations\idleanims\specialidle_getupleft.hkx"))
+			getup[GETUP_DIRECTION::left] = "Animations\idleanims\specialidle_getupleft.hkx";
+		
+		//	Animations\idleanims\getupright.hkx
+		//	Animations\idleanims\getup_right.hkx
+		//	Animations\idleanims\specialidle_getupright.hkx
+		if (hasAnimation("Animations\idleanims\getupright.hkx"))
+			getup[GETUP_DIRECTION::right] = "Animations\idleanims\getupright.hkx";
+		if (hasAnimation("Animations\idleanims\getup_right.hkx"))
+			getup[GETUP_DIRECTION::right] = "Animations\idleanims\getup_right.hkx";
+		if (hasAnimation("Animations\idleanims\specialidle_getupright.hkx"))
+			getup[GETUP_DIRECTION::right] = "Animations\idleanims\specialidle_getupright.hkx";
+
+		//	Animations\idleanims\specialidle_getuplift.hkx
+		if (hasAnimation("Animations\idleanims\specialidle_getuplift.hkx"))
+			getup[GETUP_DIRECTION::lift] = "Animations\idleanims\specialidle_getuplift.hkx";
+	}
 
 	void analyzeWalking()
 	{
@@ -5959,6 +6011,11 @@ class AnimationSetAnalyzer
 
 	void analyzeStance() {
 
+		// DEATH (special case that doesn't ragdoll
+		//Animations\death.hkx
+		if (hasAnimation("Animations\\death.hkx"))
+			h2h_stance[STANCE_STATE::death] = "Animations\\death.hkx";
+
 		//H2H
 		//Animations\equip.hkx / Animations\handtohandattackequip.hkx / Animations\handtohandequip.hkx
 		//Animations\unequip.hkx / Animations\handtohandattackunequip.hkx / Animations\handtohandunequip.hkx
@@ -6006,38 +6063,132 @@ class AnimationSetAnalyzer
 		if (hasAnimation("Animations\\handtohandrecoil.hkx"))
 			h2h_stance[STANCE_STATE::recoil] = "Animations\\handtohandrecoil.hkx";
 
+		//BOW
+		//	Animations\bowequip.hkx
+		//	Animations\bowunequip.hkx
+		//	Animations\bowblockhit.hkx
+		//	Animations\bowblockidle.hkx
+		if (hasAnimation("Animations\\bowequip.hkx"))
+			bow_stance[STANCE_STATE::equip] = "Animations\\bowequip.hkx";
+
+		if (hasAnimation("Animations\\bowunequip.hkx"))
+			bow_stance[STANCE_STATE::unequip] = "Animations\\bowunequip.hkx";
+
+		if (hasAnimation("Animations\\bowblockidle.hkx"))
+		{
+			bow_stance[STANCE_STATE::block] = "Animations\\bowblockidle.hkx";
+			bow_stance[STANCE_STATE::blockidle] = "Animations\\bowblockidle.hkx";
+		}
+
+		if (hasAnimation("Animations\\bowblockhit.hkx"))
+			bow_stance[STANCE_STATE::blockhit] = "Animations\\bowblockhit.hkx";
+
+		//SWIM
+		//	Animations\swimequip.hkx
+		//	Animations\swimunequip.hkx
+		//	Animations\swimblock.hkx
+		//	Animations\swimblockhit.hkx
+		//	Animations\swimstagger.hkx
+		//	Animations\swimrecoil.hkx
+		if (hasAnimation("Animations\\swimequip.hkx"))
+			swim_stance[STANCE_STATE::equip] = "Animations\\swimequip.hkx";
+
+		if (hasAnimation("Animations\\swimunequip.hkx"))
+			swim_stance[STANCE_STATE::unequip] = "Animations\\swimunequip.hkx";
+
+		if (hasAnimation("Animations\\swimblock.hkx"))
+		{
+			swim_stance[STANCE_STATE::block] = "Animations\\swimblock.hkx";
+			swim_stance[STANCE_STATE::blockidle] = "Animations\\swimblock.hkx";
+		}
+
+		if (hasAnimation("Animations\\swimstagger.hkx"))
+			swim_stance[STANCE_STATE::stagger] = "Animations\\swimstagger.hkx";
+
+		if (hasAnimation("Animations\\swimrecoil.hkx"))
+			swim_stance[STANCE_STATE::recoil] = "Animations\\swimrecoil.hkx";
+
+		//SWIM H2H
+		//  Animations\swimhandtohandequip.hkx
+		//	Animations\swimhandtohandattackequip.hkx
+		//	Animations\swimhandtohandunequip.hkx
+		//	Animations\swimhandtohandattackunequip.hkx
+		//	Animations\swimhandtohandstagger.hkx
+		//	Animations\swimhandtohandrecoil.hkx
+		if (hasAnimation("Animations\\swimhandtohandequip.hkx"))
+			swimh2h_stance[STANCE_STATE::equip] = "Animations\\swimhandtohandequip.hkx";
+		if (hasAnimation("Animations\\swimhandtohandattackequip.hkx"))
+			swimh2h_stance[STANCE_STATE::equip] = "Animations\\swimhandtohandattackequip.hkx";
+
+		if (hasAnimation("Animations\\swimhandtohandunequip.hkx"))
+			swimh2h_stance[STANCE_STATE::unequip] = "Animations\\swimhandtohandunequip.hkx";
+		if (hasAnimation("Animations\\swimhandtohandattackunequip.hkx"))
+			swimh2h_stance[STANCE_STATE::unequip] = "Animations\\swimhandtohandattackunequip.hkx";
+
+		if (hasAnimation("Animations\\swimhandtohandstagger.hkx"))
+			swimh2h_stance[STANCE_STATE::stagger] = "Animations\\swimhandtohandstagger.hkx";
+
+		if (hasAnimation("Animations\\swimhandtohandrecoil.hkx"))
+			swimh2h_stance[STANCE_STATE::recoil] = "Animations\\swimhandtohandrecoil.hkx";
+
+		//1H
+		// Animations\onehandequip.hkx
+		// Animations\onehandunequip.hkx
+		// Animations\onehandblock.hkx
+		// Animations\onehandblockhit.hkx
+		// Animations\onehandblockidle.hkx
+		// Animations\onehandstagger.hkx
+		// Animations\onehandrecoil.hkx
+		if (hasAnimation("Animations\\onehandequip.hkx"))
+			oneh_stance[STANCE_STATE::equip] = "Animations\\onehandequip.hkx";
+
+		if (hasAnimation("Animations\\onehandunequip.hkx"))
+			oneh_stance[STANCE_STATE::unequip] = "Animations\\onehandunequip.hkx";
+
+		if (hasAnimation("Animations\\onehandblock.hkx"))
+			oneh_stance[STANCE_STATE::block] = "Animations\\onehandblock.hkx";
+
+		if (hasAnimation("Animations\\onehandblockhit.hkx"))
+			h2h_stance[STANCE_STATE::blockhit] = "Animations\\onehandblockhit.hkx";
+
+		if (hasAnimation("Animations\\onehandblockidle.hkx"))
+			h2h_stance[STANCE_STATE::blockidle] = "Animations\\onehandblockidle.hkx";
+
+		if (hasAnimation("Animations\\onehandstagger.hkx"))
+			h2h_stance[STANCE_STATE::stagger] = "Animations\\onehandstagger.hkx";
+
+		if (hasAnimation("Animations\\onehandrecoil.hkx"))
+			h2h_stance[STANCE_STATE::recoil] = "Animations\\onehandrecoil.hkx";
+
+
 	}
 
 public:
 
-	AnimationSetAnalyzer(const std::map<fs::path, ckcmd::HKX::RootMovement>& animations) : animations(animations) {}
+	AnimationSetAnalyzer(const std::map<fs::path, ckcmd::HKX::RootMovement>& animations) : animations(animations) 
+	{
+		analyzeGetUp();
+		analyzeWalking();
+		analyzeTurning();
+		analyzeRunning();
+		analyzeJump();
+		analyzeStance();
+	}
 
 	inline bool hasAnimation(const std::string& name)
 	{
 		return animations.find(name) != animations.end();
 	}
 
-
-	bool hasJumping()
-	{
-		return hasAnimation("jumpland.hkx") &&
-			hasAnimation("jumploop.hkx") && 
-			hasAnimation("jumpstart.hkx");
-	}
-
-	// DEATH (special case that doesn't ragdoll
-	//Animations\death.hkx
-	bool hasDeath()
-	{
-		return hasAnimation("death.hkx");
+	fs::path idle() {
+		if (default_move.find(MOVE_DIRECTION::idle) != default_move.end())
+			return default_move.at(MOVE_DIRECTION::idle);
+		return "";
 	}
 
 	// BOW
 	//  Animations\bowattack.hkx / Animations\attackbow.hkx
-	//	Animations\bowblockhit.hkx
-	//	Animations\bowblockidle.hkx
-	//	Animations\bowequip.hkx
-	//	Animations\bowunequip.hkx
+
 
 	//CAST
 	//  Animations\castself.hkx
@@ -6102,25 +6253,10 @@ public:
 	// SWIM
 
 
-	//	Animations\swimblock.hkx
-	//	Animations\swimblockhit.hkx
-	//	Animations\swimequip.hkx
 
 
 
 
-	//	Animations\swimrecoil.hkx
-
-	//	Animations\swimstagger.hkx
-
-	//	Animations\swimunequip.hkx
-
-
-
-	//	
-	bool hasH2H()
-	{
-	}
 
 };
 
@@ -6146,14 +6282,6 @@ Animations\idleanims\dig.hkx
 Animations\idleanims\dynamicidle_sleep.hkx
 Animations\idleanims\eat.hkx
 Animations\idleanims\gaze.hkx
-Animations\idleanims\getup_facedown.hkx
-Animations\idleanims\getup_faceup.hkx
-Animations\idleanims\getup_left.hkx
-Animations\idleanims\getup_right.hkx
-Animations\idleanims\getupfacedown.hkx
-Animations\idleanims\getupfaceup.hkx
-Animations\idleanims\getupleft.hkx
-Animations\idleanims\getupright.hkx
 Animations\idleanims\graze.hkx
 Animations\idleanims\grazes.hkx
 Animations\idleanims\horsedismount.hkx
@@ -6209,9 +6337,7 @@ Animations\idleanims\specialidle_dogbark.hkx
 Animations\idleanims\specialidle_doge.hkx
 Animations\idleanims\specialidle_eat.hkx
 Animations\idleanims\specialidle_flee.hkx
-Animations\idleanims\specialidle_getupleft.hkx
-Animations\idleanims\specialidle_getuplift.hkx
-Animations\idleanims\specialidle_getupright.hkx
+
 Animations\idleanims\specialidle_howl.hkx
 Animations\idleanims\specialidle_intimidate.hkx
 Animations\idleanims\specialidle_intimidate2.hkx
@@ -6261,32 +6387,16 @@ Animations\onehandattackright_slash.hkx
 Animations\onehandattackright_slice.hkx
 Animations\onehandattackrightpower.hkx
 
-
-
-
-Animations\onehandblock.hkx
-Animations\onehandblockhit.hkx
-Animations\onehandblockidle.hkx
-Animations\onehandequip.hkx
-
-
-
-Animations\onehandrecoil.hkx
-
-Animations\onehandstagger.hkx
-
-Animations\onehandunequip.hkx
-
-
-
 Animations\specialanims\casttouch.hkx
 Animations\specialanims\casttouch_axe.hkx
 Animations\specialanims\casttouch_fist.hkx
 Animations\specialanims\casttouch_mace.hkx
 Animations\specialanims\casttouch_punch.hkx
 Animations\specialanims\casttouch_sword.hkx
+
 Animations\specialanims\forward_sharman.hkx
 Animations\specialanims\forward_wolf.hkx
+
 Animations\specialanims\handtohandattack_wolf.hkx
 Animations\specialanims\handtohandattackleft.hkx
 Animations\specialanims\handtohandattackleft_leftarm.hkx
@@ -6310,17 +6420,21 @@ Animations\specialanims\handtohandattackrightpower_leftarm.hkx
 Animations\specialanims\handtohandcrouchequip.hkx
 Animations\specialanims\handtohandleanbackequip.hkx
 Animations\specialanims\handtohandswayequip.hkx
+
 Animations\specialanims\idle_sharman.hkx
 Animations\specialanims\idle_wolf.hkx
+
 Animations\specialanims\idlecrouch.hkx
 Animations\specialanims\idleleanback.hkx
 Animations\specialanims\runforwardarmsdown.hkx
 Animations\specialanims\runforwardarmsup.hkx
 Animations\specialanims\special_idle.hkx
 Animations\specialanims\special_reach.hkx
+
 Animations\specialanims\stafffastforward.hkx
 Animations\specialanims\staffforwardwalk.hkx
 Animations\specialanims\staffidle.hkx
+
 Animations\specialanims\sway.hkx
 Animations\specialanims\walk01armsup.hkx
 Animations\specialanims\walk02limp.hkx
@@ -6345,25 +6459,17 @@ Animations\staffunequip.hkx
 
 
 Animations\swimhandtohandattackbackpower.hkx
-Animations\swimhandtohandattackequip.hkx
+
 Animations\swimhandtohandattackforwardpower.hkx
 Animations\swimhandtohandattackleft.hkx
 Animations\swimhandtohandattackleftpower.hkx
 Animations\swimhandtohandattackpower.hkx
 Animations\swimhandtohandattackright.hkx
 Animations\swimhandtohandattackrightpower.hkx
-Animations\swimhandtohandattackunequip.hkx
-
-Animations\swimhandtohandequip.hkx
 
 
 
 
-Animations\swimhandtohandrecoil.hkx
-
-Animations\swimhandtohandstagger.hkx
-
-Animations\swimhandtohandunequip.hkx
 
 Animations\swimonehandattackleft.hkx
 Animations\swimonehandattackright.hkx
@@ -6421,10 +6527,13 @@ void CreateTES4Behavior
 
 void CreateDummyBehavior
 (
-	const std::string& prefix, 
-	const std::string& creature_tag, 
+	const std::string& prefix,
+	const std::string& creature_tag,
 	const std::string& output_file,
-	std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements
+	std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements,
+	AnimationSetAnalyzer& analyzer,
+	map<hkRefPtr<hkbClipGenerator>, fs::path>& generators,
+	map<int, string> behavior_events
 )
 {
 	//Assemble a behavior for the creature
@@ -6488,8 +6597,12 @@ void CreateDummyBehavior
 	root_fsm.m_selfTransitionMode = hkbStateMachine::SELF_TRANSITION_MODE_NO_TRANSITION;
 
 	int state_index = -1;
+	int start_state_index = 0;
 	for (const auto& entry : root_movements) {
 		hkRefPtr<hkbStateMachineStateInfo> state = new hkbStateMachineStateInfo(); state_index++;
+		if (analyzer.idle() == entry.first)
+			start_state_index = state_index;
+
 		//create notify events;
 		hkRefPtr<hkbStateMachineEventPropertyArray> enter_notification = new hkbStateMachineEventPropertyArray();
 		enter_notification->m_events.setSize(1);
@@ -6545,6 +6658,8 @@ void CreateDummyBehavior
 		generator->m_flags = 0;
 		state->m_generator = generator;
 
+		generators[generator] = fs::path(entry.first);
+
 		//finish packing the state;
 		std::string stateName = sequenceName + "State";
 		state->m_name = stateName.c_str();
@@ -6554,6 +6669,8 @@ void CreateDummyBehavior
 
 		root_fsm.m_states.pushBack(state);
 	}
+
+	root_fsm.m_startStateId = start_state_index;
 
 	std::string behavior_name = prefix + creature_tag + "Behavior";
 	graph.m_name = behavior_name.c_str();
@@ -6565,6 +6682,11 @@ void CreateDummyBehavior
 	hkRootLevelContainer container;
 	container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("hkbBehaviorGraph", &graph, &graph.staticClass()));
 	HKXWrapper().write_xml(&container, output_file);
+
+	for (auto& entry : event_map)
+	{
+		behavior_events[entry.second] = entry.first;
+	}
 }
 
 void CreateHavokProject(
@@ -7121,6 +7243,13 @@ string LCS(string X, string Y, int m, int n)
 	return X.substr(endingIndex - maxlen, maxlen);
 }
 
+std::string crc_32(std::string& to_crc)
+{
+	transform(to_crc.begin(), to_crc.end(), to_crc.begin(), ::tolower);
+	long long crc = stoll(HkCRC::compute(to_crc), NULL, 16);
+	return to_string(crc);
+}
+
 void ConvertAssets(
 	const std::string& prefix,
 	const fs::path oblivionDataFolder,
@@ -7136,6 +7265,10 @@ void ConvertAssets(
 )
 {
 	int index = 0;
+
+	fs::path animdata = outputFolder / "meshes" / "animationdatasinglefile.txt";
+	fs::path animsetdata = outputFolder / "meshes" / "animationsetdatasinglefile.txt";
+	AnimationCache cache(animdata, animsetdata);
 
 	for (const auto& entry : skeletons)
 	{
@@ -7232,8 +7365,10 @@ void ConvertAssets(
 								if (auto body  = DynamicCast<bhkRigidBody>(collision->GetBody()))
 								{
 									if (body->GetConstraints().empty())
+									{
 										pelvis = bone;
-									break;
+										break;
+									}
 								}
 							}
 						}
@@ -7245,9 +7380,12 @@ void ConvertAssets(
 					{
 						if (pelvis->GetCollisionObject() != NULL)
 						{
-							int debug = 1;
+							//just the slaughterfish which doesn't have any rotation, so it's fine
+							//NTD
+							//int debug = 1;
 						}
 						else {
+							ragdoll->SetTarget(StaticCast<NiAVObject>(pelvis));
 							pelvis->SetCollisionObject(StaticCast<NiCollisionObject>(ragdoll));
 							node->SetCollisionObject(NULL);
 						}
@@ -7406,6 +7544,7 @@ void ConvertAssets(
 			);
 		}
 
+		//Meshes and actors
 		{
 			vector<string> slot_names;
 			std::map<std::string, Sk::ARMARecord*> armas_records;
@@ -7573,6 +7712,12 @@ void ConvertAssets(
 		{
 			std::string creature_name = creature_subfolder;
 			creature_name[0] = toupper(creature_name[0]);
+		
+			AnimationSetAnalyzer analyzer(root_movements);
+
+			map<hkRefPtr<hkbClipGenerator>, fs::path> generators;
+			map<int, string> events;
+
 			//Behavior
 			fs::path behavior_relative_file = fs::path("Behaviors") / (prefix + creature_name + "Behavior.hkx");
 			fs::path creature_output_behavior = outputFolder / creature_path / behavior_relative_file;
@@ -7582,7 +7727,10 @@ void ConvertAssets(
 				prefix,
 				creature_subfolder,
 				creature_output_behavior.string(),
-				root_movements
+				root_movements,
+				analyzer,
+				generators,
+				events
 			);
 
 			//Character
@@ -7591,7 +7739,6 @@ void ConvertAssets(
 			fs::path creature_output_character = outputFolder / creature_path / character_relative_file;
 			fs::create_directories(creature_output_character.parent_path());
 			
-			set<string> animations_relative_files;
 			CreateHavokCharacter(
 				creature_name,
 				rig_relative_havok_file.string(),
@@ -7617,8 +7764,101 @@ void ConvertAssets(
 
 			race->MNAM_ANAM = nif_skeleton_entry.string();
 			race->FNAM_ANAM = nif_skeleton_entry.string();
+
+			//CACHE
+			CreatureCacheEntry* entry = dynamic_cast<CreatureCacheEntry*>(cache.findOrCreate(prefix + creature_name + +"Project", true));
+
+			//create movement data first
+			std::map<fs::path, int> movements_index_map;
+			std::vector<AnimData::ClipMovementData> movements;
+			for (auto& entry : root_movements)
+			{
+				AnimData::ClipMovementData data;
+				data.setCacheIndex(movements.size());
+				data.setDuration(AnimData::ClipMovementData::tes_float_cache_to_string(entry.second.duration));
+				data.setTraslations(entry.second.getClipTranslations());
+				data.setRotations(entry.second.getClipRotations());
+				movements.push_back(data);
+				movements_index_map[entry.first] = data.getCacheIndex();
+			}
+			//Assemble Clips
+			std::list<AnimData::ClipGeneratorBlock> clips;
+			for (auto& clip : generators)
+			{
+				AnimData::ClipGeneratorBlock data;
+				data.setName(clip.first->m_name.cString());
+				data.setCacheIndex(movements_index_map.at(clip.second));
+				float duration = root_movements.at(clip.second).duration;
+				data.setPlaybackSpeed(AnimData::ClipMovementData::tes_float_cache_to_string(clip.first->m_playbackSpeed));
+				data.setCropStartTime(AnimData::ClipMovementData::tes_float_cache_to_string(clip.first->m_cropStartAmountLocalTime));
+				data.setCropEndTime(AnimData::ClipMovementData::tes_float_cache_to_string(clip.first->m_cropEndAmountLocalTime));
+				//merge animation and clip events
+				std::multimap<float, std::string> triggers;
+				auto& animation_events = root_movements.at(clip.second).events;
+				for (auto& entry : animation_events)
+				{
+					triggers.insert({ get<0>(entry), get<1>(entry)});
+				}
+				if (nullptr != clip.first->m_triggers)
+				{
+
+					for (int t = 0; t < clip.first->m_triggers->m_triggers.getSize(); ++t)
+					{
+						auto& trigger = clip.first->m_triggers->m_triggers[t];
+						float time;
+						if (trigger.m_relativeToEndOfClip == true)
+						{
+							time = duration + trigger.m_localTime;
+						}
+						else {
+							time = trigger.m_localTime;
+						}
+						triggers.insert({ time, events[trigger.m_event.m_id]});
+					}
+				}
+				//load triggers inside anim
+				AnimData::StringListBlock eventList; eventList.reserve(triggers.size());
+				for (const auto& trigger : triggers)
+				{
+					eventList.append(trigger.second + ":" + AnimData::ClipMovementData::tes_float_cache_to_string(trigger.first));
+				}
+				data.setEvents(eventList);
+				clips.push_back(data);
+			}
+			//Files
+			AnimData::StringListBlock project_hkx_files;
+			project_hkx_files.append(behavior_relative_file.string());
+			project_hkx_files.append(character_relative_file.string());
+			project_hkx_files.append(rig_relative_havok_file.replace_extension(".hkx").string());
+
+			//Sets
+			AnimData::ProjectAttackBlock block;
+			AnimData::ClipFilesCRC32Block crc32Data;
+			for (auto& entry : root_movements)
+			{
+				auto full_path = fs::path(creature_path) / entry.first;
+				auto sanitized_name = full_path.filename().replace_extension("").string();
+				transform(sanitized_name.begin(), sanitized_name.end(), sanitized_name.begin(), ::tolower);
+				std::string sanitized_name_crc32 = crc_32(sanitized_name);
+
+				auto meshes_path = full_path.parent_path().string();
+				transform(meshes_path.begin(), meshes_path.end(), meshes_path.begin(), ::tolower);
+				std::string meshes_path_crc32 = crc_32(meshes_path);
+				crc32Data.append(meshes_path_crc32, sanitized_name_crc32);
+			}
+			block.setCrc32Data(crc32Data);
+
+			//Assemble Dummy Fullbody
+			entry->block.setHasProjectFiles(true);
+			entry->block.setProjectFiles(project_hkx_files);
+			entry->block.setClips(clips);
+			entry->block.setHasAnimationCache(true);
+			entry->movements.setMovementData(movements);
+			entry->sets.putProjectAttack("FullBody.txt", block);
 		}
 	}
+
+	cache.save(animdata, animsetdata);
 }
 
 bool BeginConversion(string importPath, string exportPath) 

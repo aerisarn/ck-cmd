@@ -116,8 +116,10 @@ std::string HkCRC::compute(std::string input) {
 }
 
 CacheEntry* AnimationCache::find(const string & name) {
-	if (projects_index.find(name) != projects_index.end())
-		return projects_index[name];
+	string lower = name;
+	transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return tolower(c); });
+	if (projects_index.find(lower) != projects_index.end())
+		return projects_index[lower];
 	return NULL;
 }
 

@@ -846,18 +846,18 @@ start
 bool isOblivionEngineAnnotation(const std::string& in )
 {
 	if (
-		in == "a:L" ||
-		in == "a:R" ||
-		in == "Attach" ||
-		in == "Attack" ||
+		in.find("a:L") == 0 ||
+		in.find("a:R") == 0 ||
+		in.find("Attach") == 0 ||
+		in.find("Attack") == 0 ||
 		in.find("Blend:") == 0 ||
-		in == "Detach" ||
+		in.find("Detach") == 0 ||
 		in.find("Enum:") == 0 ||
-		in == "Hit" ||
-		in == "Hold" ||
-		in == "m:L" ||
-		in == "m:R" ||
-		in == "Release" ||
+		in.find("Hit") == 0 ||
+		in.find("Hold") == 0 ||
+		in.find("m:L") == 0 ||
+		in.find("m:R") == 0 ||
+		in.find("Release") == 0 ||
 		in.find("Sound:") == 0
 		)
 	{
@@ -866,9 +866,34 @@ bool isOblivionEngineAnnotation(const std::string& in )
 	return false;
 }
 
-std::set<std::pair<float, std::string>> convertOblivionAnnotations(const std::pair<float,std::string>& note, bool bow = false)
+std::vector<std::string> split_string_by_newline(const std::string& str)
+{
+	auto result = std::vector<std::string>{};
+	auto ss = std::stringstream{ str };
+
+	for (std::string line; std::getline(ss, line, '\n');)
+		result.push_back(line);
+
+	return result;
+}
+
+std::set<std::pair<float, std::string>> convertOblivionAnnotations(const std::pair<float, std::string>& note, bool bow = false)
 {
 	std::set<std::pair<float, std::string>> out;
+	std::vector<std::pair<float, std::string>> events;
+
+	if (note.second.find("\n") != string::npos)
+	{
+		char* pch = strtok((LPSTR)note.second.c_str(), "\r\n");
+		while (pch != NULL)
+		{
+			events.push_back({ note.first, pch });
+			pch = strtok(NULL, "\r\n");
+		}
+	}
+	else {
+		events = { note };
+	}
 
 	//Attach -> weaponDraw (bow has also BeginWeaponDraw at 0.0)
 	//Detach -> weaponSheathe
@@ -888,53 +913,55 @@ std::set<std::pair<float, std::string>> convertOblivionAnnotations(const std::pa
 	//m:R -> SyncRight
 	//m:L -> SyncLeft
 
-	if (note.second == "Attach")
+	for (const auto& note : events)
 	{
-		if (bow)
-			out.insert({ 0., "BeginWeaponDraw" });
-		out.insert({note.first, "weaponDraw"});
+		if (note.second == "Attach")
+		{
+			if (bow)
+				out.insert({ 0., "BeginWeaponDraw" });
+			out.insert({ note.first, "weaponDraw" });
+		}
+		else if (note.second == "Detach") {
+			out.insert({ note.first, "weaponSheathe" });
+		}
+		else if (note.second.find("Sound:") == 0) {
+			std::string old = "Sound: ";
+			std::string old1 = "Sound:";
+			std::string new_sound = note.second;
+			if (new_sound.find(old) != string::npos)
+				new_sound.replace(new_sound.find(old), old.length(), "SoundPlay.TES4");
+			if (new_sound.find(old1) != string::npos)
+				new_sound.replace(new_sound.find(old1), old1.length(), "SoundPlay.TES4");
+			out.insert({ note.first, new_sound });
+		}
+		else if (note.second.find("Enum:Left") == 0 || note.second.find("Enum: Left") == 0) {
+			out.insert({ note.first, "FootLeft" });
+		}
+		else if (note.second.find("Enum:Right") == 0 || note.second.find("Enum: Right") == 0) {
+			out.insert({ note.first, "FootRight" });
+		}
+		else if (note.second.find("Enum:BackLeft") == 0 || note.second.find("Enum: BackLeft") == 0) {
+			out.insert({ note.first, "FootFront" });
+		}
+		else if (note.second.find("Enum:BackRight") == 0 || note.second.find("Enum: BackRight") == 0) {
+			out.insert({ note.first, "FootBack" });
+		}
+		else if (note.second.find("Enum:Attack") == 0 || note.second.find("Enum: Attack") == 0) {
+			out.insert({ note.first, "weaponSwing" });
+		}
+		else if (note.second.find("Hit") == 0) {
+			out.insert({ note.first - 0.15, "preHitFrame" });
+			out.insert({ note.first, "HitFrame" });
+		}
+		else if (note.second.find("m:R") == 0) {
+			out.insert({ note.first, "FootRight" });
+			out.insert({ note.first, "SyncRight" });
+		}
+		else if (note.second.find("m:L") == 0) {
+			out.insert({ note.first, "FootLeft" });
+			out.insert({ note.first, "SyncLeft" });
+		}
 	}
-	else if (note.second == "Detach") {
-		out.insert({ note.first, "weaponSheathe" });
-	}
-	else if (note.second.find("Sound:") == 0) {
-		std::string old = "Sound: ";
-		std::string old1 = "Sound:";
-		std::string new_sound = note.second;
-		if (new_sound.find(old) != string::npos)
-			new_sound.replace(new_sound.find(old), old.length(), "SoundPlay.TES4");
-		if (new_sound.find(old1) != string::npos)
-			new_sound.replace(new_sound.find(old1), old1.length(), "SoundPlay.TES4");
-		out.insert({ note.first, new_sound });
-	}
-	else if (note.second.find("Enum:Left") == 0 || note.second.find("Enum: Left")) {
-		out.insert({ note.first, "FootLeft" });
-	}
-	else if (note.second.find("Enum:Right") == 0 || note.second.find("Enum: Right")) {
-		out.insert({ note.first, "FootRight" });
-	}
-	else if (note.second.find("Enum:BackLeft") == 0 || note.second.find("Enum: BackLeft")) {
-		out.insert({ note.first, "FootFront" });
-	}
-	else if (note.second.find("Enum:BackRight") == 0 || note.second.find("Enum: BackRight")) {
-		out.insert({ note.first, "FootBack" });
-	}
-	else if (note.second.find("Enum:Attack") == 0 || note.second.find("Enum: Attack")) {
-		out.insert({ note.first, "weaponSwing" });
-	}
-	else if (note.second.find("Hit") == 0) {
-		out.insert({ note.first - 0.15, "preHitFrame" });
-		out.insert({ note.first, "HitFrame" });
-	}
-	else if (note.second.find("m:R") == 0) {
-		out.insert({ note.first, "FootRight" });
-		out.insert({ note.first, "SyncRight" });
-	}
-	else if (note.second.find("m:L") == 0) {
-		out.insert({ note.first, "FootLeft" });
-		out.insert({ note.first, "SyncLeft" });
-	}
-
 	return out;
 }
 
