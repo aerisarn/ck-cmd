@@ -6561,10 +6561,23 @@ void CreateDummyBehavior
 	for (string event : events)
 		root_string_data.m_eventNames[count++] = event.c_str();
 
+	root_string_data.m_variableNames.pushBack("bAnimationDriven");
+
 	//Data
 	root_data.m_eventInfos.setSize(event_count);
 	for (int e = 0; e < event_count; e++)
 		root_data.m_eventInfos[e].m_flags = 0;
+
+	hkbRoleAttribute role_attribute;
+	role_attribute.m_role = hkbRoleAttribute::ROLE_DEFAULT;
+	role_attribute.m_flags = hkbRoleAttribute::FLAG_NONE;
+	hkbVariableInfo info;
+	info.m_role = role_attribute;
+	info.m_type = hkbVariableInfo::VARIABLE_TYPE_BOOL;
+	root_data.m_variableInfos.pushBack(info);
+	hkbVariableValue value;
+	value.m_value = 1;
+	root_data_init_vars.m_wordVariableValues.pushBack(value);
 
 	root_data.m_variableInitialValues = &root_data_init_vars;
 	root_data.m_stringData = &root_string_data;
