@@ -503,7 +503,6 @@ bool Skeleton::Convert(
 	const std::map<std::string, std::string>& renamed_nodes
 )
 {
-
 	hkSerializeUtil::SaveOptionBits flags = (hkSerializeUtil::SaveOptionBits)(hkSerializeUtil::SAVE_TEXT_FORMAT | hkSerializeUtil::SAVE_TEXT_NUMBERS);
 
 	{
@@ -902,71 +901,133 @@ bool Skeleton::Convert(
 		Log::Info("Build ragdoll Skeleton\n");
 
 		//collect rigid bodies
-		vector<bhkBlendCollisionObjectRef> rigidBodies = DynamicCast<bhkBlendCollisionObject>(skeleton_blocks);
+		std::map<bhkBlendCollisionObjectRef, bhkBlendCollisionObjectRef> ragdollParentMap;
+		std::map<bhkBlendCollisionObjectRef, NiNodeRef> ragdollAnimationParentMap;
 
-		std::map<Niflib::bhkBlendCollisionObjectRef, string> rbNames;
-		//create ragdoll parentMap and bone maps
-		//std::map<Niflib::bhkBlendCollisionObjectRef, Niflib::bhkBlendCollisionObjectRef> ragdollParentMap;
-		//std::map<Niflib::bhkBlendCollisionObjectRef, Niflib::NiNodeRef> ragdollAnimationParentMap;
-		//vector<int> animationRagdollParentMap;
+		std::deque<NiNodeRef> node_stack;
+		std::deque<bhkBlendCollisionObjectRef> collision_stack;
 
-		//bhkBlendCollisionObjectRef ragdoll_root = NULL;
-		//int ragdoll_root_index = -1;
+		//Separate Physics systems
+		std::deque<bhkPhysics> physics_systems_queue(1);
+		std::vector<bhkPhysics> physics;
+		{
+			std::function<void(NiAVObjectRef)> skeleton_visitor = [&](NiAVObjectRef object) {
+				if (NULL != object)
+				{
+					if (auto node = DynamicCast<NiNode>(object))
+					{
+						node_stack.push_front(node);
+						bool start = false;
+						bool has_collision = false;
+						if (auto collision = DynamicCast<bhkBlendCollisionObject>(node->GetCollisionObject()))
+						{
+							has_collision = true;
+							if (!collision_stack.empty())
+								ragdollParentMap[collision] = collision_stack.front();
+							collision_stack.push_front(collision);
+							ragdollAnimationParentMap[collision] = node;
 
-		//blend collisions don't have parent, look forward to the skeleton
-		for (size_t i = 0; i < bones.size(); i++) {
-			NiNodeRef bone = bones[i];
-			bhkBlendCollisionObjectRef rb = DynamicCast<bhkBlendCollisionObject>(bone->GetCollisionObject());
-			if (rb == NULL) {
-				Log::Info("Bone without rigid body: %s", bone->GetName().c_str());
-				continue;
-			}
-			NiNodeRef parent = bones[parentMap[i]];
-			auto rb_it = find(rigidBodies.begin(), rigidBodies.end(), rb);
-			if (rb_it == rigidBodies.end())
-			{
-				Log::Error("Cannot find rigid body attached to bone %s into previously collected rigid bodies", bones[i]->GetName());
-				return -1;
-			}
-			auto name = "Ragdoll_" + bone->GetName();
-			//int rbIndex = std::distance(rigidBodies.begin(), rb_it);
+							if (auto body = DynamicCast<bhkRigidBody>(collision->GetBody()))
+							{
+								auto& current_physics = *physics_systems_queue.begin();
+								if (body->GetConstraints().empty())
+								{
+									physics_systems_queue.push_front({});
+									physics_systems_queue.begin()->first.push_back({ node, body, collision });
+									start = true;
+								}
+								else {
+									current_physics.second.push_back(DynamicCast<bhkConstraint>(body->GetConstraints()[0]));
+									current_physics.first.push_back({ node, body, collision });
+								}
 
-			//set the skeletal parent for this rigid body
-			//if (bone->GetName().find("NonAccum") != string::npos)
-			//{
-			//	int debug = 1;
-			//}
-			//ragdollAnimationParentMap[*rb_it] = bone;
-			rbNames[*rb_it] = "Ragdoll_" + bone->GetName();
-			//find rb parent
-			//bool rbParent_found = false;
-			//while (parent != NULL)
-			//{
-			//	bhkBlendCollisionObjectRef rbParent = NULL;
-			//	rbParent = DynamicCast<bhkBlendCollisionObject>(parent->GetCollisionObject());
-			//	if (rbParent != NULL)
-			//	{
-			//		auto parent_name = "Ragdoll_" + parent->GetName();
-			//		//int rbParentIndex = find(rigidBodies.begin(), rigidBodies.end(), rbParent) - rigidBodies.begin();
-			//		//ragdollParentMap[*rb_it] = rigidBodies[rbParentIndex];
-			//		//rbParent_found = true;
-			//		break;
-			//	}
-			//	if (parent != skeleton_root)
-			//	{
-			//		auto parent_it = find(bones.begin(), bones.end(), parent);
-			//		auto parent_index = std::distance(bones.begin(), parent_it);
-			//		parent = bones[parentMap[parent_index]];
-			//	}
-			//	else {
-			//		break;
-			//	}
-			//}
-			//if (!rbParent_found)
-			//{
-			//	ragdoll_root = rb;
-			//}
+							}
+						}
+						for (auto& child : node->GetChildren())
+						{
+							skeleton_visitor(child);
+						}
+						node_stack.pop_front();
+						if (has_collision)
+						{
+							collision_stack.pop_front();
+						}
+						if (start)
+						{
+							auto& current_physics = *physics_systems_queue.begin();
+							if (!physics.empty() && physics.begin()->first.size() < current_physics.first.size())
+							{
+								physics.insert(physics.begin(), current_physics);
+							}
+							else {
+								physics.push_back(current_physics);
+							}
+
+							physics_systems_queue.pop_front();
+						}
+					}
+				}
+			};
+
+			skeleton_visitor(StaticCast<NiAVObject>(skeleton_file_root));
 		}
+
+
+		vector<bhkBlendCollisionObjectRef> rigidBodies;
+		std::map<Niflib::bhkBlendCollisionObjectRef, string> rbNames;
+		for (auto& chain : physics)
+		{
+			for (const auto& entry : chain.first)
+			{
+				rigidBodies.push_back(std::get<2>(entry));
+				rbNames[std::get<2>(entry)] = "Ragdoll_" + std::get<0>(entry)->GetName();
+			}
+		}
+
+		//calculate parent chain length
+		std::map<bhkBlendCollisionObjectRef, int> parents_chain_size;
+		for (size_t i = 0; i < rigidBodies.size(); i++) {
+			bhkBlendCollisionObjectRef body = rigidBodies[i];
+			parents_chain_size[body] = 0;
+			auto parent_it = ragdollParentMap.find(body);
+			while (parent_it != ragdollParentMap.end())
+			{
+				parents_chain_size[body]++;
+				parent_it = ragdollParentMap.find(parent_it->second);
+			}
+		}
+		//sort bodies vector
+		std::sort(rigidBodies.begin(), rigidBodies.end(),
+			[&](const auto& a, const auto& b) -> bool
+			{
+				return parents_chain_size.at(a) < parents_chain_size.at(b);
+			});
+
+		std::function<void(hkQsTransform&, NiNodeRef)> getReferencePose = [&skeletonParentsMap](hkQsTransform& out, NiNodeRef bone)
+		{
+			out.setIdentity();
+			auto parent = bone;
+			if (skeletonParentsMap.find(StaticCast<NiAVObject>(parent)) != skeletonParentsMap.end())
+			{
+				while (parent != NULL)
+				{
+					hkQsTransform parent_transform;
+					parent_transform.setTranslation(TOVECTOR4(parent->GetTranslation()));
+					parent_transform.setRotation(TOQUAT(parent->GetRotation().AsQuaternion()));
+					parent_transform.setScale(hkVector4(1., 1., 1.));
+					out.setMul(parent_transform, out);
+
+					if (skeletonParentsMap.find(StaticCast<NiAVObject>(parent)) != skeletonParentsMap.end())
+					{
+						parent = skeletonParentsMap.at(StaticCast<NiAVObject>(parent));
+					}
+					else {
+						parent = NULL;
+					}
+				}
+			}
+		};
+
 
 		//Rigid Bodies
 		hkArray<hkpRigidBody*> hkpBodies(rigidBodies.size());
@@ -1108,77 +1169,7 @@ bool Skeleton::Convert(
 
 		//Ragdoll
 		{
-			std::map<bhkBlendCollisionObjectRef, bhkBlendCollisionObjectRef> ragdollParentMap;
-			std::map<bhkBlendCollisionObjectRef, NiNodeRef> ragdollAnimationParentMap;
-
-			std::deque<bhkBlendCollisionObjectRef> collision_stack;
-			std::deque<NiNodeRef> node_stack;
-
-			//Separate Physics systems
-			std::deque<bhkPhysics> physics_systems_queue(1);
-			std::vector<bhkPhysics> physics;
-			{
-				std::function<void(NiAVObjectRef)> skeleton_visitor = [&](NiAVObjectRef object) {
-					if (NULL != object)
-					{
-						if (auto node = DynamicCast<NiNode>(object))
-						{
-							node_stack.push_front(node);
-							bool start = false;
-							bool has_collision = false;
-							if (auto collision = DynamicCast<bhkBlendCollisionObject>(node->GetCollisionObject()))
-							{
-								has_collision = true;
-								if (!collision_stack.empty())
-								{
-									ragdollParentMap[collision] = collision_stack.front();
-								}
-								ragdollAnimationParentMap[collision] = node;
-								collision_stack.push_front(collision);
-								if (auto body = DynamicCast<bhkRigidBody>(collision->GetBody()))
-								{
-									auto& current_physics = *physics_systems_queue.begin();
-									if (body->GetConstraints().empty())
-									{
-										physics_systems_queue.push_front({});
-										physics_systems_queue.begin()->first.push_back({ node, body, collision });
-										start = true;
-									}
-									else {
-										current_physics.second.push_back(DynamicCast<bhkConstraint>(body->GetConstraints()[0]));
-										current_physics.first.push_back({ node, body, collision });
-									}
-
-								}
-							}
-							for (auto& child : node->GetChildren())
-							{
-								skeleton_visitor(child);
-							}
-							if (has_collision)
-							{
-								collision_stack.pop_front();
-							}
-							node_stack.pop_front();
-							if (start)
-							{
-								auto& current_physics = *physics_systems_queue.begin();
-								if (!physics.empty() && physics.begin()->first.size() < current_physics.first.size())
-								{
-									physics.insert(physics.begin(), current_physics);
-								}
-								else {
-									physics.push_back(current_physics);
-								}
-
-								physics_systems_queue.pop_front();
-							}
-						}
-					}
-				};
-
-				skeleton_visitor(StaticCast<NiAVObject>(skeleton_file_root));
-			}
+			
 		
 			if (!physics.empty())
 			{
@@ -1214,49 +1205,6 @@ bool Skeleton::Convert(
 
 						auto& NIFParentMap = skeletonParentsMap;
 
-						//calculate parent chain length
-						std::map<bhkBlendCollisionObjectRef, int> parents_chain_size;
-						for (size_t i = 0; i < rigidBodies.size(); i++) {
-							bhkBlendCollisionObjectRef body = rigidBodies[i];
-							parents_chain_size[body] = 0;
-							auto parent_it = ragdollParentMap.find(body);
-							while (parent_it != ragdollParentMap.end())
-							{
-								parents_chain_size[body]++;
-								parent_it = ragdollParentMap.find(parent_it->second);
-							}
-						}
-						//sort bodies vector
-						std::sort(rigidBodies.begin(), rigidBodies.end(),
-							[&](const auto& a, const auto& b) -> bool
-							{
-								return parents_chain_size.at(a) < parents_chain_size.at(b);
-							});
-
-						std::function<void(hkQsTransform&, NiNodeRef)> getReferencePose = [&NIFParentMap](hkQsTransform& out, NiNodeRef bone)
-						{
-							out.setIdentity();
-							auto parent = bone;
-							if (NIFParentMap.find(StaticCast<NiAVObject>(parent)) != NIFParentMap.end())
-							{
-								while (parent != NULL)
-								{
-									hkQsTransform parent_transform;
-									parent_transform.setTranslation(TOVECTOR4(parent->GetTranslation()));
-									parent_transform.setRotation(TOQUAT(parent->GetRotation().AsQuaternion()));
-									parent_transform.setScale(hkVector4(1., 1., 1.));
-									out.setMul(parent_transform, out);
-
-									if (NIFParentMap.find(StaticCast<NiAVObject>(parent)) != NIFParentMap.end())
-									{
-										parent = NIFParentMap.at(StaticCast<NiAVObject>(parent));
-									}
-									else {
-										parent = NULL;
-									}
-								}
-							}
-						};
 
 						for (size_t i = 0; i < rigidBodies.size(); i++) {
 							bhkBlendCollisionObjectRef body = rigidBodies[i];
@@ -1344,6 +1292,11 @@ bool Skeleton::Convert(
 								findroot = ragdollParentMap.find(findroot) != ragdollParentMap.end() ? ragdollParentMap.at(findroot) : nullptr;
 							}
 
+							bhkRigidBodyRef rbody = DynamicCast<bhkRigidBody>(body->GetBody());
+							hkQsTransform nifRbTransform;
+							nifRbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation() / bhkScaleFactorInverse));
+							nifRbTransform.setRotation(TOQUAT(rbody->GetRotation()));
+
 							NiNodeRef animationBone = ragdollAnimationParentMap[body];
 
 							hkQsTransform animationBoneTransform;
@@ -1373,6 +1326,8 @@ bool Skeleton::Convert(
 						for (size_t i = 0; i < rigidBodies.size(); i++) {
 							bhkBlendCollisionObjectRef body = rigidBodies[i];
 							hkaSkeletonMapperData::SimpleMapping& mapping = fromSkeletonToRagdollMapping->m_simpleMappings[i];
+
+
 							mapping.m_boneA = std::distance(bones.begin(), std::find(bones.begin(), bones.end(), ragdollAnimationParentMap[body]));
 							mapping.m_boneB = i;
 							mappedBones.insert(mapping.m_boneA);

@@ -5290,8 +5290,8 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				if (std::string(creature->MODL.value->MODL.value).find("Meh") != string::npos)
-				{
+				//if (std::string(creature->MODL.value->MODL.value).find("Meh") != string::npos)
+				//{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					transform(skeleton.begin(), skeleton.end(), skeleton.begin(), ::tolower);
 					actors[skeleton].insert(creature);
@@ -5359,7 +5359,7 @@ void findCreatures
 						models_lowercase.insert(s_model);
 					}
 					skins[skeleton][models_lowercase].insert(creature);
-				}
+				//}
 			}
 		}
 	}
@@ -7400,6 +7400,34 @@ void ConvertAssets(
 						else {
 							ragdoll->SetTarget(StaticCast<NiAVObject>(pelvis));
 							pelvis->SetCollisionObject(StaticCast<NiCollisionObject>(ragdoll));
+
+							//auto pelvis_translation = pelvis->GetTranslation();
+							//auto pelvis_rotaton = pelvis->GetRotation();
+							//auto pelvis_scale = pelvis->GetScale();
+							//pelvis_local.setRotation(TOQUAT(pelvis_rotaton.AsQuaternion()));
+							//pelvis_local.setTranslation(TOVECTOR4(pelvis_translation));
+
+							//static float bhkScaleFactorInverse = 0.01428f; // 1 skyrim unit = 0,01428m
+							//bhkRigidBodyRef rbody = DynamicCast<bhkRigidBody>(ragdoll->GetBody());
+							//hkTransform nifRbTransform; nifRbTransform.setIdentity();
+							//nifRbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation() / bhkScaleFactorInverse));
+							//nifRbTransform.setRotation(TOQUAT(rbody->GetRotation()));
+
+							//hkTransform nifRbTransform2; nifRbTransform2.setMul(nifRbTransform, pelvis_local);
+
+							//rbody->SetTranslation(TOVECTOR3(nifRbTransform2.getTranslation()) * bhkScaleFactorInverse);
+							//auto local_r = nifRbTransform2.getRotation();
+							//::hkQuaternion rr; rr.set(local_r);
+
+							//Niflib::hkQuaternion f;
+							//f.x = rr(0);
+							//f.y = rr(1);
+							//f.z = rr(2);
+							//f.w = rr(3);
+							//rbody->SetRotation(
+							//	f
+							//);
+
 							node->SetCollisionObject(NULL);
 						}
 					}
