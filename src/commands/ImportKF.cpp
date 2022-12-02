@@ -948,9 +948,9 @@ std::set<std::pair<float, std::string>> convertOblivionAnnotations(const std::pa
 		}
 		else if (note.second.find("Enum:Attack") == 0 || note.second.find("Enum: Attack") == 0) {
 			out.insert({ note.first, "weaponSwing" });
+			out.insert({ note.first, "preHitFrame" });
 		}
 		else if (note.second.find("Hit") == 0) {
-			out.insert({ note.first - 0.15, "preHitFrame" });
 			out.insert({ note.first, "HitFrame" });
 		}
 		else if (note.second.find("m:R") == 0) {
@@ -960,6 +960,12 @@ std::set<std::pair<float, std::string>> convertOblivionAnnotations(const std::pa
 		else if (note.second.find("m:L") == 0) {
 			out.insert({ note.first, "FootLeft" });
 			out.insert({ note.first, "SyncLeft" });
+		}
+		else if (note.second.find("a:R") == 0) {
+			out.insert({ note.first, "attackChainRight" });
+		}
+		else if (note.second.find("a:L") == 0) {
+			out.insert({ note.first, "attackChainLeft" });
 		}
 	}
 	return out;

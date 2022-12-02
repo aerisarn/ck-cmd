@@ -647,6 +647,7 @@ bool Skeleton::Convert(
 			//Animation roots
 			Log::Info("Checking mesh file %s ...", itr->first.string().c_str());
 			vector<NiNodeRef> meshes_nodes = DynamicCast<NiNode>(itr->second);
+			vector<NiTriBasedGeomRef> meshes = DynamicCast<NiTriBasedGeom>(itr->second);
 			//build parents map
 			NiNodeRef root;
 			vector<NiNodeRef> bones_to_add;
@@ -672,13 +673,13 @@ bool Skeleton::Convert(
 					bones_to_add.push_back(ninode);
 				}
 				for (auto& stringdata : ninode->GetExtraDataList()) {
-					if (stringdata->GetName() == "Prn") {
-						body_parts[itr->first] = Accessor<ExtraDataColector>(StaticCast<NiStringExtraData>(stringdata))._string;
+					if (stringdata->GetName() == "Prn" && !meshes.empty()) {
+						body_parts[itr->first] = meshes[0]->GetName();
 					}
 				}
 			}
 
-			vector<NiTriBasedGeomRef> meshes = DynamicCast<NiTriBasedGeom>(itr->second);
+
 
 			for (auto& node : meshes) {
 				if (bonesFoundIntoAnimations.find(node->GetName()) != bonesFoundIntoAnimations.end()) {
@@ -712,6 +713,7 @@ bool Skeleton::Convert(
 								boneNames.push_back(node->GetName());
 								bones.push_back(fakeBone);
 								attached = true;
+								body_parts[itr->first] = node->GetName();
 							}
 						}
 						if (attached)
@@ -777,52 +779,6 @@ bool Skeleton::Convert(
 				throw runtime_error("Missing animation bones!");
 			}
 		}
-
-		//check for original skeleton nodes
-
-		//for (auto& node : skeleton_nodes) {
-
-		//	//TODO Oblivion's
-		//	
-		//	//Normal Bones
-		//	if (node->GetName().find("Bip") != string::npos) {
-		//		bones.push_back(node);
-		//		bonesFoundIntoAnimations.erase(node->GetName());
-		//	}
-		//	//Weapon
-		//	if (node->GetName().find("Weapon") != string::npos) {
-		//		bones.push_back(node);
-		//		bonesFoundIntoAnimations.erase(node->GetName());
-		//	}
-		//	//Magic
-		//	if (node->GetName().find("magicNode") != string::npos) {
-		//		bones.push_back(node);
-		//		bonesFoundIntoAnimations.erase(node->GetName());
-		//	}
-
-		//	//skyrim
-		//	if (node->GetName().find("CharacterBumper") != string::npos)
-		//	{
-		//		//TODO: havok bumper;
-		//		continue;
-		//	}
-
-		//	if (node->GetName() == "NPC")
-		//	{
-		//		//Because fuck you, that's why
-		//		continue;
-		//	}
-
-		//	if (node->GetInternalType().IsSameType(NiNode::TYPE))
-		//	{
-		//		debugboneNames.push_back(node->GetName().c_str());
-		//		auto node_type = node->GetIDString();
-		//		bones.push_back(node);
-		//		bonesFoundIntoAnimations.erase(node->GetName());
-		//	}
-		//}
-
-
 
 		Log::Info("Build skeleton\n");
 

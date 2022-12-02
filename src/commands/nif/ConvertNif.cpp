@@ -1383,7 +1383,6 @@ vector<bhkShapeRef> upgrade_shapes(const vector<bhkShapeRef>& shapes, const NifI
 	return out;
 }
 
-
 template<>
 class Accessor<NiBlendFloatInterpolator> {
 public:
@@ -1827,7 +1826,6 @@ void convertGlowMap(const string& glow_name, const string& export_path) {
 		DirectX::DDS_FLAGS_NONE,
 		out_path.wstring().c_str());
 }
-
 
 class FlipBookConverter
 {
@@ -4236,7 +4234,6 @@ public:
 	}
 };
 
-
 class RebuildVisitor : public RecursiveFieldVisitor<RebuildVisitor> {
 	set<NiObject*> objects;
 public:
@@ -4689,8 +4686,6 @@ void check_bb_max_min(Vector3& max, Vector3& min, const hkVector4& vertex) {
 	if (vertex(1) > max[1]) max[1] = vertex(1);
 	if (vertex(2) > max[2]) max[2] = vertex(2);
 }
-
-
 
 Vector3 center_model(NiObjectRef root, vector<NiObjectRef>& blocks)
 {
@@ -5283,6 +5278,8 @@ void findCreatures
 	const std::string& oblivionData
 )
 {
+	std::map<fs::path, std::set<Ob::CREARecord*>> test_actors;
+
 	for (auto record_it = oblivionCollection.FormID_ModFile_Record.begin(); record_it != oblivionCollection.FormID_ModFile_Record.end(); record_it++)
 	{
 		Record* record = record_it->second;
@@ -5290,8 +5287,8 @@ void findCreatures
 			Ob::CREARecord* creature = dynamic_cast<Ob::CREARecord*>(record);
 			if (nullptr != creature && creature->MODL.value != nullptr)
 			{
-				//if (std::string(creature->MODL.value->MODL.value).find("Meh") != string::npos)
-				//{
+				if (std::string(creature->MODL.value->MODL.value).find("Goblin") != string::npos)
+				{
 					std::string skeleton = std::string("meshes\\") + creature->MODL.value->MODL.value;
 					transform(skeleton.begin(), skeleton.end(), skeleton.begin(), ::tolower);
 					actors[skeleton].insert(creature);
@@ -5359,7 +5356,7 @@ void findCreatures
 						models_lowercase.insert(s_model);
 					}
 					skins[skeleton][models_lowercase].insert(creature);
-				//}
+				}
 			}
 		}
 	}
@@ -5390,20 +5387,42 @@ void ConvertCreatures
 			0
 		);
 		race->EDID = RACE_EDID;
+		race->FULL = prefix + " " + creature_tag + " Race";
+		if (actors.at(entry.first).empty())
+		{
+			Log::Error("Race without actors: %s", RACE_EDID.c_str());
+		}
+		else {
+			std::string description = "Race used by original actors: ";
+			for (const auto& actor : actors.at(entry.first))
+			{
+				description += std::string(actor->EDID.value) + ", ";
+			}
+			description = description.substr(0, description.size() - 2);
+			race->DESC = description;
+		}
+		race->DATA.value.maleHeight = 1.;
+		race->DATA.value.femaleHeight = 1.;
+		race->DATA.value.maleWeight = 1.;
+		race->DATA.value.femaleWeight = 1.;
+		race->DATA.value.baseCarryWeight = 9999.0;
+		race->DATA.value.baseMass = 1.;
+		race->DATA.value.accelerationRate = 1.;
+		race->DATA.value.decelerationRate = 1.;
+		race->DATA.value.size = 1;
+		race->DATA.value.unarmedDamage = 1.;
+		race->DATA.value.unarmedReach = 96.;
+		race->DATA.value.angularAccelerationRate = 0.12;
+		race->DATA.value.angularAccelerationRate = 5.0;
+		race->DATA.value.flags2 = 0x00000001; // Use Advanced Avoidance
+
+		//SLOTS
+		race->DATA.value.headBipedObject = -1;
+		race->DATA.value.hairBipedObject = -1;
+		race->DATA.value.shieldBipedObject = -1;
+		race->DATA.value.bodyBipedObject = -1;
+
 		races[entry.first] = race;
-		//auto& ob_creatures = entry.second;
-		//for (const auto& ob_creature : ob_creatures)
-		//{
-		//	std::string NPC__EDID = prefix + ob_creature->EDID.value;
-		//	Sk::NPC_Record*  actor = (Sk::NPC_Record*)convertedCollection.CreateRecord(
-		//		convertedPlugin,
-		//		REV32(NPC_),
-		//		NULL,
-		//		(char* const)NPC__EDID.c_str(),
-		//		NULL,
-		//		0
-		//	);
-		//}
 	}
 }
 
@@ -6206,11 +6225,6 @@ public:
 
 	//HAND 2 HAND
 
-	
-
-
-
-
 	//  Animations\handtohandattackbackpower.hkx
 	//	Animations\attackforwardpower.hkx / Animations\handtohandattackfowardpower.hkx / Animations\handtohandattackforwardpower.hkx
 	//	Animations\attackpower.hkx / Animations\handtohandattackpower.hkx
@@ -6506,24 +6520,261 @@ Animations\twohandstagger.hkx
 Animations\twohandunequip.hkx
 */
 
-void CreateTES4Behavior
-(
-	const std::string& prefix,
-	const std::string& creature_tag,
-	const std::string& output_file,
-	std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements,
-	Collection& conversionCollection,
-	ModFile*& conversionPlugin
-)
+
+
+
+class TES4BehaviorAssembler
 {
+	const std::string& prefix;
+	const std::string& creature_tag;
+	const std::string& output_file;
+	std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements;
+	Collection& conversionCollection;
+	ModFile*& conversionPlugin;
+	AnimationSetAnalyzer& analyzer;
+	map<hkRefPtr<hkbClipGenerator>, fs::path>& generators;
+	map<int, string>& behavior_events;
+
+	//internal map to use strings;
+	map<string, int> _event_map;	
+	map<string, int> _variables_map;
+
+	//Internal
+	hkbBehaviorGraph graph;
+	hkbBehaviorGraphData root_data;
+	hkbBehaviorGraphStringData root_string_data;
+	hkbVariableValueSet root_data_init_vars;
+
+	int createEvent(const std::string& event_name, bool isSyncPoint);
+
+	/*
+	  ,
+	  ,
+	  ,
+	  ,
+	  ,
+	  ,
+	  ,
+	  ,
+	  ,
+	*/
+	template<typename T>
+	hkbVariableInfo::VariableType variableType(const T& value)
+	{
+		return hkbVariableInfo::VARIABLE_TYPE_INVALID;
+	}
+	//VARIABLE_TYPE_BOOL = 0
+	template<>
+	hkbVariableInfo::VariableType variableType(const bool& value)
+	{
+		return hkbVariableInfo::VARIABLE_TYPE_BOOL;
+	}
+	//VARIABLE_TYPE_INT8 = 1
+	template<>
+	hkbVariableInfo::VariableType variableType(const int8_t& value)
+	{
+		return hkbVariableInfo::VARIABLE_TYPE_INT8;
+	}
+	//VARIABLE_TYPE_INT16 = 2
+	template<>
+	hkbVariableInfo::VariableType variableType(const int16_t& value)
+	{
+		return hkbVariableInfo::VARIABLE_TYPE_INT16;
+	}
+	//VARIABLE_TYPE_INT32 = 3
+	template<>
+	hkbVariableInfo::VariableType variableType(const int32_t& value)
+	{
+		return hkbVariableInfo::VARIABLE_TYPE_INT32;
+	}
+	//VARIABLE_TYPE_REAL = 4
+	template<>
+	hkbVariableInfo::VariableType variableType(const float& value)
+	{
+		return hkbVariableInfo::VARIABLE_TYPE_REAL;
+	}
+	//VARIABLE_TYPE_POINTER = 5
+	template<>
+	hkbVariableInfo::VariableType variableType(const hkReferencedObject& value)
+	{
+		return hkbVariableInfo::VARIABLE_TYPE_POINTER;
+	}
+	//VARIABLE_TYPE_VECTOR3 = 6
+	template<>
+	hkbVariableInfo::VariableType variableType(const Vector3& value)
+	{
+		return hkbVariableInfo::VARIABLE_TYPE_VECTOR3;
+	}
+	//VARIABLE_TYPE_VECTOR4 = 7
+	template<>
+	hkbVariableInfo::VariableType variableType(const hkVector4& value)
+	{
+		return hkbVariableInfo::VARIABLE_TYPE_VECTOR4;
+	}
+	//VARIABLE_TYPE_QUATERNION = 8
+	template<>
+	hkbVariableInfo::VariableType variableType(const ::hkQuaternion& value)
+	{
+		return hkbVariableInfo::VARIABLE_TYPE_QUATERNION;
+	}
+
+	template<typename T>
+	void initVariable(const T& initialValue)
+	{
+		hkbVariableValue value;
+		value.m_value = initialValue;
+		root_data_init_vars.m_wordVariableValues.pushBack(value);
+	}
+
+	template<>
+	void initVariable(const hkVector4& initialValue)
+	{
+		hkbVariableValue value;
+		value.m_value = root_data_init_vars.m_quadVariableValues.getSize();
+		root_data_init_vars.m_quadVariableValues.pushBack(initialValue);
+		root_data_init_vars.m_wordVariableValues.pushBack(value);
+	}
+
+	template<>
+	void initVariable(const Vector3& initialValue)
+	{
+		hkbVariableValue value;
+		value.m_value = root_data_init_vars.m_quadVariableValues.getSize();
+		root_data_init_vars.m_quadVariableValues.pushBack(TOVECTOR4(initialValue));
+		root_data_init_vars.m_wordVariableValues.pushBack(value);
+		return ;
+	}
+
+	template<>
+	void initVariable(const ::hkQuaternion& initialValue)
+	{
+		hkbVariableValue value;
+		value.m_value = root_data_init_vars.m_quadVariableValues.getSize();
+		root_data_init_vars.m_quadVariableValues.pushBack(initialValue.m_vec);
+		root_data_init_vars.m_wordVariableValues.pushBack(value);
+		return;
+	}
+
+	template<>
+	void initVariable(const hkReferencedObject& initialValue)
+	{
+		hkbVariableValue value;
+		value.m_value = root_data_init_vars.m_variantVariableValues.getSize();
+		root_data_init_vars.m_variantVariableValues.pushBack((hkReferencedObject*)&initialValue);
+		root_data_init_vars.m_wordVariableValues.pushBack(value);
+		return;
+	}
+
+	template<typename T>
+	int createVariable(const std::string& variable_name, const T& initial_value)
+	{
+		int index = root_string_data.m_variableNames.m_size();
+		root_string_data.m_variableNames.pushBack(variable_name);
+		hkbRoleAttribute role_attribute;
+		role_attribute.m_role = hkbRoleAttribute::ROLE_DEFAULT;
+		role_attribute.m_flags = hkbRoleAttribute::FLAG_NONE;
+		hkbVariableInfo info;
+		info.m_role = role_attribute;
+		info.m_type = variableType(initial_value); //hkbVariableInfo::VARIABLE_TYPE_BOOL;
+		root_data.m_variableInfos.pushBack(info);
+		initVariable(initial_value);
+		_variables_map[variable_name] = index;
+		return index;
+	}
+
+	hkRefPtr<hkbClipGenerator> clip(const fs::path& clip_path, hkbClipGenerator::PlaybackMode mode)
+	{
+		hkRefPtr<hkbClipGenerator> generator = new hkbClipGenerator();
+		generator->m_name = clip_path.filename().replace_extension("").string().c_str();
+		generator->m_userData = 0;
+		generator->m_animationName = fs::path(clip_path).string().c_str();
+		generator->m_cropStartAmountLocalTime = 0.0;
+		generator->m_cropEndAmountLocalTime = 0.0;
+		generator->m_startTime = 0.0;
+		generator->m_playbackSpeed = 1.0;
+		generator->m_enforcedDuration = 0.0;
+		generator->m_userControlledTimeFraction = 0.0;
+		generator->m_animationBindingIndex = -1;
+		generator->m_mode = mode;
+		generator->m_flags = 0;
+		return generator;
+	}
+
+	hkRefPtr<hkbStateMachineStateInfo> state(hkRefPtr<hkbStateMachine> fsm, const std::string& name, hkRefPtr<hkbGenerator> generator)
+	{
+		hkRefPtr<hkbStateMachineStateInfo> state = new hkbStateMachineStateInfo();
+		state->m_name = name.c_str();
+		state->m_stateId = fsm->m_states.getSize();
+		state->m_probability = 1.000000;
+		state->m_enable = true;
+		state->m_generator = generator;
+	}
+
+
+	hkRefPtr<hkbStateMachine> idle()
+	{
+		hkRefPtr<hkbStateMachine> idle_fsm = new hkbStateMachine();
+		return idle_fsm;
+	}
+
 	//Skyrim requires a MOVT entry for each kind of moving set of animations
 	// for the AI to decide how to move the creature, when bAnimationDriven is not set
 	// otherwise the movements are decided by the animation itself
 
 	//the speed and possible movements are decided by the SPED structure.
 	//the MOVT are switched by the behavior using the iState variables and state tagging modifiers
+	hkRefPtr<hkbStateMachine> move(hkRefPtr<hkbStateMachine> fsm)
+	{
+		hkRefPtr<hkbStateMachine> move_fsm = new hkbStateMachine();
+		return move_fsm;
+	}
 
-}
+	void assemble(hkRefPtr<hkbStateMachine> root_fsm)
+	{
+		root_data.m_variableInitialValues = &root_data_init_vars;
+		root_data.m_stringData = &root_string_data;
+
+		std::string behavior_name = prefix + creature_tag + "Behavior";
+		graph.m_name = behavior_name.c_str();
+		graph.m_userData = 0;
+		graph.m_variableMode = hkbBehaviorGraph::VARIABLE_MODE_DISCARD_WHEN_INACTIVE;
+		graph.m_rootGenerator = root_fsm;
+		graph.m_data = &root_data;
+
+		hkRootLevelContainer container;
+		container.m_namedVariants.pushBack(hkRootLevelContainer::NamedVariant("hkbBehaviorGraph", &graph, &graph.staticClass()));
+		HKXWrapper().write_xml(&container, output_file);
+	}
+
+public:
+	TES4BehaviorAssembler(
+		const std::string& prefix,
+		const std::string& creature_tag,
+		const std::string& output_file,
+		std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements,
+		Collection& conversionCollection,
+		ModFile*& conversionPlugin,
+		AnimationSetAnalyzer& analyzer,
+		map<hkRefPtr<hkbClipGenerator>, fs::path>& generators,
+		map<int, string>& behavior_events
+	) :
+		prefix(prefix),
+		creature_tag(creature_tag),
+		output_file(output_file),
+		root_movements(root_movements),
+		conversionCollection(conversionCollection),
+		conversionPlugin(conversionPlugin),
+		analyzer(analyzer),
+		generators(generators),
+		behavior_events(behavior_events)
+	{
+		assemble(
+			idle()
+		);
+	}
+
+
+};
 
 void CreateDummyBehavior
 (
@@ -6533,12 +6784,13 @@ void CreateDummyBehavior
 	std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements,
 	AnimationSetAnalyzer& analyzer,
 	map<hkRefPtr<hkbClipGenerator>, fs::path>& generators,
-	map<int, string> behavior_events
+	map<int, string>& behavior_events
 )
 {
 	//Assemble a behavior for the creature
-	hkbBehaviorGraph graph;
+
 	hkbStateMachine root_fsm;
+	hkbBehaviorGraph graph;
 	hkbBehaviorGraphData root_data;
 	hkbBehaviorGraphStringData root_string_data;
 	hkbVariableValueSet root_data_init_vars;
@@ -6782,7 +7034,7 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 	Sk::SKBOD2::BodyParts out = Sk::SKBOD2::BodyParts::bpBody;
 	if (skeleton_body_parts.find(file) != skeleton_body_parts.end())
 	{
-		//NTD;
+		part_name = skeleton_body_parts.at(file);
 	}
 	else {
 		std::set<std::string> skin_bones;
@@ -6806,7 +7058,12 @@ Sk::SKBOD2::BodyParts FindBodyPart(
 			bodySlots[skin_bones] = part_name;
 		}
 	}
-	std::transform(part_name.begin(), part_name.end(), part_name.begin(), toupper);
+	{
+		//Sanitize part name
+		while (isdigit(part_name[part_name.size() - 1]) || part_name[part_name.size() - 1] == ':' || part_name[part_name.size() - 1] == ' ')
+			part_name = part_name.substr(0, part_name.size() - 1);
+		std::transform(part_name.begin(), part_name.end(), part_name.begin(), toupper);
+	}
 	auto slot_it = std::find(slots.begin(), slots.end(), part_name);
 	int index = 0;
 	if (slot_it == slots.end())
@@ -7287,6 +7544,8 @@ void ConvertAssets(
 	{
 		Log::Info("Converting %d/%d: %s", ++index, skeletons.size(), entry.first.string().c_str());
 		std::string creature_tag = entry.first.parent_path().filename().string();
+		std::string creature_tag_upper = creature_tag;
+		creature_tag_upper[0] = toupper(creature_tag_upper[0]);
 		std::string creature_path_no_meshes = entry.first.parent_path().string();
 		replacepath(creature_path_no_meshes, "meshes", "tes4");
 		std::string creature_path = entry.first.parent_path().string();
@@ -7746,6 +8005,21 @@ void ConvertAssets(
 			race_test_record->RNAM.value = race->formID;
 			race_test_record->WNAM.Load();
 			race_test_record->WNAM.value = most_common_armo->formID;
+			std::string name = std::string("TES4 ") + creature_tag_upper + " Test";
+			race_test_record->FULL.value = new char[name.size() + 1];
+			memset(race_test_record->FULL.value, 0, name.size() + 1);
+			memcpy(race_test_record->FULL.value, name.c_str(), name.size());
+
+			memset(&race_test_record->AIDT.value, 0, sizeof(race_test_record->AIDT.value));
+			race_test_record->AIDT.value.energyLevel = 50;
+
+			race_test_record->NAM5.value = 0x00FF;
+			race_test_record->NAM6.value = 1.;
+			race_test_record->NAM7.value = 50.0;
+			race_test_record->QNAM.Load();
+			race_test_record->QNAM.value->red = 0.5;
+			race_test_record->QNAM.value->green = 0.5;
+			race_test_record->QNAM.value->blue = 0.5;
 
 		}
 
@@ -7978,7 +8252,7 @@ bool BeginConversion(string importPath, string exportPath)
 		conversionPlugin
 	);
 
-	return true;
+	//return true;
 
 	ModSaveFlags skSaveFlags = ModSaveFlags(2);
 	skSaveFlags.IsCleanMasters = true;
