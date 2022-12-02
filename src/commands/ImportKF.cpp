@@ -1902,10 +1902,10 @@ bool AnimationExport::exportController()
 
 		auto quat = motionTransform.getRotation();
 		Quat QuatRotNew = { quat(0), quat(1), quat(2), quat(3) };
-		//XVZ depends on the order
-		EulerAngles z_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYr);
+		//XYZ depends on the order
+		EulerAngles z_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
 		z_eul.z = 0; z_eul.y = 0;
-		EulerAngles xy_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYr);
+		EulerAngles xy_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
 		xy_eul.x = 0;
 		auto z_quat = Eul_ToQuat(z_eul);
 		auto xy_quat = Eul_ToQuat(xy_eul);
@@ -1923,7 +1923,7 @@ bool AnimationExport::exportController()
 		});
 
 		tempAnim->m_transforms[nbones * f + pelvis_index].setTranslation(hkVector4(0., 0., motionTransform.getTranslation()(2)));
-		tempAnim->m_transforms[nbones * f + pelvis_index].setRotation({ (float)xy_quat.x, (float)xy_quat.y, (float)xy_quat.z, (float)xy_quat.w });
+		tempAnim->m_transforms[nbones * f + pelvis_index].setRotation({ (float)QuatRotNew.x, (float)QuatRotNew.y, (float)QuatRotNew.z, (float)QuatRotNew.w });
 	}
 
 	if (_root_info.translations.empty()) {
