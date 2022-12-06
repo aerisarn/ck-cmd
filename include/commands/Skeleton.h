@@ -43,10 +43,18 @@ public:
 	virtual string GetHelp() const;
 	virtual string GetHelpShort() const;
 
-	static bool Convert(
+	enum class conversion_result {
+		hkError = -1,
+		hkNone = 0,
+		hkSkeleton = 1,
+		hkSkeletonAndRagdoll = 2
+	};
+
+	static conversion_result Convert(
 		const NifFolderType& in, 
 		const string& outpath, 
 		hkRefPtr<hkaSkeleton>& converted_skeleton, 
+		hkRefPtr<hkaSkeleton>& converted_ragdoll,
 		std::map<fs::path, std::string>& body_parts,
 		const std::map<std::string, std::string>& renamed_nodes
 	);

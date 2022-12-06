@@ -67,6 +67,9 @@
 #include <hkbClipGenerator_2.h>
 #include <hkbBehaviorReferenceGenerator_0.h>
 #include <Common/Base/Container/String/hkStringBuf.h>
+#include <hkbModifierGenerator_0.h>
+#include <hkbModifierList_0.h>
+#include <hkbPoweredRagdollControlsModifier_5.h>
 
 #include <limits>
 #include <array>
@@ -5635,6 +5638,8 @@ class AnimationSetAnalyzer
 	std::map<STANCE_STATE, fs::path> staff_stance;
 	std::map<STANCE_STATE, fs::path> twoh_stance;
 
+	std::vector<fs::path> additional_idles;
+
 	void analyzeGetUp()
 	{
 		//	Animations\idleanims\getupfaceup.hkx
@@ -6178,9 +6183,111 @@ class AnimationSetAnalyzer
 
 		if (hasAnimation("Animations\\onehandrecoil.hkx"))
 			h2h_stance[STANCE_STATE::recoil] = "Animations\\onehandrecoil.hkx";
-
-
 	}
+
+	void amalyzeIdles()
+	{
+		//Animations\idleanims\agony.hkx
+		//	Animations\idleanims\bah.hkx
+		//	Animations\idleanims\check.hkx
+		//	Animations\idleanims\cheer.hkx
+		//	Animations\idleanims\croak.hkx
+		//	Animations\idleanims\dig.hkx
+		//	Animations\idleanims\dynamicidle_sleep.hkx
+		//	Animations\idleanims\eat.hkx
+		//	Animations\idleanims\gaze.hkx
+		//	Animations\idleanims\graze.hkx
+		//	Animations\idleanims\grazes.hkx
+		//	Animations\idleanims\horsedismount.hkx
+		//	Animations\idleanims\horsemount.hkx
+		//	Animations\idleanims\idle02.hkx
+		//	Animations\idleanims\idleb.hkx
+		//	Animations\idleanims\idlec.hkx
+		//	Animations\idleanims\idleclench.hkx
+		//	Animations\idleanims\idlecrouch.hkx
+		//	Animations\idleanims\idledrool.hkx
+		//	Animations\idleanims\idlelook.hkx
+		//	Animations\idleanims\idlescowl.hkx
+		//	Animations\idleanims\idlescratch.hkx
+		//	Animations\idleanims\idleslack.hkx
+		//	Animations\idleanims\idlesniff.hkx
+		//	Animations\idleanims\idlestamp.hkx
+		//	Animations\idleanims\idlesway.hkx
+		//	Animations\idleanims\idlethump.hkx
+		//	Animations\idleanims\land.hkx
+		//	Animations\idleanims\look.hkx
+		//	Animations\idleanims\lookleft.hkx
+		//	Animations\idleanims\lookright.hkx
+		//	Animations\idleanims\pathorse.hkx
+		//	Animations\idleanims\paw.hkx
+		//	Animations\idleanims\praise.hkx
+		//	Animations\idleanims\rest.hkx
+		//	Animations\idleanims\roar.hkx
+		//	Animations\idleanims\scan.hkx
+		//	Animations\idleanims\scratch.hkx
+		//	Animations\idleanims\scratch2.hkx
+		//	Animations\idleanims\search.hkx
+		//	Animations\idleanims\sigh.hkx
+		//	Animations\idleanims\sleep.hkx
+		//	Animations\idleanims\snif.hkx
+		//	Animations\idleanims\special idle_lookaround.hkx
+		//	Animations\idleanims\special idle_twist.hkx
+		//	Animations\idleanims\special_idle.hkx
+		//	Animations\idleanims\special_reach.hkx
+		//	Animations\idleanims\specialidel_cute1.hkx
+		//	Animations\idleanims\specialidel_cute2.hkx
+		//	Animations\idleanims\specialidle.hkx
+		//	Animations\idleanims\specialidle_01noshield.hkx
+		//	Animations\idleanims\specialidle__8.hkx
+		//	Animations\idleanims\specialidle__jump.hkx
+		//	Animations\idleanims\specialidle__side_to_side.hkx
+		//	Animations\idleanims\specialidle_aware.hkx
+		//	Animations\idleanims\specialidle_b.hkx
+		//	Animations\idleanims\specialidle_c.hkx
+		//	Animations\idleanims\specialidle_clean.hkx
+		//	Animations\idleanims\specialidle_dance1.hkx
+		//	Animations\idleanims\specialidle_dodge.hkx
+		//	Animations\idleanims\specialidle_dogbark.hkx
+		//	Animations\idleanims\specialidle_doge.hkx
+		//	Animations\idleanims\specialidle_eat.hkx
+		//	Animations\idleanims\specialidle_flee.hkx
+		//	Animations\idleanims\specialidle_howl.hkx
+		//	Animations\idleanims\specialidle_intimidate.hkx
+		//	Animations\idleanims\specialidle_intimidate2.hkx
+		//	Animations\idleanims\specialidle_intimidate3.hkx
+		//	Animations\idleanims\specialidle_look.hkx
+		//	Animations\idleanims\specialidle_lookleft.hkx
+		//	Animations\idleanims\specialidle_lookright.hkx
+		//	Animations\idleanims\specialidle_praying1.hkx
+		//	Animations\idleanims\specialidle_praying2.hkx
+		//	Animations\idleanims\specialidle_rooting.hkx
+		//	Animations\idleanims\specialidle_sandup.hkx
+		//	Animations\idleanims\specialidle_scratch.hkx
+		//	Animations\idleanims\specialidle_seep.hkx
+		//	Animations\idleanims\specialidle_sit.hkx
+		//	Animations\idleanims\specialidle_sitbark.hkx
+		//	Animations\idleanims\specialidle_sleeplookaround.hkx
+		//	Animations\idleanims\specialidle_smell.hkx
+		//	Animations\idleanims\specialidle_starteat.hkx
+		//	Animations\idleanims\specialidle_tracking.hkx
+		//	Animations\idleanims\specialidle_whirlwind.hkx
+		//	Animations\idleanims\specialldle_guard.hkx
+		//	Animations\idleanims\srcatch.hkx
+		//	Animations\idleanims\staggered.hkx
+		//	Animations\idleanims\startle.hkx
+		//	Animations\idleanims\stretch.hkx
+		//	Animations\idleanims\swat.hkx
+		//	Animations\idleanims\taunt.hkx
+
+		for (const auto& entry : animations)
+		{
+			if (entry.first.string().find("idleanims") != string::npos)
+			{
+				additional_idles.push_back(entry.first);
+			}
+		}
+	}
+
 
 public:
 
@@ -6192,6 +6299,7 @@ public:
 		analyzeRunning();
 		analyzeJump();
 		analyzeStance();
+		amalyzeIdles();
 	}
 
 	inline bool hasAnimation(const std::string& name)
@@ -6266,119 +6374,9 @@ public:
 
 	// SWIM
 
-
-
-
-
-
-
 };
 
 /*
-
-
-
-
-
-
-
-
-
-
-
-
-Animations\idleanims\agony.hkx
-Animations\idleanims\bah.hkx
-Animations\idleanims\check.hkx
-Animations\idleanims\cheer.hkx
-Animations\idleanims\croak.hkx
-Animations\idleanims\dig.hkx
-Animations\idleanims\dynamicidle_sleep.hkx
-Animations\idleanims\eat.hkx
-Animations\idleanims\gaze.hkx
-Animations\idleanims\graze.hkx
-Animations\idleanims\grazes.hkx
-Animations\idleanims\horsedismount.hkx
-Animations\idleanims\horsemount.hkx
-Animations\idleanims\idle02.hkx
-Animations\idleanims\idleb.hkx
-Animations\idleanims\idlec.hkx
-Animations\idleanims\idleclench.hkx
-Animations\idleanims\idlecrouch.hkx
-Animations\idleanims\idledrool.hkx
-Animations\idleanims\idlelook.hkx
-Animations\idleanims\idlescowl.hkx
-Animations\idleanims\idlescratch.hkx
-Animations\idleanims\idleslack.hkx
-Animations\idleanims\idlesniff.hkx
-Animations\idleanims\idlestamp.hkx
-Animations\idleanims\idlesway.hkx
-Animations\idleanims\idlethump.hkx
-Animations\idleanims\land.hkx
-Animations\idleanims\look.hkx
-Animations\idleanims\lookleft.hkx
-Animations\idleanims\lookright.hkx
-Animations\idleanims\pathorse.hkx
-Animations\idleanims\paw.hkx
-Animations\idleanims\praise.hkx
-Animations\idleanims\rest.hkx
-Animations\idleanims\roar.hkx
-Animations\idleanims\scan.hkx
-Animations\idleanims\scratch.hkx
-Animations\idleanims\scratch2.hkx
-Animations\idleanims\search.hkx
-Animations\idleanims\sigh.hkx
-Animations\idleanims\sleep.hkx
-Animations\idleanims\snif.hkx
-Animations\idleanims\special idle_lookaround.hkx
-Animations\idleanims\special idle_twist.hkx
-Animations\idleanims\special_idle.hkx
-Animations\idleanims\special_reach.hkx
-Animations\idleanims\specialidel_cute1.hkx
-Animations\idleanims\specialidel_cute2.hkx
-Animations\idleanims\specialidle.hkx
-Animations\idleanims\specialidle_01noshield.hkx
-Animations\idleanims\specialidle__8.hkx
-Animations\idleanims\specialidle__jump.hkx
-Animations\idleanims\specialidle__side_to_side.hkx
-Animations\idleanims\specialidle_aware.hkx
-Animations\idleanims\specialidle_b.hkx
-Animations\idleanims\specialidle_c.hkx
-Animations\idleanims\specialidle_clean.hkx
-Animations\idleanims\specialidle_dance1.hkx
-Animations\idleanims\specialidle_dodge.hkx
-Animations\idleanims\specialidle_dogbark.hkx
-Animations\idleanims\specialidle_doge.hkx
-Animations\idleanims\specialidle_eat.hkx
-Animations\idleanims\specialidle_flee.hkx
-
-Animations\idleanims\specialidle_howl.hkx
-Animations\idleanims\specialidle_intimidate.hkx
-Animations\idleanims\specialidle_intimidate2.hkx
-Animations\idleanims\specialidle_intimidate3.hkx
-Animations\idleanims\specialidle_look.hkx
-Animations\idleanims\specialidle_lookleft.hkx
-Animations\idleanims\specialidle_lookright.hkx
-Animations\idleanims\specialidle_praying1.hkx
-Animations\idleanims\specialidle_praying2.hkx
-Animations\idleanims\specialidle_rooting.hkx
-Animations\idleanims\specialidle_sandup.hkx
-Animations\idleanims\specialidle_scratch.hkx
-Animations\idleanims\specialidle_seep.hkx
-Animations\idleanims\specialidle_sit.hkx
-Animations\idleanims\specialidle_sitbark.hkx
-Animations\idleanims\specialidle_sleeplookaround.hkx
-Animations\idleanims\specialidle_smell.hkx
-Animations\idleanims\specialidle_starteat.hkx
-Animations\idleanims\specialidle_tracking.hkx
-Animations\idleanims\specialidle_whirlwind.hkx
-Animations\idleanims\specialldle_guard.hkx
-Animations\idleanims\srcatch.hkx
-Animations\idleanims\staggered.hkx
-Animations\idleanims\startle.hkx
-Animations\idleanims\stretch.hkx
-Animations\idleanims\swat.hkx
-Animations\idleanims\taunt.hkx
 
 
 Animations\onehandattackbackpower.hkx
@@ -6535,6 +6533,10 @@ class TES4BehaviorAssembler
 	map<hkRefPtr<hkbClipGenerator>, fs::path>& generators;
 	map<int, string>& behavior_events;
 
+	int ragdollIndex_pelvis; //pelvis
+	int ragdollIndex_rightUpperArm; //R UpperArm01
+	int ragdollIndex_head; //head
+
 	//internal map to use strings;
 	map<string, int> _event_map;	
 	map<string, int> _variables_map;
@@ -6545,19 +6547,19 @@ class TES4BehaviorAssembler
 	hkbBehaviorGraphStringData root_string_data;
 	hkbVariableValueSet root_data_init_vars;
 
-	int createEvent(const std::string& event_name, bool isSyncPoint);
+	hkRefPtr<hkbBlendingTransitionEffect> _default_transition_effect;
 
-	/*
-	  ,
-	  ,
-	  ,
-	  ,
-	  ,
-	  ,
-	  ,
-	  ,
-	  ,
-	*/
+	int createEvent(const std::string& event_name, bool isSyncPoint)
+	{
+		hkbEventInfo info;
+		info.m_flags = isSyncPoint ? hkbEventInfo::FLAG_SYNC_POINT : 0;
+		int index = root_data.m_eventInfos.getSize();
+		root_data.m_eventInfos.pushBack(info);
+		root_string_data.m_eventNames.pushBack(event_name.c_str());
+		_event_map[event_name] = index;
+		behavior_events[index] = event_name;
+	}
+
 	template<typename T>
 	hkbVariableInfo::VariableType variableType(const T& value)
 	{
@@ -6682,6 +6684,28 @@ class TES4BehaviorAssembler
 		return index;
 	}
 
+	hkRefPtr<hkbBlendingTransitionEffect> effect(
+		const std::string& name, 
+		float duration = 0.,
+		hkbBlendingTransitionEffect::SelfTransitionMode self_transition_mode = hkbBlendingTransitionEffect::SELF_TRANSITION_MODE_CONTINUE_IF_CYCLIC_BLEND_IF_ACYCLIC,
+		hkbBlendingTransitionEffect::EventMode event_mode = hkbBlendingTransitionEffect::EVENT_MODE_IGNORE_FROM_GENERATOR,
+		hkbBlendingTransitionEffect::EndMode end_mode = hkbBlendingTransitionEffect::END_MODE_NONE,
+		hkbBlendCurveUtils::BlendCurve blend_curve = hkbBlendCurveUtils::BLEND_CURVE_SMOOTH
+	)
+	{
+		hkRefPtr<hkbBlendingTransitionEffect> transition_effect = new hkbBlendingTransitionEffect();
+		transition_effect->m_name = name.c_str();
+		transition_effect->m_userData = 0;
+		transition_effect->m_selfTransitionMode = self_transition_mode;
+		transition_effect->m_eventMode = event_mode;
+		transition_effect->m_duration = duration;
+		transition_effect->m_toGeneratorStartTimeFraction = 0.0;
+		transition_effect->m_flags = 0;
+		transition_effect->m_endMode = end_mode;
+		transition_effect->m_blendCurve = blend_curve;
+		return transition_effect;
+	}
+
 	hkRefPtr<hkbClipGenerator> clip(const fs::path& clip_path, hkbClipGenerator::PlaybackMode mode)
 	{
 		hkRefPtr<hkbClipGenerator> generator = new hkbClipGenerator();
@@ -6708,12 +6732,129 @@ class TES4BehaviorAssembler
 		state->m_probability = 1.000000;
 		state->m_enable = true;
 		state->m_generator = generator;
+		fsm->m_states.pushBack(state);
+		return state;
 	}
 
-
-	hkRefPtr<hkbStateMachine> idle()
+	hkRefPtr<hkbStateMachineStateInfo> starting_state(hkRefPtr<hkbStateMachine> fsm, const std::string& name, hkRefPtr<hkbGenerator> generator)
 	{
-		hkRefPtr<hkbStateMachine> idle_fsm = new hkbStateMachine();
+		auto s_state = state(fsm, name, generator);
+		fsm->m_startStateId = s_state->m_stateId;
+	}
+
+	hkRefPtr<hkbStateMachineStateInfo> clip_state(hkRefPtr<hkbStateMachine> fsm, const fs::path& clip_path, hkbClipGenerator::PlaybackMode mode)
+	{
+		auto g_clip = clip(clip_path, mode);
+		std::string state_name = std::string(g_clip->m_name.cString()) + "_state";
+		auto s_state = state(fsm, state_name, g_clip.val());
+		fsm->m_startStateId = s_state->m_stateId;
+		return s_state;
+	}
+
+	hkRefPtr<hkbStateMachine> fsm(const std::string& name)
+	{
+		hkRefPtr<hkbStateMachine> root_fsm = new hkbStateMachine();
+		root_fsm->m_name = name.c_str();
+		root_fsm->m_startStateId = 0;
+		root_fsm->m_returnToPreviousStateEventId = -1;
+		root_fsm->m_randomTransitionEventId = -1;
+		root_fsm->m_transitionToNextHigherStateEventId = -1;
+		root_fsm->m_transitionToNextLowerStateEventId = -1;
+		root_fsm->m_syncVariableIndex = -1;
+		root_fsm->m_userData = 0;
+		root_fsm->m_eventToSendWhenStateOrTransitionChanges.m_id = -1;
+		root_fsm->m_eventToSendWhenStateOrTransitionChanges.m_payload = NULL;
+		root_fsm->m_wrapAroundStateId = false;
+		root_fsm->m_maxSimultaneousTransitions = 32;
+		root_fsm->m_startStateMode = hkbStateMachine::START_STATE_MODE_DEFAULT;
+		root_fsm->m_selfTransitionMode = hkbStateMachine::SELF_TRANSITION_MODE_NO_TRANSITION;
+		return root_fsm;
+	}
+
+	void transition(
+		hkRefPtr<hkbStateMachineTransitionInfoArray>& container,
+		const std::string& event, 
+		hkRefPtr<hkbStateMachineStateInfo> state_to,
+		hkRefPtr<hkbTransitionEffect> effect, 
+		hkRefPtr<hkbStateMachineStateInfo> nested = NULL
+	)
+	{
+		hkbStateMachineTransitionInfo transition;
+
+		transition.m_triggerInterval.m_enterEventId = -1;
+		transition.m_triggerInterval.m_exitEventId = -1;
+		transition.m_triggerInterval.m_enterTime = 0.0;
+		transition.m_triggerInterval.m_exitTime = 0.0;
+
+		transition.m_initiateInterval.m_enterEventId = -1;
+		transition.m_initiateInterval.m_exitEventId = -1;
+		transition.m_initiateInterval.m_enterTime = 0.0;
+		transition.m_initiateInterval.m_exitTime = 0.0;
+
+		transition.m_transition = effect;
+		transition.m_eventId = _event_map.at(event);
+		transition.m_toStateId = state_to->m_stateId;
+		transition.m_fromNestedStateId = 0;
+		if (NULL != nested)
+			transition.m_toNestedStateId = nested->m_stateId;
+		transition.m_priority = 0;
+		transition.m_flags = hkbStateMachineTransitionInfo::FLAG_DISABLE_CONDITION;
+		container->m_transitions.pushBack(transition);
+	}
+
+	void transition(
+		hkRefPtr<hkbStateMachine> fsm,
+		const std::string& event,
+		hkRefPtr<hkbStateMachineStateInfo> to_state,
+		hkRefPtr<hkbTransitionEffect> effect,
+		hkRefPtr<hkbStateMachineStateInfo> from_state = NULL,
+		hkRefPtr<hkbStateMachineStateInfo> nested = NULL
+	)
+	{
+		if (from_state == NULL)
+		{
+			if (fsm->m_wildcardTransitions == NULL)
+			{
+				fsm->m_wildcardTransitions = new hkbStateMachineTransitionInfoArray();
+			}
+			transition(
+				fsm->m_wildcardTransitions,
+				event,
+				to_state,
+				effect,
+				nested
+			);
+		}
+		else {
+			if (from_state->m_transitions == NULL)
+			{
+				from_state->m_transitions = new hkbStateMachineTransitionInfoArray();
+			}
+			transition(
+				fsm->m_wildcardTransitions,
+				event,
+				to_state,
+				effect,
+				nested
+			);
+		}	
+	}
+
+	hkRefPtr<hkbModifierGenerator> modify(hkRefPtr<hkbModifier> modifier, hkRefPtr<hkbGenerator> generator)
+	{
+		hkRefPtr<hkbModifierGenerator> msg = new hkbModifierGenerator();
+		msg->m_modifier = modifier;
+		msg->m_generator = generator;
+		msg->m_userData = 0;
+		std::string name = generator->m_name.cString(); name += "_msg";
+		msg->m_name = name.c_str();
+		return msg;
+	}
+
+	hkRefPtr<hkbStateMachine> idle_fsm()
+	{
+		hkRefPtr<hkbStateMachine> idle_fsm = fsm("idle_fsm");
+		auto idle_state = clip_state(idle_fsm, analyzer.idle(), hkbClipGenerator::PlaybackMode::MODE_LOOPING);
 		return idle_fsm;
 	}
 
@@ -6729,7 +6870,46 @@ class TES4BehaviorAssembler
 		return move_fsm;
 	}
 
-	void assemble(hkRefPtr<hkbStateMachine> root_fsm)
+	hkRefPtr<hkbModifierList> physics_modifer()
+	{
+		hkRefPtr<hkbModifierList> list = new hkbModifierList();
+		list->m_name = "physics_ml";
+		hkRefPtr<hkbPoweredRagdollControlsModifier> ragdoll_engine = new hkbPoweredRagdollControlsModifier();
+		ragdoll_engine->m_enable = true;
+		ragdoll_engine->m_name = "physics_rcm";
+		ragdoll_engine->m_userData = 1; //Unknown
+
+		ragdoll_engine->m_controlData.m_maxForce = 50.;
+		ragdoll_engine->m_controlData.m_tau = 0.8;
+		ragdoll_engine->m_controlData.m_damping = 1.;
+		ragdoll_engine->m_controlData.m_proportionalRecoveryVelocity = 2.;
+		ragdoll_engine->m_controlData.m_constantRecoveryVelocity = 1.;
+
+		ragdoll_engine->m_worldFromModelModeData.m_mode = hkbWorldFromModelModeData::WorldFromModelMode::WORLD_FROM_MODEL_MODE_COMPUTE;
+
+		ragdoll_engine->m_worldFromModelModeData.m_poseMatchingBone0 = ragdollIndex_pelvis; //pelvis
+		ragdoll_engine->m_worldFromModelModeData.m_poseMatchingBone1 = ragdollIndex_rightUpperArm; //R UpperArm01
+		ragdoll_engine->m_worldFromModelModeData.m_poseMatchingBone2 = ragdollIndex_head; //head
+
+		ragdoll_engine->m_bones = new hkbBoneIndexArray();
+		ragdoll_engine->m_boneWeights = new hkbBoneWeightArray();
+
+		list->m_modifiers.pushBack(ragdoll_engine);
+		return list;
+	}
+
+	hkRefPtr<hkbGenerator> physics(hkRefPtr<hkbStateMachine> fsm)
+	{
+		//hkRefPtr<hkbStateMachine> physics_fsm = new hkbStateMachine();
+		//auto keyframed_state = state(fsm, "default_state", fsm.val());
+		//auto lay_state = state(fsm, "laydown_state", fsm.val());
+		//auto getup_state = state(fsm, "getup_state", fsm.val());
+
+		hkRefPtr<hkbModifier> physics_modifiers = physics_modifer();
+		return modify(physics_modifiers, fsm.val());
+	}
+
+	void assemble(hkRefPtr<hkbGenerator> root_fsm)
 	{
 		root_data.m_variableInitialValues = &root_data_init_vars;
 		root_data.m_stringData = &root_string_data;
@@ -6752,9 +6932,13 @@ public:
 		const std::string& creature_tag,
 		const std::string& output_file,
 		std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements,
+		int ragdollIndex_pelvis,
+		int ragdollIndex_rightUpperArm,
+		int ragdollIndex_head,
 		Collection& conversionCollection,
 		ModFile*& conversionPlugin,
 		AnimationSetAnalyzer& analyzer,
+
 		map<hkRefPtr<hkbClipGenerator>, fs::path>& generators,
 		map<int, string>& behavior_events
 	) :
@@ -6762,18 +6946,22 @@ public:
 		creature_tag(creature_tag),
 		output_file(output_file),
 		root_movements(root_movements),
+		ragdollIndex_pelvis(ragdollIndex_pelvis),
+		ragdollIndex_rightUpperArm(ragdollIndex_rightUpperArm),
+		ragdollIndex_head(ragdollIndex_head),
 		conversionCollection(conversionCollection),
 		conversionPlugin(conversionPlugin),
 		analyzer(analyzer),
 		generators(generators),
 		behavior_events(behavior_events)
 	{
+		_default_transition_effect = effect("default_transition");
 		assemble(
-			idle()
+			physics(
+				idle_fsm()
+			)
 		);
 	}
-
-
 };
 
 void CreateDummyBehavior
@@ -7562,6 +7750,11 @@ void ConvertAssets(
 		std::map<std::string, hkTransform> original_local_pre_pelvis_transforms;
 		std::map<std::string, std::string> renamed_specials;
 
+		int ragdollPelvisIndex = -1;
+		int ragdollRUpperArmIndex = -1;
+		int ragdollHeadIndex = -1;
+		bool hasRagdoll = false;
+
 		{
 			//Convert skeleton NIF
 			fs::path creature_output_skeleton = outputFolder / creature_path / "Character Assets" / entry.first.filename();
@@ -7596,6 +7789,7 @@ void ConvertAssets(
 				metadata,
 				true
 			);
+
 			//add skeleton root
 			NiNodeRef rootn = DynamicCast<NiNode>(root);
 			NiNodeRef toor = new NiNode();
@@ -7698,8 +7892,8 @@ void ConvertAssets(
 				}
 			}
 	
-			//check constraints
 			auto bodies = DynamicCast<bhkRigidBody>(skeleton_converted_blocks);
+			//check constraints
 			vector<bhkSerializableRef> constraints;
 			set<bhkRigidBodyRef> constrained_bodies;
 			for (auto& body : bodies)
@@ -7827,8 +8021,59 @@ void ConvertAssets(
 			//Create skeleton.hkx
 			fs::path creature_output_skeleton = outputFolder / rig_relative_file;
 			creature_output_skeleton.replace_extension(".hkx");
-			hkRefPtr<hkaSkeleton> hkx_skeleton;
-			Skeleton::Convert(assets, creature_output_skeleton.string(), hkx_skeleton, body_parts, renamed_specials);
+			hkRefPtr<hkaSkeleton> hkx_skeleton = nullptr;
+			hkRefPtr<hkaSkeleton> hkx_ragdoll = nullptr;
+			auto result = Skeleton::Convert
+			(
+				assets, 
+				creature_output_skeleton.string(), 
+				hkx_skeleton, 
+				hkx_ragdoll, 
+				body_parts, 
+				renamed_specials
+			);
+			if (result == Skeleton::conversion_result::hkSkeletonAndRagdoll)
+			{
+				hasRagdoll = true;
+				// R UpperArm o RUpperArm
+				//Bip01 Head o Bip01 Skull o Spine0 //Mudcrab only
+
+				ragdollPelvisIndex = 0;
+				ragdollRUpperArmIndex = -1;
+				ragdollHeadIndex = -1;
+				//set indices
+				int boneIndex = 0;
+				for (const auto& bone : hkx_ragdoll->m_bones)
+				{
+					std::string s_bone = bone.m_name.cString();
+					if (
+						s_bone.find("R UpperArm") != string::npos ||
+						s_bone.find("RUpperArm") != string::npos ||
+						s_bone.find("Bip01 L Calf") != string::npos //skeleton
+					)
+					{
+						ragdollRUpperArmIndex = boneIndex;
+					}
+					if (
+						s_bone.find("Bip01 Spine0") != string::npos ||
+						s_bone.find("Bip01 Head") != string::npos ||
+						s_bone.find("Bip02 Head") != string::npos || //horse
+						s_bone.find("Bip01 Skull") != string::npos || 
+						s_bone.find("Bip01 Spine2") != string::npos ||  //skeleton
+						s_bone.find("Bip01 Spine") != string::npos //slaughterfish
+						)
+					{
+						ragdollHeadIndex = boneIndex;
+					}
+					boneIndex++;
+				}
+
+				if (ragdollRUpperArmIndex == -1 || ragdollHeadIndex == -1)
+				{
+					Log::Error("Ragdoll found but unable to find control indices");
+				}
+
+			}
 
 			//Use the converted skeleton to convert animations
 			fs::path creature_output_animations_folder = outputFolder / creature_path / "Animations";
@@ -8013,6 +8258,12 @@ void ConvertAssets(
 			memset(&race_test_record->AIDT.value, 0, sizeof(race_test_record->AIDT.value));
 			race_test_record->AIDT.value.energyLevel = 50;
 
+			race_test_record->ACBS.Load();
+			race_test_record->ACBS.value.speedMultiplier = 100.;
+
+			race_test_record->DNAM.Load();
+			race_test_record->DNAM.value->gearedUpWeapons = 1;
+
 			race_test_record->NAM5.value = 0x00FF;
 			race_test_record->NAM6.value = 1.;
 			race_test_record->NAM7.value = 50.0;
@@ -8037,12 +8288,17 @@ void ConvertAssets(
 			fs::path behavior_relative_file = fs::path("Behaviors") / (prefix + creature_name + "Behavior.hkx");
 			fs::path creature_output_behavior = outputFolder / creature_path / behavior_relative_file;
 			fs::create_directories(creature_output_behavior.parent_path());
-			CreateDummyBehavior
-			(
+
+			TES4BehaviorAssembler(
 				prefix,
 				creature_subfolder,
 				creature_output_behavior.string(),
 				root_movements,
+				ragdollPelvisIndex,
+				ragdollRUpperArmIndex,
+				ragdollHeadIndex,
+				conversionCollection,
+				conversionPlugin,
 				analyzer,
 				generators,
 				events
@@ -8173,7 +8429,7 @@ void ConvertAssets(
 		}
 	}
 
-	//cache.save(animdata, animsetdata);
+	cache.save(animdata, animsetdata);
 }
 
 bool BeginConversion(string importPath, string exportPath) 

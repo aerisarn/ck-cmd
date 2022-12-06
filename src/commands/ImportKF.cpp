@@ -947,10 +947,11 @@ std::set<std::pair<float, std::string>> convertOblivionAnnotations(const std::pa
 			out.insert({ note.first, "FootBack" });
 		}
 		else if (note.second.find("Enum:Attack") == 0 || note.second.find("Enum: Attack") == 0) {
-			out.insert({ note.first, "weaponSwing" });
-			out.insert({ note.first, "preHitFrame" });
+			//Sometimes is after the hit. Not clear
 		}
 		else if (note.second.find("Hit") == 0) {
+			out.insert({ note.first - 0.1, "weaponSwing" });
+			out.insert({ note.first - 0.05, "preHitFrame" });
 			out.insert({ note.first, "HitFrame" });
 		}
 		else if (note.second.find("m:R") == 0) {
@@ -1608,6 +1609,51 @@ bool AnimationExport::exportController()
 				annotations.insert({ key.time, key.data });
 			}
 		}
+
+		//check default events are lined up properly
+		float PreHitFrameTime = -1.;
+		float HitFrameTime = -1.;
+		float WeaponSwingTime = -1.;
+
+		for (const auto& entry : annotations)
+		{
+			if (get<1>(entry) == "preHitFrame")
+			{
+				PreHitFrameTime = get<0>(entry);
+			}
+			if (get<1>(entry) == "HitFrame")
+			{
+				HitFrameTime = get<0>(entry);
+			}
+			if (get<1>(entry) == "weaponSwing")
+			{
+				WeaponSwingTime = get<0>(entry);
+			}
+		}
+		if (PreHitFrameTime != -1. || HitFrameTime != -1. || WeaponSwingTime != -1)
+		{
+			if (HitFrameTime == -1.) {
+				if (PreHitFrameTime != -1.) {
+					Log::Info("Found PreHitFrameTime but not HitFrameTime!");
+					annotations.insert({ PreHitFrameTime + 0.1, "HitFrame" });
+				}
+				else if (WeaponSwingTime != -1.) {
+					Log::Info("Found PreHitFrameTime but not HitFrameTime neither PreHitFrameTime!");
+					annotations.insert({ WeaponSwingTime + 0.1, "HitFrame" });
+					annotations.insert({ WeaponSwingTime, "weaponSwing" });
+				}
+			}
+			if (PreHitFrameTime == -1.)
+			{
+				if (HitFrameTime != -1.)
+				{
+					Log::Info("Found HitFrameTime but not PreHitFrameTime!");
+					annotations.insert({ HitFrameTime - 0.1, "preHitFrame" });
+					annotations.insert({ HitFrameTime - 0.1, "weaponSwing" });
+				}
+			}
+		}
+
 		auto& root_annotations = tempAnim->m_annotationTracks[0];
 		for (auto& entry : annotations)
 		{
