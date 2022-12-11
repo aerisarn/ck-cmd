@@ -38,10 +38,25 @@ namespace ckcmd {
         Log& operator=(Log&&) = delete;
     };
 
-    Log& operator<<(Log& stream, const QString& in) {
-        stream << std::string(in.toUtf8().constData());
+    inline Log& operator<<(Log& stream, const char* in) {
+        stream.operator<<(in);
         return stream;
     }
+
+    //inline Log& operator<<(Log& stream, const std::string& in) {
+    //    std::ostream::operator<<(in);
+    //    return stream;
+    //}
+
+    inline Log& operator<<(Log& stream, const QString& in) {
+        stream.operator<<(in.toUtf8().constData());
+        return stream;
+    }
+
+    //inline Log& operator<<(Log& stream, const fs::path& in) {
+    //    stream << in.string();
+    //    return stream;
+    //}
 }
 
 

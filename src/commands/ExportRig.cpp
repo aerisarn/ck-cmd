@@ -140,7 +140,9 @@ bool BeginConversion(const string& importSkeleton,
 			StaticCacheEntry entry;
 			std::map< fs::path, RootMovement> map;
 
-			find_files(animationsPath, ".hkx", animation_files);
+			find_files(animationsPath, ".xml", animation_files);
+			if (animation_files.empty())
+				find_files(animationsPath, ".hkx", animation_files);
 			if (fs::exists(cacheFilePath) && !fs::is_directory(cacheFilePath) &&
 				fs::exists(behaviorFolder) && fs::is_directory(behaviorFolder))
 			{

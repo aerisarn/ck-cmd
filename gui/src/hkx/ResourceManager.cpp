@@ -349,12 +349,12 @@ bool ResourceManager::isCreatureProject(int file_index) {
 	return false;
 }
 
-CacheEntry* ResourceManager::findCacheEntry(const std::string& sanitized_name)
+std::shared_ptr<CacheEntry> ResourceManager::findCacheEntry(const std::string& sanitized_name)
 {
 	return _cache.find(sanitized_name);
 }
 
-CacheEntry* ResourceManager::findCacheEntry(size_t file_index)
+std::shared_ptr<CacheEntry> ResourceManager::findCacheEntry(size_t file_index)
 {
 	return _cache.find(get_sanitized_name(file_index));
 }
@@ -362,7 +362,7 @@ CacheEntry* ResourceManager::findCacheEntry(size_t file_index)
 void ResourceManager::save_cache(int project_index)
 {
 	string project = get_sanitized_name(project_index);
-	CacheEntry* project_entry = findCacheEntry(project);
+	auto project_entry = findCacheEntry(project);
 	fs::path animationDataPath = "animationdatasinglefile.txt";
 	fs::path animationSetDataPath = "animationsetdatasinglefile.txt";
 	fs::create_directories(_workspace.getFolder());
@@ -452,7 +452,7 @@ void ResourceManager::scanWorkspace()
 			if (isHavokProject(p.path())) {
 				string sanitized_project_name = internal_get_sanitized_name(p.path());
 				LOG << "Found project " << sanitized_project_name << log_endl;
-				CacheEntry* entry = findCacheEntry(sanitized_project_name);
+				auto entry = findCacheEntry(sanitized_project_name);
 				if (NULL == entry)
 				{
 					LOG << " WARNING: " << sanitized_project_name << " was not found into the animation cache. The project won't be loaded by the game" << log_endl;
@@ -664,7 +664,7 @@ size_t ResourceManager::characterFileIndex(int row, int project_index, ProjectTy
 		//build animation sets
 		if (nullptr != string_data && string_data->m_animationNames.getSize() && isCreatureProject(project_index))
 		{
-			CreatureCacheEntry* entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_index));
+			auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_index));
 			size_t sets_size = entry->sets.getProjectFiles().getStrings().size();
 
 			std::map<std::string, std::string> crc32_map;
@@ -755,8 +755,8 @@ void ResourceManager::saveProject(int project_index)
 		auto* string_data = getCharacterString(character_index);
 		if (nullptr != string_data)
 		{
-			CacheEntry* entry = _cache.find(get_sanitized_name(project_index));
-			CreatureCacheEntry* creature_entry = dynamic_cast<CreatureCacheEntry*>(entry);
+			auto entry = _cache.find(get_sanitized_name(project_index));
+			std::shared_ptr<CreatureCacheEntry> creature_entry = dynamic_pointer_cast<CreatureCacheEntry>(entry);
 			bool creature = (creature_entry != nullptr);
 			entry->block.clear();
 			entry->movements.clear();
@@ -1357,7 +1357,7 @@ QStringList ResourceManager::wordVariableList(int project_index)
 
 size_t ResourceManager::getAnimationSetsFiles(int project_file)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		return entry->sets.getProjectFiles().size();
@@ -1366,7 +1366,7 @@ size_t ResourceManager::getAnimationSetsFiles(int project_file)
 }
 QString ResourceManager::getAnimationSetsFile(int project_file, int index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		return QString::fromStdString(entry->sets.getProjectFiles()[index]);
@@ -1376,7 +1376,7 @@ QString ResourceManager::getAnimationSetsFile(int project_file, int index)
 
 void ResourceManager::createAnimationSet(int project_file, const QString& name) //add .txt
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		std::string std_name = name.toUtf8().constData();
@@ -1386,7 +1386,7 @@ void ResourceManager::createAnimationSet(int project_file, const QString& name) 
 
 void ResourceManager::deleteAnimationSet(int project_file, int index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		entry->sets.removeProjectAttack(index);
@@ -1395,7 +1395,7 @@ void ResourceManager::deleteAnimationSet(int project_file, int index)
 
 size_t ResourceManager::getAnimationSetEvents(int project_file, int set_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		return entry->sets.getBlockEvents(set_index);
@@ -1405,7 +1405,7 @@ size_t ResourceManager::getAnimationSetEvents(int project_file, int set_index)
 
 QString ResourceManager::getAnimationSetEvent(int project_file, int set_index, int event_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		return QString::fromStdString(entry->sets.getBlockEvent(set_index, event_index));
@@ -1415,7 +1415,7 @@ QString ResourceManager::getAnimationSetEvent(int project_file, int set_index, i
 
 void ResourceManager::addAnimationSetEvent(int project_file, int set_index, const QString& event_name)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		entry->sets.addBlockEvent(set_index, event_name.toUtf8().constData());
@@ -1424,7 +1424,7 @@ void ResourceManager::addAnimationSetEvent(int project_file, int set_index, cons
 
 void ResourceManager::deleteAnimationSetEvent(int project_file, int set_index, int event_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		entry->sets.removeBlockEvent(set_index, event_index);
@@ -1433,7 +1433,7 @@ void ResourceManager::deleteAnimationSetEvent(int project_file, int set_index, i
 
 size_t ResourceManager::getAnimationSetVariables(int project_file, int set_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		return entry->sets.getBlockVariables(set_index);
@@ -1443,7 +1443,7 @@ size_t ResourceManager::getAnimationSetVariables(int project_file, int set_index
 
 QString ResourceManager::getAnimationSetVariable(int project_file, int set_index, int variable_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		return QString::fromStdString(entry->sets.getBlockVariable(set_index, variable_index));
@@ -1453,7 +1453,7 @@ QString ResourceManager::getAnimationSetVariable(int project_file, int set_index
 
 int ResourceManager::getAnimationSetVariableMin(int project_file, int set_index, int variable_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		return entry->sets.getBlockVariableMin(set_index, variable_index);
@@ -1463,7 +1463,7 @@ int ResourceManager::getAnimationSetVariableMin(int project_file, int set_index,
 
 int ResourceManager::getAnimationSetVariableMax(int project_file, int set_index, int variable_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		return entry->sets.getBlockVariableMax(set_index, variable_index);
@@ -1473,7 +1473,7 @@ int ResourceManager::getAnimationSetVariableMax(int project_file, int set_index,
 
 void ResourceManager::setAnimationSetVariableMin(int project_file, int set_index, int variable_index, int min_value)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		entry->sets.setBlockVariableMin(set_index, variable_index, min_value);
@@ -1482,7 +1482,7 @@ void ResourceManager::setAnimationSetVariableMin(int project_file, int set_index
 
 void ResourceManager::setAnimationSetVariableMax(int project_file, int set_index, int variable_index, int max_value)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		entry->sets.setBlockVariableMax(set_index, variable_index, max_value);
@@ -1491,7 +1491,7 @@ void ResourceManager::setAnimationSetVariableMax(int project_file, int set_index
 
 void ResourceManager::addAnimationSetVariable(int project_file, int set_index, const QString& variable_name, int min_value, int max_value)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		entry->sets.addBlockVariable(set_index, variable_name.toUtf8().constData(), min_value, max_value);
@@ -1500,7 +1500,7 @@ void ResourceManager::addAnimationSetVariable(int project_file, int set_index, c
 
 void ResourceManager::deleteAnimationSetVariable(int project_file, int set_index, int variable_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		entry->sets.removeBlockVariable(set_index, variable_index);
@@ -1510,7 +1510,7 @@ void ResourceManager::deleteAnimationSetVariable(int project_file, int set_index
 QStringList ResourceManager::getAnimationSetAnimation(int project_file, int set_index)
 {
 	QStringList out;
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		auto set_name = entry->sets.getProjectFiles()[set_index];
@@ -1526,7 +1526,7 @@ QStringList ResourceManager::getAnimationSetAnimation(int project_file, int set_
 
 void ResourceManager::addAnimationSetAnimation(int project_file, int set_index, const QString& animation_path)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		auto set_name = entry->sets.getProjectFiles()[set_index];
@@ -1537,7 +1537,7 @@ void ResourceManager::addAnimationSetAnimation(int project_file, int set_index, 
 
 void ResourceManager::deleteAnimationSetAnimation(int project_file, int set_index, const QString& animation_path)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		std::string to_delete = animation_path.toUtf8().constData();
@@ -1559,7 +1559,7 @@ void ResourceManager::deleteAnimationSetAnimation(int project_file, int set_inde
 
 size_t ResourceManager::getAnimationSetAttacks(int project_file, int set_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		return entry->sets.getBlockAttacks(set_index);
@@ -1569,7 +1569,7 @@ size_t ResourceManager::getAnimationSetAttacks(int project_file, int set_index)
 
 QString ResourceManager::getAnimationSetAttackEvent(int project_file, int set_index, int attack_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		return QString::fromStdString(entry->sets.getBlockAttackEvent(set_index, attack_index));
@@ -1579,7 +1579,7 @@ QString ResourceManager::getAnimationSetAttackEvent(int project_file, int set_in
 
 void ResourceManager::setAnimationSetAttackEvent(int project_file, int set_index, int attack_index, const QString& attack_event)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		entry->sets.setBlockAttackEvent(set_index, attack_index, attack_event.toUtf8().constData());
@@ -1588,7 +1588,7 @@ void ResourceManager::setAnimationSetAttackEvent(int project_file, int set_index
 
 void ResourceManager::addAnimationSetAttack(int project_file, int set_index, const QString& attack_event)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		entry->sets.addBlockAttack(set_index, attack_event.toUtf8().constData());
@@ -1597,7 +1597,7 @@ void ResourceManager::addAnimationSetAttack(int project_file, int set_index, con
 
 void ResourceManager::deleteAnimationSetAttack(int project_file, int set_index, int attack_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		entry->sets.removeBlockAttack(set_index, attack_index);
@@ -1606,7 +1606,7 @@ void ResourceManager::deleteAnimationSetAttack(int project_file, int set_index, 
 
 size_t ResourceManager::getAnimationSetAttackClips(int project_file, int set_index, int attack_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		return entry->sets.getBlockAttackClips(set_index, attack_index);
@@ -1616,7 +1616,7 @@ size_t ResourceManager::getAnimationSetAttackClips(int project_file, int set_ind
 
 QString ResourceManager::getAnimationSetAttackClip(int project_file, int set_index, int attack_index, int clip_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		return QString::fromStdString(entry->sets.getBlockAttackClip(set_index, attack_index, clip_index));
@@ -1626,7 +1626,7 @@ QString ResourceManager::getAnimationSetAttackClip(int project_file, int set_ind
 
 void ResourceManager::addAnimationSetAttackClip(int project_file, int set_index, int attack_index, const QString& clip_generator_name)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		entry->sets.addBlockAttackClip(set_index, attack_index, clip_generator_name.toUtf8().constData());
@@ -1635,7 +1635,7 @@ void ResourceManager::addAnimationSetAttackClip(int project_file, int set_index,
 
 void ResourceManager::deleteAnimationSetAttackClip(int project_file, int set_index, int attack_index, int clip_index)
 {
-	auto entry = dynamic_cast<CreatureCacheEntry*>(findCacheEntry(project_file));
+	auto entry = dynamic_pointer_cast<CreatureCacheEntry>(findCacheEntry(project_file));
 	if (entry != nullptr)
 	{
 		entry->sets.removeBlockAttackClip(set_index, attack_index, clip_index);

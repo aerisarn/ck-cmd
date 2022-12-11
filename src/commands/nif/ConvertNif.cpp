@@ -70,6 +70,16 @@
 #include <hkbModifierGenerator_0.h>
 #include <hkbModifierList_0.h>
 #include <hkbPoweredRagdollControlsModifier_5.h>
+#include <hkbRigidBodyRagdollControlsModifier_3.h>
+#include <hkbEventDrivenModifier_0.h>
+#include <hkbTimerModifier_1.h>
+#include <hkbManualSelectorGenerator_0.h>
+#include <hkbPoseMatchingGenerator_2.h>
+#include <hkbGetUpModifier_2.h>
+#include <hkbKeyframeBonesModifier_3.h>
+#include <BSIsActiveModifier_1.h>
+#include <BSSpeedSamplerModifier_1.h>
+#include <hkbFootIkModifier_3.h>
 
 #include <limits>
 #include <array>
@@ -5548,7 +5558,7 @@ NifFolderType load_override_or_bsa_nif_folder(const fs::path& skeleton_path, con
 class AnimationSetAnalyzer
 {
 	const std::map<fs::path, ckcmd::HKX::RootMovement>& animations;
-
+public:
 	enum class GETUP_DIRECTION {
 		face_up = 0,
 		face_down,
@@ -5594,7 +5604,7 @@ class AnimationSetAnalyzer
 		unequip,
 		death
 	};
-
+private:
 	std::map<GETUP_DIRECTION, fs::path> getup;
 
 	std::map<MOVE_DIRECTION, fs::path> default_move;
@@ -5645,16 +5655,16 @@ class AnimationSetAnalyzer
 		//	Animations\idleanims\getupfaceup.hkx
 		//	Animations\idleanims\getup_faceup.hkx
 		if (hasAnimation("Animations\\idleanims\\getupfaceup.hkx"))
-			getup[GETUP_DIRECTION::face_up] = "Animations\idleanims\getupfaceup.hkx";
+			getup[GETUP_DIRECTION::face_up] = "Animations\\idleanims\\getupfaceup.hkx";
 		if (hasAnimation("Animations\\idleanims\\getupfaceup.hkx"))
-			getup[GETUP_DIRECTION::face_up] = "Animations\idleanims\getupfaceup.hkx";
+			getup[GETUP_DIRECTION::face_up] = "Animations\\idleanims\\getupfaceup.hkx";
 		
 		//	Animations\idleanims\getupfacedown.hkx
 		//  Animations\idleanims\getup_facedown.hkx
 		if (hasAnimation("Animations\\idleanims\\getupfacedown.hkx"))
-			getup[GETUP_DIRECTION::face_down] = "Animations\idleanims\getupfacedown.hkx";
+			getup[GETUP_DIRECTION::face_down] = "Animations\\idleanims\\getupfacedown.hkx";
 		if (hasAnimation("Animations\\idleanims\\getup_facedown.hkx"))
-			getup[GETUP_DIRECTION::face_down] = "Animations\idleanims\getup_facedown.hkx";
+			getup[GETUP_DIRECTION::face_down] = "Animations\\idleanims\\getup_facedown.hkx";
 		
 		//	Animations\idleanims\getupleft.hkx
 		//	Animations\idleanims\getup_left.hkx
@@ -5699,7 +5709,7 @@ class AnimationSetAnalyzer
 		if (hasAnimation("Animations\\forwardwalk.hkx"))
 			default_move[MOVE_DIRECTION::forward] = "Animations\\forwardwalk.hkx";
 
-		if (hasAnimation("Animations\backward.hkx"))
+		if (hasAnimation("Animations\\backward.hkx"))
 			default_move[MOVE_DIRECTION::backward] = "Animations\\backward.hkx";
 		if (hasAnimation("Animations\\backwardwalk.hkx"))
 			default_move[MOVE_DIRECTION::backward] = "Animations\\backwardwalk.hkx";
@@ -6288,7 +6298,6 @@ class AnimationSetAnalyzer
 		}
 	}
 
-
 public:
 
 	AnimationSetAnalyzer(const std::map<fs::path, ckcmd::HKX::RootMovement>& animations) : animations(animations) 
@@ -6311,6 +6320,77 @@ public:
 		if (default_move.find(MOVE_DIRECTION::idle) != default_move.end())
 			return default_move.at(MOVE_DIRECTION::idle);
 		return "";
+	}
+
+	const std::map<GETUP_DIRECTION, fs::path>& getups()
+	{
+		return getup;
+	}
+
+	enum class MOVEMENT_TYPE {
+		normal = 0,
+		bow,
+		swim,
+		h2h,
+		swimh2h,
+		swim1h,
+		oneh,
+		staff,
+		twoh
+	};
+
+	const std::map<MOVE_DIRECTION, fs::path>& moves(MOVEMENT_TYPE type)
+	{
+		switch (type)
+		{
+		case MOVEMENT_TYPE::normal:
+			return default_move;
+		case MOVEMENT_TYPE::bow:
+			return bow_move;
+		case MOVEMENT_TYPE::swim:
+			return swim_move;
+		case MOVEMENT_TYPE::h2h:
+			return h2h_move;
+		case MOVEMENT_TYPE::swimh2h:
+			return swimh2h_move;
+		case MOVEMENT_TYPE::swim1h:
+			return swim1h_move;
+		case MOVEMENT_TYPE::oneh:
+			return oneh_move;
+		case MOVEMENT_TYPE::staff:
+			return staff_move;
+		case MOVEMENT_TYPE::twoh:
+			return twoh_move;
+		default:
+			break;
+		}
+		return {};
+	}
+
+	const std::map<TURN_DIRECTION, fs::path>& turns(MOVEMENT_TYPE type)
+	{
+		switch (type)
+		{
+		case MOVEMENT_TYPE::normal:
+			return default_turn;
+		case MOVEMENT_TYPE::bow:
+			return bow_turn;
+		case MOVEMENT_TYPE::swim:
+			return swim_turn;
+		case MOVEMENT_TYPE::h2h:
+			return h2h_turn;
+		case MOVEMENT_TYPE::swimh2h:
+			return swimh2h_turn;
+		case MOVEMENT_TYPE::swim1h:
+			return swim1h_turn;
+		case MOVEMENT_TYPE::oneh:
+			return oneh_turn;
+		case MOVEMENT_TYPE::staff:
+			return staff_turn;
+		case MOVEMENT_TYPE::twoh:
+			return twoh_turn;
+		}
+		return {};
 	}
 
 	// BOW
@@ -6519,20 +6599,67 @@ Animations\twohandunequip.hkx
 */
 
 
+/* Variables
 
+iSyncTurnState:VARIABLE_TYPE_INT32:0
+iSyncIdleLocomotion:VARIABLE_TYPE_INT32:0
+isMoving:VARIABLE_TYPE_BOOL:0
+iSyncForwardState:VARIABLE_TYPE_INT32:0
+
+iState:VARIABLE_TYPE_INT32:0
+iState_TES4MudcrabMovementDefault:VARIABLE_TYPE_INT32:0
+
+bAnimationDriven:VARIABLE_TYPE_BOOL:0
+
+Speed:VARIABLE_TYPE_REAL:0
+Direction:VARIABLE_TYPE_REAL:0
+TurnDelta:VARIABLE_TYPE_REAL:0
+SpeedSampled:VARIABLE_TYPE_REAL:0
+TurnDeltaDamped:VARIABLE_TYPE_REAL:0
+
+FootIKEnable:VARIABLE_TYPE_BOOL:0
+m_onOffGain:VARIABLE_TYPE_REAL:0
+m_groundAscendingGain:VARIABLE_TYPE_REAL:0
+m_groundDescendingGain:VARIABLE_TYPE_REAL:0
+m_footPlantedGain:VARIABLE_TYPE_REAL:0
+m_footRaisedGain:VARIABLE_TYPE_REAL:0
+m_footUnlockGain:VARIABLE_TYPE_REAL:0
+m_worldFromModelFeedbackGain:VARIABLE_TYPE_REAL:0
+m_errorUpDownBias:VARIABLE_TYPE_REAL:0
+m_alignWorldFromModelGain:VARIABLE_TYPE_REAL:0
+m_hipOrientationGain:VARIABLE_TYPE_REAL:0
+
+blendDefault:VARIABLE_TYPE_REAL:0
+iGetUpType:VARIABLE_TYPE_INT8:0
+IsUnequipping:VARIABLE_TYPE_BOOL:0
+iEquippedItemState:VARIABLE_TYPE_INT32:0
+iLeftHandType:VARIABLE_TYPE_INT32:0
+IsAttackReady:VARIABLE_TYPE_BOOL:1
+iRightHandType:VARIABLE_TYPE_INT32:0
+iCombatStance:VARIABLE_TYPE_INT32:0
+IsAttacking:VARIABLE_TYPE_BOOL:0
+bIsSynced:VARIABLE_TYPE_BOOL:0
+TargetLocation:VARIABLE_TYPE_VECTOR4:(0.000000 0.000000 0.000000 0.000000)
+bEquipOk:VARIABLE_TYPE_BOOL:1
+
+*/
 
 class TES4BehaviorAssembler
 {
 	const std::string& prefix;
 	const std::string& creature_tag;
 	const std::string& output_file;
+	fs::path behavior_file;
 	std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements;
 	Collection& conversionCollection;
 	ModFile*& conversionPlugin;
+	const std::set<Ob::CREARecord*>& CREAs;
+	const std::map<std::string, Sk::AACTRecord*>& actions;
 	AnimationSetAnalyzer& analyzer;
 	map<hkRefPtr<hkbClipGenerator>, fs::path>& generators;
 	map<int, string>& behavior_events;
 
+	std::string creature_tag_camel;
 	int ragdollIndex_pelvis; //pelvis
 	int ragdollIndex_rightUpperArm; //R UpperArm01
 	int ragdollIndex_head; //head
@@ -6558,6 +6685,7 @@ class TES4BehaviorAssembler
 		root_string_data.m_eventNames.pushBack(event_name.c_str());
 		_event_map[event_name] = index;
 		behavior_events[index] = event_name;
+		return index;
 	}
 
 	template<typename T>
@@ -6670,8 +6798,8 @@ class TES4BehaviorAssembler
 	template<typename T>
 	int createVariable(const std::string& variable_name, const T& initial_value)
 	{
-		int index = root_string_data.m_variableNames.m_size();
-		root_string_data.m_variableNames.pushBack(variable_name);
+		int index = root_string_data.m_variableNames.getSize();
+		root_string_data.m_variableNames.pushBack(variable_name.c_str());
 		hkbRoleAttribute role_attribute;
 		role_attribute.m_role = hkbRoleAttribute::ROLE_DEFAULT;
 		role_attribute.m_flags = hkbRoleAttribute::FLAG_NONE;
@@ -6711,7 +6839,7 @@ class TES4BehaviorAssembler
 		hkRefPtr<hkbClipGenerator> generator = new hkbClipGenerator();
 		generator->m_name = clip_path.filename().replace_extension("").string().c_str();
 		generator->m_userData = 0;
-		generator->m_animationName = fs::path(clip_path).string().c_str();
+		generator->m_animationName = clip_path.string().c_str();
 		generator->m_cropStartAmountLocalTime = 0.0;
 		generator->m_cropEndAmountLocalTime = 0.0;
 		generator->m_startTime = 0.0;
@@ -6721,7 +6849,27 @@ class TES4BehaviorAssembler
 		generator->m_animationBindingIndex = -1;
 		generator->m_mode = mode;
 		generator->m_flags = 0;
+
+		generators[generator] = clip_path;
+
 		return generator;
+	}
+
+	void trigger(hkRefPtr<hkbClipGenerator> clip, const std::string& event, float local_time, bool relativeToEnd = false)
+	{
+		if (clip->m_triggers == NULL)
+		{
+			clip->m_triggers = new hkbClipTriggerArray();
+		}
+		hkbClipTrigger t;
+		t.m_acyclic = false;
+		t.m_event.m_id = _event_map.at(event);
+		t.m_event.m_payload = NULL;
+		t.m_isAnnotation = false;
+		t.m_relativeToEndOfClip = relativeToEnd;
+		t.m_localTime = local_time;
+
+		clip->m_triggers->m_triggers.pushBack(t);
 	}
 
 	hkRefPtr<hkbStateMachineStateInfo> state(hkRefPtr<hkbStateMachine> fsm, const std::string& name, hkRefPtr<hkbGenerator> generator)
@@ -6775,7 +6923,8 @@ class TES4BehaviorAssembler
 		hkRefPtr<hkbStateMachineTransitionInfoArray>& container,
 		const std::string& event, 
 		hkRefPtr<hkbStateMachineStateInfo> state_to,
-		hkRefPtr<hkbTransitionEffect> effect, 
+		hkRefPtr<hkbTransitionEffect> effect,
+		hkInt16 flags = hkbStateMachineTransitionInfo::FLAG_DISABLE_CONDITION,
 		hkRefPtr<hkbStateMachineStateInfo> nested = NULL
 	)
 	{
@@ -6797,8 +6946,10 @@ class TES4BehaviorAssembler
 		transition.m_fromNestedStateId = 0;
 		if (NULL != nested)
 			transition.m_toNestedStateId = nested->m_stateId;
+		else
+			transition.m_toNestedStateId = 0;
 		transition.m_priority = 0;
-		transition.m_flags = hkbStateMachineTransitionInfo::FLAG_DISABLE_CONDITION;
+		transition.m_flags = flags;
 		container->m_transitions.pushBack(transition);
 	}
 
@@ -6822,6 +6973,7 @@ class TES4BehaviorAssembler
 				event,
 				to_state,
 				effect,
+				hkbStateMachineTransitionInfo::FLAG_DISABLE_CONDITION | hkbStateMachineTransitionInfo::FLAG_IS_LOCAL_WILDCARD,
 				nested
 			);
 		}
@@ -6831,10 +6983,11 @@ class TES4BehaviorAssembler
 				from_state->m_transitions = new hkbStateMachineTransitionInfoArray();
 			}
 			transition(
-				fsm->m_wildcardTransitions,
+				from_state->m_transitions,
 				event,
 				to_state,
 				effect,
+				hkbStateMachineTransitionInfo::FLAG_DISABLE_CONDITION,
 				nested
 			);
 		}	
@@ -6851,11 +7004,82 @@ class TES4BehaviorAssembler
 		return msg;
 	}
 
-	hkRefPtr<hkbStateMachine> idle_fsm()
+	hkRefPtr<hkbGenerator> idle_fsm()
 	{
 		hkRefPtr<hkbStateMachine> idle_fsm = fsm("idle_fsm");
 		auto idle_state = clip_state(idle_fsm, analyzer.idle(), hkbClipGenerator::PlaybackMode::MODE_LOOPING);
-		return idle_fsm;
+		return idle_fsm.val();
+	}
+
+	void calculateMOVTs()
+	{
+		createVariable("iState", 0);
+
+		{ //Default
+			createVariable("iState_"+ prefix + creature_tag_camel + "Default", 0);
+
+			std::string movt_EDID = prefix + creature_tag_camel + "DefaultMovement";
+			Sk::MOVTRecord* MOVT_record = (Sk::MOVTRecord*)conversionCollection.CreateRecord(conversionPlugin, REV32(MOVT), NULL, (char*)movt_EDID.c_str(), NULL, 0);
+			MOVT_record->EDID = movt_EDID;
+			MOVT_record->MNAM = prefix + creature_tag_camel + "Default"; //Behavior Movement state variable name (without iState prefix)
+			//Scaling: CK angles are in degrees, Havok in radians
+			MOVT_record->INAM.Load();
+			MOVT_record->INAM->directionalScale = 1.;
+			MOVT_record->INAM->movementSpeedScale = 1.;
+			MOVT_record->INAM->rotationSpeedScale = 1.;
+			
+			//Default movements are forward backward left right
+			const auto& default_moves = analyzer.moves(AnimationSetAnalyzer::MOVEMENT_TYPE::normal);
+			auto forward_endpoint = *root_movements.at(default_moves.at(AnimationSetAnalyzer::MOVE_DIRECTION::forward)).translations.rbegin();
+			MOVT_record->ESPED.value.forwardWalk = abs(get<1>(forward_endpoint)(1) / get<0>(forward_endpoint));
+			auto backward_endpoint = *root_movements.at(default_moves.at(AnimationSetAnalyzer::MOVE_DIRECTION::backward)).translations.rbegin();
+			MOVT_record->ESPED.value.backWalk = abs(get<1>(backward_endpoint)(1) / get<0>(backward_endpoint));
+			auto left_endpoint = *root_movements.at(default_moves.at(AnimationSetAnalyzer::MOVE_DIRECTION::left)).translations.rbegin();
+			MOVT_record->ESPED.value.leftWalk = abs(get<1>(left_endpoint)(0) / get<0>(left_endpoint));
+			auto right_endpoint = *root_movements.at(default_moves.at(AnimationSetAnalyzer::MOVE_DIRECTION::right)).translations.rbegin();
+			MOVT_record->ESPED.value.rightWalk = abs(get<1>(right_endpoint)(0) / get<0>(right_endpoint));
+
+			//default turning
+			const auto& default_turns = analyzer.turns(AnimationSetAnalyzer::MOVEMENT_TYPE::normal);
+			if (default_turns.find(AnimationSetAnalyzer::TURN_DIRECTION::left) != default_turns.end() && 
+				default_turns.find(AnimationSetAnalyzer::TURN_DIRECTION::right) != default_turns.end())
+			{
+				//turn speed seems to be related to CREA's TNAM, but is mostly 0
+				float turnSpeed = 0.;
+				for (const auto& CREA : CREAs)
+				{
+					if (CREA->TNAM.value != 0.)
+					{
+						if (turnSpeed != 0.)
+						{
+							int debug = 1;
+						}
+						turnSpeed = CREA->TNAM.value;
+					}
+				}
+				if (turnSpeed == 0.)
+					turnSpeed = 90.;
+				MOVT_record->ESPED.value.rotateInPlaceWalk = turnSpeed;
+			}
+		}
+	}
+
+	void IDLERecord(const std::string& name, const std::string& event, const std::string& action)
+	{
+		std::string deathIdleEDID = prefix + creature_tag_camel + name;
+		Sk::IDLERecord* death_record = (Sk::IDLERecord*)conversionCollection.CreateRecord(conversionPlugin, REV32(IDLE), NULL, (char*)deathIdleEDID.c_str(), NULL, 0);
+		death_record->EDID = deathIdleEDID; //Editor ID
+		death_record->DNAM = behavior_file.string().c_str(); //Path to hkx BEHAVIOR!.
+		death_record->ENAM = event; //Behaviour event.
+		if (!actions.empty())
+			death_record->ANAM.value.parent = actions.at(action)->formID;
+		death_record->ANAM.value.sibling = NULL;
+		death_record->DATA.value.flags = 0;
+		death_record->DATA.value.min = 0;
+		death_record->DATA.value.max = 0;
+		death_record->DATA.value.flags = 0;
+		death_record->DATA.value.unk = 0;
+		death_record->DATA.value.replay = 0;
 	}
 
 	//Skyrim requires a MOVT entry for each kind of moving set of animations
@@ -6864,29 +7088,48 @@ class TES4BehaviorAssembler
 
 	//the speed and possible movements are decided by the SPED structure.
 	//the MOVT are switched by the behavior using the iState variables and state tagging modifiers
-	hkRefPtr<hkbStateMachine> move(hkRefPtr<hkbStateMachine> fsm)
+	hkRefPtr<hkbGenerator> move(hkRefPtr<hkbGenerator> fsm)
 	{
 		hkRefPtr<hkbStateMachine> move_fsm = new hkbStateMachine();
-		return move_fsm;
+		calculateMOVTs();
+
+		createVariable("Direction", 0.);
+		createVariable("Speed", 0.);
+		createVariable("SpeedSampled", 0.);
+
+		hkRefPtr<hkbModifierList> list = new hkbModifierList();
+		list->m_name = "move_ml";
+		list->m_userData = 0;
+
+		hkRefPtr<BSSpeedSamplerModifier> speed_sampler = new BSSpeedSamplerModifier();
+		speed_sampler->m_state = 0;
+		speed_sampler->m_direction = 0.;
+		speed_sampler->m_goalSpeed = 0.;
+		speed_sampler->m_speedOut = 0.;
+
+		bind(speed_sampler.val(), "state", "iState");
+		bind(speed_sampler.val(), "direction", "Direction");
+		bind(speed_sampler.val(), "goalSpeed", "Speed");
+		bind(speed_sampler.val(), "speedOut", "SpeedSampled");
+
+		list->m_modifiers.pushBack(speed_sampler);
+		return modify(list.val(), fsm.val());
 	}
 
-	hkRefPtr<hkbModifierList> physics_modifer()
+	hkRefPtr<hkbPoweredRagdollControlsModifier> powered_ragdoll(const std::string& name, double max_force)
 	{
-		hkRefPtr<hkbModifierList> list = new hkbModifierList();
-		list->m_name = "physics_ml";
 		hkRefPtr<hkbPoweredRagdollControlsModifier> ragdoll_engine = new hkbPoweredRagdollControlsModifier();
 		ragdoll_engine->m_enable = true;
-		ragdoll_engine->m_name = "physics_rcm";
+		ragdoll_engine->m_name = name.c_str();
 		ragdoll_engine->m_userData = 1; //Unknown
 
-		ragdoll_engine->m_controlData.m_maxForce = 50.;
+		ragdoll_engine->m_controlData.m_maxForce = max_force;
 		ragdoll_engine->m_controlData.m_tau = 0.8;
 		ragdoll_engine->m_controlData.m_damping = 1.;
 		ragdoll_engine->m_controlData.m_proportionalRecoveryVelocity = 2.;
 		ragdoll_engine->m_controlData.m_constantRecoveryVelocity = 1.;
 
-		ragdoll_engine->m_worldFromModelModeData.m_mode = hkbWorldFromModelModeData::WorldFromModelMode::WORLD_FROM_MODEL_MODE_COMPUTE;
-
+		ragdoll_engine->m_worldFromModelModeData.m_mode = hkbWorldFromModelModeData::WorldFromModelMode::WORLD_FROM_MODEL_MODE_RAGDOLL;
 		ragdoll_engine->m_worldFromModelModeData.m_poseMatchingBone0 = ragdollIndex_pelvis; //pelvis
 		ragdoll_engine->m_worldFromModelModeData.m_poseMatchingBone1 = ragdollIndex_rightUpperArm; //R UpperArm01
 		ragdoll_engine->m_worldFromModelModeData.m_poseMatchingBone2 = ragdollIndex_head; //head
@@ -6894,19 +7137,408 @@ class TES4BehaviorAssembler
 		ragdoll_engine->m_bones = new hkbBoneIndexArray();
 		ragdoll_engine->m_boneWeights = new hkbBoneWeightArray();
 
-		list->m_modifiers.pushBack(ragdoll_engine);
+		return ragdoll_engine;
+	}
+
+	hkRefPtr<hkbEventDrivenModifier> event_driven_modifier(
+		const std::string& name, 
+		const std::string& activate_event,
+		const std::string& deactivate_event,
+		bool activeByDefault,
+		bool enable,
+		hkRefPtr<hkbModifier> modifier
+	)
+	{
+		hkRefPtr<hkbEventDrivenModifier> edm = new hkbEventDrivenModifier();
+		edm->m_name = name.c_str();
+		if (_event_map.find(activate_event) == _event_map.end())
+		{
+			edm->m_activateEventId = -1;
+		}
+		else {
+			edm->m_activateEventId = _event_map.at(activate_event);
+		}
+		edm->m_activeByDefault = activeByDefault;
+		if (_event_map.find(deactivate_event) == _event_map.end())
+		{
+			edm->m_deactivateEventId = -1;
+		}
+		else {
+			edm->m_deactivateEventId = _event_map.at(deactivate_event);
+		}
+		edm->m_enable = enable;
+		edm->m_userData = 1;
+		edm->m_modifier = modifier;
+		return edm;
+	}
+
+	hkRefPtr<hkbTimerModifier> timer_modifier(const std::string& name, const std::string& event, double alarm_time_seconds)
+	{
+		hkRefPtr<hkbTimerModifier> timer = new hkbTimerModifier();
+		timer->m_name = name.c_str();
+		timer->m_enable = true;
+		timer->m_alarmTimeSeconds = alarm_time_seconds;
+		timer->m_alarmEvent.m_id = _event_map.at(event);
+		timer->m_userData = 0;
+		return timer;
+	}
+
+	hkRefPtr<hkbModifierList> full_ragdoll_modifier_list()
+	{
+		hkRefPtr<hkbModifierList> list = new hkbModifierList();
+		list->m_name = "full_ragdoll_ml";
+		list->m_userData = 0;
+		list->m_modifiers.pushBack
+		(
+			event_driven_modifier
+			(
+				"full_ragdoll_edm",
+				"",
+				"GetUpBegin",
+				true,
+				true,
+				powered_ragdoll("full_ragdoll_powered_no_matching", 0.).val()
+			)
+		);
+
+		hkRefPtr<hkbModifierList> sub_list = new hkbModifierList();
+		{
+			sub_list->m_name = "match_and_send_getup_ml";
+			sub_list->m_userData = 0;
+			sub_list->m_modifiers.pushBack
+			(
+				powered_ragdoll("full_ragdoll_powered_matching", 200.).val()
+			);
+			sub_list->m_modifiers.pushBack
+			(
+				timer_modifier("getup_timer", "GetUpStart", 0.5).val()
+			);
+		}
+
+		list->m_modifiers.pushBack
+		(
+			event_driven_modifier
+			(
+				"turn_on_matching_edm",
+				"GetUpBegin",
+				"",
+				false,
+				true,
+				sub_list.val()
+			)
+		);
 		return list;
 	}
 
-	hkRefPtr<hkbGenerator> physics(hkRefPtr<hkbStateMachine> fsm)
+	hkRefPtr<hkbManualSelectorGenerator> manual_selector(const std::string& name, std::vector<hkRefPtr<hkbGenerator>> generators)
 	{
-		//hkRefPtr<hkbStateMachine> physics_fsm = new hkbStateMachine();
-		//auto keyframed_state = state(fsm, "default_state", fsm.val());
-		//auto lay_state = state(fsm, "laydown_state", fsm.val());
-		//auto getup_state = state(fsm, "getup_state", fsm.val());
+		hkRefPtr<hkbManualSelectorGenerator> msg = new hkbManualSelectorGenerator();
+		msg->m_name = name.c_str();
+		msg->m_userData = 0;
+		msg->m_currentGeneratorIndex = 0;
+		msg->m_selectedGeneratorIndex = 0;
+		for (const auto& generator : generators)
+			msg->m_generators.pushBack(generator);
+		return msg;
+	}
 
-		hkRefPtr<hkbModifier> physics_modifiers = physics_modifer();
-		return modify(physics_modifiers, fsm.val());
+	hkRefPtr<hkbPoseMatchingGenerator> pose_matcher
+	(
+		const std::string& name,
+		const std::string& start_matching_event,
+		const std::string& start_playing_event,
+		const std::vector<std::pair<double, hkRefPtr<hkbGenerator>>>& generators
+	)
+	{
+		hkRefPtr<hkbPoseMatchingGenerator> matcher = new hkbPoseMatchingGenerator();
+		matcher->m_name = name.c_str();
+		matcher->m_userData = 0;
+		matcher->m_flags = 0;
+		matcher->m_subtractLastChild = false;
+		matcher->m_rootBoneIndex = 0;
+		matcher->m_pelvisIndex = ragdollIndex_pelvis;
+		matcher->m_anotherBoneIndex = ragdollIndex_rightUpperArm;
+		matcher->m_otherBoneIndex = ragdollIndex_head;
+		matcher->m_startMatchingEventId = _event_map.at(start_matching_event);
+		matcher->m_startPlayingEventId = _event_map.at(start_playing_event);
+		matcher->m_blendParameter = 0;
+		matcher->m_blendSpeed = 1.;
+		matcher->m_indexOfSyncMasterChild = -1;
+		matcher->m_maxCyclicBlendParameter = 1.;
+		matcher->m_minCyclicBlendParameter = 0.;
+		matcher->m_minSpeedToSwitch = 0.2;
+		matcher->m_minSwitchTimeFullError = 0.;
+		matcher->m_minSwitchTimeNoError = 0.2;
+		matcher->m_mode = hkbPoseMatchingGenerator::Mode::MODE_MATCH;
+		matcher->m_referencePoseWeightThreshold = 0.;
+		matcher->m_worldFromModelRotation = { 0., 0., 0., 1. };
+
+		for (const auto& generator : generators)
+		{
+			hkRefPtr child = new hkbBlenderGeneratorChild();
+			child->m_boneWeights = new hkbBoneWeightArray();
+			child->m_worldFromModelWeight = 1.;
+			child->m_generator = generator.second;
+			child->m_weight = generator.first;
+			matcher->m_children.pushBack(
+				child
+			);
+		}
+		return matcher;
+	}
+
+	void add_notify_event
+	(
+		hkRefPtr<hkbStateMachineStateInfo> state, 
+		const std::string& enterEvent,
+		const std::string& exitEvent
+	) 
+	{
+		hkbEventProperty e;
+		e.m_id = _event_map.at(enterEvent);
+		e.m_payload = NULL;
+		if (_event_map.find(enterEvent) != _event_map.end())
+		{
+			if (state->m_enterNotifyEvents == NULL)
+			{
+				state->m_enterNotifyEvents = new hkbStateMachineEventPropertyArray();
+			}
+			state->m_enterNotifyEvents->m_events.pushBack(e);
+		}
+		if (_event_map.find(exitEvent) != _event_map.end())
+		{
+			if (state->m_exitNotifyEvents == NULL)
+			{
+				state->m_exitNotifyEvents = new hkbStateMachineEventPropertyArray();
+			}
+			state->m_exitNotifyEvents->m_events.pushBack(e);
+		}
+	}
+
+	void bind(hkRefPtr<hkbBindable> object, const std::string& object_path, const std::string& variable)
+	{
+		if (object->m_variableBindingSet == NULL)
+		{
+			object->m_variableBindingSet = new hkbVariableBindingSet();
+			object->m_variableBindingSet->m_indexOfBindingToEnable = -1;
+		}
+		hkbVariableBindingSetBinding bind;
+		bind.m_bindingType = hkbVariableBindingSetBinding::BindingType::BINDING_TYPE_VARIABLE;
+		bind.m_memberPath = object_path.c_str();
+		bind.m_variableIndex = _variables_map.at(variable);
+		bind.m_bitIndex = -1;
+		object->m_variableBindingSet->m_bindings.pushBack(bind);
+	}
+
+	hkRefPtr<hkbGetUpModifier> getup_modifier(const std::string& name)
+	{
+		hkRefPtr<hkbGetUpModifier> getup = new hkbGetUpModifier();
+		getup->m_name = name.c_str();
+		getup->m_rootBoneIndex = ragdollIndex_pelvis;
+		getup->m_anotherBoneIndex = ragdollIndex_rightUpperArm;
+		getup->m_otherBoneIndex = ragdollIndex_head;
+		getup->m_alignWithGroundDuration = 0.25;
+		getup->m_duration = 1.;
+		getup->m_enable = true;
+		getup->m_groundNormal = hkVector4(0., 0., 1., 0.);
+		getup->m_userData = 0;
+		return getup;
+	}
+
+	hkRefPtr<hkbKeyframeBonesModifier> keyframe_modifier(const std::string& name)
+	{
+		hkRefPtr<hkbKeyframeBonesModifier> keyframe = new hkbKeyframeBonesModifier();
+		keyframe->m_name = name.c_str();
+		keyframe->m_userData = 1;
+		keyframe->m_enable = true;
+		keyframe->m_keyframedBonesList = new hkbBoneIndexArray();
+		keyframe->m_keyframedBonesList->m_boneIndices.pushBack(ragdollIndex_pelvis);
+		keyframe->m_keyframedBonesList->m_boneIndices.pushBack(ragdollIndex_head);
+		keyframe->m_keyframedBonesList->m_boneIndices.pushBack(ragdollIndex_rightUpperArm);
+		return keyframe;
+	}
+
+	hkRefPtr<hkbRigidBodyRagdollControlsModifier> rigidbodies_modifier(const std::string& name)
+	{
+		hkRefPtr<hkbRigidBodyRagdollControlsModifier> driver = new  hkbRigidBodyRagdollControlsModifier();
+		driver->m_name = name.c_str();
+		driver->m_bones = new hkbBoneIndexArray();
+		driver->m_controlData.m_durationToBlend = 0.5f;
+		driver->m_controlData.m_keyFrameHierarchyControlData.m_accelerationGain = 1.f;
+		driver->m_controlData.m_keyFrameHierarchyControlData.m_hierarchyGain = 0.17f;
+		driver->m_controlData.m_keyFrameHierarchyControlData.m_positionGain = 0.05f;
+		driver->m_controlData.m_keyFrameHierarchyControlData.m_positionMaxAngularVelocity = 1.8f;
+		driver->m_controlData.m_keyFrameHierarchyControlData.m_positionMaxLinearVelocity = 1.4f;
+		driver->m_controlData.m_keyFrameHierarchyControlData.m_snapGain = 0.1f;
+		driver->m_controlData.m_keyFrameHierarchyControlData.m_snapMaxAngularDistance = 0.1f;
+		driver->m_controlData.m_keyFrameHierarchyControlData.m_snapMaxAngularVelocity = 0.3f;
+		driver->m_controlData.m_keyFrameHierarchyControlData.m_snapMaxLinearDistance = 0.03f;
+		driver->m_controlData.m_keyFrameHierarchyControlData.m_snapMaxLinearVelocity = 0.3f;
+		driver->m_controlData.m_keyFrameHierarchyControlData.m_velocityDamping = 0.f;
+		driver->m_controlData.m_keyFrameHierarchyControlData.m_velocityGain = 0.6f;
+		driver->m_enable = false;
+		return driver;
+	}
+
+	hkRefPtr<BSIsActiveModifier> is_active_modifier(const std::string& name)
+	{
+		hkRefPtr<BSIsActiveModifier> modifier = new  BSIsActiveModifier();
+		modifier->m_name = name.c_str();
+		modifier->m_enable = true;
+		modifier->m_userData = 2;
+		modifier->m_bIsActive0 = false;
+		modifier->m_bInvertActive0 = false;
+		modifier->m_bIsActive1 = false;
+		modifier->m_bInvertActive1 = false;
+		modifier->m_bIsActive2 = false;
+		modifier->m_bInvertActive2 = false;
+		modifier->m_bIsActive3 = false;
+		modifier->m_bInvertActive3 = false;
+		modifier->m_bIsActive4 = false;
+		modifier->m_bInvertActive4 = false;
+		return modifier;
+	}
+
+	std::pair<hkRefPtr<hkbModifier>, hkRefPtr<hkbModifier>> animate_common_modifiers()
+	{
+		return {
+			keyframe_modifier("ragdoll_to_animate_keyframe").val(),
+			rigidbodies_modifier("ragdoll_to_animate_driver").val()
+		};
+	}
+
+	hkRefPtr<hkbModifierList> ragdoll_to_animate_modifier_list()
+	{
+		hkRefPtr<hkbModifierList> list = new hkbModifierList();
+		list->m_userData = 0;
+		list->m_name = "ragdoll_to_animate_ml";
+
+		list->m_modifiers.pushBack(getup_modifier("ragdoll_to_animate_getup").val());
+		
+		auto is_active_mod = is_active_modifier("ragdoll_to_animate_isactive");
+		bind(is_active_mod.val(), "bIsActive0", "bAnimationDriven");
+		list->m_modifiers.pushBack(is_active_mod.val());
+
+		return list;
+	}
+
+	hkRefPtr<hkbModifierList> animated_modifers()
+	{
+		hkRefPtr<hkbModifierList> list = new hkbModifierList();
+		list->m_userData = 0;
+		list->m_name = "animated_ml";
+		return list;
+	}
+
+	hkRefPtr<hkbGenerator> physics(hkRefPtr<hkbGenerator> fsm_in)
+	{
+		createEvent("GetUp", false);
+		createEvent("Reanimated", false);
+		createEvent("GetUpBegin", false);
+		createEvent("GetUpEnd", false);
+		createEvent("GetUpStart", false);
+		createEvent("Ragdoll", false);
+		createEvent("RagdollInstant", false);
+		createEvent("AddCharacterControllerToWorld", false);
+		createEvent("RemoveCharacterControllerFromWorld", false);
+
+		createVariable("iGetUpType", 0);
+		createVariable("bAnimationDriven", false);
+
+		//IDLE actions
+		IDLERecord("Death", "Ragdoll", "ActionDeathWait");
+		IDLERecord("RagdollInstant", "RagdollInstant", "ActionRagdollInstant");
+
+		hkRefPtr<hkbStateMachine> ragdoll_fsm = fsm("ragdoll_fsm");
+		
+		//State 0 is default animation state
+
+		//common modifiers for animated state and ragdoll to animate
+		auto anim_modifers = animate_common_modifiers();
+		auto animated_ml = animated_modifers();
+		animated_ml->m_modifiers.pushBack(anim_modifers.first);
+		animated_ml->m_modifiers.pushBack(anim_modifers.second);
+		auto keyframed_state = state(ragdoll_fsm, "default_state", modify(animated_ml.val(), fsm_in.val()).val());
+
+		//State 1 is animate -> full ragdoll
+		auto full_ragdoll_ml = full_ragdoll_modifier_list();
+		std::vector<std::pair<double, hkRefPtr<hkbGenerator>>> getup_animations;
+		std::vector<std::pair<double, hkRefPtr<hkbGenerator>>> reanimate_animations;
+		for (const auto& entry : analyzer.getups())
+		{
+			auto getup_clip = clip(entry.second, hkbClipGenerator::PlaybackMode::MODE_SINGLE_PLAY);
+			trigger(getup_clip, "GetUpEnd", 0, true);
+			trigger(getup_clip, "AddCharacterControllerToWorld", -0.2, true);
+			trigger(getup_clip, "GetUp", -0.3, true);
+			auto reanimate_clip = clip(entry.second, hkbClipGenerator::PlaybackMode::MODE_SINGLE_PLAY);
+			trigger(reanimate_clip, "GetUpEnd", 0, true);
+			trigger(reanimate_clip, "AddCharacterControllerToWorld", -0.2, true);
+			trigger(reanimate_clip, "Reanimated", -0.3, true);
+
+			getup_animations.push_back({ 1., getup_clip.val() });
+			reanimate_animations.push_back({ 1., reanimate_clip.val() });
+		}
+
+		auto full_ragdoll_selector = manual_selector(
+			"getup_pose_matcher",
+			{
+				//iGetUpType == 0, reanimate
+				pose_matcher(
+					"reanimate_matcher",
+					"Ragdoll",
+					"GetUpStart",
+					reanimate_animations
+				).val(),
+				//iGetUpType == 1, get up
+				pose_matcher(
+					"getup_matcher",
+					"Ragdoll",
+					"GetUpStart",
+					getup_animations
+				).val()
+			}
+		);
+		bind(full_ragdoll_selector.val(), "selectedGeneratorIndex", "iGetUpType");
+
+		auto full_ragdoll_state = state(
+			ragdoll_fsm, 
+			"full_ragdoll_state", 
+			modify(
+				full_ragdoll_ml.val(),
+				full_ragdoll_selector.val()
+			).val()
+		);
+		add_notify_event(full_ragdoll_state,"RemoveCharacterControllerFromWorld","");
+
+		//State 1 is full ragdoll -> animate
+		auto ragdoll_to_animate_ml = ragdoll_to_animate_modifier_list();
+		ragdoll_to_animate_ml->m_modifiers.pushBack(anim_modifers.first);
+		ragdoll_to_animate_ml->m_modifiers.pushBack(anim_modifers.second);
+		auto ragdoll_to_default_state = state(
+			ragdoll_fsm, 
+			"ragdoll_to_default_state", 
+			modify(
+				ragdoll_to_animate_ml.val(),
+				full_ragdoll_selector.val()
+			).val()
+		);
+
+		auto ragdoll_effect = effect(
+			"RagdollBlend",
+			0.2,
+			hkbBlendingTransitionEffect::SELF_TRANSITION_MODE_BLEND,
+			hkbBlendingTransitionEffect::EVENT_MODE_DEFAULT
+		);
+
+		//Any state -> ragdoll on Ragdoll, RagdollInstant
+		transition(ragdoll_fsm, "Ragdoll", full_ragdoll_state, ragdoll_effect.val());
+		transition(ragdoll_fsm, "RagdollInstant", full_ragdoll_state, NULL);
+
+		//ragdoll_to_default_state -> default_state
+		transition(ragdoll_fsm, "GetUpEnd", keyframed_state, ragdoll_effect.val(), ragdoll_to_default_state);
+		transition(ragdoll_fsm, "GetUpStart", ragdoll_to_default_state, NULL, full_ragdoll_state);
+
+		return ragdoll_fsm.val();
 	}
 
 	void assemble(hkRefPtr<hkbGenerator> root_fsm)
@@ -6931,12 +7563,15 @@ public:
 		const std::string& prefix,
 		const std::string& creature_tag,
 		const std::string& output_file,
+		const fs::path& behavior_file,
 		std::map<fs::path, ckcmd::HKX::RootMovement>& root_movements,
 		int ragdollIndex_pelvis,
 		int ragdollIndex_rightUpperArm,
 		int ragdollIndex_head,
 		Collection& conversionCollection,
 		ModFile*& conversionPlugin,
+		const std::set<Ob::CREARecord*>& CREAs,
+		std::map<std::string, Sk::AACTRecord*>& actions,
 		AnimationSetAnalyzer& analyzer,
 
 		map<hkRefPtr<hkbClipGenerator>, fs::path>& generators,
@@ -6945,20 +7580,27 @@ public:
 		prefix(prefix),
 		creature_tag(creature_tag),
 		output_file(output_file),
+		behavior_file(behavior_file),
 		root_movements(root_movements),
 		ragdollIndex_pelvis(ragdollIndex_pelvis),
 		ragdollIndex_rightUpperArm(ragdollIndex_rightUpperArm),
 		ragdollIndex_head(ragdollIndex_head),
 		conversionCollection(conversionCollection),
 		conversionPlugin(conversionPlugin),
+		CREAs(CREAs),
+		actions(actions),
 		analyzer(analyzer),
 		generators(generators),
 		behavior_events(behavior_events)
 	{
 		_default_transition_effect = effect("default_transition");
+		creature_tag_camel = creature_tag;
+		creature_tag_camel[0] = toupper(creature_tag_camel[0]);
 		assemble(
 			physics(
-				idle_fsm()
+				move(
+					idle_fsm()
+				)
 			)
 		);
 	}
@@ -7701,7 +8343,7 @@ string LCS(string X, string Y, int m, int n)
 	return X.substr(endingIndex - maxlen, maxlen);
 }
 
-std::string crc_32(std::string& to_crc)
+static std::string crc_32(std::string& to_crc)
 {
 	transform(to_crc.begin(), to_crc.end(), to_crc.begin(), ::tolower);
 	long long crc = stoll(HkCRC::compute(to_crc), NULL, 16);
@@ -7719,7 +8361,8 @@ void ConvertAssets(
 	HKXWrapperCollection& wrappers,
 	vector<pair<string, Vector3>>& metadata,
 	Collection& conversionCollection,
-	ModFile*& conversionPlugin
+	ModFile*& conversionPlugin,
+	std::map<std::string, Sk::AACTRecord*>& actions
 )
 {
 	int index = 0;
@@ -7854,32 +8497,32 @@ void ConvertAssets(
 							ragdoll->SetTarget(StaticCast<NiAVObject>(pelvis));
 							pelvis->SetCollisionObject(StaticCast<NiCollisionObject>(ragdoll));
 
-							//auto pelvis_translation = pelvis->GetTranslation();
-							//auto pelvis_rotaton = pelvis->GetRotation();
-							//auto pelvis_scale = pelvis->GetScale();
-							//pelvis_local.setRotation(TOQUAT(pelvis_rotaton.AsQuaternion()));
-							//pelvis_local.setTranslation(TOVECTOR4(pelvis_translation));
+							auto pelvis_translation = pelvis->GetTranslation();
+							auto pelvis_rotaton = pelvis->GetRotation();
+							auto pelvis_scale = pelvis->GetScale();
+							pelvis_local.setRotation(TOQUAT(pelvis_rotaton.AsQuaternion()));
+							pelvis_local.setTranslation(TOVECTOR4(pelvis_translation));
 
-							//static float bhkScaleFactorInverse = 0.01428f; // 1 skyrim unit = 0,01428m
-							//bhkRigidBodyRef rbody = DynamicCast<bhkRigidBody>(ragdoll->GetBody());
-							//hkTransform nifRbTransform; nifRbTransform.setIdentity();
-							//nifRbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation() / bhkScaleFactorInverse));
-							//nifRbTransform.setRotation(TOQUAT(rbody->GetRotation()));
+							static float bhkScaleFactorInverse = 0.01428f; // 1 skyrim unit = 0,01428m
+							bhkRigidBodyRef rbody = DynamicCast<bhkRigidBody>(ragdoll->GetBody());
+							hkTransform nifRbTransform; nifRbTransform.setIdentity();
+							nifRbTransform.setTranslation(TOVECTOR4(rbody->GetTranslation() / bhkScaleFactorInverse));
+							nifRbTransform.setRotation(TOQUAT(rbody->GetRotation()));
 
-							//hkTransform nifRbTransform2; nifRbTransform2.setMul(nifRbTransform, pelvis_local);
+							hkTransform nifRbTransform2; nifRbTransform2.setMul(nifRbTransform, pelvis_local);
 
-							//rbody->SetTranslation(TOVECTOR3(nifRbTransform2.getTranslation()) * bhkScaleFactorInverse);
-							//auto local_r = nifRbTransform2.getRotation();
-							//::hkQuaternion rr; rr.set(local_r);
+							rbody->SetTranslation(TOVECTOR3(nifRbTransform2.getTranslation()) * bhkScaleFactorInverse);
+							auto local_r = nifRbTransform2.getRotation();
+							::hkQuaternion rr; rr.set(local_r);
 
-							//Niflib::hkQuaternion f;
-							//f.x = rr(0);
-							//f.y = rr(1);
-							//f.z = rr(2);
-							//f.w = rr(3);
-							//rbody->SetRotation(
-							//	f
-							//);
+							Niflib::hkQuaternion f;
+							f.x = rr(0);
+							f.y = rr(1);
+							f.z = rr(2);
+							f.w = rr(3);
+							rbody->SetRotation(
+								f
+							);
 
 							node->SetCollisionObject(NULL);
 						}
@@ -8276,6 +8919,8 @@ void ConvertAssets(
 
 		//HAVOK
 		{
+			const std::set<Ob::CREARecord*>& CREAs = actors.at(entry.first);
+
 			std::string creature_name = creature_subfolder;
 			creature_name[0] = toupper(creature_name[0]);
 		
@@ -8286,6 +8931,7 @@ void ConvertAssets(
 
 			//Behavior
 			fs::path behavior_relative_file = fs::path("Behaviors") / (prefix + creature_name + "Behavior.hkx");
+			fs::path behavior_idle_file = creature_path_no_meshes / fs::path("Behaviors") / (prefix + creature_name + "Behavior.hkx");
 			fs::path creature_output_behavior = outputFolder / creature_path / behavior_relative_file;
 			fs::create_directories(creature_output_behavior.parent_path());
 
@@ -8293,16 +8939,29 @@ void ConvertAssets(
 				prefix,
 				creature_subfolder,
 				creature_output_behavior.string(),
+				behavior_idle_file,
 				root_movements,
 				ragdollPelvisIndex,
 				ragdollRUpperArmIndex,
 				ragdollHeadIndex,
 				conversionCollection,
 				conversionPlugin,
+				CREAs,
+				actions,
 				analyzer,
 				generators,
 				events
 			);
+			//CreateDummyBehavior(
+			//	prefix,
+			//	creature_subfolder,
+			//	creature_output_behavior.string(),
+			//	root_movements,
+			//	analyzer,
+			//	generators,
+			//	events
+			//);
+
 
 			//Character
 			
@@ -8432,6 +9091,21 @@ void ConvertAssets(
 	cache.save(animdata, animsetdata);
 }
 
+void findActions(Collection& conversionCollection, std::map<std::string, Sk::AACTRecord*>& actions)
+{
+	for (auto record_it = conversionCollection.FormID_ModFile_Record.begin(); record_it != conversionCollection.FormID_ModFile_Record.end(); record_it++)
+	{
+		Record* record = record_it->second;
+		if (record->GetType() == REV32(AACT)) {
+			Sk::AACTRecord* action = dynamic_cast<Sk::AACTRecord*>(record);
+			if (NULL != action)
+			{
+				actions[action->EDID.value] = action;
+			}
+		}
+	}
+}
+
 bool BeginConversion(string importPath, string exportPath) 
 {
 	char fullName[MAX_PATH], exeName[MAX_PATH];
@@ -8475,9 +9149,11 @@ bool BeginConversion(string importPath, string exportPath)
 
 	Collection conversionCollection = Collection((char* const)exportPath.c_str(), 3);
 	ModFlags masterSkFlags = ModFlags(0xA);
+	//ModFile* skyrim_esm = conversionCollection.AddMod("Skyrim.esm", masterSkFlags);
 	masterSkFlags.IsCreateNew = true;
 	masterSkFlags.IsSaveable = true;
 	ModFile* conversionPlugin = conversionCollection.AddMod(conversionPluginName, masterSkFlags);
+	conversionPlugin->TES4.MAST.push_back("Skyrim.esm");
 	conversionCollection.Load();
 
 	Log::Info("Found Oblivion installation: %s", oblivionData.c_str());
@@ -8491,6 +9167,8 @@ bool BeginConversion(string importPath, string exportPath)
 
 	std::string prefix = "TES4";
 
+	std::map<std::string, Sk::AACTRecord*> actions;
+	findActions(conversionCollection, actions);
 	findCreatures(skeletons, actors, skins, oblivionCollection, oblivionData);
 	ConvertCreatures(prefix, actors, races, skins, oblivionCollection, conversionCollection, conversionPlugin);
 	ConvertAssets
@@ -8505,10 +9183,11 @@ bool BeginConversion(string importPath, string exportPath)
 		wrappers, 
 		metadata, 
 		conversionCollection, 
-		conversionPlugin
+		conversionPlugin,
+		actions
 	);
 
-	//return true;
+	return true;
 
 	ModSaveFlags skSaveFlags = ModSaveFlags(2);
 	skSaveFlags.IsCleanMasters = true;

@@ -44,6 +44,8 @@ namespace ckcmd {
 
 		virtual bool doDataBinding() const { return !bindingTable().empty(); }
 
+		QString object_class;
+
 		//row_index, columns
 		typedef std::pair<size_t, size_t> data_info;
 

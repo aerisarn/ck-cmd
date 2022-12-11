@@ -1476,7 +1476,7 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 			{
 				hkaAnnotationTrack::Annotation& this_hk_ann = a_track.m_annotations[i];
 				string hk_value = this_hk_ann.m_text.cString();
-				size_t index = 0;
+				int index = 0;
 				if (hk_value.size() <= 0)
 					continue;
 				for (index = hk_value.size()-1; index >= 0; index--)
@@ -1585,6 +1585,10 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 			lCurve_Rot_X = CurrentJointNode->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
 			lCurve_Rot_Y = CurrentJointNode->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
 			lCurve_Rot_Z = CurrentJointNode->LclRotation.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
+			FbxAnimCurve* fbxRCurves[3];
+			fbxRCurves[0] = lCurve_Rot_X;
+			fbxRCurves[1] = lCurve_Rot_Y;
+			fbxRCurves[2] = lCurve_Rot_Z;
 
 			lCurve_Scaling_X = CurrentJointNode->LclScaling.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_X, true);
 			lCurve_Scaling_Y = CurrentJointNode->LclScaling.GetCurve(lAnimLayer, FBXSDK_CURVENODE_COMPONENT_Y, true);
@@ -1600,61 +1604,67 @@ void HKXWrapper::add(const string& name, hkaAnimation* animation, hkaAnimationBi
 			lCurve_Trans_X->KeyModifyBegin();
 			lKeyIndex = lCurve_Trans_X->KeyAdd(lTime);
 			lCurve_Trans_X->KeySetValue(lKeyIndex, anim_pos.getSimdAt(0));
-			lCurve_Trans_X->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Trans_X->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
 			lCurve_Trans_X->KeyModifyEnd();
 
 			lCurve_Trans_Y->KeyModifyBegin();
 			lKeyIndex = lCurve_Trans_Y->KeyAdd(lTime);
 			lCurve_Trans_Y->KeySetValue(lKeyIndex, anim_pos.getSimdAt(1));
-			lCurve_Trans_Y->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Trans_Y->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
 			lCurve_Trans_Y->KeyModifyEnd();
 
 			lCurve_Trans_Z->KeyModifyBegin();
 			lKeyIndex = lCurve_Trans_Z->KeyAdd(lTime);
 			lCurve_Trans_Z->KeySetValue(lKeyIndex, anim_pos.getSimdAt(2));
-			lCurve_Trans_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Trans_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
 			lCurve_Trans_Z->KeyModifyEnd();
 
 			// Rotation
-			Quat QuatRotNew = { anim_rot.m_vec.getSimdAt(0), anim_rot.m_vec.getSimdAt(1), anim_rot.m_vec.getSimdAt(2), anim_rot.m_vec.getSimdAt(3) };
-			EulerAngles inAngs_Animation = Eul_FromQuat(QuatRotNew, EulOrdXYZs);
+			FbxAMatrix trans; trans.SetQ(FbxQuaternion(anim_rot(0), anim_rot(1), anim_rot(2), anim_rot(3) ));
+			FbxVector4 inAngs_Animation = trans.GetR();
+			//EulerAngles inAngs_Animation = Eul_FromQuat(QuatRotNew, EulOrdXYZs);
 
 			lCurve_Rot_X->KeyModifyBegin();
 			lKeyIndex = lCurve_Rot_X->KeyAdd(lTime);
-			lCurve_Rot_X->KeySetValue(lKeyIndex, float(rad2deg(inAngs_Animation.x)));
-			lCurve_Rot_X->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Rot_X->KeySetValue(lKeyIndex, float(/*rad2deg*/(inAngs_Animation[0])));
+			lCurve_Rot_X->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
 			lCurve_Rot_X->KeyModifyEnd();
 
 			lCurve_Rot_Y->KeyModifyBegin();
 			lKeyIndex = lCurve_Rot_Y->KeyAdd(lTime);
-			lCurve_Rot_Y->KeySetValue(lKeyIndex, float(rad2deg(inAngs_Animation.y)));
-			lCurve_Rot_Y->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Rot_Y->KeySetValue(lKeyIndex, float(/*rad2deg*/(inAngs_Animation[1])));
+			lCurve_Rot_Y->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
 			lCurve_Rot_Y->KeyModifyEnd();
 
 			lCurve_Rot_Z->KeyModifyBegin();
 			lKeyIndex = lCurve_Rot_Z->KeyAdd(lTime);
-			lCurve_Rot_Z->KeySetValue(lKeyIndex, float(rad2deg(inAngs_Animation.z)));
-			lCurve_Rot_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Rot_Z->KeySetValue(lKeyIndex, float(/*rad2deg*/(inAngs_Animation[2])));
+			lCurve_Rot_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
 			lCurve_Rot_Z->KeyModifyEnd();
 
 			//Scaling
 			lCurve_Scaling_X->KeyModifyBegin();
 			lKeyIndex = lCurve_Scaling_X->KeyAdd(lTime);
 			lCurve_Scaling_X->KeySetValue(lKeyIndex, anim_scal.getSimdAt(0));
-			lCurve_Scaling_X->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Scaling_X->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
 			lCurve_Scaling_X->KeyModifyEnd();
 
 			lCurve_Scaling_Y->KeyModifyBegin();
 			lKeyIndex = lCurve_Scaling_Y->KeyAdd(lTime);
 			lCurve_Scaling_Y->KeySetValue(lKeyIndex, anim_scal.getSimdAt(1));
-			lCurve_Scaling_Y->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Scaling_Y->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
 			lCurve_Scaling_Y->KeyModifyEnd();
 
 			lCurve_Scaling_Z->KeyModifyBegin();
 			lKeyIndex = lCurve_Scaling_Z->KeyAdd(lTime);
 			lCurve_Scaling_Z->KeySetValue(lKeyIndex, anim_scal.getSimdAt(2));
-			lCurve_Scaling_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationCubic);
+			lCurve_Scaling_Z->KeySetInterpolation(lKeyIndex, FbxAnimCurveDef::eInterpolationLinear);
 			lCurve_Scaling_Z->KeyModifyEnd();
+
+
+			//Fix gimbal locks
+			FbxAnimCurveFilterUnroll filter;
+			filter.Apply(fbxRCurves, 3);
 		}
 
 		for (int k = 0; k < FloatNumber; k++) {

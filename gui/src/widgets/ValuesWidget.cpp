@@ -85,6 +85,11 @@ void ValuesWidget::setEditor(const QModelIndex& index)
 		auto selected_widget = static_cast<ModelWidget*>(_editorPanelLayout->widget(*type));
 		selected_widget->setIndex(index);
 	}
+	auto variant = _model->variant(index);
+	if (NULL != variant)
+	{
+		setWindowTitle(variant->m_class->getName());
+	}
 	_editorPanelLayout->setCurrentIndex(*type);
 }
 

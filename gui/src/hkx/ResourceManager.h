@@ -85,8 +85,8 @@ namespace ckcmd {
 			const std::string& get_sanitized_name(int file_index);
 			void scanWorkspace();
 			const fs::path& projectPath(int row, ProjectType type);
-			CacheEntry* findCacheEntry(const std::string& sanitized_name);
-			CacheEntry* findCacheEntry(size_t project_index);
+			std::shared_ptr<CacheEntry> findCacheEntry(const std::string& sanitized_name);
+			std::shared_ptr<CacheEntry> findCacheEntry(size_t project_index);
 
 			bool isHavokProject(const fs::path& file);
 			bool isHavokAnimation(const fs::path& file);

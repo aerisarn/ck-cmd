@@ -279,7 +279,7 @@ void GenericWidget::OnIndexSelected()
 			//this is an object;
 			auto name = member.first.left(dot_index);;
 			//is it the last object? clear the group
-			if (name != last_group_name && !last_group_name.isEmpty())
+			if (name != last_group_name && !last_group_name.isEmpty() && !last_group.empty())
 			{
 				makeFieldWidget(last_group_name, last_group, last_group_fields, last_group_isArray);
 				last_group.clear();
