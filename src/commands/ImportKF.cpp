@@ -1968,6 +1968,9 @@ bool AnimationExport::exportController()
 
 		tempAnim->m_transforms[nbones * f + pelvis_index].setTranslation(hkVector4(0., 0., motionTransform.getTranslation()(2)));
 		tempAnim->m_transforms[nbones * f + pelvis_index].setRotation({ (float)xy_quat.x, (float)xy_quat.y, (float)xy_quat.z, (float)xy_quat.w });
+
+		//tempAnim->m_transforms[nbones * f + pelvis_index].setTranslation(motionTransform.getTranslation());
+		//tempAnim->m_transforms[nbones * f + pelvis_index].setRotation(motionTransform.getRotation());
 	}
 
 	if (_root_info.translations.empty()) {

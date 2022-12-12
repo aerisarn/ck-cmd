@@ -7835,8 +7835,8 @@ void CreateHavokCharacter(
 	data.m_characterControllerInfo = char_info;
 
 	data.m_modelUpMS = hkVector4(0.000000, 0.000000, 1.000000, 0.000000);
-	data.m_modelForwardMS = hkVector4(1.000000, 0.000000, 0.000000, 0.000000);
-	data.m_modelRightMS = hkVector4(-0.000000, -1.000000, -0.000000, 0.000000);
+	data.m_modelForwardMS = hkVector4(0.000000, 1.000000, 0.000000, 0.000000);
+	data.m_modelRightMS = hkVector4(1.000000, 0.000000, 0.000000, 0.000000);
 
 	data.m_characterPropertyValues = &values;
 	data.m_stringData = &string_data;
@@ -8452,6 +8452,12 @@ void ConvertAssets(
 			std::map< NiNodeRef, NiNodeRef> parent_map;
 			for (auto& node : nodes)
 			{
+				//Doesn't need no transform controller
+				node->SetController(NULL);
+				//Extradata is also ignored
+				if (node != root)
+					node->SetExtraDataList({});
+
 				if (node->GetName().find("NonAccum") != string::npos)
 				{
 					auto ragdoll = DynamicCast<bhkBlendCollisionObject>(node->GetCollisionObject());
