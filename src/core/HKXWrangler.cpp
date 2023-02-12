@@ -3444,6 +3444,10 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(
 			else {
 				hkInertiaTensorComputer::computeGeometrySurfaceMassProperties(&to_bound, 0.1, true, 1, properties);
 			}
+
+			// Use the same default value as Skyrim meshes
+			pCompMesh->setRadius(0.005);
+
 			return pCompMesh;
 		}
 		catch (...) {
