@@ -16,3 +16,6 @@
 [submodule "modules/FSM-Editor"]
 	path = modules/FSM-Editor
 	url = https://github.com/FredTingaud/FSM-Editor.git
+[submodule "modules/cbash"]
+	path = modules/cbash
+	url = git@github.com:aerisarn/CBash.git

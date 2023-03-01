@@ -2,10 +2,10 @@
 
 //1 SHU = 182.88 cm
 
-#include <src/Skyrim/TES5File.h>
-#include <src/Oblivion/TES4File.h>
-#include <src/Collection.h>
-#include <src/ModFile.h>
+#include <Skyrim/TES5File.h>
+#include <Oblivion/TES4File.h>
+#include <Collection.h>
+#include <ModFile.h>
 
 #include "stdafx.h"
 #include <core/hkxcmd.h>

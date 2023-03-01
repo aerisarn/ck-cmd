@@ -1,6 +1,6 @@
-#include <src/Skyrim/TES5File.h>
-#include <src/Collection.h>
-#include <src/ModFile.h>
+#include <Skyrim/TES5File.h>
+#include <Collection.h>
+#include <ModFile.h>
 
 #include <commands/DecodeCache.h>
 

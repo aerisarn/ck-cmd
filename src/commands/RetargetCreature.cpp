@@ -1,6 +1,6 @@
-#include <src/Skyrim/TES5File.h>
-#include <src/Collection.h>
-#include <src/ModFile.h>
+#include <Skyrim/TES5File.h>
+#include <Collection.h>
+#include <ModFile.h>
 
 #include <commands/RetargetCreature.h>
 
@@ -394,7 +394,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		fs::create_directories(fs::path(fs::path(output) / string(hk_ch_root->m_stringData->m_rigName)).parent_path());
 		wrapper.write(rig_root, output / string(hk_ch_root->m_stringData->m_rigName));
 	}
-
+	set<string> retarget_SOUN;
 	//Check paired
 	for (int i = 0; i < hk_ch_root->m_stringData->m_animationNames.getSize(); i++)
 	{
@@ -465,9 +465,14 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 						auto& annotation = anim->m_annotationTracks[e];
 						for (int a = 0; a < annotation.m_annotations.getSize(); a++) {
 							auto& a_object = annotation.m_annotations[a];
-							string text = a_object.m_text;
-							text = replace_all(text, old_name, output_havok_project_name);
+							string old_text = a_object.m_text;
+							string text = replace_all(old_text, old_name, output_havok_project_name);
 							a_object.m_text = text.c_str();
+
+							if (text.find("SoundPlay.") == 0) {
+								retarget_SOUN.insert(old_text.substr(sizeof("SoundPlay.") - 1, old_text.size()));
+								retarget_map[old_text] = text;
+							}
 						}
 					}
 				}
@@ -526,7 +531,6 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	wrapper.write(root, output / new_char_name);
 	fs::path old_behavior_dir = source_havok_project_folder / fs::path(old_behavior_name).parent_path();
 	vector<fs::path> behaviors;
-	set<string> retarget_SOUN;
 	set<string> retarget_MOVT;
 	find_files_non_recursive(old_behavior_dir, ".hkx", behaviors);
 	for (const auto& file : behaviors) {
@@ -545,14 +549,14 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				Log::Info("Will substitute %s references with %s", event_name.c_str(), new_name.c_str());
 				if (event_name.find("SoundPlay.") == 0)
 					retarget_SOUN.insert(event_name.substr(sizeof("SoundPlay.")-1, event_name.size()));
-				retarget_map[string(bhkroot->m_data->m_stringData->m_eventNames[i])] = new_name;
+				retarget_map[event_name] = new_name;
 				bhkroot->m_data->m_stringData->m_eventNames[i] = new_name.c_str();
 			}
 			else if (event_name.find("SoundPlay.") == 0) {
 				string new_name = "SoundPlay." + output_havok_project_name + event_name.substr(event_name.find(".") + 1, event_name.length() - event_name.find(".") - 1);
 				Log::Info("Will substitute %s references with %s", event_name.c_str(), new_name.c_str());
 				retarget_SOUN.insert(event_name.substr(sizeof("SoundPlay.") - 1, event_name.size()));
-				retarget_map[string(bhkroot->m_data->m_stringData->m_eventNames[i])] = new_name;
+				retarget_map[event_name] = new_name;
 				bhkroot->m_data->m_stringData->m_eventNames[i] = new_name.c_str();
 			}
 		}
@@ -586,6 +590,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			}
 
 		}
+
 		for (const auto& object : objects)
 		{
 			if (hkbClipGenerator::staticClass().getSignature() == object.m_class->getSignature())

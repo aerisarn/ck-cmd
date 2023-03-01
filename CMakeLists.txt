@@ -117,31 +117,6 @@ set_target_properties(
 	"${CMAKE_SOURCE_DIR}/lib/loki/debug/loki.lib"
 )
 
-# CBash
-
-set ( CBASH_INCLUDES_PATH
-	"${CMAKE_SOURCE_DIR}/lib/cbash"
-	"${CMAKE_SOURCE_DIR}/lib/cbash/include/cbash"
-)
-
-add_library(
-	cbash
-	STATIC 
-	IMPORTED GLOBAL
-)
-
-set_target_properties(
-	cbash 
-	PROPERTIES IMPORTED_LOCATION             
-	"${CMAKE_SOURCE_DIR}/lib/cbash/lib/x86/release/CBash.lib"
-)
-
-set_target_properties(
-	cbash
-	PROPERTIES IMPORTED_LOCATION_DEBUG             
-	"${CMAKE_SOURCE_DIR}/lib/cbash/lib/x86/debug/CBash.lib"
-)
-
 if (HAVE_SPEEDTREE)
 # speedtree 5.1.1
 set ( SPDT_INCLUDES_PATH
@@ -446,12 +421,13 @@ file(GLOB QUICKHULL_SRCS "${CMAKE_SOURCE_DIR}/modules/geometry/quickhull/*.cpp" 
 set(VHACD_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src/VHACD_Lib/public" )
 include_directories("${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src/VHACD_Lib/public" )
 
+# CBash
+add_subdirectory("${CMAKE_SOURCE_DIR}/modules/cbash" EXCLUDE_FROM_ALL)
 
 list(APPEND TEST_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES DirectXTex)
 list(APPEND PROJECT_LIBRARIES loki)
-list(APPEND PROJECT_LIBRARIES cbash)
 list(APPEND PROJECT_LIBRARIES niflib)
 list(APPEND PROJECT_LIBRARIES fbxsdk)
 list(APPEND PROJECT_LIBRARIES libbsa)
@@ -467,7 +443,6 @@ list(APPEND PROJECT_INCLUDES ${DIRECTXTEX_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_COMPAT_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${LOKI_INCLUDES_PATH})
-list(APPEND PROJECT_INCLUDES ${CBASH_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${BETH_ANIMDATA_PATH})
 list(APPEND PROJECT_INCLUDES ${NIFLIB_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${FBXSDK_INCLUDES_PATH})
@@ -583,6 +558,7 @@ list (APPEND PROJECT_INCLUDES ${EIGEN_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${MIKKTSPACE_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${LIBIGL_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${BOUNDINGMESH_INCLUDES})
+#list (APPEND PROJECT_INCLUDES ${CBASH_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${QUICKHULL_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${VHACD_INCLUDES})
 
@@ -685,11 +661,12 @@ ENDIF ()
 
 # Build lib
 add_library( ck-cmd-lib STATIC ${PROJECT_SRC} ${PROJECT_HEADERS} ${PROJECT_COMMANDS} ${COMMANDS_SRC} )
+target_link_libraries( ck-cmd-lib CBash)
 target_include_directories	(ck-cmd-lib  PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_DIRS} )
 
 # Build core
 add_executable				(ck-cmd "${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp" $<TARGET_OBJECTS:ck-cmd-lib>)
-add_dependencies			(ck-cmd zlib docopt_parser)
+add_dependencies			(ck-cmd zlib docopt_parser CBash)
 target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} ${DOCOPT_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
 if (HAVE_SPEEDTREE)
 target_link_libraries		(ck-cmd ${SPEEDTREE_LIBS})
