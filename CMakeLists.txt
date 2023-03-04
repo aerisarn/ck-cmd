@@ -2,6 +2,7 @@ cmake_minimum_required( VERSION 3.14)
 
 project( "ck-cmd" )
 include(ExternalProject)
+include(FetchContent)
 
 option(PROJECT_STATIC_RUNTIME "Build with static runtime libs (/MT)" ON)
 option(PROJECT_GUI "Build GUI" ON)
@@ -19,7 +20,6 @@ message( "[MAIN]: generator " ${CMAKE_GENERATOR_PLATFORM})
 
 
 #External Projects
-#External Projects
 ExternalProject_Add(googletest
                     PREFIX "external"
                     GIT_REPOSITORY https://github.com/google/googletest.git
@@ -32,20 +32,15 @@ set (GTEST_LIBRARIES debug "${BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC
 
 set (TEST_SRC "${CMAKE_SOURCE_DIR}/test/main.cpp")
 
-ExternalProject_Add(zlib
-                    PREFIX "external"
-                    URL "https://zlib.net/zlib-1.2.13.tar.gz"
-                    INSTALL_COMMAND "")
-ExternalProject_Get_Property(zlib SOURCE_DIR BINARY_DIR)
-set (ZLIB_INCLUDE_DIR ${SOURCE_DIR} ${BINARY_DIR})
-message("ZLIB_INCLUDE_DIRS:" ${ZLIB_INCLUDE_DIR})
+FetchContent_Declare(
+    zlib
+    GIT_REPOSITORY https://github.com/madler/zlib.git
+    GIT_TAG        v1.2.13
+)
 
-IF (MSVC)
-    set (ZLIB_LIBRARY optimized "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}"
-                    debug "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstaticd${CMAKE_STATIC_LIBRARY_SUFFIX}")
-ELSE ()
-    set (ZLIB_LIBRARY "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}")
-ENDIF ()
+FetchContent_MakeAvailable(zlib)
+
+set(ZLIB_INCLUDE_DIR ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR})
 
 ExternalProject_Add(docopt_parser
                     PREFIX "external"
@@ -425,6 +420,9 @@ include_directories("${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src/VHACD_Lib/p
 # CBash
 add_subdirectory("${CMAKE_SOURCE_DIR}/modules/cbash" EXCLUDE_FROM_ALL)
 
+#ZLIB
+#add_subdirectory("${CMAKE_SOURCE_DIR}/modules/zlib")
+
 list(APPEND TEST_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES DirectXTex)
@@ -590,7 +588,7 @@ source_group("Textures\\DirectXTex" FILES ${DIRECTXTEX_INCLUDES_PATH})
 
 # Settings when compiling with MSVC.
 IF (MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG /D_HAS_AUTO_PTR_ETC=1")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG /D_HAS_AUTO_PTR_ETC=1 /MP")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
 	# this troubles my VS2019
 	# add_compile_options("/MP")
@@ -662,13 +660,13 @@ ENDIF ()
 
 # Build lib
 add_library( ck-cmd-lib STATIC ${PROJECT_SRC} ${PROJECT_HEADERS} ${PROJECT_COMMANDS} ${COMMANDS_SRC} )
-target_link_libraries( ck-cmd-lib CBash)
-target_include_directories	(ck-cmd-lib  PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_DIRS} )
+target_link_libraries(ck-cmd-lib CBash)
+target_include_directories	(ck-cmd-lib PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_DIRS} )
 
 # Build core
 add_executable				(ck-cmd "${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp" $<TARGET_OBJECTS:ck-cmd-lib>)
-add_dependencies			(ck-cmd zlib docopt_parser CBash)
-target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} ${DOCOPT_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
+add_dependencies			(ck-cmd docopt_parser CBash)
+target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${DOCOPT_LIBRARIES} zlibstatic Shlwapi.lib legacy_stdio_definitions.lib)
 if (HAVE_SPEEDTREE)
 target_link_libraries		(ck-cmd ${SPEEDTREE_LIBS})
 endif (HAVE_SPEEDTREE)
