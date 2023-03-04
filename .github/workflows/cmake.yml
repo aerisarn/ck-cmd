@@ -19,6 +19,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: "recursive"
     
     - uses: suisei-cn/actions-download-file@v1.3.0
       id: downloadlibs
