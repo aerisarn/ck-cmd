@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 2.8.12 )
+cmake_minimum_required( VERSION 3.14)
 
 project( "ck-cmd" )
 include(ExternalProject)
@@ -37,13 +37,14 @@ ExternalProject_Add(zlib
                     URL "https://zlib.net/zlib-1.2.13.tar.gz"
                     INSTALL_COMMAND "")
 ExternalProject_Get_Property(zlib SOURCE_DIR BINARY_DIR)
-set (ZLIB_INCLUDE_DIRS ${SOURCE_DIR} ${BINARY_DIR})
-message("ZLIB_INCLUDE_DIRS:" ${ZLIB_INCLUDE_DIRS})
+set (ZLIB_INCLUDE_DIR ${SOURCE_DIR} ${BINARY_DIR})
+message("ZLIB_INCLUDE_DIRS:" ${ZLIB_INCLUDE_DIR})
+
 IF (MSVC)
-    set (ZLIB_LIBRARIES optimized "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    set (ZLIB_LIBRARY optimized "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}"
                     debug "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstaticd${CMAKE_STATIC_LIBRARY_SUFFIX}")
 ELSE ()
-    set (ZLIB_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set (ZLIB_LIBRARY "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}")
 ENDIF ()
 
 ExternalProject_Add(docopt_parser
