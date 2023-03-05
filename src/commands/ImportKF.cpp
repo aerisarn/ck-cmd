@@ -4,6 +4,7 @@
 #include <core/log.h>
 
 #include <commands/ImportKF.h>
+#include <core/NiflibHelper.h>
 
 //#include "log.h"
 //
@@ -122,6 +123,7 @@
 
 #include <core/HKXWrangler.h>
 #include <core/EulerAngles.h>
+#include <core/NiflibHelper.h>
 
 using namespace Niflib;
 using namespace std;
@@ -1374,7 +1376,7 @@ template <> bool interpolate(int interpolation_type, Niflib::Matrix33& value, co
 			interpolate(interpolation_type, r[s], array[s].keys, time, last);
 		}
 
-		value = Niflib::Matrix33::euler(0, 0, r[2]) * Niflib::Matrix33::euler(0, r[1], 0) * Niflib::Matrix33::euler(r[0], 0, 0);
+		value = MatrixFromEuler(0, 0, r[2]) * MatrixFromEuler(0, r[1], 0) * MatrixFromEuler(r[0], 0, 0);
 
 		return true;
 	}
@@ -1396,7 +1398,7 @@ template <> bool interpolate(int interpolation_type, Niflib::Quaternion& value, 
 		if (v1.Dot(v2) < 0)
 			v1 = v1.Inverse(); // don't take the long path
 
-		value = Quaternion::slerp(x, v1, v2);
+		value = QuaternionSlerp(x, v1, v2);
 
 		return true;
 	}

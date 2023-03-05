@@ -32,6 +32,10 @@ set (GTEST_LIBRARIES debug "${BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC
 
 set (TEST_SRC "${CMAKE_SOURCE_DIR}/test/main.cpp")
 
+include_directories("${CMAKE_SOURCE_DIR}/src"
+                    "${CMAKE_SOURCE_DIR}/include"
+                    ${GTEST_INCLUDE_DIRS})
+
 FetchContent_Declare(
     zlib
     GIT_REPOSITORY https://github.com/madler/zlib.git
@@ -39,29 +43,21 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(zlib)
-
 set(ZLIB_INCLUDE_DIR ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR})
 
-ExternalProject_Add(docopt_parser
-                    PREFIX "external"
-                    GIT_REPOSITORY "https://github.com/docopt/docopt.cpp.git"
-                    GIT_TAG master
-                    INSTALL_COMMAND ""
-					CMAKE_ARGS -DCMAKE_CXX_FLAGS_DEBUG=/MTd -DCMAKE_CXX_FLAGS_RELEASE=/MT -DCMAKE_CXX_FLAGS_RELWITHDEBINFO=/MT)
-ExternalProject_Get_Property(docopt_parser SOURCE_DIR BINARY_DIR)
-set (DOCOPT_INCLUDE_DIRS ${SOURCE_DIR} ${BINARY_DIR})
-message("DOCOPT_INCLUDE_DIRS:" ${DOCOPT_INCLUDE_DIRS})
-IF (MSVC)
-    set (DOCOPT_LIBRARIES optimized "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}"
-                    debug "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}")
-ELSE ()
-    set (DOCOPT_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}")
-ENDIF ()
+option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
+FetchContent_Declare(
+    docopt_parser
+    GIT_REPOSITORY https://github.com/docopt/docopt.cpp.git
+    GIT_TAG        master
+)
+set(CMAKE_CXX_FLAGS_DEBUG "/MTd" CACHE INTERNAL "debug")
+set(CMAKE_CXX_FLAGS_RELEASE "/MT" CACHE INTERNAL "a")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MTd" CACHE INTERNAL "a")
 
+FetchContent_MakeAvailable(docopt_parser)
+set (DOCOPT_INCLUDE_DIRS ${docopt_parser_SOURCE_DIR} ${docopt_parser_BINARY_DIR})
 
-include_directories("${CMAKE_SOURCE_DIR}/src"
-                    "${CMAKE_SOURCE_DIR}/include"
-                    ${GTEST_INCLUDE_DIRS})
 
 # Libraries
 
@@ -71,18 +67,12 @@ set ( DIRECTXTEX_INCLUDES_PATH
 	"${CMAKE_SOURCE_DIR}/lib/DirectXTex/include"
 )
 
-add_library(
-	DirectXTex
-	STATIC 
-	IMPORTED GLOBAL
-)
-
+add_library( DirectXTex	STATIC 	IMPORTED GLOBAL)
 set_target_properties(
 	DirectXTex 
 	PROPERTIES IMPORTED_LOCATION
 	"${CMAKE_SOURCE_DIR}/lib/DirectXTex/lib/Desktop_2017_Win10/Win32/Release/DirectXTex.lib"
 )
-
 set_target_properties(
 	DirectXTex
 	PROPERTIES IMPORTED_LOCATION_DEBUG             
@@ -91,22 +81,14 @@ set_target_properties(
 
 # Loki
 
-set ( LOKI_INCLUDES_PATH
-	"${CMAKE_SOURCE_DIR}/lib/loki/include"
-)
-
-add_library(
-	loki
-	STATIC 
-	IMPORTED GLOBAL
-)
+set ( LOKI_INCLUDES_PATH "${CMAKE_SOURCE_DIR}/lib/loki/include")
+add_library(loki STATIC IMPORTED GLOBAL)
 
 set_target_properties(
 	loki 
 	PROPERTIES IMPORTED_LOCATION             
 	"${CMAKE_SOURCE_DIR}/lib/loki/release/loki.lib"
 )
-
 set_target_properties(
 	loki
 	PROPERTIES IMPORTED_LOCATION_DEBUG             
@@ -468,6 +450,7 @@ set (PROJECT_SRC "${CMAKE_SOURCE_DIR}/src/core/FBXCommon.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/Fbx2Raw.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/geometry.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/MathHelper.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/core/NiflibHelper.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/EulerAngles.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/AnimationCache.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/spt/sptconvert.cpp"
@@ -489,6 +472,7 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/core/hkxutils.h"
                      "${CMAKE_SOURCE_DIR}/include/core/log.h"
                      "${CMAKE_SOURCE_DIR}/include/core/MathHelper.h"
+					 "${CMAKE_SOURCE_DIR}/include/core/NiflibHelper.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/games.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/bsa.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/HKXWrangler.h"
@@ -557,7 +541,6 @@ list (APPEND PROJECT_INCLUDES ${EIGEN_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${MIKKTSPACE_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${LIBIGL_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${BOUNDINGMESH_INCLUDES})
-#list (APPEND PROJECT_INCLUDES ${CBASH_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${QUICKHULL_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${VHACD_INCLUDES})
 
@@ -660,13 +643,13 @@ ENDIF ()
 
 # Build lib
 add_library( ck-cmd-lib STATIC ${PROJECT_SRC} ${PROJECT_HEADERS} ${PROJECT_COMMANDS} ${COMMANDS_SRC} )
-target_link_libraries(ck-cmd-lib CBash)
+target_link_libraries(ck-cmd-lib CBash docopt)
 target_include_directories	(ck-cmd-lib PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_DIRS} )
 
 # Build core
 add_executable				(ck-cmd "${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp" $<TARGET_OBJECTS:ck-cmd-lib>)
-add_dependencies			(ck-cmd docopt_parser CBash)
-target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${DOCOPT_LIBRARIES} zlibstatic Shlwapi.lib legacy_stdio_definitions.lib)
+add_dependencies			(ck-cmd ck-cmd-lib)
+target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} docopt zlibstatic Shlwapi.lib legacy_stdio_definitions.lib)
 if (HAVE_SPEEDTREE)
 target_link_libraries		(ck-cmd ${SPEEDTREE_LIBS})
 endif (HAVE_SPEEDTREE)
