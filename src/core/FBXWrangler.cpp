@@ -2455,7 +2455,7 @@ public:
 	}
 };
 
-void FBXWrangler::AddNif(NifFile& nif) {
+void FBXWrangler::AddNif (NifFile& nif) {
 	FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo(), texture_path, export_rig, hkxWrapper);
 }
 
@@ -3110,6 +3110,7 @@ string format_texture(string tempString)
 			tempString.erase(tempString.begin(), tempString.begin() + idx);
 		}
 	}
+	std::replace(tempString.begin(), tempString.end(), '/', '\\');
 	fs::path p(tempString);
 	p.replace_extension(".dds");
 	return p.string();
@@ -3159,7 +3160,7 @@ inline Color4 toNIF(const FbxColor& color) {
 
 
 
-NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOptions& options) {
+NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const std::string& nodeName, const FBXImportOptions& options) {
 	NiTriShapeRef out = new NiTriShape();
 	NiTriShapeDataRef data = new NiTriShapeData();
 
@@ -3171,7 +3172,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	FbxGeometryElementVertexColor* vc = m->GetElementVertexColor(0);
 	FbxGeometryElementVertexColor* vc2 = m->GetElementVertexColor(1);
 
-	string orig_name = m->GetName();
+	string orig_name = nodeName;
 	out->SetName(unsanitizeString(orig_name));
 	int numVerts = m->GetControlPointsCount();
 	int numTris = m->GetPolygonCount();
@@ -3645,10 +3646,11 @@ void FBXWrangler::importShapes(NiNodeRef parent, FbxNode* child, const FBXImport
 	//dummy->SetName(unsanitizeString(name));
 	vector<NiAVObjectRef> children= parent->GetChildren();
 	size_t attributes_size = child->GetNodeAttributeCount();
+	std::string rootName = child->GetName();
 	for (int i = 0; i < attributes_size; i++) {
 		if (FbxNodeAttribute::eMesh == child->GetNodeAttributeByIndex(i)->GetAttributeType())
 		{	
-			auto result = StaticCast<NiAVObject>(importShape(child->GetNodeAttributeByIndex(i), options));
+			auto result = StaticCast<NiAVObject>(importShape(child->GetNodeAttributeByIndex(i), rootName, options));
 			if (!export_rig)
 				children.push_back(result);
 		}

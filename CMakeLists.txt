@@ -51,9 +51,6 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/docopt/docopt.cpp.git
     GIT_TAG        master
 )
-set(CMAKE_CXX_FLAGS_DEBUG "/MTd" CACHE INTERNAL "debug")
-set(CMAKE_CXX_FLAGS_RELEASE "/MT" CACHE INTERNAL "a")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MTd" CACHE INTERNAL "a")
 
 FetchContent_MakeAvailable(docopt_parser)
 set (DOCOPT_INCLUDE_DIRS ${docopt_parser_SOURCE_DIR} ${docopt_parser_BINARY_DIR})

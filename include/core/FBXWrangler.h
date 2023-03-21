@@ -77,7 +77,7 @@ namespace FBX {
 		string external_skeleton_path = "";
 		string external_paired_skeleton_path = "";
 
-		NiTriShapeRef importShape(FbxNodeAttribute* node, const FBXImportOptions& options);
+		NiTriShapeRef importShape(FbxNodeAttribute* node, const std::string& nodeName, const FBXImportOptions& options);
 		
 		set<FbxNode*> FBXWrangler::buildBonesList();
 		void checkAnimatedNodes();
