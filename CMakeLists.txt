@@ -18,6 +18,38 @@ endif()
 message( "[MAIN]: building ck-cmd..." )
 message( "[MAIN]: generator " ${CMAKE_GENERATOR_PLATFORM})
 
+# Settings when compiling with MSVC.
+IF (MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG /D_HAS_AUTO_PTR_ETC=1 /MP")
+	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
+	# this troubles my VS2019
+	# add_compile_options("/MP")
+    # Update compiler flags.
+    IF (PROJECT_STATIC_RUNTIME)
+        FOREACH(flag
+            CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO
+            CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_DEBUG_INIT
+            CMAKE_CXX_FLAGS_RELEASE  CMAKE_CXX_FLAGS_RELWITHDEBINFO
+            CMAKE_CXX_FLAGS_DEBUG  CMAKE_CXX_FLAGS_DEBUG_INIT)
+            STRING(REPLACE "/MD"  "/MT" "${flag}" "${${flag}}")
+            SET("${flag}" "${${flag}} /EHsc ")
+        ENDFOREACH()
+    ENDIF ()
+
+	set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD /STACK:\"4194304\"")
+	set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
+
+ENDIF ()
+
+if (MSVC_VERSION GREATER_EQUAL "1900")
+    include(CheckCXXCompilerFlag)
+    CHECK_CXX_COMPILER_FLAG("/std:c++17" _cpp_latest_flag_supported)
+    #Code is too messy to use post c++17
+	if (_cpp_latest_flag_supported)
+        add_compile_options("/std:c++17")
+		add_compile_options("/permissive")
+    endif()
+endif()
 
 #External Projects
 ExternalProject_Add(googletest
@@ -564,41 +596,6 @@ source_group("Geometry\\BoundingMesh" FILES ${BOUNDINGMESH_SRCS})
 source_group("Geometry\\QuickHull" FILES ${QUICKHULL_SRCS})
 source_group("Textures\\DirectXTex" FILES ${DIRECTXTEX_INCLUDES_PATH})
 
-
-
-# Settings when compiling with MSVC.
-IF (MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG /D_HAS_AUTO_PTR_ETC=1 /MP")
-	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
-	# this troubles my VS2019
-	# add_compile_options("/MP")
-    # Update compiler flags.
-    IF (PROJECT_STATIC_RUNTIME)
-        FOREACH(flag
-            CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO
-            CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_DEBUG_INIT
-            CMAKE_CXX_FLAGS_RELEASE  CMAKE_CXX_FLAGS_RELWITHDEBINFO
-            CMAKE_CXX_FLAGS_DEBUG  CMAKE_CXX_FLAGS_DEBUG_INIT)
-            STRING(REPLACE "/MD"  "/MT" "${flag}" "${${flag}}")
-            SET("${flag}" "${${flag}} /EHsc ")
-        ENDFOREACH()
-    ENDIF ()
-
-	set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD /STACK:\"4194304\"")
-	set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
-
-ENDIF ()
-
-if (MSVC_VERSION GREATER_EQUAL "1900")
-    include(CheckCXXCompilerFlag)
-    CHECK_CXX_COMPILER_FLAG("/std:c++17" _cpp_latest_flag_supported)
-    #Code is too messy to use post c++17
-	if (_cpp_latest_flag_supported)
-        add_compile_options("/std:c++17")
-		add_compile_options("/permissive")
-    endif()
-endif()
-
 add_subdirectory(${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src)
 
 #QT 
@@ -640,13 +637,13 @@ ENDIF ()
 
 # Build lib
 add_library( ck-cmd-lib STATIC ${PROJECT_SRC} ${PROJECT_HEADERS} ${PROJECT_COMMANDS} ${COMMANDS_SRC} )
-target_link_libraries(ck-cmd-lib CBash docopt)
+target_link_libraries(ck-cmd-lib CBash docopt zlibstatic)
 target_include_directories	(ck-cmd-lib PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_DIRS} )
 
 # Build core
 add_executable				(ck-cmd "${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp" $<TARGET_OBJECTS:ck-cmd-lib>)
 add_dependencies			(ck-cmd ck-cmd-lib)
-target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} docopt zlibstatic Shlwapi.lib legacy_stdio_definitions.lib)
+target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} docopt Shlwapi.lib legacy_stdio_definitions.lib)
 if (HAVE_SPEEDTREE)
 target_link_libraries		(ck-cmd ${SPEEDTREE_LIBS})
 endif (HAVE_SPEEDTREE)
