@@ -155,6 +155,7 @@ add_library( gui-lib STATIC
     ${UTILITY_SOURCES}
 )
 target_include_directories	(gui-lib  PUBLIC ${PROJECT_INCLUDES} )
+target_link_libraries (gui-lib CBash)
 
 add_executable(${PROJECT} WIN32
     ${WINDOW_HEADERS}
