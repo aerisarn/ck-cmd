@@ -21,6 +21,7 @@ constexpr int MS_PER_FRAME = (int)((1.0f / FPS_LIMIT) * 1000.0f);
 #include <Graphics/Common/Geometry/VertexSet/hkgVertexSet.h>
 #include <Common\Visualize\hkDebugDisplay.h>
 #include <Graphics\Common\Shader\hkgShaderLib.h>
+#include <Graphics\Common\Shader\hkgShaderContext.h>
 
 #include <Common/Base/Memory/System/hkMemorySystem.h>
 
@@ -40,6 +41,16 @@ constexpr int MS_PER_FRAME = (int)((1.0f / FPS_LIMIT) * 1000.0f);
 #include <Animation/Animation/Rig/hkaSkeleton.h>
 #include <Animation/Animation/hkaAnimationContainer.h>
 namespace fs = std::filesystem;
+
+hkMatrix4 GetTranslationMatrix(float x, float y, float z)
+{
+	auto mtx = hkMatrix4::getIdentity();
+	mtx(0, 3) = x;
+	mtx(1, 3) = y;
+	mtx(2, 3) = z;
+
+	return mtx;
+}
 
 HavokWidget::HavokWidget(QWidget* parent) : ads::CDockWidget("Preview", parent)
 {
@@ -69,6 +80,7 @@ void HavokWidget::drawSkeletalTriangleThingy(hkaSkeleton* skeletal, const std::v
 
 	ctx->matchState(ctx->getEnabledState(), HKG_CULLFACE_CCW, HKG_BLEND_MULTIPLY, ctx->getAlphaSampleMode());
 	ctx->beginGroup(HKG_IMM_TRIANGLE_LIST);
+	ctx->setCurrentGlobalShaderEffectCollection(skeletalShader);
 
 	int i = 0;
 	for (auto& p : boneAbsTransform)
@@ -133,7 +145,7 @@ void HavokWidget::drawSkeletalTriangleThingy(hkaSkeleton* skeletal, const std::v
 				hkgVec3Cross(out, leftComp, right);
 				hkgVec3Normalize(out);
 
-				ctx->setCurrentColorPacked(0xFFFFFFFF);
+				ctx->setCurrentColorPacked(0x80898989);
 				ctx->setCurrentNormal(out);
 
 				ctx->setCurrentPosition(&pyrPoints[pyrTris[k]]);
@@ -743,14 +755,107 @@ void HavokWidget::drawGrid()
 	ctx->matchState(enabledState, cullfaceMode, blendMode, ctx->getAlphaSampleMode());
 }
 
+hkRefPtr<hkgGeometry> HavokWidget::createDoublePyramid(const float vTarget[3], const float vOrigin[3])
+{
+	hkgDisplayContext* context = m_window->getContext();
+
+	hkRefPtr<hkgGeometry> geom = hkgGeometry::create();
+	hkRefPtr<hkgMaterialFaceSet> matlFaceSet = hkgMaterialFaceSet::create();
+	hkRefPtr<hkgFaceSet> faceSet = createDoublePyramid(vTarget, vOrigin, context);
+	matlFaceSet->addFaceSet(faceSet);
+	hkRefPtr<hkgMaterial> hkgMaterialCLR = hkgMaterial::create();
+
+	hkgMaterialCLR->setDiffuseColor(1, 1, 1);
+	hkgMaterialCLR->setSpecularColor(1, 1, 1);
+	matlFaceSet->setMaterial(hkgMaterialCLR);
+	geom->addMaterialFaceSet(matlFaceSet);
+	geom->computeAABB();
+
+	return geom;
+}
+
+hkRefPtr<hkgFaceSet> HavokWidget::createDoublePyramid(const float  vA[3], const float  vB[3], hkgDisplayContext* context)
+{
+	constexpr int VERT_LEN = 24;
+	float sub[3];
+	hkgVec3Sub(sub, vA, vB);
+	float boneLen = hkgVec3Length(sub);
+
+	hkRefPtr<hkgFaceSet> faceSet = hkgFaceSet::create(context);
+	hkgFaceSetPrimitive* faceSetPrim = new hkgFaceSetPrimitive(HKG_TRI_LIST);
+	faceSetPrim->setLength(VERT_LEN, true, HKG_INDICES_UINT16);
+	faceSetPrim->setVertexBufferStartIndex(0);
+	hkUint16* indices = faceSetPrim->getIndices16();
+	for (hkUint16 i = 0; i < faceSetPrim->getLength(); i++)
+	{
+		*indices = i;
+	}
+	faceSet->addPrimitive(faceSetPrim);
+
+	HKG_VERTEX_FORMAT vertFmt = 0;
+	vertFmt |= HKG_VERTEX_FORMAT_POS;
+	vertFmt |= HKG_VERTEX_FORMAT_COLOR;
+	vertFmt |= HKG_VERTEX_FORMAT_NORMAL;
+
+	hkRefPtr<hkgVertexSet> vertexSet = hkgVertexSet::create(context);
+	vertexSet->setNumVerts(VERT_LEN, vertFmt);
+	vertexSet->lock(HKG_LOCK_WRITEDISCARD);
+
+	float num5 = boneLen / 14.0f;
+	float x = boneLen / 5.0f;
+	float pyrPoints[6 * 3];
+	hkgVec3Set(&pyrPoints[0], boneLen, 0, 0);
+	hkgVec3Set(&pyrPoints[3], x, num5, num5);
+	hkgVec3Set(&pyrPoints[6], x, -num5, num5);
+	hkgVec3Set(&pyrPoints[9], x, num5, -num5);
+	hkgVec3Set(&pyrPoints[12], x, -num5, -num5);
+	hkgVec3Set(&pyrPoints[15], 0, 0, 0);
+
+	constexpr int pyrTris[24] = {
+				0,3,6,
+				0,9,3,
+				0,12,9,
+				0,6,12,
+				15,6,3,
+				15,3,9,
+				15,9,12,
+				15,12,6
+	};
+	const uint32_t whiteColor = hkColor::WHITE; 0xFFFFFFFF;
+
+	for (int k = 0; k < std::size(pyrTris); k++)
+	{
+
+		vertexSet->setVertexComponentData(HKG_VERTEX_COMPONENT_COLOR, k, &whiteColor);
+		vertexSet->setVertexComponentData(HKG_VERTEX_COMPONENT_POS, k, &pyrPoints[pyrTris[k]]);
+		if ((k + 1) % 3 == 0)
+		{
+			float left[3];
+			float right[3];
+			float out[3];
+			hkgVec3Sub(left, &pyrPoints[pyrTris[k - 1]], &pyrPoints[pyrTris[k - 2]]);
+			hkgVec3Sub(right, &pyrPoints[pyrTris[k]], &pyrPoints[pyrTris[k - 2]]);
+			hkgVec3Cross(out, left, right);
+			hkgVec3Normalize(out);
+			vertexSet->setVertexComponentData(HKG_VERTEX_COMPONENT_NORMAL, k - 2, out);
+			vertexSet->setVertexComponentData(HKG_VERTEX_COMPONENT_NORMAL, k - 1, out);
+			vertexSet->setVertexComponentData(HKG_VERTEX_COMPONENT_NORMAL, k, out);
+		}
+	}
+
+	vertexSet->unlock();
+	faceSet->setVertexSet(vertexSet);
+	return faceSet;
+}
+
 void HavokWidget::drawSkeletal()
 {
-	if (animContainer == nullptr) 
+	if (animContainer == nullptr)
 		return;
 
 	hkaSkeleton* skel = animContainer->findSkeletonByName("Bip01 Pelvis");
 
-	if (skel == nullptr) 
+	if (skel == nullptr)
 		return;
 
 	hkArray<hkQsTransform>& pose = skel->m_referencePose;
@@ -765,28 +870,38 @@ void HavokWidget::drawSkeletal()
 
 	for (auto& p : pose)
 	{
+		//float x = pMyTransform_Havok.m_translation.x;
+		//float y = pMyTransform_Havok.m_translation.y;
+		//float z = pMyTransform_Havok.m_translation.z;
+		//new Vector3(0f, 0f, 0f);
+		//Quaternion quat = new Quaternion(pMyTransform_Havok.m_rotation.m_vec.x, pMyTransform_Havok.m_rotation.m_vec.y, pMyTransform_Havok.m_rotation.m_vec.z, pMyTransform_Havok.m_rotation.m_vec.w);
+		//return Matrix.RotationQuaternion(quat) * Matrix.Translation(x, y, z);
+		
+
+		
+
 		hkReal temp[16];
 		p.get4x4ColumnMajor(temp);
 		hkMatrix4 m_matrix;
 		m_matrix.set4x4RowMajor(temp);
-		
+
 		hkQsTransform matrix;
 		matrix = p;
 		hkQsTransform left = hkQsTransform::getIdentity();
-		
+
 		hkMatrix4 m_left;
 		m_left.setIdentity();
 
 		// Create scaling matrix
-		m_left(3,0) = p.m_scale(0);
-		m_left(3,1) = p.m_scale(1);
-		m_left(3,2) = p.m_scale(2);
+		m_left(0, 0) = p.m_scale(0);
+		m_left(1, 1) = p.m_scale(1);
+		m_left(2, 2) = p.m_scale(2);
 		hkMatrix4 m_item{};
 
 		hkQsTransform item{};
 		left.setScale(p.m_scale);
 		hkInt16 num = skel->m_parentIndices[i];
-		
+
 		if (num >= 0)
 		{
 			m_item.setMul(m_matrix, boneAbsTransforms[num]);
@@ -817,7 +932,7 @@ void HavokWidget::drawSkeletal()
 		boneModelSpace[j].setMulEq(tList[j]);
 	}
 
-	
+
 	hkgDisplayContext* ctx = m_window->getContext();
 	float num = 100.0f;
 
@@ -825,10 +940,10 @@ void HavokWidget::drawSkeletal()
 	auto cullfaceMode = ctx->getCullfaceMode();
 	auto blendMode = ctx->getBlendMode();
 
-	ctx->matchState(HKG_ENABLED_ALPHABLEND | HKG_ENABLED_ZREAD, HKG_CULLFACE_CCW, HKG_BLEND_ADD, ctx->getAlphaSampleMode());
-	ctx->beginGroup(HKG_IMM_LINES);
+	//ctx->matchState(HKG_ENABLED_ALPHABLEND | HKG_ENABLED_ZREAD, HKG_CULLFACE_CCW, HKG_BLEND_ADD, ctx->getAlphaSampleMode());
+	//ctx->beginGroup(HKG_IMM_LINES);
 	float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	for(i=0; i < boneAbsTransforms.size(); ++i)//
+	for (i = 0; i < boneAbsTransforms.size(); ++i)//
 	{
 		hkInt16 num = skel->m_parentIndices[i];
 		if (num >= 0)
@@ -842,7 +957,7 @@ void HavokWidget::drawSkeletal()
 			float a[3] = { src(0), src(1), src(2) };
 			float b[3] = { dst(0), dst(1), dst(2) };
 
-	
+
 			//ctx->setCurrentColor4(color);
 			//ctx->setCurrentPosition(a);
 
@@ -882,12 +997,28 @@ void HavokWidget::drawSkeletal()
 				float vec[3];
 				compArray[k].store3(vec);
 
-				ctx->setCurrentPosition(vec);
+				//ctx->setCurrentPosition(vec);
 			}
+
+			/*hkRefPtr<hkgDisplayObject> hkgDisplayObjectCLR = hkgDisplayObject::create();
+			hkRefPtr<hkgGeometry> hkgGeometryCLR = createDoublePyramid(b, a);
+			hkgDisplayObjectCLR->addGeometry(hkgGeometryCLR);
+			hkgMaterialFaceSet* materialFaceSet = hkgGeometryCLR->getMaterialFaceSet(0);
+			hkgMaterial* material = materialFaceSet->getMaterial();
+			if (material != HK_NULL && skeletalShader != HK_NULL)
+			{
+				material->setShaderCollection(skeletalShader);
+			}
+			hkgDisplayObjectCLR->setStatusFlags(
+				HKG_DISPLAY_OBJECT_SHADOWCASTER |
+				HKG_DISPLAY_OBJECT_SHADOWRECEIVER |
+				hkgDisplayObjectCLR->getStatusFlags());
+			m_displayWorld->addDisplayObject(hkgDisplayObjectCLR);
+			*/
 		}
 	}
-	ctx->matchState(enabledState, cullfaceMode, blendMode, ctx->getAlphaSampleMode());
-	ctx->endGroup();
+	//ctx->matchState(enabledState, cullfaceMode, blendMode, ctx->getAlphaSampleMode());
+	//ctx->endGroup();
 
 	drawSkeletalTriangleThingy(skel, boneAbsTransforms);
 }

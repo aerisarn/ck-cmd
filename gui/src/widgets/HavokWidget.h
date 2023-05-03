@@ -13,6 +13,9 @@ class hkTextDisplay;
 class hkgLight;
 class hkgAabb;
 
+template<class>
+class hkRefPtr;
+
 class hkLoader;
 class hkgGeometry;
 class hkgFaceSet;
@@ -49,8 +52,8 @@ class HavokWidget : public ::ads::CDockWidget
     void setupScene();
     void drawSkeletal();
     void drawSkeletalTriangleThingy(hkaSkeleton* skeletal, const std::vector<hkMatrix4>& boneAbsTransform);
-    hkgGeometry* createDoublePyramid(float* vTarget, float* vOrigin);
-    hkgFaceSet* createDoublePyramid(float* vA, float* vB, hkgDisplayContext* context);
+    hkRefPtr<hkgGeometry> createDoublePyramid(const float vTarget[3], const float vOrigin[3]);
+    hkRefPtr<hkgFaceSet> createDoublePyramid(const float  vA[3], const float  vB[3], hkgDisplayContext* context);
     void drawGrid();
     void cameraSetFront();
 
