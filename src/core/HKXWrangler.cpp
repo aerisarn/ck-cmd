@@ -256,7 +256,7 @@ void HKXWrapper::write(hkRootLevelContainer& rootCont, string subfolder, string 
 	hkPackFormat pkFormat = HKPF_DEFAULT;
 	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
 	hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
-	fs::path final_out_path = fs::path(out_path_abs) / subfolder / string(name + ".hkx");
+	fs::path final_out_path = fs::path(out_path_abs) / subfolder / string(name + "_le.hkx");
 	//string out = out_path_abs+"\\" + out_name + ".hkx";
 	fs::create_directories(final_out_path.parent_path());
 	hkOstream stream(final_out_path.string().c_str());
@@ -267,7 +267,7 @@ void HKXWrapper::write(hkRootLevelContainer& rootCont, string subfolder, string 
 		Log::Error("Havok reports save failed.");
 	}
 	packFileOptions = GetWriteOptionsFromFormat(HKPF_AMD64);
-	fs::path final_out_path_se = fs::path(out_path_abs) / subfolder / string(name + "_se.hkx");
+	fs::path final_out_path_se = fs::path(out_path_abs) / subfolder / string(name + ".hkx");
 	fs::create_directories(final_out_path_se.parent_path());
 	hkOstream stream_se(final_out_path_se.string().c_str());
 	res = hkSerializeUtilSave(HKPF_AMD64, root, stream_se, flags, packFileOptions);
