@@ -3,6 +3,7 @@
 #include "DockWidget.h"
 
 #include <QTimer>
+#include <src/models/ModelEdge.h>
 
 class hkgWindow;
 class hkgDisplayHandler;
@@ -27,6 +28,7 @@ class hkgShaderEffectCollection;
 class HavokWidget : public ::ads::CDockWidget
 {
     hkgWindow* m_window = nullptr;
+    ckcmd::HKX::ProjectModel* _model;
 
     // Default viewport, or for any viewport in which m_viewport has null data
     hkgDisplayHandler* m_displayHandler = nullptr;
@@ -35,8 +37,13 @@ class HavokWidget : public ::ads::CDockWidget
     hkgDisplayWorld* m_skeletalWorld = nullptr;
     hkTextDisplay* m_textDisplay = nullptr;
     hkLoader* m_loader = nullptr;
-    hkaAnimationContainer* animContainer = nullptr;
     hkgShaderEffectCollection* skeletalShader = nullptr;
+
+    // This should be an animcontainer instead
+    hkaSkeleton* skeleton = nullptr;
+    bool m_skelNeedsUpdate = false;
+    std::vector<hkMatrix4> boneAbsTransforms;
+    std::vector<hkMatrix4> boneModelSpaces;
 
     bool m_showWorldAxis = true;
     bool m_showGrid = true;
@@ -50,20 +57,24 @@ class HavokWidget : public ::ads::CDockWidget
     void renderFrame();
     void clearFrameData();
     void setupScene();
-    void drawSkeletal();
+    void drawSkeletalNormals();
+    void relinkSkeleton();
     void drawSkeletalTriangleThingy(hkaSkeleton* skeletal, const std::vector<hkMatrix4>& boneAbsTransform);
-    hkRefPtr<hkgGeometry> createDoublePyramid(const float vTarget[3], const float vOrigin[3]);
-    hkRefPtr<hkgFaceSet> createDoublePyramid(const float  vA[3], const float  vB[3], hkgDisplayContext* context);
+    hkRefPtr<hkgGeometry> createBoneVertices(const float vTarget[3], const float vOrigin[3]);
+    void createDoublePyramid(const float vA[3], const float vB[3], hkgGeometry* geom, hkgDisplayContext* context);
     void drawGrid();
-    void cameraSetFront();
+    void setupCamera();
+
+    void createGridMesh();
 
 public:
-    explicit HavokWidget(QWidget* parent);
-
+    explicit HavokWidget(ckcmd::HKX::ProjectModel*, QWidget* parent);
+    void treeSelectionChanged(const QModelIndex& current, const QModelIndex& previous);
 
 
 protected:
     void initialize();
+    void updateSkeleton();
 
     virtual void resizeEvent(QResizeEvent* event) override;
     virtual void mouseMoveEvent(QMouseEvent* event) override;
