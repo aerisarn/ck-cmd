@@ -1128,45 +1128,47 @@ set<string> HKXWrapper::create_animations(
 				if (bone == pelvis && skeleton.size() > 1) //evaluate pelvis position instead of relying on root bone
 				{
 					auto pelvis_world_transform = getWorldTransform(bone, fbx_time);
-					//auto angles = pelvis_world_transform.GetQ().DecomposeSphericalXYZ();
-					//FbxQuaternion z_rotation(FbxVector4( 0., 0., 1. ), angles[2]);
-					//FbxQuaternion residual({ 0., 0., 0. }); 
-					//residual.ComposeSphericalXYZ(FbxVector4( angles[0], angles[1], 0. ));
-					auto quat = pelvis_world_transform.GetQ();
-					Quat QuatRotNew = { quat[0], quat[1], quat[2], quat[3] };
-					EulerAngles z_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
-					z_eul.x = 0; z_eul.y = 0;
-					EulerAngles xy_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
-					xy_eul.z = 0;
-					auto z_quat = Eul_ToQuat(z_eul);
-					auto xy_quat = Eul_ToQuat(xy_eul);
+					auto angles = pelvis_world_transform.GetQ().DecomposeSphericalXYZ();
+					FbxQuaternion z_rotation(FbxVector4( 0., 0., 1. ), angles[2]);
+					FbxQuaternion residual({ 0., 0., 0. }); 
+					residual.ComposeSphericalXYZ(FbxVector4( angles[0], angles[1], 0. ));
+					//auto quat = pelvis_world_transform.GetQ();
+					//Quat QuatRotNew = { quat[0], quat[1], quat[2], quat[3] };
+					//EulerAngles z_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
+					//z_eul.x = 0; z_eul.y = 0;
+					//EulerAngles xy_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
+					//xy_eul.z = 0;
+					//auto z_quat = Eul_ToQuat(z_eul);
+					//auto xy_quat = Eul_ToQuat(xy_eul);
 
 					hkQsTransform root_transform;
 					root_transform.setTranslation(hkVector4(pelvis_world_transform.GetT()[0], pelvis_world_transform.GetT()[1], 0.));
-					root_transform.setRotation(::hkQuaternion((float)z_quat.x, (float)z_quat.y, (float)z_quat.z, (float)z_quat.w));
+					root_transform.setRotation(::hkQuaternion(z_rotation[0], z_rotation[1], z_rotation[2], z_rotation[3]));
+					//root_transform.setRotation(::hkQuaternion((float)z_quat.x, (float)z_quat.y, (float)z_quat.z, (float)z_quat.w));
 					root_transform.setScale(hkVector4(1., 1., 1., 0.000000));
 					root_transform.fastRenormalize();
 
 					hkQsTransform pelvis_transform;
 					pelvis_transform.setTranslation(hkVector4(0., 0., pelvis_world_transform.GetT()[2]));
-					pelvis_transform.setRotation(::hkQuaternion((float)xy_quat.x, (float)xy_quat.y, (float)xy_quat.z, (float)xy_quat.w));
+					pelvis_transform.setRotation(::hkQuaternion(residual[0], residual[1], residual[2], residual[3]));
+					//pelvis_transform.setRotation(::hkQuaternion((float)xy_quat.x, (float)xy_quat.y, (float)xy_quat.z, (float)xy_quat.w));
 					pelvis_transform.setScale(hkVector4(1., 1., 1., 0.000000));
 					pelvis_transform.fastRenormalize();
 					
 
-						root_track.pushBack(root_transform);
-						Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
-							(float)time,
-							(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(0),
-							(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(1),
-							(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(2),
-							(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(3),
-							(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(0),
-							(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(1),
-							(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(2),
-							(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(3)
-						);
-						root_track_times.pushBack((hkReal)time);
+					root_track.pushBack(root_transform);
+					Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
+						(float)time,
+						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(0),
+						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(1),
+						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(2),
+						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(3),
+						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(0),
+						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(1),
+						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(2),
+						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(3)
+					);
+					root_track_times.pushBack((hkReal)time);
 					
 
 					//tempAnim->m_transforms.pushBack(root_transform);
@@ -1273,7 +1275,7 @@ set<string> HKXWrapper::create_animations(
 					0.0
 					}
 				);
-
+				/*
 				tempAnim->m_transforms[i * skeleton.size()].setRotation
 				(
 					{
@@ -1282,7 +1284,7 @@ set<string> HKXWrapper::create_animations(
 					0.0,
 					1.0
 					}
-				);
+				);*/
 			}
 
 			//TODO: linear analysis
