@@ -291,6 +291,8 @@ struct AnimationCache {
 		const string& cacheFile
 	);
 
+	static void AnimationCache::get_attack_entries(AnimData::ProjectAttackListBlock& block, const fs::path& projectFile);
+
 	static void create_entry(
 		CacheEntry& entry,
 		const ckcmd::BSA::BSAFile& bsa_file,

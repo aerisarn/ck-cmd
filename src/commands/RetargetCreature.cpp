@@ -400,7 +400,9 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	 */
 	map<string, vector<string>, ci_less> altNameCache = {
 		{"Werewolfbeast", {"Werewolfbeast", "Werewolf"}},
-		{"Dragonpriest", {"Dragonpriest", "Dragon_Priest", "DPriest" }}
+		{"Dragonpriest", {"Dragonpriest", "Dragon_Priest", "DPriest" }},
+		{"BenthicLurker", {"BenthicLurker", "Fishman" }},
+		{"Mudcrab", {"Mudcrab", "Mcrab", "Crab"}}
 	};
 
 	if (altNameCache.find(old_name) == altNameCache.end())
