@@ -2933,7 +2933,7 @@ class Accessor<AccessSkin>
 									ni_bone = DynamicCast<NiNode>(conversion_Map[bone]);
 								} 
 
-								Log::Info("Fbx Bone %s -> NiBode %s", bone->GetName(), ni_bone->GetName().c_str());
+								Log::Info("Fbx Bone %s -> NiBone %s", bone->GetName(), ni_bone->GetName().c_str());
 								if (partition.boneIndices.size() < ni_partition_triangle[i] + 1)
 								{
 									partition.boneIndices.resize(ni_partition_triangle[i] + 1);
@@ -2960,12 +2960,9 @@ class Accessor<AccessSkin>
 									if (bone_data_list.size() < global_bone_index + 1)
 										bone_data_list.resize(global_bone_index + 1);
 
-									auto min_it = min_element(partition.vertexWeights[ni_partition_triangle[i]].begin(), partition.vertexWeights[ni_partition_triangle[i]].end());
-									if (weight > *min_it) {
-										size_t index = distance(partition.vertexWeights[ni_partition_triangle[i]].begin(), min_it);
-										partition.boneIndices[ni_partition_triangle[i]][index] = global_bone_index;
-										partition.vertexWeights[ni_partition_triangle[i]][index] = weight;
-									}
+									partition.boneIndices[ni_partition_triangle[i]][w_index] = global_bone_index;
+									partition.vertexWeights[ni_partition_triangle[i]][w_index] = weight;
+
 									auto transform = bone->EvaluateGlobalTransform();
 									bone_data_list[global_bone_index].skinTransform = GetAvTransform(transform.Inverse());
 								}
