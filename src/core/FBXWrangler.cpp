@@ -2933,7 +2933,7 @@ class Accessor<AccessSkin>
 									ni_bone = DynamicCast<NiNode>(conversion_Map[bone]);
 								} 
 
-								Log::Info("Fbx Bone %s -> NiBone %s", bone->GetName(), ni_bone->GetName().c_str());
+								Log::Debug("Fbx Bone %s -> NiBone %s", bone->GetName(), ni_bone->GetName().c_str());
 								if (partition.boneIndices.size() < ni_partition_triangle[i] + 1)
 								{
 									partition.boneIndices.resize(ni_partition_triangle[i] + 1);
@@ -3053,6 +3053,24 @@ class Accessor<AccessSkin>
 							vertices[i] = TOVECTOR4(matrixes[0].MultT(TOFBXVECTOR3(vertices[i])));
 						}
 						original_shape_data->SetVertices(vertices);
+
+						auto normals = original_shape_data->normals;
+						for (int i = 0; i < normals.size(); i++) {
+							normals[i] = TOVECTOR4(matrixes[0].MultT(TOFBXVECTOR3(normals[i])));
+						}
+						original_shape_data->SetNormals(normals);
+
+						auto tangents = original_shape_data->tangents;
+						for (int i = 0; i < tangents.size(); i++) {
+							tangents[i] = TOVECTOR4(matrixes[0].MultT(TOFBXVECTOR3(tangents[i])));
+						}
+						original_shape_data->SetTangents(tangents);
+
+						auto bitangents = original_shape_data->bitangents;
+						for (int i = 0; i < bitangents.size(); i++) {
+							bitangents[i] = TOVECTOR4(matrixes[0].MultT(TOFBXVECTOR3(bitangents[i])));
+						}
+						original_shape_data->SetBitangents(bitangents);
 					}
 				}
 
@@ -5530,7 +5548,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 
 	//DEBUG
 	for (const auto& ni : conversion_Map) {
-		Log::Info("Fbx Node %s -> NiNode %s", ni.first->GetName(), DynamicCast<NiNode>(ni.second)->GetName().c_str());
+		Log::Debug("Fbx Node %s -> NiNode %s", ni.first->GetName(), DynamicCast<NiNode>(ni.second)->GetName().c_str());
 	}
 
 	//skins
