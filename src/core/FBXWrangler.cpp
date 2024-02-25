@@ -3467,30 +3467,6 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const std::string
 		vector<string> vTextures = textures->GetTextures();
 		FbxProperty prop = nullptr;
 
-		prop = tempN->GetFirstProperty();
-		while (prop.IsValid())
-		{
-			string name = prop.GetNameAsCStr();
-			string slot_prefix = "slot";
-			if (prop.GetFlag(FbxPropertyFlags::eUserDefined))
-			{
-				auto it = search(
-					name.begin(), name.end(),
-					slot_prefix.begin(), slot_prefix.end(),
-					[](char ch1, char ch2) { return toupper(ch1) == toupper(ch2); }
-				);
-				if (it != name.end())
-				{
-					name.erase(name.begin(), name.begin() + 4);
-					int slot = atoi(name.c_str());
-					if (slot > 2 && slot < 9)
-					{
-						vTextures[slot-1] = format_texture(prop.Get<FbxString>().Buffer());
-					}
-				}
-			}
-			prop = tempN->GetNextProperty(prop);
-		}
 		FbxLayerElementMaterial* layerElement = m->GetElementMaterial();
 		if (layerElement != NULL)
 		{
@@ -3608,6 +3584,32 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const std::string
 				if (factor.IsValid())
 				{
 					shader->SetGlossiness(factor.Get());
+				}
+
+				// Additional texture slots
+				prop = material->GetFirstProperty();
+				while (prop.IsValid())
+				{
+					string name = prop.GetNameAsCStr();
+					string slot_prefix = "slot";
+					if (prop.GetFlag(FbxPropertyFlags::eUserDefined))
+					{
+						auto it = search(
+							name.begin(), name.end(),
+							slot_prefix.begin(), slot_prefix.end(),
+							[](char ch1, char ch2) { return toupper(ch1) == toupper(ch2); }
+						);
+						if (it != name.end())
+						{
+							name.erase(name.begin(), name.begin() + 4);
+							int slot = atoi(name.c_str());
+							if (slot > 2 && slot < 9)
+							{
+								vTextures[slot - 1] = format_texture(prop.Get<FbxString>().Buffer());
+							}
+						}
+					}
+					prop = material->GetNextProperty(prop);
 				}
 
 				textures->SetTextures(vTextures);
