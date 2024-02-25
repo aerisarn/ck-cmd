@@ -3056,19 +3056,19 @@ class Accessor<AccessSkin>
 
 						auto normals = original_shape_data->normals;
 						for (int i = 0; i < normals.size(); i++) {
-							normals[i] = TOVECTOR4(matrixes[0].MultT(TOFBXVECTOR3(normals[i])));
+							normals[i] = TOVECTOR4(matrixes[0].MultR(TOFBXVECTOR3(normals[i])));
 						}
 						original_shape_data->SetNormals(normals);
 
 						auto tangents = original_shape_data->tangents;
 						for (int i = 0; i < tangents.size(); i++) {
-							tangents[i] = TOVECTOR4(matrixes[0].MultT(TOFBXVECTOR3(tangents[i])));
+							tangents[i] = TOVECTOR4(matrixes[0].MultR(TOFBXVECTOR3(tangents[i])));
 						}
 						original_shape_data->SetTangents(tangents);
 
 						auto bitangents = original_shape_data->bitangents;
 						for (int i = 0; i < bitangents.size(); i++) {
-							bitangents[i] = TOVECTOR4(matrixes[0].MultT(TOFBXVECTOR3(bitangents[i])));
+							bitangents[i] = TOVECTOR4(matrixes[0].MultR(TOFBXVECTOR3(bitangents[i])));
 						}
 						original_shape_data->SetBitangents(bitangents);
 					}
