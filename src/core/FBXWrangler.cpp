@@ -692,7 +692,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 							if (!texture_set[i].empty())
 							{
 								string slot_name = "slot" + to_string(i + 1);
-								FbxFileTexture* additional_texture = create_texture(slot_name.c_str(), texture_set[i + 1]);
+								FbxFileTexture* additional_texture = create_texture(slot_name.c_str(), texture_set[i]);
 								FbxProperty texture_slot = gMaterial->FindProperty(slot_name.c_str());
 								if (!texture_slot.IsValid())
 								{
