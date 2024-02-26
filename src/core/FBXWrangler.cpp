@@ -533,7 +533,7 @@ public:
 
 	NiAlphaPropertyRef to_property()
 	{
-		if (valid && modes.value != 0)
+		if (modes.value != 0)
 		{
 			NiAlphaPropertyRef alpha = new NiAlphaProperty();
 			alpha->SetFlags(modes.value);
@@ -668,13 +668,14 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 						diffuse->Alpha = material_property->GetAlpha();
 
+
 						if (diffuse && gMaterial)
 						{
 							gMaterial->Diffuse.ConnectSrcObject(diffuse);
 							if (alpha != NULL)
 							{
 								alreadyVisitedNodes.insert(&*alpha);
-								//TODO: also find a way in fbx to make them look right in 3d suites
+								gMaterial->TransparentColor.ConnectSrcObject(diffuse);
 								AlphaFlagsHandler(alpha).add_to_node(gMaterial);
 							}
 						}
@@ -3504,6 +3505,8 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const std::string
 				prop = material->FindProperty(FbxSurfaceMaterial::sTransparentColor, true);
 				if (prop.IsValid())
 				{
+					auto color = prop.Get<FbxColor>();
+					auto tex = prop.GetSrcObject<FbxFileTexture>(0);
 					if (prop.Get<FbxColor>() != FbxColor(0.0, 0.0, 0.0))
 					{
 						hasAlpha = true;
