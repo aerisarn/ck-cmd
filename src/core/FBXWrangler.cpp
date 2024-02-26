@@ -1046,6 +1046,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				FbxSkin* fbx_skin = FbxSkin::Create(&scene, shapeSkin.c_str());
 				set<FbxCluster*> clusters;
 				FbxNode* skin_parent = fbx_meshes_skin_parent[skin.first]; scene.FindNodeByName(shapeName.c_str());
+
 				//create clusters
 				for (unsigned short bone_index : part_data.bones) {
 					NiNode* bone = skin.first->GetBones()[bone_index];
@@ -1122,6 +1123,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					if (skin_support != NULL)
 						skin_parent = skin_support;
 					//setTransform(mesh, skin_parent);
+
 					for (int i = 0; i < skin_parent->GetNodeAttributeCount(); i++)
 					{
 						if (FbxNodeAttribute::eMesh == skin_parent->GetNodeAttributeByIndex(i)->GetAttributeType())
@@ -2808,7 +2810,8 @@ class Accessor<AccessSkin>
 			if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
 				NiSkinInstanceRef skin;
 				if (export_skin)
-					skin = new BSDismemberSkinInstance();
+					//skin = new BSDismemberSkinInstance();
+					skin = new NiSkinInstance();
 				else
 					skin = new NiSkinInstance();
 				NiSkinDataRef data = new NiSkinData();
@@ -3083,7 +3086,7 @@ class Accessor<AccessSkin>
 				skin->SetSkinPartition(spartition);
 				skin->SetSkeletonRoot(conversion_root);
 				
-
+				/*
 				if (export_skin)
 				{
 					BSDismemberSkinInstanceRef bsskin = DynamicCast<BSDismemberSkinInstance>(skin);
@@ -3094,6 +3097,7 @@ class Accessor<AccessSkin>
 						bsskin->partitions[i].partFlag = (BSPartFlag)( PF_EDITOR_VISIBLE | PF_START_NET_BONESET);
 					}
 				}
+				*/
 
 				shape->SetSkinInstance(skin);
 			}
