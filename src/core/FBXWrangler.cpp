@@ -3086,7 +3086,6 @@ class Accessor<AccessSkin>
 				skin->SetSkinPartition(spartition);
 				skin->SetSkeletonRoot(conversion_root);
 				
-				/*
 				if (export_skin)
 				{
 					BSDismemberSkinInstanceRef bsskin = DynamicCast<BSDismemberSkinInstance>(skin);
@@ -3097,7 +3096,6 @@ class Accessor<AccessSkin>
 						bsskin->partitions[i].partFlag = (BSPartFlag)( PF_EDITOR_VISIBLE | PF_START_NET_BONESET);
 					}
 				}
-				*/
 
 				shape->SetSkinInstance(skin);
 			}
