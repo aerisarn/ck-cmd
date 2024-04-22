@@ -604,13 +604,13 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			//Specular
 			Color3 nif_specular_color = material_property->GetSpecularColor();
 			gMaterial->Specular = { nif_specular_color.r, nif_specular_color.g, nif_specular_color.b };
-			gMaterial->SpecularFactor.Set(material_property->GetSpecularStrength());
+			gMaterial->SpecularFactor.Set(material_property->GetSpecularStrength() / 999); // Specular strength is stored in the 0-999 range
 
 			//Diffuse
 			gMaterial->Diffuse = lDiffuse;
 
 			//Ambient
-			gMaterial->Ambient = lBlack;
+			gMaterial->Ambient = lDiffuse;
 			gMaterial->AmbientFactor.Set(1.);
 
 			gMaterial->Shininess = material_property->GetGlossiness();
