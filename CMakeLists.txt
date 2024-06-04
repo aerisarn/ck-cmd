@@ -5,7 +5,7 @@ include(ExternalProject)
 include(FetchContent)
 
 option(PROJECT_STATIC_RUNTIME "Build with static runtime libs (/MT)" ON)
-option(PROJECT_GUI "Build GUI" ON)
+option(PROJECT_GUI "Build GUI" OFF)
 UNSET(HAVE_SPEEDTREE CACHE)
 option(HAVE_SPEEDTREE "Build with speedtree support" OFF)
 
