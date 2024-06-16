@@ -2524,7 +2524,7 @@ bool FBXWrangler::ExportScene(const std::string& fileName) {
 	return status;
 }
 
-bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOptions& options) {
+bool FBXWrangler::ImportScene(const std::string& fileName, const std::string& skeletonName, const std::string& legacySkeletonName, const FBXImportOptions& options) {
 	FbxIOSettings* ios = sdkManager->GetIOSettings();
 	ios->SetBoolProp(IMP_FBX_MATERIAL, true);
 	ios->SetBoolProp(IMP_FBX_TEXTURE, true);
@@ -2620,7 +2620,7 @@ bool FBXWrangler::ImportScene(const std::string& fileName, const FBXImportOption
 		FbxSystemUnit::m.ConvertScene(scene, lConversionOptions);
 	}
 
-	return LoadMeshes(options);
+	return LoadMeshes(skeletonName, legacySkeletonName, options);
 }
 
 class RebuildVisitor : public RecursiveFieldVisitor<RebuildVisitor> {
@@ -5294,7 +5294,7 @@ void FBXWrangler::handleVisibility(FbxProperty& track, NiNode& parent)
 
 
 
-bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
+bool FBXWrangler::LoadMeshes(const std::string& skeletonName, const std::string& legacySkeletonName, const FBXImportOptions& options) {
 	if (!scene)
 		return false;
 
@@ -5743,7 +5743,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		//rig
 		if (export_rig)
 		{
-			string result = hkxWrapper.build_skeleton_from_ragdoll();
+			string result = hkxWrapper.build_skeleton_from_ragdoll(skeletonName, legacySkeletonName);
 			if (!result.empty())
 			{
 				auto root_node = scene->FindNodeByName(result.c_str());
