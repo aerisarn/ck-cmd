@@ -1088,7 +1088,9 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 								{
 									unsigned short vertex_index = part_data.vertexMap[bs];
 									float vertex_weight = part_data.vertexWeights[bs][b];
-									aCluster->AddControlPointIndex(vertex_index, vertex_weight);
+									if (vertex_weight > 0.0) {
+										aCluster->AddControlPointIndex(vertex_index, vertex_weight);
+									}
 								}
 							}
 						}
