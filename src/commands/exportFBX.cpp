@@ -57,7 +57,7 @@ string ExportFBX::GetHelp() const
 
 string ExportFBX::GetHelpShort() const
 {
-    return "TODO: Short help message for ExportFBX";
+    return "Converts NIF format to FBX";
 }
 
 bool ExportFBX::InternalRunCommand(map<string, docopt::value> parsedArgs)
@@ -93,8 +93,8 @@ bool BeginConversion(string importNIF, string exportPath, string texturePath) {
 	if (fs::is_directory(out_path))
 	{
 		if (!fs::exists(out_path) || !fs::is_directory(out_path)) {
-			Log::Info("Invalid Directory: %s, using current_dir", exportPath.c_str());
-			out_path = fs::current_path();
+			Log::Info("Invalid Directory: %s, using nif directory", exportPath.c_str());
+			out_path = nifModelpath.parent_path();
 		}
 		fs::create_directories(out_path);
 		out_path = out_path / nifModelpath.filename().replace_extension(".fbx");
