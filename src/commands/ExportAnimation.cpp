@@ -19,7 +19,7 @@ using namespace ckcmd::FBX;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 
-static bool BeginConversion(const string& importSkeleton, const string& importHKX, const string& additionalNifPath, const string& cacheFilePath, const string& behaviorFolder, const string& exportPath);
+static bool BeginConversion(const string& importSkeleton, const string& importHKX, const string& additionalNifPath, const string& cacheFilePath, const string& behaviorFolder, const string& texturePath, const string& exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
@@ -43,7 +43,7 @@ string ExportAnimation::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd importanimation
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> <path_to_hkx_animation> [--b=<path_to_behavior_folder>] [--c=<path_to_cache_file>] [--n=<path_to_additional_nifs>] [--e=<path_to_export>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> <path_to_hkx_animation> [--b=<path_to_behavior_folder>] [--c=<path_to_cache_file>] [--n=<path_to_additional_nifs>] [--t=<path_to_textures>] [--e=<path_to_export>]\r\n";
 
 	const char help[] =
 		R"(Converts an HKX animation to FBX. Requires a preexisting HKX skeleton
@@ -54,6 +54,7 @@ string ExportAnimation::GetHelp() const
 			--n=<path_to_nifs>, --nif <path_to_nifs> A skin nif or directory of nifs.
 			--c=<path_to_cache_file>, --cache <path_to_cache_file> necessary to extract root motion into animations
 			--b=<path_to_behavior_folder>, --behavior <path_to_behavior_folder> necessary to extract root motion
+			--t=<path_to_textures>, --textures <path_to_textures>  Path to the folder with extracted texture (usually Skyrim Data subfolder)
 			--e=<path_to_export>, --export-dir <path_to_export>  optional export path, either directory or filepath
 
 		)";
@@ -68,7 +69,7 @@ string ExportAnimation::GetHelpShort() const
 bool ExportAnimation::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
-	string importHKX, importSkeleton, exportPath, nifPath, cacheFilePath, behaviorFolder;
+	string importHKX, importSkeleton, exportPath, nifPath, cacheFilePath, behaviorFolder, texturePath;
 
 	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
 	importHKX = parsedArgs["<path_to_hkx_animation>"].asString();
@@ -80,9 +81,11 @@ bool ExportAnimation::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		behaviorFolder = parsedArgs["--b"].asString();
 	if (parsedArgs["--e"].isString())
 		exportPath = parsedArgs["--e"].asString();
+	if (parsedArgs["--t"].isString())
+		texturePath = parsedArgs["--t"].asString();
 
 	InitializeHavok();
-	BeginConversion(importSkeleton, importHKX, nifPath, cacheFilePath, behaviorFolder, exportPath);
+	BeginConversion(importSkeleton, importHKX, nifPath, cacheFilePath, behaviorFolder, texturePath, exportPath);
 	CloseHavok();
 	return true;
 }
@@ -93,6 +96,7 @@ bool BeginConversion(
 	const string& additionalNifPath,
 	const string& cacheFilePath,
 	const string& behaviorFolder,
+	const string& texturePath,
 	const string& exportPath
 ) {
 	// Get Import Skeleton
@@ -134,6 +138,7 @@ bool BeginConversion(
 	// Export each animation
 	for (const auto& fbx : fbxs) {
 		FBXWrangler wrangler;
+		wrangler.texture_path = texturePath;
 		wrangler.NewScene();
 		FbxNode* skeleton_root = NULL;
 		vector<FbxProperty> floats;
