@@ -43,16 +43,16 @@ string ImportRig::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd importanimation
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_fbx> <path_to_skeleton_hkx> <path_to_skeleton_le_hkx> <path_to_skeleton_nif>\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_fbx> <path_to_skeleton_nif> <path_to_skeleton_hkx> [--le=<export_skeleton_le_hkx>]\r\n";
 
 	const char help[] =
 		R"(Converts an FBX skeleton to NIF and HKX.
 		
 		Arguments:
 			<path_to_skeleton_fbx> the animation skeleton in fbx format
-			<path_to_skeleton_hkx> the output animation skeleton in hkx format
-			<path_to_skeleton_le_hkx> the output animation skeleton in legacy hkx format
-			<path_to_skeleton_nif> the output animation skeleton in nif format
+			<path_to_skeleton_hkx> the animation skeleton in hkx format
+			<path_to_skeleton_nif> the animation skeleton in nif format
+			--le=<export_skeleton_le_hkx> optional legacy skeleton export path
 
 		)";
 	return usage + help;
@@ -65,12 +65,18 @@ string ImportRig::GetHelpShort() const
 
 bool ImportRig::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
-	string importSkeleton, exportSkeleton, exportLegacySkeleton, exportSkeletonNif;
+	string importSkeleton, exportSkeleton, exportLegacySkeleton, exportSkeletonNif, exportPath;
 
 	importSkeleton = parsedArgs["<path_to_skeleton_fbx>"].asString();
 	exportSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
-	exportLegacySkeleton = parsedArgs["<path_to_skeleton_le_hkx>"].asString();
 	exportSkeletonNif = parsedArgs["<path_to_skeleton_nif>"].asString();
+	if (parsedArgs["--le"].isString())
+		exportLegacySkeleton = parsedArgs["--le"].asString();
+
+	fs::path in_path = fs::path(exportSkeleton);
+	if (!fs::exists(exportLegacySkeleton)) {
+		exportLegacySkeleton = (in_path.parent_path() / "skeleton_le.hkx").string();
+	}
 
 	InitializeHavok();
 	FBXWrangler wrangler;
