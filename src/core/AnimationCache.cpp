@@ -404,6 +404,7 @@ void AnimationCache::get_entries(
 	const string& cacheFile
 ) {
 	if (!fs::exists(cacheFile) || !fs::is_regular_file(cacheFile))
+		Log::Error("Invalid file: %s", cacheFile.c_str());
 		return;
 
 	fs::path name = cacheFile;
@@ -423,6 +424,10 @@ void AnimationCache::get_entries(
 	if (entry.block.getHasAnimationCache())
 	{
 		auto movement_path = fs::path(cacheFile).parent_path() / "boundanims" / string("anims_" + name.string() + ".txt");
+		if (!fs::exists(movement_path) || !fs::is_regular_file(movement_path)) {
+			Log::Error("Invalid file: %s", movement_path.c_str());
+			return;
+		}
 		ifstream t(movement_path.string());
 		string movement_content;
 		t.seekg(0, std::ios::end);
