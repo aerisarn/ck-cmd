@@ -403,9 +403,10 @@ void AnimationCache::get_entries(
 	StaticCacheEntry& entry,
 	const string& cacheFile
 ) {
-	if (!fs::exists(cacheFile) || !fs::is_regular_file(cacheFile))
+	if (!fs::exists(cacheFile) || !fs::is_regular_file(cacheFile)) {
 		Log::Error("Invalid file: %s", cacheFile.c_str());
 		return;
+	}
 
 	fs::path name = cacheFile;
 	name = name.filename().replace_extension("");

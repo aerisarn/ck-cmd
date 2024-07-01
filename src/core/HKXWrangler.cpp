@@ -3738,8 +3738,7 @@ struct filename_compare : public std::unary_function<std::string, bool>
 	explicit filename_compare(const fs::path &baseline) : baseline(baseline) {}
 	bool operator() (const fs::path &arg)
 	{
-		return iequals(arg.filename().string(), baseline.filename().string())
-				&& iequals(arg.parent_path().filename().string(), baseline.parent_path().filename().string());
+		return iequals(arg.filename().string(), baseline.filename().string());
 	}
 	const fs::path &baseline;
 };
