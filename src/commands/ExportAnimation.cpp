@@ -50,7 +50,7 @@ string ExportAnimation::GetHelp() const
 		
 		Arguments:
 			<path_to_skeleton_hkx> the animation skeleton in hkx format
-			<path_to_hkx_animation> the FBX animation to convert
+			<path_to_hkx_animation> the HKX animation to convert
 			--n=<path_to_nifs>, --nif <path_to_nifs> A skin nif or directory of nifs.
 			--c=<path_to_cache_file>, --cache <path_to_cache_file> necessary to extract root motion into animations
 			--b=<path_to_behavior_folder>, --behavior <path_to_behavior_folder> necessary to extract root motion
