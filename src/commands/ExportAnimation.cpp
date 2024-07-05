@@ -19,7 +19,7 @@ using namespace ckcmd::FBX;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 
-static bool BeginConversion(const string& importSkeleton, const string& importHKX, const string& cacheFilePath, const string& behaviorFolder, const string& exportPath);
+static bool BeginConversion(const string& importSkeleton, const string& importHKX, const string& additionalNifPath, const string& cacheFilePath, const string& behaviorFolder, const string& texturePath, const string& exportPath);
 static void InitializeHavok();
 static void CloseHavok();
 
@@ -43,7 +43,7 @@ string ExportAnimation::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd importanimation
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> <path_to_hkx_animation> [--b=<path_to_behavior_folder>] [--c=<path_to_cache_file>] [--n=<path_to_additional_nifs>] [--e=<path_to_export>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_hkx> <path_to_hkx_animation> [--b=<path_to_behavior_folder>] [--c=<path_to_cache_file>] [--n=<path_to_additional_nifs>] [--t=<path_to_textures>] [--e=<path_to_export>]\r\n";
 
 	const char help[] =
 		R"(Converts an HKX animation to FBX. Requires a preexisting HKX skeleton
@@ -51,9 +51,11 @@ string ExportAnimation::GetHelp() const
 		Arguments:
 			<path_to_skeleton_hkx> the animation skeleton in hkx format
 			<path_to_hkx_animation> the FBX animation to convert
+			--n=<path_to_nifs>, --nif <path_to_nifs> A skin nif or directory of nifs.
 			--c=<path_to_cache_file>, --cache <path_to_cache_file> necessary to extract root motion into animations
 			--b=<path_to_behavior_folder>, --behavior <path_to_behavior_folder> necessary to extract root motion
-			--e=<path_to_export>, --export-dir <path_to_export>  optional export path
+			--t=<path_to_textures>, --textures <path_to_textures>  Path to the folder with extracted texture (usually Skyrim Data subfolder)
+			--e=<path_to_export>, --export-dir <path_to_export>  optional export path, either directory or filepath
 
 		)";
 	return usage + help;
@@ -61,25 +63,29 @@ string ExportAnimation::GetHelp() const
 
 string ExportAnimation::GetHelpShort() const
 {
-	return "TODO: Short help message for ImportFBX";
+	return "Converts an HKX animation to FBX";
 }
 
 bool ExportAnimation::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
-	string importHKX, importSkeleton, exportPath, cacheFilePath, behaviorFolder;
+	string importHKX, importSkeleton, exportPath, nifPath, cacheFilePath, behaviorFolder, texturePath;
 
 	importSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
 	importHKX = parsedArgs["<path_to_hkx_animation>"].asString();
 	if (parsedArgs["--c"].isString())
 		cacheFilePath = parsedArgs["--c"].asString();
+	if (parsedArgs["--n"].isString())
+		nifPath = parsedArgs["--n"].asString();
 	if (parsedArgs["--b"].isString())
 		behaviorFolder = parsedArgs["--b"].asString();
 	if (parsedArgs["--e"].isString())
 		exportPath = parsedArgs["--e"].asString();
+	if (parsedArgs["--t"].isString())
+		texturePath = parsedArgs["--t"].asString();
 
 	InitializeHavok();
-	BeginConversion(importSkeleton, importHKX, cacheFilePath, behaviorFolder, exportPath);
+	BeginConversion(importSkeleton, importHKX, nifPath, cacheFilePath, behaviorFolder, texturePath, exportPath);
 	CloseHavok();
 	return true;
 }
@@ -87,8 +93,10 @@ bool ExportAnimation::InternalRunCommand(map<string, docopt::value> parsedArgs)
 bool BeginConversion(
 	const string& importSkeleton, 
 	const string& importHKX,
+	const string& additionalNifPath,
 	const string& cacheFilePath,
 	const string& behaviorFolder,
+	const string& texturePath,
 	const string& exportPath
 ) {
 	// Get Import Skeleton
@@ -110,14 +118,6 @@ bool BeginConversion(
 		return false;
 	}
 
-	// Create output directory
-	fs::path outputDir = fs::path(exportPath);
-	fs::create_directories(outputDir);
-	if (!fs::exists(outputDir) || !fs::is_directory(outputDir)) {
-		Log::Info("Invalid Directory: %s, using current_dir", exportPath.c_str());
-		outputDir = fs::current_path();
-	}
-
 	// Get Root Motion
 	StaticCacheEntry entry;
 	std::map< fs::path, RootMovement> map;
@@ -137,13 +137,12 @@ bool BeginConversion(
 
 	// Export each animation
 	for (const auto& fbx : fbxs) {
-		Log::Info("Exporting: %s, using current_dir", fbx.string().c_str());
 		FBXWrangler wrangler;
+		wrangler.texture_path = texturePath;
 		wrangler.NewScene();
 		FbxNode* skeleton_root = NULL;
 		vector<FbxProperty> floats;
 		vector<FbxNode*> ordered_skeleton = wrangler.importExternalSkeleton(importSkeleton, "", floats);
-		Log::Info("Exporting: %s, using current_dir", fbx.string().c_str());
 
 		auto root_movement = map.find(fbx);
 		if (root_movement != map.end())
@@ -161,10 +160,31 @@ bool BeginConversion(
 				floats,
 				RootMovement());
 		}
-		Log::Info("Exporting: %s, using current_dir", fbx.string().c_str());
 
-		fs::path out_path = outputDir / fs::path(fbx).filename().replace_extension(".fbx");
-		fs::create_directories(out_path.parent_path());
+		vector<fs::path> nif_files;
+		if (fs::exists(additionalNifPath) && fs::is_directory(additionalNifPath))
+		{
+			find_files(additionalNifPath, ".nif", nif_files);
+			for (const auto& nif : nif_files)
+				wrangler.AddNif(NifFile(nif.string().c_str()));
+		}
+		else if(fs::exists(additionalNifPath) && fs::is_regular_file(additionalNifPath))
+		{
+			nif_files.push_back(additionalNifPath);
+			for (const auto& nif : nif_files)
+				wrangler.AddNif(NifFile(nif.string().c_str()));
+		}
+
+		fs::path out_path = fs::path(exportPath);
+		if (fs::is_directory(exportPath))
+		{
+			if (!fs::exists(exportPath) || !fs::is_directory(exportPath)) {
+				Log::Info("Invalid Directory: %s, using animation directory", exportPath.c_str());
+				out_path = fbx.parent_path();
+			}
+			fs::create_directories(out_path);
+			out_path = out_path / fbx.filename().replace_extension(".fbx");
+		}
 		wrangler.ExportScene(out_path.string().c_str());
 	}
 

@@ -2602,7 +2602,7 @@ void HKXWrapper::add_bone(FbxNode* bone)
 hkpPhysicsSystem* physic_entities = NULL;
 hkaSkeletonMapperData* fromRagdollToSkeletonMapping = NULL;
 
-std::string HKXWrapper::build_skeleton_from_ragdoll()
+std::string HKXWrapper::build_skeleton_from_ragdoll(const std::string& skeletonName, const std::string& legacySkeletonName)
 {
 	string result = "";
 	if (constraints.size() == rigidBodies.size() - 1)
@@ -2743,7 +2743,7 @@ std::string HKXWrapper::build_skeleton_from_ragdoll()
 		hkPackFormat pkFormat = HKPF_DEFAULT;
 		hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
 		hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
-		fs::path final_out_path = "./skeleton_le.hkx";
+		fs::path final_out_path = legacySkeletonName;
 		hkOstream stream(final_out_path.string().c_str());
 		hkVariant root = { &container, &container.staticClass() };
 		hkResult res = hkSerializeUtilSave(pkFormat, root, stream, flags, packFileOptions);
@@ -2752,7 +2752,7 @@ std::string HKXWrapper::build_skeleton_from_ragdoll()
 			Log::Error("Havok reports save failed.");
 		}
 		hkPackFormat pkFormat2 = HKPF_AMD64;
-		fs::path final_out_path2 = "./skeleton.hkx";
+		fs::path final_out_path2 = skeletonName;
 		hkPackfileWriter::Options packFileOptions2 = GetWriteOptionsFromFormat(pkFormat2);
 		hkOstream stream2(final_out_path2.string().c_str());
 		res = hkSerializeUtilSave(pkFormat2, root, stream2, flags, packFileOptions2);
@@ -3738,8 +3738,7 @@ struct filename_compare : public std::unary_function<std::string, bool>
 	explicit filename_compare(const fs::path &baseline) : baseline(baseline) {}
 	bool operator() (const fs::path &arg)
 	{
-		return iequals(arg.filename().string(), baseline.filename().string())
-				&& iequals(arg.parent_path().filename().string(), baseline.parent_path().filename().string());
+		return iequals(arg.filename().string(), baseline.filename().string());
 	}
 	const fs::path &baseline;
 };

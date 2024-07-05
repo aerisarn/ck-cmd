@@ -31,6 +31,8 @@ namespace FBX {
 	struct FBXImportOptions {
 		bool InvertU = false;
 		bool InvertV = true;
+		string ExportSkeleton = "./skeleton.hkx";
+		string ExportLegacySkeleton = "./skeleton_le.hkx";
 	};
 
 
@@ -120,9 +122,9 @@ namespace FBX {
 		void ApplySkeletonScaling(NifFile& nif);
 
 		bool ExportScene(const std::string& fileName);
-		bool ImportScene(const std::string& fileName, const FBXImportOptions& options = FBXImportOptions());
+		bool ImportScene(const std::string& fileName, const std::string& skeletonName = "./skeleton.hkx", const std::string& legacySkeletonName = "./skeleton_le.hkx", const FBXImportOptions& options = FBXImportOptions());
 
-		bool LoadMeshes(const FBXImportOptions& options);
+		bool LoadMeshes(const std::string& skeletonName, const std::string& legacySkeletonName, const FBXImportOptions& options);
 		bool SaveNif(const string& fileName);
 		bool SaveSkin(const string& fileName);
 	};	

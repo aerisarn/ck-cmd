@@ -45,7 +45,7 @@ string ExportRig::GetHelp() const
 
 	// Usage: ck-cmd importanimation
 	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + 
-		" [<path_to_skeleton_hkx>] [<path_to_skeleton_nif>] [--a=<path_to_animations>] [--b=<path_to_behavior_folder>] [--c=<path_to_cache_file>] [--n=<path_to_additional_nifs>] [--e=<path_to_export>]\r\n";
+		" [<path_to_skeleton_hkx>] [<path_to_skeleton_nif>] [--a=<path_to_animations>] [--b=<path_to_behavior_folder>] [--c=<path_to_cache_file>] [--n=<path_to_additional_nifs>] [--e=<path_to_export>] \r\n";
 
 	const char help[] =
 		R"(Converts an HKX skeleton to FBX.
@@ -57,7 +57,7 @@ string ExportRig::GetHelp() const
 			--n=<path_to_additional_nifs>, --nifs <path_to_additional_nifs>  optional meshes to load on the rig
 			--c=<path_to_cache_file>, --cache <path_to_cache_file> necessary to extract root motion into animations
 			--b=<path_to_behavior_folder>, --behavior <path_to_behavior_folder> necessary to extract root motion
-			--e=<path_to_export>, --export-dir <path_to_export>  optional export path
+			--e=<path_to_export>, --export-dir <path_to_export>  optional export path, can be either a directory or fbx filepath
 
 		)";
 	return usage + help;
@@ -65,7 +65,7 @@ string ExportRig::GetHelp() const
 
 string ExportRig::GetHelpShort() const
 {
-	return "TODO: Short help message for ImportFBX";
+	return "Converts an HKX skeleton to FBX";
 }
 
 bool ExportRig::InternalRunCommand(map<string, docopt::value> parsedArgs)
@@ -116,17 +116,23 @@ bool BeginConversion(const string& importSkeleton,
 	const string& exportPath
 ) {
 	if (!fs::exists(importSkeleton) || !fs::is_regular_file(importSkeleton)) {
-		Log::Warn("Invalid HKX skeelton file: %s", importSkeleton.c_str());
+		Log::Warn("Invalid HKX skeleton file: %s", importSkeleton.c_str());
 	}
-	fs::path outputDir = fs::path(exportPath);
-	if (!fs::exists(outputDir) || !fs::is_directory(outputDir)) {
-		Log::Info("Invalid Directory: %s, using current_dir", exportPath.c_str());
-		outputDir = fs::current_path();
+
+	fs::path import_skeleton_path = fs::path(importSkeleton);
+	fs::path out_path = fs::path(exportPath);
+	if (fs::is_directory(out_path))
+	{
+		if (!fs::exists(out_path) || !fs::is_directory(out_path)) {
+			Log::Info("Invalid Directory: %s, using skeleton.hkx directory", exportPath.c_str());
+			out_path = import_skeleton_path.parent_path();
+		}
+		fs::create_directories(out_path);
+		out_path = out_path / import_skeleton_path.filename().replace_extension(".fbx");
 	}
 
 	FBXWrangler wrangler;
 	wrangler.NewScene();
-
 
 	wrangler.setExportRig(true);
 	vector<FbxProperty> floats;
@@ -193,8 +199,9 @@ bool BeginConversion(const string& importSkeleton,
 
 				if (!importSkeletonNif.empty())
 					anim_wrangler.ApplySkeletonScaling(NifFile(importSkeletonNif));
+				
 
-				anim_wrangler.ExportScene(out_path.string().c_str());
+				anim_wrangler.ExportScene(exportPath.c_str());
 			}
 		}
 	}
@@ -223,9 +230,7 @@ bool BeginConversion(const string& importSkeleton,
 		wrangler.ApplySkeletonScaling(mesh);
 	}
 
-	fs::path out_path = outputDir / fs::path(importSkeleton).filename().replace_extension(".fbx");
-	fs::create_directories(outputDir);
-	wrangler.ExportScene(out_path.string().c_str());
+	wrangler.ExportScene(exportPath.c_str());
 
 	return true;
 }

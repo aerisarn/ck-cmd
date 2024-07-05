@@ -41,15 +41,15 @@ string ExportFBX::GetHelp() const
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
 
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_nif> [-e <path_to_export>] [-t <path_to_textures>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_nif> [--e=<path_to_export>] [--t=<path_to_textures>]\r\n";
 
 	const char help[] =
 		R"(Converts NIF format to FBX.
 		
 		Arguments:
 			<path_to_nif> the NIF to convert
-			<path_to_export> path to the output directory
-			<path_to_textures> path to the folder with extracted texture (usually Skyrim Data subfolder)
+			--t=<path_to_textures>, --textures <path_to_textures>  Path to the folder with extracted texture (usually Skyrim Data subfolder)
+			--e=<path_to_export>, --export-dir <path_to_export>  optional export path
 
 		)";
     return usage + help;
@@ -57,7 +57,7 @@ string ExportFBX::GetHelp() const
 
 string ExportFBX::GetHelpShort() const
 {
-    return "TODO: Short help message for ExportFBX";
+    return "Converts NIF format to FBX";
 }
 
 bool ExportFBX::InternalRunCommand(map<string, docopt::value> parsedArgs)
@@ -71,10 +71,10 @@ bool ExportFBX::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		return false;
 	}
 	importNIF = parsedArgs["<path_to_nif>"].asString();
-	if (parsedArgs.find("-e") != parsedArgs.end() && parsedArgs["-e"].asBool())
-		exportPath = parsedArgs["<path_to_export>"].asString();
-	if (parsedArgs.find("-t") != parsedArgs.end() && parsedArgs["-t"].asBool())
-		texturePath = parsedArgs["<path_to_textures>"].asString();
+	if (parsedArgs["--e"].isString())
+		exportPath = parsedArgs["--e"].asString();
+	if (parsedArgs["--t"].isString())
+		texturePath = parsedArgs["--t"].asString();
 
 	InitializeHavok();
 	BeginConversion(importNIF, exportPath, texturePath);
@@ -88,14 +88,17 @@ bool BeginConversion(string importNIF, string exportPath, string texturePath) {
 		Log::Info("Invalid file: %s", nifModelpath.c_str());
 		return false;
 	}
-	fs::path outputDir = fs::path(exportPath);
-	if (!fs::exists(outputDir) || !fs::is_directory(outputDir)) {
-		Log::Info("Invalid Directory: %s, using current_dir", exportPath.c_str());
-		outputDir = fs::current_path();
-	}
 
-	fs::path out_path = outputDir / nifModelpath.filename().replace_extension(".fbx");
-	fs::create_directories(outputDir);
+	fs::path out_path = fs::path(exportPath);
+	if (fs::is_directory(out_path))
+	{
+		if (!fs::exists(out_path) || !fs::is_directory(out_path)) {
+			Log::Info("Invalid Directory: %s, using nif directory", exportPath.c_str());
+			out_path = nifModelpath.parent_path();
+		}
+		fs::create_directories(out_path);
+		out_path = out_path / nifModelpath.filename().replace_extension(".fbx");
+	}
 
 	FBXWrangler wrangler;
 	wrangler.texture_path = texturePath;
