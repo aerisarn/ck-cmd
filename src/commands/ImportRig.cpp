@@ -81,7 +81,12 @@ bool ImportRig::InternalRunCommand(map<string, docopt::value> parsedArgs)
 	InitializeHavok();
 	FBXWrangler wrangler;
 	wrangler.setExportRig();
-	if (wrangler.ImportScene(importSkeleton.c_str(), exportSkeleton.c_str(), exportLegacySkeleton.c_str()))
+
+	FBXImportOptions options{ };
+	options.ExportSkeleton = in_path;
+	options.ExportLegacySkeleton = exportLegacySkeleton;
+
+	if (wrangler.ImportScene(importSkeleton.c_str(), options))
 	{
 		wrangler.SaveNif(exportSkeletonNif);
 	}
