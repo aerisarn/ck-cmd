@@ -779,7 +779,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 
 	map<string, Sk::MOVTRecord*> movts;
 	map<string, Sk::SNDRRecord*> sndrs;
-	map<string, Sk::IDLERecord*> idles;
+	map<FORMID, Sk::IDLERecord*> idles;
 	map<string, Sk::SOUNRecord*> souns;
 	for (auto idle_record_it = skyrimCollection.FormID_ModFile_Record.begin(); idle_record_it != skyrimCollection.FormID_ModFile_Record.end(); idle_record_it++)
 	{
@@ -848,8 +848,8 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 					this_idle->DNAM.value = new char[strlen(this_behavior) + 1];
 					strcpy(this_idle->DNAM.value, this_behavior);
 				}
-				if (idles.insert({ string(this_idle->EDID.value),this_idle }).second)
-					Log::Info("Found IDLE to retarget: %s", this_idle->EDID.value);;
+				if (idles.insert({ this_idle->formID,this_idle }).second)
+					Log::Info("Found IDLE to retarget: %s", this_idle->EDID.value != nullptr ? this_idle->EDID.value : "Nameless Entry");
 			}
 		}
 	}
@@ -970,17 +970,20 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 
 	for (auto& idle_it : idles) {
 		auto idle = idle_it.second;
-		std::string new_name = idle->EDID.value;
-		std::string::size_type n = 0;
-
-		if (lower_find_all(new_name, old_names) != std::string::npos)
+		std::string new_name{};
+		if (idle->EDID.value != nullptr)
 		{
-			new_name = replace_all(new_name, old_names, output_havok_project_name);
-		}
-		else {
-			new_name = output_havok_project_name + new_name;
-		}
+			new_name = idle->EDID.value;
+			std::string::size_type n = 0;
 
+			if (lower_find_all(new_name, old_names) != std::string::npos)
+			{
+				new_name = replace_all(new_name, old_names, output_havok_project_name);
+			}
+			else {
+				new_name = output_havok_project_name + new_name;
+			}
+		}
 		const int nn = new_name.length();
 
 		// declaring character array 
@@ -989,7 +992,6 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		// copying the contents of the 
 		// string to char array 
 		strcpy(char_array, new_name.c_str());
-
 		Record* to_copy = static_cast<Record*>(idle);
 
 		Record* result = skyrimCollection.CopyRecord(to_copy, skyrimMod, NULL, NULL, char_array, 0);
@@ -998,7 +1000,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		result->IsChanged(true);
 		retargeted[idle->formID] = copied->formID;
 		new_records.push_back(copied);
-		copied->EDID.value = char_array;
+		copied->EDID.value = idle->EDID.value != nullptr ? char_array : nullptr;
 		copied->ANAM = idle->ANAM;
 		copied->CTDA = idle->CTDA;
 		copied->DATA = idle->DATA;
