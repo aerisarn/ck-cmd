@@ -19,13 +19,13 @@ jobs:
 
     steps:
     - name: Install Qt
-      uses: jurplel/install-qt-action@v3
+      uses: jurplel/install-qt-action@v4
       
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: "recursive"
     
-    - uses: suisei-cn/actions-download-file@v1.3.0
+    - uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9 # 1.6.0
       id: downloadlibs
       name: Download dependency packages
       with:
@@ -41,7 +41,7 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target ck-cmd
       
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: ck-cmd-build
         path: |
