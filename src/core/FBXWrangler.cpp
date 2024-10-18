@@ -5787,12 +5787,42 @@ bool FBXWrangler::SaveSkin(const string& fileName) {
 	return true;
 }
 
-bool FBXWrangler::SaveNif(const string& fileName) {
+bool FBXWrangler::SaveNif(const string& fileName, bool mergeNodes) {
 
 	NifInfo info;
 	info.userVersion = 12;
 	info.userVersion2 = 83;
 	info.version = Niflib::VER_20_2_0_7;
+
+	// Simplify the nif tree by merging nested NiNodes (1-level depth only)
+	if (mergeNodes)
+	{
+		vector<NiAVObjectRef> rootTr;
+		auto ed_list = conversion_root->GetExtraDataList();
+		for (auto& rc : conversion_root->GetChildren())
+		{
+			if (rc->IsSameType(NiNode::TYPE))
+			{
+				NiNodeRef nrc = Niflib::DynamicCast<NiNode>(rc);
+				for (auto& ed : nrc->GetExtraDataList())
+				{
+					ed_list.push_back(ed);
+				}
+				for (auto& c : nrc->GetChildren())
+				{
+					c->SetTranslation(nrc->GetTranslation());
+					c->SetRotation(nrc->GetRotation());
+					c->SetScale(nrc->GetScale());
+					rootTr.push_back(c);
+				}
+			}
+			else
+				rootTr.push_back(rc);
+
+			conversion_root->SetExtraDataList(ed_list);
+		}
+		conversion_root->SetChildren(rootTr);
+	}
 
 	vector<NiObjectRef> objects = RebuildVisitor(conversion_root, info).blocks;
 	bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(objects, info);

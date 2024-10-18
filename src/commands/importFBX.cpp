@@ -18,7 +18,7 @@ using namespace ckcmd::FBX;
 using namespace ckcmd::info;
 using namespace ckcmd::BSA;
 
-static bool BeginConversion(string importPath, string exportPath);
+static bool BeginConversion(string importPath, string exportPath, bool simplifyNodes);
 static void InitializeHavok();
 static void CloseHavok();
 
@@ -42,42 +42,44 @@ string ImportFBX::GetHelp() const
     transform(name.begin(), name.end(), name.begin(), ::tolower);
 
     // Usage: ck-cmd exportfbx
-    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_fbx> [-e <path_to_export>]\r\n";
+    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_fbx> [-e <path_to_export>] [-z]\r\n";
 
 	const char help[] =
 		R"(Converts FBX format to NIF.
 		
 		Arguments:
 			<path_to_fbx> the FBX to convert
-			<path_to_export> path to the output directory
-
+			<-e path_to_export> path to the output directory
+			<-z> simplify node structure
 		)";
     return usage + help;
 }
 
 string ImportFBX::GetHelpShort() const
 {
-    return "TODO: Short help message for ImportFBX";
+    return "Converts FBX to NIF format";
 }
 
 bool ImportFBX::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	//We can improve this later, but for now this i'd say this is a good setup.
 	string importFBX, exportPath;
+	bool simplifyNodes{ false };
 
 	importFBX = parsedArgs["<path_to_fbx>"].asString();
 	exportPath = parsedArgs["<path_to_export>"].asString();
+	simplifyNodes = parsedArgs["-z"].asBool();
 
 	InitializeHavok();
-	BeginConversion(importFBX, exportPath);
+	BeginConversion(importFBX, exportPath, simplifyNodes);
 	CloseHavok();
 	return true;
 }
 
-bool BeginConversion(string importFBX, string exportPath) {
+bool BeginConversion(string importFBX, string exportPath, bool simplifyNodes) {
 	fs::path fbxModelpath = fs::path(importFBX);
 	if (!fs::exists(fbxModelpath) || !fs::is_regular_file(fbxModelpath)) {
-		Log::Info("Invalid file: %s", fbxModelpath.c_str());
+		Log::Info("Invalid file: %s", importFBX.c_str());
 		return false;
 	}
 	fs::path outputDir = fs::path(exportPath);
@@ -92,10 +94,10 @@ bool BeginConversion(string importFBX, string exportPath) {
 
 		fs::path out_path = outputDir / fbxModelpath.filename().replace_extension(".nif");
 		fs::create_directories(outputDir);
-		wrangler.SaveNif(out_path.string());
+		wrangler.SaveNif(out_path.string(), simplifyNodes);
 	}
 	else {
-		Log::Error("Invalid FBX File: %s", fbxModelpath.string().c_str());
+		Log::Error("Invalid FBX File: %s", importFBX.c_str());
 	}
 
 }

@@ -44,7 +44,7 @@ string CacheGen::GetHelp() const
 
 string CacheGen::GetHelpShort() const
 {
-	return "Splits animation cache files";
+	return "Generate animation cache files";
 }
 
 bool CacheGen::InternalRunCommand(map<string, docopt::value> parsedArgs)
