@@ -46,6 +46,7 @@ See the included LICENSE file
 #include <Common\Internal\ConvexHull\hkGeometryUtility.h>
 #include <Common\GeometryUtilities\Misc\hkGeometryUtils.h>
 
+#include <Miniball.hpp>
 
 
 
@@ -3363,22 +3364,22 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const std::string
 		data->SetHasVertices(true);
 		data->SetVertices(verts);
 
-		//lets recalculate center;
-		Vector3 center;
-		for (const Vector3& v : verts) {
-			center += v;
+		// Calculate the bounding sphere for this set of vertices
+		using vType = vector<std::array<float, 3>>;
+		vType vectorPoints;
+		for (const Vector3 & v : verts) {
+			vectorPoints.push_back({ v.x, v.y, v.z });
 		}
-		center /= verts.size();
 
-		//and then rad;
-		float radius = 0.0f;
-		for (const Vector3& v : verts) {
-			float z;
-			if ((z = (center - v).Magnitude()) > radius)
-				radius = z;
-		}
+	    typedef Miniball::Miniball<Miniball::CoordAccessor<vType::iterator,
+			vType::value_type::iterator>> MB;
+		MB mb(std::size(vectorPoints[0]), vectorPoints.begin(), vectorPoints.end());
+
+		auto pCenter = mb.center();
+		Vector3 center{ pCenter[0], pCenter[1], pCenter[2] };
+
 		data->SetCenter(center);
-		data->SetRadius(radius);
+		data->SetRadius(sqrtf(mb.squared_radius()));
 	}
 
 	if (tris.size()) {
