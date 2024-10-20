@@ -41,18 +41,19 @@ string ImportFBX::GetHelp() const
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
 
-    // Usage: ck-cmd exportfbx
-    string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_fbx> [-e <path_to_export>] [-z]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_fbx> [--export-dir=<path_to_export>] [--simplify]\r\n";
 
 	const char help[] =
-		R"(Converts FBX format to NIF.
+		R"(Converts NIF format to FBX.
 		
 		Arguments:
-			<path_to_fbx> the FBX to convert
-			<-e path_to_export> path to the output directory
-			<-z> simplify node structure
+			<path_to_fbx> the NIF to convert
+        Options:
+			-e, --export-dir=<path_to_export>  optional export path [default: ./]
+			-z, --simplify  Simplify output node structure
+
 		)";
-    return usage + help;
+	return usage + help;
 }
 
 string ImportFBX::GetHelpShort() const
@@ -67,8 +68,9 @@ bool ImportFBX::InternalRunCommand(map<string, docopt::value> parsedArgs)
 	bool simplifyNodes{ false };
 
 	importFBX = parsedArgs["<path_to_fbx>"].asString();
-	exportPath = parsedArgs["<path_to_export>"].asString();
-	simplifyNodes = parsedArgs["-z"].asBool();
+	exportPath = parsedArgs["--export-dir"].asString();
+	if(parsedArgs["--simplify"].isBool())
+		simplifyNodes = parsedArgs["--simplify"].asBool();
 
 	InitializeHavok();
 	BeginConversion(importFBX, exportPath, simplifyNodes);
