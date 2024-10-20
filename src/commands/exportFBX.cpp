@@ -41,15 +41,16 @@ string ExportFBX::GetHelp() const
     string name = GetName();
     transform(name.begin(), name.end(), name.begin(), ::tolower);
 
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_nif> [--e=<path_to_export>] [--t=<path_to_textures>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_nif> [--export-dir=<path_to_export>] [--texture-dir=<path_to_textures>]\r\n";
 
 	const char help[] =
 		R"(Converts NIF format to FBX.
 		
 		Arguments:
 			<path_to_nif> the NIF to convert
-			--t=<path_to_textures>, --textures <path_to_textures>  Path to the folder with extracted texture (usually Skyrim Data subfolder)
-			--e=<path_to_export>, --export-dir <path_to_export>  optional export path
+        Options:
+			-e, --export-dir=<path_to_export>  optional export path
+			-t, --texture-dir=<path_to_textures>  Path to the folder with extracted texture (usually Skyrim Data subfolder)
 
 		)";
     return usage + help;
@@ -71,10 +72,10 @@ bool ExportFBX::InternalRunCommand(map<string, docopt::value> parsedArgs)
 		return false;
 	}
 	importNIF = parsedArgs["<path_to_nif>"].asString();
-	if (parsedArgs["--e"].isString())
-		exportPath = parsedArgs["--e"].asString();
-	if (parsedArgs["--t"].isString())
-		texturePath = parsedArgs["--t"].asString();
+	if (parsedArgs["--export-dir"].isString())
+		exportPath = parsedArgs["--export-dir"].asString();
+	if (parsedArgs["--texture-dir"].isString())
+		texturePath = parsedArgs["--texture-dir"].asString();
 
 	InitializeHavok();
 	BeginConversion(importNIF, exportPath, texturePath);
