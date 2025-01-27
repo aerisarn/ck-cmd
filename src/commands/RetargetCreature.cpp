@@ -1,6 +1,6 @@
-#include <src/Skyrim/TES5File.h>
-#include <src/Collection.h>
-#include <src/ModFile.h>
+#include <Skyrim/TES5File.h>
+#include <Collection.h>
+#include <ModFile.h>
 
 #include <commands/RetargetCreature.h>
 
@@ -74,6 +74,17 @@ size_t lower_find(const string& source, const string& pattern)
 	return std::string::npos;
 }
 
+size_t lower_find_all(const string& source, const std::vector<string>& patterns)
+{
+	string::size_type n{ string::npos };
+	for (const auto& s : patterns)
+	{
+		n = lower_find(source, s);
+		if (n != string::npos) break;
+	}
+	return n;
+}
+
 string replace_all(const string& source, const string& pattern, const string& new_pattern)
 {
 	string result = source;
@@ -89,6 +100,27 @@ string replace_all(const string& source, const string& pattern, const string& ne
 		n += new_pattern.size();
 	}
 	return result;
+}
+
+string replace_all(const string& source, const std::vector<string>& old_patterns, const string& new_pattern)
+{
+	std::string acc{source};
+	for (const auto& s : old_patterns)
+	{
+		acc = replace_all(acc, s, new_pattern);
+	}
+	return acc;
+}
+
+fs::path get_parent_dir(const fs::path& input, const string& folder)
+{
+	auto retval{ input.string()};
+	size_t offset = retval.find(folder);
+	if (offset == string_view::npos)
+	{
+		return fs::path{};
+	}
+	return fs::path{ retval.substr(0, offset+folder.length()) };
 }
 
 template<typename T>
@@ -287,6 +319,7 @@ void extract_clips(BSAFile& bsa_file, const string& behavior_path, const fs::pat
 }
 
 
+
 bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
 	string source_havok_project_cache = "", source_havok_project_folder = "", output_havok_project_name = "", skyrim_le_folder = "";
@@ -319,7 +352,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	Log::Info("Loading cache, loading %s and %s", animDataPath.string().c_str(), animDataSetPath.string().c_str());
 	AnimationCache cache(animDataPath, animDataSetPath);
 	Log::Info("Loaded. Creating target dir: %s", output_havok_project_name.c_str());
-	fs::path output = fs::path(".") / output_havok_project_name;
+	fs::path output = fs::current_path() / output_havok_project_name;
 	fs::create_directories(output);
 	vector<fs::path> projects;
 	find_files_non_recursive(source_havok_project_folder, ".hkx", projects);
@@ -358,9 +391,29 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		Log::Error("Havok project file contains no character file, exiting");
 		return false;
 	}
-	string old_name = fs::path(source_havok_project_folder).filename().string();//hk_ch_root->m_stringData->m_name;
+
+	string old_name = fs::canonical(source_havok_project_folder).filename().string();//hk_ch_root->m_stringData->m_name;
 	camel(old_name);
-	new_char_name = replace_all(string(sdata->m_characterFilenames[0].cString()), old_name, output_havok_project_name);
+
+	/* This is where character specific name variants should be handled
+	 * ie. werewolf is referred to as werewolfbeast in some places
+	 */
+	map<string, vector<string>, ci_less> altNameCache = {
+		{"Werewolfbeast", {"Werewolfbeast", "Werewolf"}},
+		{"Dragonpriest", {"Dragonpriest", "Dragon_Priest", "DPriest" }},
+		{"BenthicLurker", {"BenthicLurker", "Fishman" }},
+		{"Mudcrab", {"Mudcrab", "Mcrab", "Crab"}},
+		{"Hagraven", {"Hagraven", "Havgraven"}}
+	};
+
+	if (altNameCache.find(old_name) == altNameCache.end())
+	{
+		altNameCache.emplace(old_name, vector<string>{ old_name });
+	}
+
+	const auto& old_names = altNameCache[old_name];
+
+	new_char_name = replace_all(string(sdata->m_characterFilenames[0].cString()), old_names, output_havok_project_name);
 	retarget_map[string(sdata->m_characterFilenames[0].cString())] = new_char_name.string();
 	Log::Info("Project's character: %s, new name: %s", sdata->m_characterFilenames[0], new_char_name.string().c_str());
 	sdata->m_characterFilenames[0] = new_char_name.string().c_str();
@@ -378,7 +431,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	hk_ch_root->m_stringData->m_name = output_havok_project_name.c_str();
 
 	string old_behavior_name = hk_ch_root->m_stringData->m_behaviorFilename.cString();
-	fs::path new_behavior_relative_path = fs::path(old_behavior_name).parent_path() / fs::path(replace_all(old_behavior_name, old_name, output_havok_project_name)).filename();
+	fs::path new_behavior_relative_path = fs::path(old_behavior_name).parent_path() / fs::path(replace_all(old_behavior_name, old_names, output_havok_project_name)).filename();
 	retarget_map[old_behavior_name] = new_behavior_relative_path.string();
 	fs::path old_behavior_file = fs::path(source_havok_project_folder) / old_behavior_name;
 	hk_ch_root->m_stringData->m_behaviorFilename = new_behavior_relative_path.string().c_str();
@@ -394,7 +447,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		fs::create_directories(fs::path(fs::path(output) / string(hk_ch_root->m_stringData->m_rigName)).parent_path());
 		wrapper.write(rig_root, output / string(hk_ch_root->m_stringData->m_rigName));
 	}
-
+	set<string> retarget_SOUN;
 	//Check paired
 	for (int i = 0; i < hk_ch_root->m_stringData->m_animationNames.getSize(); i++)
 	{
@@ -403,51 +456,54 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			Log::Warn("found an animation outside of the creature folder: %s", name.c_str());
 			//these animations are not in the current copied folder
 			//do they contain the old name?
-			if (lower_find(name, old_name) != string::npos) {
-				string new_name = name;
-				new_name = replace_all(new_name, old_name, output_havok_project_name);
-				Log::Info("Will substitute %s references with %s", name.c_str(), new_name.c_str());
-				hk_ch_root->m_stringData->m_animationNames[i] = new_name.c_str();
-				retarget_map[name] = new_name;
-				if (fs::exists(fs::path(source_havok_project_folder) / name) &&
-					fs::is_regular_file(fs::path(source_havok_project_folder) / name))
-				{
-					Log::Info("Found %s", (fs::path(source_havok_project_folder) / name).string().c_str());					
-					hkRootLevelContainer* root = NULL;
-					hkArray<hkVariant> objects;
-					hkRefPtr<hkaAnimationContainer> hkroot = wrapper.load<hkaAnimationContainer>(fs::path(source_havok_project_folder) / name, root, objects);
-					//retarget events
-					for (int o = 0; o < objects.getSize(); o++)
+			for (const auto& old_paired : old_names)
+			{
+				if (lower_find(name, old_paired) != string::npos) {
+					string new_name = name;
+					new_name = replace_all(new_name, old_paired, output_havok_project_name);
+					Log::Info("Will substitute %s references with %s", name.c_str(), new_name.c_str());
+					hk_ch_root->m_stringData->m_animationNames[i] = new_name.c_str();
+					retarget_map[name] = new_name;
+					if (fs::exists(fs::path(source_havok_project_folder) / name) &&
+						fs::is_regular_file(fs::path(source_havok_project_folder) / name))
 					{
-						if (objects[o].m_class == &hkaSplineCompressedAnimationClass) {
-							hkaSplineCompressedAnimation* anim = (hkaSplineCompressedAnimation*)objects[o].m_object;
-							for (int e = 0; e < anim->m_annotationTracks.getSize(); e++) {
-								auto& annotation = anim->m_annotationTracks[e];
-								for (int a = 0; a < annotation.m_annotations.getSize(); a++) {
-									auto& a_object = annotation.m_annotations[a];
-									string text = a_object.m_text;
-									text = replace_all(text, old_name, output_havok_project_name);
-									a_object.m_text = text.c_str();
+						Log::Info("Found %s", (fs::path(source_havok_project_folder) / name).string().c_str());
+						hkRootLevelContainer* root = NULL;
+						hkArray<hkVariant> objects;
+						hkRefPtr<hkaAnimationContainer> hkroot = wrapper.load<hkaAnimationContainer>(fs::path(source_havok_project_folder) / name, root, objects);
+						//retarget events
+						for (int o = 0; o < objects.getSize(); o++)
+						{
+							if (objects[o].m_class == &hkaSplineCompressedAnimationClass) {
+								hkaSplineCompressedAnimation* anim = (hkaSplineCompressedAnimation*)objects[o].m_object;
+								for (int e = 0; e < anim->m_annotationTracks.getSize(); e++) {
+									auto& annotation = anim->m_annotationTracks[e];
+									for (int a = 0; a < annotation.m_annotations.getSize(); a++) {
+										auto& a_object = annotation.m_annotations[a];
+										string text = a_object.m_text;
+										text = replace_all(text, old_name, output_havok_project_name);
+										a_object.m_text = text.c_str();
+									}
 								}
 							}
 						}
-					}
-					
-					if (hkroot == NULL)
-					{
-						Log::Error("Unable to load havok project file: %s", project_file.string().c_str());
+
+						if (hkroot == NULL)
+						{
+							Log::Error("Unable to load havok project file: %s", project_file.string().c_str());
+						}
+						else {
+							string out = new_name;
+							transform(out.begin(), out.end(), out.begin(), ::tolower);
+							fs::create_directories(fs::path(new_name).parent_path());
+							wrapper.write(root, out);
+						}
+
+						Log::Info("Copied (and upgraded) into %s", fs::canonical(new_name).string().c_str());
 					}
 					else {
-						string out = new_name;
-						transform(out.begin(), out.end(), out.begin(), ::tolower);
-						fs::create_directories(fs::path(new_name).parent_path());
-						wrapper.write(root, out);
+						Log::Error("COULD NOT FIND %s, copy it and rename manually (and upgrade if LE format)", (fs::path(source_havok_project_folder) / name).string().c_str());
 					}
-					
-					Log::Info("Copied (and upgraded) into %s", fs::canonical(new_name).string().c_str());
-				}
-				else {
-					Log::Error("COULD NOT FIND %s, copy it and rename manually (and upgrade if LE format)", (fs::path(source_havok_project_folder) / name).string().c_str());
 				}
 			}
 		}
@@ -465,9 +521,14 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 						auto& annotation = anim->m_annotationTracks[e];
 						for (int a = 0; a < annotation.m_annotations.getSize(); a++) {
 							auto& a_object = annotation.m_annotations[a];
-							string text = a_object.m_text;
-							text = replace_all(text, old_name, output_havok_project_name);
+							string old_text = a_object.m_text;
+							string text = replace_all(old_text, old_name, output_havok_project_name);
 							a_object.m_text = text.c_str();
+
+							if (text.find("SoundPlay.") == 0) {
+								retarget_SOUN.insert(old_text.substr(sizeof("SoundPlay.") - 1, old_text.size()));
+								retarget_map[old_text] = text;
+							}
 						}
 					}
 				}
@@ -510,13 +571,17 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			to_crc = to_crc.substr(0, to_crc.size() - 1);
 		long long crc = stoll(HkCRC::compute(to_crc),NULL,16);
 		string crc_str = to_string(crc);
+		//This is bound to occur often
+		if (retarget_map.find(crc_str) != retarget_map.end())
+			continue;
 		//new
 		string lower_output = output_havok_project_name;
 		transform(lower_output.begin(), lower_output.end(), lower_output.begin(), ::tolower);
 		string lower_project = fs::path(source_havok_project_folder).filename().string();
 		transform(lower_project.begin(), lower_project.end(), lower_project.begin(), ::tolower);
 		string new_to_crc = to_crc;
-		new_to_crc = replace_all(new_to_crc, lower_project, lower_output);
+		new_to_crc = replace_all(new_to_crc, old_names, lower_output);
+
 		long long new_crc = stoll(HkCRC::compute(new_to_crc), NULL, 16);
 		string new_crc_str = to_string(new_crc);
 		retarget_map[crc_str] = new_crc_str;
@@ -526,33 +591,37 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	wrapper.write(root, output / new_char_name);
 	fs::path old_behavior_dir = source_havok_project_folder / fs::path(old_behavior_name).parent_path();
 	vector<fs::path> behaviors;
-	set<string> retarget_SOUN;
 	set<string> retarget_MOVT;
 	find_files_non_recursive(old_behavior_dir, ".hkx", behaviors);
 	for (const auto& file : behaviors) {
 		hkArray<hkVariant> objects;
 		hkRootLevelContainer* root = NULL;
 		hkRefPtr<hkbBehaviorGraph> bhkroot = wrapper.load<hkbBehaviorGraph>(file, root, objects);
+		if (bhkroot->m_data == nullptr)
+		{
+			continue; // Avoid crashes caused by LOD behaviors
+		}
 		Log::Info("Graph: %s", bhkroot->m_name);
 		Log::Info("Retargeting Events:");
 		for (int i = 0; i < bhkroot->m_data->m_stringData->m_eventNames.getSize(); i++)
 		{
 			string event_name = bhkroot->m_data->m_stringData->m_eventNames[i];
-			if (lower_find(event_name,old_name) != string::npos)
+
+			if (lower_find_all(event_name, old_names) != string::npos)
 			{
 				string new_name = event_name;
-				new_name = replace_all(new_name, old_name, output_havok_project_name);
+				new_name = replace_all(new_name, old_names, output_havok_project_name);
 				Log::Info("Will substitute %s references with %s", event_name.c_str(), new_name.c_str());
 				if (event_name.find("SoundPlay.") == 0)
-					retarget_SOUN.insert(event_name.substr(sizeof("SoundPlay.")-1, event_name.size()));
-				retarget_map[string(bhkroot->m_data->m_stringData->m_eventNames[i])] = new_name;
+					retarget_SOUN.insert(event_name.substr(sizeof("SoundPlay.") - 1, event_name.size()));
+				retarget_map[event_name] = new_name;
 				bhkroot->m_data->m_stringData->m_eventNames[i] = new_name.c_str();
 			}
 			else if (event_name.find("SoundPlay.") == 0) {
 				string new_name = "SoundPlay." + output_havok_project_name + event_name.substr(event_name.find(".") + 1, event_name.length() - event_name.find(".") - 1);
 				Log::Info("Will substitute %s references with %s", event_name.c_str(), new_name.c_str());
 				retarget_SOUN.insert(event_name.substr(sizeof("SoundPlay.") - 1, event_name.size()));
-				retarget_map[string(bhkroot->m_data->m_stringData->m_eventNames[i])] = new_name;
+				retarget_map[event_name] = new_name;
 				bhkroot->m_data->m_stringData->m_eventNames[i] = new_name.c_str();
 			}
 		}
@@ -560,10 +629,10 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		for (int i = 0; i < bhkroot->m_data->m_stringData->m_variableNames.getSize(); i++)
 		{
 			string variable_name = bhkroot->m_data->m_stringData->m_variableNames[i];
-			if (lower_find(variable_name,old_name) != string::npos)
+			if (lower_find_all(variable_name,old_names) != string::npos)
 			{
 				string new_name = variable_name;
-				new_name = replace_all(new_name, old_name, output_havok_project_name);
+				new_name = replace_all(new_name, old_names, output_havok_project_name);
 				Log::Info("Will substitute %s references with %s", variable_name.c_str(), new_name.c_str());
 				if (variable_name.find("iState_") == 0) {
 					retarget_MOVT.insert(variable_name.substr(sizeof("iState_") - 1, variable_name.size()));
@@ -586,6 +655,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			}
 
 		}
+
 		for (const auto& object : objects)
 		{
 			if (hkbClipGenerator::staticClass().getSignature() == object.m_class->getSignature())
@@ -599,7 +669,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 					clip->m_animationName = it->second.c_str();
 				}
 				string clip_name = clip->m_name;
-				clip_name = replace_all(clip_name, old_name, output_havok_project_name);
+				clip_name = replace_all(clip_name, old_names, output_havok_project_name);
 				clip->m_name = clip_name.c_str();
 			}
 			if (BSSynchronizedClipGenerator::staticClass().getSignature() == object.m_class->getSignature())
@@ -607,7 +677,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				hkRefPtr<BSSynchronizedClipGenerator> clip = (BSSynchronizedClipGenerator*)object.m_object;
 
 				string clip_name = clip->m_name;
-				clip_name = replace_all(clip_name, old_name, output_havok_project_name);
+				clip_name = replace_all(clip_name, old_names, output_havok_project_name);
 				clip->m_name = clip_name.c_str();
 			}
 			if (hkbExpressionDataArray::staticClass().getSignature() == object.m_class->getSignature())
@@ -617,10 +687,10 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 				{
 					auto data = expression->m_expressionsData[i];
 					string expression_string = expression->m_expressionsData[i].m_expression;
-					if (lower_find(expression_string,old_name) != string::npos)
+					if (lower_find_all(expression_string, old_names) != string::npos)
 					{
 						string new_name = expression_string;
-						new_name = replace_all(new_name, old_name, output_havok_project_name);
+						new_name = replace_all(new_name, old_names, output_havok_project_name);
 						Log::Info("Will substitute %s expression with %s", expression_string.c_str(), new_name.c_str());
 						expression->m_expressionsData[i].m_expression = new_name.c_str();
 					}
@@ -644,11 +714,11 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	auto cache_ptr = cache.cloneCreature(cache_name, output_havok_project_lower_name + "project");
 	//retarget caches
 	auto block = cache_ptr->block.toASCII();
-	block = replace_all(block, old_name, output_havok_project_name);
+	block = replace_all(block, old_names, output_havok_project_name);
 	cache_ptr->block.clear();
 	cache_ptr->block.fromASCII(block);
 	auto set_block = cache_ptr->sets.getBlock();
-	set_block = replace_all(set_block, old_name, output_havok_project_name);
+	set_block = replace_all(set_block, old_names, output_havok_project_name);
 	//adjust crc
 	for (const auto& it : retarget_map) {
 		string token = it.first;
@@ -657,7 +727,8 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	cache_ptr->sets.clear();
 	cache_ptr->sets.parseBlock(scannerpp::Scanner(set_block));
 
-	cache.save_creature(output_havok_project_name + "project", cache_ptr, "animationdatasinglefile.txt", "animationsetdatasinglefile.txt");
+	cache.save_creature(output_havok_project_name + "project", cache_ptr, "animationdatasinglefile.txt",
+		"animationsetdatasinglefile.txt");
 
 
 	Games& games = Games::Instance();
@@ -708,7 +779,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 
 	map<string, Sk::MOVTRecord*> movts;
 	map<string, Sk::SNDRRecord*> sndrs;
-	map<string, Sk::IDLERecord*> idles;
+	map<FORMID, Sk::IDLERecord*> idles;
 	map<string, Sk::SOUNRecord*> souns;
 	for (auto idle_record_it = skyrimCollection.FormID_ModFile_Record.begin(); idle_record_it != skyrimCollection.FormID_ModFile_Record.end(); idle_record_it++)
 	{
@@ -726,7 +797,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			string SDless = string(sndr->EDID.value).substr(0, string(sndr->EDID.value).size() - 2);
 			if (retarget_SOUN.find(SDless) != retarget_SOUN.end() || retarget_SOUN.find(string(sndr->EDID.value)) != retarget_SOUN.end())
 			{
-				Log::Info("Found SOUN to retarget: %s", sndr->EDID.value);
+				Log::Info("Found SNDR to retarget: %s", sndr->EDID.value);
 				sndrs[string(sndr->EDID.value)] = sndr;
 			}
 		}
@@ -735,7 +806,7 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 			string SDless = string(soun->EDID.value).substr(0, string(soun->EDID.value).size() - 2);
 			if (retarget_SOUN.find(SDless) != retarget_SOUN.end() || retarget_SOUN.find(string(soun->EDID.value)) != retarget_SOUN.end())
 			{
-				Log::Info("Found SNDR to retarget: %s", soun->EDID.value);
+				Log::Info("Found SOUN to retarget: %s", soun->EDID.value);
 				souns[string(soun->EDID.value)] = soun;
 			}
 		}
@@ -749,13 +820,13 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 					parent->DNAM.Load();
 				auto behavior = parent->DNAM.value;
 				if (behavior != NULL && !string(behavior).empty() &&
-					lower_find(behavior, old_name) == std::string::npos)
+					lower_find_all(behavior, old_names) == std::string::npos)
 				{
 					to_add.clear();
 					break;
 				}
 				else if (behavior != NULL && !string(behavior).empty() &&
-					lower_find(behavior, old_name) != std::string::npos)
+					lower_find_all(behavior, old_names) != std::string::npos)
 				{
 
 					this_behavior = behavior;
@@ -777,8 +848,8 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 					this_idle->DNAM.value = new char[strlen(this_behavior) + 1];
 					strcpy(this_idle->DNAM.value, this_behavior);
 				}
-				if (idles.insert({ string(this_idle->EDID.value),this_idle }).second)
-					Log::Info("Found IDLE to retarget: %s", this_idle->EDID.value);;
+				if (idles.insert({ this_idle->formID,this_idle }).second)
+					Log::Info("Found IDLE to retarget: %s", this_idle->EDID.value != nullptr ? this_idle->EDID.value : "Nameless Entry");
 			}
 		}
 	}
@@ -820,15 +891,15 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	for (auto& sndr_it : sndrs) {
 		auto sndr = sndr_it.second;
 		std::string new_edid;
-		if (lower_find(sndr->EDID.value, old_name) != string::npos)
+		if (lower_find_all(sndr->EDID.value, old_names) != string::npos)
 		{
-			new_edid = replace_all(sndr->EDID.value, old_name, output_havok_project_name);
+			new_edid = replace_all(sndr->EDID.value, old_names, output_havok_project_name);
 		}
 		else {
 			new_edid = output_havok_project_name + sndr->EDID.value;
 		}
-		if (!ends_with(new_edid, "SD"))
-			new_edid += "SD";
+		//if (!ends_with(new_edid, "SD"))
+		//	new_edid += "SD";
 
 		// declaring character array 
 		char* char_array = new char[new_edid.size() + 1];
@@ -899,17 +970,20 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 
 	for (auto& idle_it : idles) {
 		auto idle = idle_it.second;
-		std::string new_name = idle->EDID.value;
-		std::string::size_type n = 0;
-
-		if (lower_find(new_name,old_name) != std::string::npos)
+		std::string new_name{};
+		if (idle->EDID.value != nullptr)
 		{
-			new_name = replace_all(new_name, old_name, output_havok_project_name);
-		}
-		else {
-			new_name = output_havok_project_name + new_name;
-		}
+			new_name = idle->EDID.value;
+			std::string::size_type n = 0;
 
+			if (lower_find_all(new_name, old_names) != std::string::npos)
+			{
+				new_name = replace_all(new_name, old_names, output_havok_project_name);
+			}
+			else {
+				new_name = output_havok_project_name + new_name;
+			}
+		}
 		const int nn = new_name.length();
 
 		// declaring character array 
@@ -918,7 +992,6 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		// copying the contents of the 
 		// string to char array 
 		strcpy(char_array, new_name.c_str());
-
 		Record* to_copy = static_cast<Record*>(idle);
 
 		Record* result = skyrimCollection.CopyRecord(to_copy, skyrimMod, NULL, NULL, char_array, 0);
@@ -927,13 +1000,13 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 		result->IsChanged(true);
 		retargeted[idle->formID] = copied->formID;
 		new_records.push_back(copied);
-		copied->EDID.value = char_array;
+		copied->EDID.value = idle->EDID.value != nullptr ? char_array : nullptr;
 		copied->ANAM = idle->ANAM;
 		copied->CTDA = idle->CTDA;
 		copied->DATA = idle->DATA;
 		copied->ENAM = idle->ENAM;
 
-		std::string temp = replace_all(idle->DNAM.value, old_name, output_havok_project_name);
+		std::string temp = replace_all(idle->DNAM.value, old_names, output_havok_project_name);
 		char* behavior_char = new char[temp.size() + 1];
 		strcpy(behavior_char, temp.c_str());
 
@@ -959,7 +1032,16 @@ bool RetargetCreatureCmd::InternalRunCommand(map<string, docopt::value> parsedAr
 	ModSaveFlags skSaveFlags = ModSaveFlags(2);
 	skSaveFlags.IsCleanMasters = true;
 	string esp_name = (output_havok_project_name + ".esp");
-	skyrimCollection.SaveMod(skyrimMod, skSaveFlags, (char* const)esp_name.c_str());
+	fs::path esp_out = fs::path{ skyrim_le_folder } / "Data" / esp_name;
+
+	if (skyrimCollection.SaveMod(skyrimMod, skSaveFlags, (char* const)esp_name.c_str()) < 0)
+	{
+		Log::Error("Failed to save esp to: ", esp_name);
+	}
+	else if (fs::exists(esp_out))
+	{
+		fs::rename(esp_out, output.parent_path() / esp_name);
+	}
 
 	CloseHavok();
 	return true;

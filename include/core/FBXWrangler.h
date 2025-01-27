@@ -25,12 +25,16 @@ See the included LICENSE file
 
 #include <fbxsdk.h>
 
+namespace fs = std::filesystem;
+
 namespace ckcmd {
 namespace FBX {
 
 	struct FBXImportOptions {
 		bool InvertU = false;
 		bool InvertV = true;
+		fs::path ExportSkeleton = fs::current_path() / "skeleton.hkx";
+		fs::path ExportLegacySkeleton = fs::current_path() / "skeleton_le.hkx";
 	};
 
 
@@ -77,7 +81,7 @@ namespace FBX {
 		string external_skeleton_path = "";
 		string external_paired_skeleton_path = "";
 
-		NiTriShapeRef importShape(FbxNodeAttribute* node, const FBXImportOptions& options);
+		NiTriShapeRef importShape(FbxNodeAttribute* node, const std::string& nodeName, const FBXImportOptions& options);
 		
 		set<FbxNode*> FBXWrangler::buildBonesList();
 		void checkAnimatedNodes();
@@ -123,7 +127,7 @@ namespace FBX {
 		bool ImportScene(const std::string& fileName, const FBXImportOptions& options = FBXImportOptions());
 
 		bool LoadMeshes(const FBXImportOptions& options);
-		bool SaveNif(const string& fileName);
+		bool SaveNif(const string& fileName, bool mergeNodes = false);
 		bool SaveSkin(const string& fileName);
 	};	
 	

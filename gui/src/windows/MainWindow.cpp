@@ -70,11 +70,12 @@ MainWindow::MainWindow(hkMemoryRouter* havok_router, QWidget* parent) :
 	_handler->setView(_projectTreeView);
 	_valuesTableView = new ValuesWidget(&_model,_command_manager, _resource_manager, this);
 
-	_preview = new HavokWidget(this);
+	_preview = new HavokWidget(&_model, this);
 	ads::CDockWidget*  GLWidget = new ads::CDockWidget("Havok Preview", this);
 	GLWidget->setWidget(_preview);
 
 	connect(_projectTreeView, &ProjectsWidget::selectionChanged, _valuesTableView, &ValuesWidget::treeSelectionChanged);
+	connect(_projectTreeView, &ProjectsWidget::selectionChanged, _preview, &HavokWidget::treeSelectionChanged);
 
 	//File
 	//ui->menuFile->addAction(_handler->saveAction());

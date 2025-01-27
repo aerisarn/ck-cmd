@@ -155,6 +155,7 @@ add_library( gui-lib STATIC
     ${UTILITY_SOURCES}
 )
 target_include_directories	(gui-lib  PUBLIC ${PROJECT_INCLUDES} )
+target_link_libraries (gui-lib CBash)
 
 add_executable(${PROJECT} WIN32
     ${WINDOW_HEADERS}
@@ -169,10 +170,10 @@ add_executable(${PROJECT} WIN32
     "${CMAKE_SOURCE_DIR}/gui/src/main.cpp" 
 $<TARGET_OBJECTS:ck-cmd-lib>)
 target_include_directories	(${PROJECT}  PUBLIC ${PROJECT_INCLUDES} ${CMAKE_SOURCE_DIR}/gui/src/nifskope )
-add_dependencies			(${PROJECT} zlib)
-add_dependencies			(${PROJECT} docopt_parser)
+add_dependencies			(${PROJECT} zlib docopt)
 target_link_libraries(${PROJECT}
-    ${DOCOPT_LIBRARIES}   
+    ${DOCOPT_LIBRARIES}
+	CBash
     ck-cmd-lib
     gui-lib
     FSM-lib
@@ -220,9 +221,9 @@ set (GUI_TEST_SRC "${CMAKE_SOURCE_DIR}/gui/test/test.cpp")
 add_executable				(gui-tests ${GUI_TEST_SRC} $<TARGET_OBJECTS:ck-cmd-lib>)
 add_dependencies			(gui-tests googletest)
 add_dependencies			(gui-tests zlib)
-add_dependencies			(gui-tests docopt_parser)
+add_dependencies			(gui-tests docopt)
 target_link_libraries		(gui-tests ${GTEST_LIBRARIES} ${TEST_LIBRARIES}
-    ${DOCOPT_LIBRARIES}
+    docopt
     ck-cmd-lib
     gui-lib
     FSM-lib

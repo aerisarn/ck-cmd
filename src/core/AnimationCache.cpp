@@ -403,8 +403,10 @@ void AnimationCache::get_entries(
 	StaticCacheEntry& entry,
 	const string& cacheFile
 ) {
-	if (!fs::exists(cacheFile) || !fs::is_regular_file(cacheFile))
+	if (!fs::exists(cacheFile) || !fs::is_regular_file(cacheFile)) {
+		Log::Error("Invalid file: %s", cacheFile.c_str());
 		return;
+	}
 
 	fs::path name = cacheFile;
 	name = name.filename().replace_extension("");
@@ -423,15 +425,52 @@ void AnimationCache::get_entries(
 	if (entry.block.getHasAnimationCache())
 	{
 		auto movement_path = fs::path(cacheFile).parent_path() / "boundanims" / string("anims_" + name.string() + ".txt");
+		if (!fs::exists(movement_path) || !fs::is_regular_file(movement_path)) {
+			Log::Error("Invalid file: %s", movement_path.c_str());
+			return;
+		}
 		ifstream t(movement_path.string());
 		string movement_content;
 		t.seekg(0, std::ios::end);
-		block_content.reserve(static_cast<size_t>(t.tellg()));
+		movement_content.reserve(static_cast<size_t>(t.tellg()));
 		t.seekg(0, std::ios::beg);
 		movement_content.assign((std::istreambuf_iterator<char>(t)),
 			std::istreambuf_iterator<char>());
 		scannerpp::Scanner p(movement_content);
 		entry.movements.parseBlock(p);
+	}
+}
+
+void AnimationCache::get_attack_entries(
+	AnimData::ProjectAttackListBlock& block,
+	const fs::path& projectFile)
+{
+	using namespace AnimData;
+	if (!fs::exists(projectFile) || !fs::is_regular_file(projectFile))
+		return;
+
+	std::vector<ProjectAttackBlock> attackList;
+
+	std::ifstream ifs{ projectFile };
+	for (std::string line; std::getline(ifs, line); )
+	{
+		fs::path attackEntry = projectFile.parent_path() / line;
+		if (!fs::exists(attackEntry))
+			continue;
+
+		ProjectAttackBlock pb;
+		string block_content;
+		ifstream t(attackEntry);
+		t.seekg(0, std::ios::end);
+		block_content.reserve(static_cast<size_t>(t.tellg()));
+		t.seekg(0, std::ios::beg);
+		block_content.assign((std::istreambuf_iterator<char>(t)),
+			std::istreambuf_iterator<char>());
+		t.close();
+		scannerpp::Scanner p(block_content);
+
+		pb.parseBlock(p);
+		block.putProjectAttack(line, pb);
 	}
 }
 

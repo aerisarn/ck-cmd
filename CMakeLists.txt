@@ -1,10 +1,11 @@
-cmake_minimum_required( VERSION 2.8.12 )
+cmake_minimum_required( VERSION 3.14)
 
 project( "ck-cmd" )
 include(ExternalProject)
+include(FetchContent)
 
 option(PROJECT_STATIC_RUNTIME "Build with static runtime libs (/MT)" ON)
-option(PROJECT_GUI "Build GUI" ON)
+option(PROJECT_GUI "Build GUI" OFF)
 UNSET(HAVE_SPEEDTREE CACHE)
 option(HAVE_SPEEDTREE "Build with speedtree support" OFF)
 
@@ -17,8 +18,39 @@ endif()
 message( "[MAIN]: building ck-cmd..." )
 message( "[MAIN]: generator " ${CMAKE_GENERATOR_PLATFORM})
 
+# Settings when compiling with MSVC.
+IF (MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG /D_HAS_AUTO_PTR_ETC=1 /MP")
+	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
+	# this troubles my VS2019
+	# add_compile_options("/MP")
+    # Update compiler flags.
+    IF (PROJECT_STATIC_RUNTIME)
+        FOREACH(flag
+            CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO
+            CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_DEBUG_INIT
+            CMAKE_CXX_FLAGS_RELEASE  CMAKE_CXX_FLAGS_RELWITHDEBINFO
+            CMAKE_CXX_FLAGS_DEBUG  CMAKE_CXX_FLAGS_DEBUG_INIT)
+            STRING(REPLACE "/MD"  "/MT" "${flag}" "${${flag}}")
+            SET("${flag}" "${${flag}} /EHsc ")
+        ENDFOREACH()
+    ENDIF ()
 
-#External Projects
+	set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD /STACK:\"4194304\"")
+	set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
+
+ENDIF ()
+
+if (MSVC_VERSION GREATER_EQUAL "1900")
+    include(CheckCXXCompilerFlag)
+    CHECK_CXX_COMPILER_FLAG("/std:c++17" _cpp_latest_flag_supported)
+    #Code is too messy to use post c++17
+	if (_cpp_latest_flag_supported)
+        add_compile_options("/std:c++17")
+		add_compile_options("/permissive")
+    endif()
+endif()
+
 #External Projects
 ExternalProject_Add(googletest
                     PREFIX "external"
@@ -32,40 +64,29 @@ set (GTEST_LIBRARIES debug "${BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC
 
 set (TEST_SRC "${CMAKE_SOURCE_DIR}/test/main.cpp")
 
-ExternalProject_Add(zlib
-                    PREFIX "external"
-                    URL "https://zlib.net/zlib-1.2.13.tar.gz"
-                    INSTALL_COMMAND "")
-ExternalProject_Get_Property(zlib SOURCE_DIR BINARY_DIR)
-set (ZLIB_INCLUDE_DIRS ${SOURCE_DIR} ${BINARY_DIR})
-message("ZLIB_INCLUDE_DIRS:" ${ZLIB_INCLUDE_DIRS})
-IF (MSVC)
-    set (ZLIB_LIBRARIES optimized "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}"
-                    debug "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstaticd${CMAKE_STATIC_LIBRARY_SUFFIX}")
-ELSE ()
-    set (ZLIB_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}zlibstatic${CMAKE_STATIC_LIBRARY_SUFFIX}")
-ENDIF ()
-
-ExternalProject_Add(docopt_parser
-                    PREFIX "external"
-                    GIT_REPOSITORY "https://github.com/docopt/docopt.cpp.git"
-                    GIT_TAG master
-                    INSTALL_COMMAND ""
-					CMAKE_ARGS -DCMAKE_CXX_FLAGS_DEBUG=/MTd -DCMAKE_CXX_FLAGS_RELEASE=/MT -DCMAKE_CXX_FLAGS_RELWITHDEBINFO=/MT)
-ExternalProject_Get_Property(docopt_parser SOURCE_DIR BINARY_DIR)
-set (DOCOPT_INCLUDE_DIRS ${SOURCE_DIR} ${BINARY_DIR})
-message("DOCOPT_INCLUDE_DIRS:" ${DOCOPT_INCLUDE_DIRS})
-IF (MSVC)
-    set (DOCOPT_LIBRARIES optimized "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}"
-                    debug "${BINARY_DIR}/${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}")
-ELSE ()
-    set (DOCOPT_LIBRARIES "${BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}docopt${CMAKE_STATIC_LIBRARY_SUFFIX}")
-ENDIF ()
-
-
 include_directories("${CMAKE_SOURCE_DIR}/src"
                     "${CMAKE_SOURCE_DIR}/include"
                     ${GTEST_INCLUDE_DIRS})
+
+FetchContent_Declare(
+    zlib
+    GIT_REPOSITORY https://github.com/madler/zlib.git
+    GIT_TAG        v1.3.1
+)
+
+FetchContent_MakeAvailable(zlib)
+set(ZLIB_INCLUDE_DIR ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR})
+
+option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
+FetchContent_Declare(
+    docopt_parser
+    GIT_REPOSITORY https://github.com/docopt/docopt.cpp.git
+    GIT_TAG        master
+)
+
+FetchContent_MakeAvailable(docopt_parser)
+set (DOCOPT_INCLUDE_DIRS ${docopt_parser_SOURCE_DIR} ${docopt_parser_BINARY_DIR})
+
 
 # Libraries
 
@@ -75,18 +96,12 @@ set ( DIRECTXTEX_INCLUDES_PATH
 	"${CMAKE_SOURCE_DIR}/lib/DirectXTex/include"
 )
 
-add_library(
-	DirectXTex
-	STATIC 
-	IMPORTED GLOBAL
-)
-
+add_library( DirectXTex	STATIC 	IMPORTED GLOBAL)
 set_target_properties(
 	DirectXTex 
 	PROPERTIES IMPORTED_LOCATION
 	"${CMAKE_SOURCE_DIR}/lib/DirectXTex/lib/Desktop_2017_Win10/Win32/Release/DirectXTex.lib"
 )
-
 set_target_properties(
 	DirectXTex
 	PROPERTIES IMPORTED_LOCATION_DEBUG             
@@ -95,51 +110,18 @@ set_target_properties(
 
 # Loki
 
-set ( LOKI_INCLUDES_PATH
-	"${CMAKE_SOURCE_DIR}/lib/loki/include"
-)
-
-add_library(
-	loki
-	STATIC 
-	IMPORTED GLOBAL
-)
+set ( LOKI_INCLUDES_PATH "${CMAKE_SOURCE_DIR}/lib/loki/include")
+add_library(loki STATIC IMPORTED GLOBAL)
 
 set_target_properties(
 	loki 
 	PROPERTIES IMPORTED_LOCATION             
 	"${CMAKE_SOURCE_DIR}/lib/loki/release/loki.lib"
 )
-
 set_target_properties(
 	loki
 	PROPERTIES IMPORTED_LOCATION_DEBUG             
 	"${CMAKE_SOURCE_DIR}/lib/loki/debug/loki.lib"
-)
-
-# CBash
-
-set ( CBASH_INCLUDES_PATH
-	"${CMAKE_SOURCE_DIR}/lib/cbash"
-	"${CMAKE_SOURCE_DIR}/lib/cbash/include/cbash"
-)
-
-add_library(
-	cbash
-	STATIC 
-	IMPORTED GLOBAL
-)
-
-set_target_properties(
-	cbash 
-	PROPERTIES IMPORTED_LOCATION             
-	"${CMAKE_SOURCE_DIR}/lib/cbash/lib/x86/release/CBash.lib"
-)
-
-set_target_properties(
-	cbash
-	PROPERTIES IMPORTED_LOCATION_DEBUG             
-	"${CMAKE_SOURCE_DIR}/lib/cbash/lib/x86/debug/CBash.lib"
 )
 
 if (HAVE_SPEEDTREE)
@@ -436,6 +418,8 @@ set(EIGEN_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/eigen")
 
 set(LIBIGL_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/libigl/include")
 
+set (MINIBALL_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/miniball")
+
 set(BOUNDINGMESH_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/bounding-mesh/src/boundingmesh")
 file(GLOB BOUNDINGMESH_SRCS "${CMAKE_SOURCE_DIR}/modules/geometry/bounding-mesh/src/boundingmesh/*.cpp" )
 file(GLOB BOUNDINGMESH_THIRD_SRCS "${CMAKE_SOURCE_DIR}/modules/geometry/bounding-mesh/thirdparty/EigenQP.*" )
@@ -446,12 +430,16 @@ file(GLOB QUICKHULL_SRCS "${CMAKE_SOURCE_DIR}/modules/geometry/quickhull/*.cpp" 
 set(VHACD_INCLUDES "${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src/VHACD_Lib/public" )
 include_directories("${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src/VHACD_Lib/public" )
 
+# CBash
+add_subdirectory("${CMAKE_SOURCE_DIR}/modules/cbash" EXCLUDE_FROM_ALL)
+
+#ZLIB
+#add_subdirectory("${CMAKE_SOURCE_DIR}/modules/zlib")
 
 list(APPEND TEST_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES ${HAVOK_LIBS})
 list(APPEND PROJECT_LIBRARIES DirectXTex)
 list(APPEND PROJECT_LIBRARIES loki)
-list(APPEND PROJECT_LIBRARIES cbash)
 list(APPEND PROJECT_LIBRARIES niflib)
 list(APPEND PROJECT_LIBRARIES fbxsdk)
 list(APPEND PROJECT_LIBRARIES libbsa)
@@ -467,7 +455,6 @@ list(APPEND PROJECT_INCLUDES ${DIRECTXTEX_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${HAVOK_COMPAT_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${LOKI_INCLUDES_PATH})
-list(APPEND PROJECT_INCLUDES ${CBASH_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${BETH_ANIMDATA_PATH})
 list(APPEND PROJECT_INCLUDES ${NIFLIB_INCLUDES_PATH})
 list(APPEND PROJECT_INCLUDES ${FBXSDK_INCLUDES_PATH})
@@ -494,6 +481,7 @@ set (PROJECT_SRC "${CMAKE_SOURCE_DIR}/src/core/FBXCommon.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/Fbx2Raw.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/geometry.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/MathHelper.cpp"
+				 "${CMAKE_SOURCE_DIR}/src/core/NiflibHelper.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/EulerAngles.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/core/AnimationCache.cpp"
 				 "${CMAKE_SOURCE_DIR}/src/spt/sptconvert.cpp"
@@ -515,6 +503,7 @@ set (PROJECT_HEADERS "${CMAKE_SOURCE_DIR}/include/AnimationExport.h"
                      "${CMAKE_SOURCE_DIR}/include/core/hkxutils.h"
                      "${CMAKE_SOURCE_DIR}/include/core/log.h"
                      "${CMAKE_SOURCE_DIR}/include/core/MathHelper.h"
+					 "${CMAKE_SOURCE_DIR}/include/core/NiflibHelper.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/games.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/bsa.h"
 					 "${CMAKE_SOURCE_DIR}/include/core/HKXWrangler.h"
@@ -546,6 +535,8 @@ set (PROJECT_COMMANDS
 					 "${CMAKE_SOURCE_DIR}/include/commands/ListCreatures.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/RetargetCreature.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/DecodeCache.h"
+					 "${CMAKE_SOURCE_DIR}/include/commands/CacheGen.h"
+					 "${CMAKE_SOURCE_DIR}/include/commands/CacheSplit.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/desaturateVC.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/Skeleton.h"
 					 "${CMAKE_SOURCE_DIR}/include/commands/fixsse.h"
@@ -582,6 +573,7 @@ list (APPEND PROJECT_HEADERS ${NIF_GAME_SPECIFIC_HEADERS})
 list (APPEND PROJECT_INCLUDES ${EIGEN_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${MIKKTSPACE_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${LIBIGL_INCLUDES})
+list (APPEND PROJECT_INCLUDES ${MINIBALL_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${BOUNDINGMESH_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${QUICKHULL_INCLUDES})
 list (APPEND PROJECT_INCLUDES ${VHACD_INCLUDES})
@@ -608,41 +600,6 @@ source_group("Geometry\\MikkTSpace" FILES ${MIKKTSPACE_SRCS})
 source_group("Geometry\\BoundingMesh" FILES ${BOUNDINGMESH_SRCS})
 source_group("Geometry\\QuickHull" FILES ${QUICKHULL_SRCS})
 source_group("Textures\\DirectXTex" FILES ${DIRECTXTEX_INCLUDES_PATH})
-
-
-
-# Settings when compiling with MSVC.
-IF (MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj /D_SCL_SECURE_NO_WARNINGS=1 /D_CRT_NONSTDC_NO_DEPRECATE=1 /DUSE_EIGENQUADPROG /D_HAS_AUTO_PTR_ETC=1")
-	add_definitions(-D_CRT_SECURE_NO_WARNINGS=1)
-	# this troubles my VS2019
-	# add_compile_options("/MP")
-    # Update compiler flags.
-    IF (PROJECT_STATIC_RUNTIME)
-        FOREACH(flag
-            CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO
-            CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_DEBUG_INIT
-            CMAKE_CXX_FLAGS_RELEASE  CMAKE_CXX_FLAGS_RELWITHDEBINFO
-            CMAKE_CXX_FLAGS_DEBUG  CMAKE_CXX_FLAGS_DEBUG_INIT)
-            STRING(REPLACE "/MD"  "/MT" "${flag}" "${${flag}}")
-            SET("${flag}" "${${flag}} /EHsc ")
-        ENDFOREACH()
-    ENDIF ()
-
-	set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD /STACK:\"4194304\"")
-	set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
-
-ENDIF ()
-
-if (MSVC_VERSION GREATER_EQUAL "1900")
-    include(CheckCXXCompilerFlag)
-    CHECK_CXX_COMPILER_FLAG("/std:c++17" _cpp_latest_flag_supported)
-    #Code is too messy to use post c++17
-	if (_cpp_latest_flag_supported)
-        add_compile_options("/std:c++17")
-		add_compile_options("/permissive")
-    endif()
-endif()
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/modules/geometry/v-hacd/src)
 
@@ -685,12 +642,13 @@ ENDIF ()
 
 # Build lib
 add_library( ck-cmd-lib STATIC ${PROJECT_SRC} ${PROJECT_HEADERS} ${PROJECT_COMMANDS} ${COMMANDS_SRC} )
-target_include_directories	(ck-cmd-lib  PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_DIRS} )
+target_link_libraries(ck-cmd-lib CBash docopt zlibstatic)
+target_include_directories	(ck-cmd-lib PUBLIC ${PROJECT_INCLUDES} ${DOCOPT_INCLUDE_DIRS} )
 
 # Build core
 add_executable				(ck-cmd "${CMAKE_SOURCE_DIR}/src/core/hkxcmd.cpp" $<TARGET_OBJECTS:ck-cmd-lib>)
-add_dependencies			(ck-cmd zlib docopt_parser)
-target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} ${ZLIB_LIBRARIES} ${DOCOPT_LIBRARIES} Shlwapi.lib legacy_stdio_definitions.lib)
+add_dependencies			(ck-cmd ck-cmd-lib)
+target_link_libraries		(ck-cmd ${PROJECT_LIBRARIES} docopt Shlwapi.lib legacy_stdio_definitions.lib)
 if (HAVE_SPEEDTREE)
 target_link_libraries		(ck-cmd ${SPEEDTREE_LIBS})
 endif (HAVE_SPEEDTREE)

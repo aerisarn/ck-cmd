@@ -46,6 +46,7 @@ See the included LICENSE file
 #include <Common\Internal\ConvexHull\hkGeometryUtility.h>
 #include <Common\GeometryUtilities\Misc\hkGeometryUtils.h>
 
+#include <Miniball.hpp>
 
 
 
@@ -533,7 +534,7 @@ public:
 
 	NiAlphaPropertyRef to_property()
 	{
-		if (valid && modes.value != 0)
+		if (modes.value != 0)
 		{
 			NiAlphaPropertyRef alpha = new NiAlphaProperty();
 			alpha->SetFlags(modes.value);
@@ -604,13 +605,13 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 			//Specular
 			Color3 nif_specular_color = material_property->GetSpecularColor();
 			gMaterial->Specular = { nif_specular_color.r, nif_specular_color.g, nif_specular_color.b };
-			gMaterial->SpecularFactor.Set(material_property->GetSpecularStrength());
+			gMaterial->SpecularFactor.Set(material_property->GetSpecularStrength() / 999); // Specular strength is stored in the 0-999 range
 
 			//Diffuse
 			gMaterial->Diffuse = lDiffuse;
 
 			//Ambient
-			gMaterial->Ambient = lBlack;
+			gMaterial->Ambient = lDiffuse;
 			gMaterial->AmbientFactor.Set(1.);
 
 			gMaterial->Shininess = material_property->GetGlossiness();
@@ -668,13 +669,14 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 
 						diffuse->Alpha = material_property->GetAlpha();
 
+
 						if (diffuse && gMaterial)
 						{
 							gMaterial->Diffuse.ConnectSrcObject(diffuse);
 							if (alpha != NULL)
 							{
 								alreadyVisitedNodes.insert(&*alpha);
-								//TODO: also find a way in fbx to make them look right in 3d suites
+								gMaterial->TransparentColor.ConnectSrcObject(diffuse);
 								AlphaFlagsHandler(alpha).add_to_node(gMaterial);
 							}
 						}
@@ -692,7 +694,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 							if (!texture_set[i].empty())
 							{
 								string slot_name = "slot" + to_string(i + 1);
-								FbxFileTexture* additional_texture = create_texture(slot_name.c_str(), texture_set[i + 1]);
+								FbxFileTexture* additional_texture = create_texture(slot_name.c_str(), texture_set[i]);
 								FbxProperty texture_slot = gMaterial->FindProperty(slot_name.c_str());
 								if (!texture_slot.IsValid())
 								{
@@ -1045,6 +1047,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 				FbxSkin* fbx_skin = FbxSkin::Create(&scene, shapeSkin.c_str());
 				set<FbxCluster*> clusters;
 				FbxNode* skin_parent = fbx_meshes_skin_parent[skin.first]; scene.FindNodeByName(shapeName.c_str());
+
 				//create clusters
 				for (unsigned short bone_index : part_data.bones) {
 					NiNode* bone = skin.first->GetBones()[bone_index];
@@ -1086,7 +1089,9 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 								{
 									unsigned short vertex_index = part_data.vertexMap[bs];
 									float vertex_weight = part_data.vertexWeights[bs][b];
-									aCluster->AddControlPointIndex(vertex_index, vertex_weight);
+									if (vertex_weight > 0.0) {
+										aCluster->AddControlPointIndex(vertex_index, vertex_weight);
+									}
 								}
 							}
 						}
@@ -1121,6 +1126,7 @@ class FBXBuilderVisitor : public RecursiveFieldVisitor<FBXBuilderVisitor> {
 					if (skin_support != NULL)
 						skin_parent = skin_support;
 					//setTransform(mesh, skin_parent);
+
 					for (int i = 0; i < skin_parent->GetNodeAttributeCount(); i++)
 					{
 						if (FbxNodeAttribute::eMesh == skin_parent->GetNodeAttributeByIndex(i)->GetAttributeType())
@@ -2455,7 +2461,7 @@ public:
 	}
 };
 
-void FBXWrangler::AddNif(NifFile& nif) {
+void FBXWrangler::AddNif (NifFile& nif) {
 	FBXBuilderVisitor(nif, *scene->GetRootNode(), *scene, nif.GetInfo(), texture_path, export_rig, hkxWrapper);
 }
 
@@ -2807,7 +2813,8 @@ class Accessor<AccessSkin>
 			if (m->GetDeformerCount(FbxDeformer::eSkin) > 0) {
 				NiSkinInstanceRef skin;
 				if (export_skin)
-					skin = new BSDismemberSkinInstance();
+					//skin = new BSDismemberSkinInstance();
+					skin = new NiSkinInstance();
 				else
 					skin = new NiSkinInstance();
 				NiSkinDataRef data = new NiSkinData();
@@ -2933,7 +2940,7 @@ class Accessor<AccessSkin>
 									ni_bone = DynamicCast<NiNode>(conversion_Map[bone]);
 								} 
 
-								Log::Info("Fbx Bone %s -> NiBode %s", bone->GetName(), ni_bone->GetName().c_str());
+								Log::Debug("Fbx Bone %s -> NiBone %s", bone->GetName(), ni_bone->GetName().c_str());
 								if (partition.boneIndices.size() < ni_partition_triangle[i] + 1)
 								{
 									partition.boneIndices.resize(ni_partition_triangle[i] + 1);
@@ -2960,12 +2967,9 @@ class Accessor<AccessSkin>
 									if (bone_data_list.size() < global_bone_index + 1)
 										bone_data_list.resize(global_bone_index + 1);
 
-									auto min_it = min_element(partition.vertexWeights[ni_partition_triangle[i]].begin(), partition.vertexWeights[ni_partition_triangle[i]].end());
-									if (weight > *min_it) {
-										size_t index = distance(partition.vertexWeights[ni_partition_triangle[i]].begin(), min_it);
-										partition.boneIndices[ni_partition_triangle[i]][index] = global_bone_index;
-										partition.vertexWeights[ni_partition_triangle[i]][index] = weight;
-									}
+									partition.boneIndices[ni_partition_triangle[i]][w_index] = global_bone_index;
+									partition.vertexWeights[ni_partition_triangle[i]][w_index] = weight;
+
 									auto transform = bone->EvaluateGlobalTransform();
 									bone_data_list[global_bone_index].skinTransform = GetAvTransform(transform.Inverse());
 								}
@@ -3056,6 +3060,24 @@ class Accessor<AccessSkin>
 							vertices[i] = TOVECTOR4(matrixes[0].MultT(TOFBXVECTOR3(vertices[i])));
 						}
 						original_shape_data->SetVertices(vertices);
+
+						auto normals = original_shape_data->normals;
+						for (int i = 0; i < normals.size(); i++) {
+							normals[i] = TOVECTOR4(matrixes[0].MultR(TOFBXVECTOR3(normals[i])));
+						}
+						original_shape_data->SetNormals(normals);
+
+						auto tangents = original_shape_data->tangents;
+						for (int i = 0; i < tangents.size(); i++) {
+							tangents[i] = TOVECTOR4(matrixes[0].MultR(TOFBXVECTOR3(tangents[i])));
+						}
+						original_shape_data->SetTangents(tangents);
+
+						auto bitangents = original_shape_data->bitangents;
+						for (int i = 0; i < bitangents.size(); i++) {
+							bitangents[i] = TOVECTOR4(matrixes[0].MultR(TOFBXVECTOR3(bitangents[i])));
+						}
+						original_shape_data->SetBitangents(bitangents);
 					}
 				}
 
@@ -3067,7 +3089,6 @@ class Accessor<AccessSkin>
 				skin->SetSkinPartition(spartition);
 				skin->SetSkeletonRoot(conversion_root);
 				
-
 				if (export_skin)
 				{
 					BSDismemberSkinInstanceRef bsskin = DynamicCast<BSDismemberSkinInstance>(skin);
@@ -3110,6 +3131,7 @@ string format_texture(string tempString)
 			tempString.erase(tempString.begin(), tempString.begin() + idx);
 		}
 	}
+	std::replace(tempString.begin(), tempString.end(), '/', '\\');
 	fs::path p(tempString);
 	p.replace_extension(".dds");
 	return p.string();
@@ -3159,7 +3181,7 @@ inline Color4 toNIF(const FbxColor& color) {
 
 
 
-NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOptions& options) {
+NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const std::string& nodeName, const FBXImportOptions& options) {
 	NiTriShapeRef out = new NiTriShape();
 	NiTriShapeDataRef data = new NiTriShapeData();
 
@@ -3171,7 +3193,7 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 	FbxGeometryElementVertexColor* vc = m->GetElementVertexColor(0);
 	FbxGeometryElementVertexColor* vc2 = m->GetElementVertexColor(1);
 
-	string orig_name = m->GetName();
+	string orig_name = nodeName;
 	out->SetName(unsanitizeString(orig_name));
 	int numVerts = m->GetControlPointsCount();
 	int numTris = m->GetPolygonCount();
@@ -3342,22 +3364,22 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 		data->SetHasVertices(true);
 		data->SetVertices(verts);
 
-		//lets recalculate center;
-		Vector3 center;
-		for (const Vector3& v : verts) {
-			center += v;
+		// Calculate the bounding sphere for this set of vertices
+		using vType = vector<std::array<float, 3>>;
+		vType vectorPoints;
+		for (const Vector3 & v : verts) {
+			vectorPoints.push_back({ v.x, v.y, v.z });
 		}
-		center /= verts.size();
 
-		//and then rad;
-		float radius = 0.0f;
-		for (const Vector3& v : verts) {
-			float z;
-			if ((z = (center - v).Magnitude()) > radius)
-				radius = z;
-		}
+	    typedef Miniball::Miniball<Miniball::CoordAccessor<vType::iterator,
+			vType::value_type::iterator>> MB;
+		MB mb(std::size(vectorPoints[0]), vectorPoints.begin(), vectorPoints.end());
+
+		auto pCenter = mb.center();
+		Vector3 center{ pCenter[0], pCenter[1], pCenter[2] };
+
 		data->SetCenter(center);
-		data->SetRadius(radius);
+		data->SetRadius(sqrtf(mb.squared_radius()));
 	}
 
 	if (tris.size()) {
@@ -3451,30 +3473,6 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 		vector<string> vTextures = textures->GetTextures();
 		FbxProperty prop = nullptr;
 
-		prop = tempN->GetFirstProperty();
-		while (prop.IsValid())
-		{
-			string name = prop.GetNameAsCStr();
-			string slot_prefix = "slot";
-			if (prop.GetFlag(FbxPropertyFlags::eUserDefined))
-			{
-				auto it = search(
-					name.begin(), name.end(),
-					slot_prefix.begin(), slot_prefix.end(),
-					[](char ch1, char ch2) { return toupper(ch1) == toupper(ch2); }
-				);
-				if (it != name.end())
-				{
-					name.erase(name.begin(), name.begin() + 4);
-					int slot = atoi(name.c_str());
-					if (slot > 2 && slot < 9)
-					{
-						vTextures[slot-1] = format_texture(prop.Get<FbxString>().Buffer());
-					}
-				}
-			}
-			prop = tempN->GetNextProperty(prop);
-		}
 		FbxLayerElementMaterial* layerElement = m->GetElementMaterial();
 		if (layerElement != NULL)
 		{
@@ -3512,6 +3510,8 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 				prop = material->FindProperty(FbxSurfaceMaterial::sTransparentColor, true);
 				if (prop.IsValid())
 				{
+					auto color = prop.Get<FbxColor>();
+					auto tex = prop.GetSrcObject<FbxFileTexture>(0);
 					if (prop.Get<FbxColor>() != FbxColor(0.0, 0.0, 0.0))
 					{
 						hasAlpha = true;
@@ -3594,6 +3594,32 @@ NiTriShapeRef FBXWrangler::importShape(FbxNodeAttribute* node, const FBXImportOp
 					shader->SetGlossiness(factor.Get());
 				}
 
+				// Additional texture slots
+				prop = material->GetFirstProperty();
+				while (prop.IsValid())
+				{
+					string name = prop.GetNameAsCStr();
+					string slot_prefix = "slot";
+					if (prop.GetFlag(FbxPropertyFlags::eUserDefined))
+					{
+						auto it = search(
+							name.begin(), name.end(),
+							slot_prefix.begin(), slot_prefix.end(),
+							[](char ch1, char ch2) { return toupper(ch1) == toupper(ch2); }
+						);
+						if (it != name.end())
+						{
+							name.erase(name.begin(), name.begin() + 4);
+							int slot = atoi(name.c_str());
+							if (slot > 2 && slot < 9)
+							{
+								vTextures[slot - 1] = format_texture(prop.Get<FbxString>().Buffer());
+							}
+						}
+					}
+					prop = material->GetNextProperty(prop);
+				}
+
 				textures->SetTextures(vTextures);
 
 				//unpack forced shader flags if any
@@ -3645,10 +3671,11 @@ void FBXWrangler::importShapes(NiNodeRef parent, FbxNode* child, const FBXImport
 	//dummy->SetName(unsanitizeString(name));
 	vector<NiAVObjectRef> children= parent->GetChildren();
 	size_t attributes_size = child->GetNodeAttributeCount();
+	std::string rootName = child->GetName();
 	for (int i = 0; i < attributes_size; i++) {
 		if (FbxNodeAttribute::eMesh == child->GetNodeAttributeByIndex(i)->GetAttributeType())
 		{	
-			auto result = StaticCast<NiAVObject>(importShape(child->GetNodeAttributeByIndex(i), options));
+			auto result = StaticCast<NiAVObject>(importShape(child->GetNodeAttributeByIndex(i), rootName, options));
 			if (!export_rig)
 				children.push_back(result);
 		}
@@ -5531,7 +5558,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 
 	//DEBUG
 	for (const auto& ni : conversion_Map) {
-		Log::Info("Fbx Node %s -> NiNode %s", ni.first->GetName(), DynamicCast<NiNode>(ni.second)->GetName().c_str());
+		Log::Debug("Fbx Node %s -> NiNode %s", ni.first->GetName(), DynamicCast<NiNode>(ni.second)->GetName().c_str());
 	}
 
 	//skins
@@ -5719,7 +5746,7 @@ bool FBXWrangler::LoadMeshes(const FBXImportOptions& options) {
 		//rig
 		if (export_rig)
 		{
-			string result = hkxWrapper.build_skeleton_from_ragdoll();
+			string result = hkxWrapper.build_skeleton_from_ragdoll(options.ExportSkeleton, options.ExportLegacySkeleton);
 			if (!result.empty())
 			{
 				auto root_node = scene->FindNodeByName(result.c_str());
@@ -5760,12 +5787,42 @@ bool FBXWrangler::SaveSkin(const string& fileName) {
 	return true;
 }
 
-bool FBXWrangler::SaveNif(const string& fileName) {
+bool FBXWrangler::SaveNif(const string& fileName, bool mergeNodes) {
 
 	NifInfo info;
 	info.userVersion = 12;
 	info.userVersion2 = 83;
 	info.version = Niflib::VER_20_2_0_7;
+
+	// Simplify the nif tree by merging nested NiNodes (1-level depth only)
+	if (mergeNodes)
+	{
+		vector<NiAVObjectRef> rootTr;
+		auto ed_list = conversion_root->GetExtraDataList();
+		for (auto& rc : conversion_root->GetChildren())
+		{
+			if (rc->IsSameType(NiNode::TYPE))
+			{
+				NiNodeRef nrc = Niflib::DynamicCast<NiNode>(rc);
+				for (auto& ed : nrc->GetExtraDataList())
+				{
+					ed_list.push_back(ed);
+				}
+				for (auto& c : nrc->GetChildren())
+				{
+					c->SetTranslation(nrc->GetTranslation());
+					c->SetRotation(nrc->GetRotation());
+					c->SetScale(nrc->GetScale());
+					rootTr.push_back(c);
+				}
+			}
+			else
+				rootTr.push_back(rc);
+
+			conversion_root->SetExtraDataList(ed_list);
+		}
+		conversion_root->SetChildren(rootTr);
+	}
 
 	vector<NiObjectRef> objects = RebuildVisitor(conversion_root, info).blocks;
 	bsx_flags_t calculated_flags = calculateSkyrimBSXFlags(objects, info);

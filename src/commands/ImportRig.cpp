@@ -43,15 +43,16 @@ string ImportRig::GetHelp() const
 	transform(name.begin(), name.end(), name.begin(), ::tolower);
 
 	// Usage: ck-cmd importanimation
-	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_fbx> [-a <path_to_animations>] [-e <path_to_export>]\r\n";
+	string usage = "Usage: " + ExeCommandList::GetExeName() + " " + name + " <path_to_skeleton_fbx> <path_to_skeleton_nif> <path_to_skeleton_hkx> [--le=<export_skeleton_le_hkx>]\r\n";
 
 	const char help[] =
 		R"(Converts an FBX skeleton to NIF and HKX.
 		
 		Arguments:
-			<path_to_skeleton_fbx> the animation skeleton in hkx format
-			-a <path_to_animations>, --animations <path_to_animations> animations output path
-			-e <path_to_export>, --export-dir <path_to_export>  optional export path
+			<path_to_skeleton_fbx> the animation skeleton in fbx format
+			<path_to_skeleton_hkx> the animation skeleton in hkx format
+			<path_to_skeleton_nif> the animation skeleton in nif format
+			--le=<export_skeleton_le_hkx> optional legacy skeleton export path
 
 		)";
 	return usage + help;
@@ -64,30 +65,30 @@ string ImportRig::GetHelpShort() const
 
 bool ImportRig::InternalRunCommand(map<string, docopt::value> parsedArgs)
 {
-	//We can improve this later, but for now this i'd say this is a good setup.
-	string importSkeleton, importSkeletonNif, animationsPath, exportPath;
+	string importSkeleton, exportSkeleton, exportLegacySkeleton, exportSkeletonNif, exportPath;
 
 	importSkeleton = parsedArgs["<path_to_skeleton_fbx>"].asString();
-	if (parsedArgs["-a"].asBool())
-		animationsPath = parsedArgs["<path_to_animations>"].asString();
-	if (parsedArgs["-e"].asBool())
-		exportPath = parsedArgs["<path_to_export>"].asString();
-	fs::path outputDir = fs::path(exportPath);
+	exportSkeleton = parsedArgs["<path_to_skeleton_hkx>"].asString();
+	exportSkeletonNif = parsedArgs["<path_to_skeleton_nif>"].asString();
+	if (parsedArgs["--le"].isString())
+		exportLegacySkeleton = parsedArgs["--le"].asString();
 
-	if (!fs::exists(exportPath) || !fs::is_directory(outputDir)) {
-		Log::Info("Invalid Directory: %s, using current_dir", exportPath.c_str());
-		outputDir = fs::current_path();
+	fs::path in_path = fs::path(exportSkeleton);
+	if (!fs::exists(exportLegacySkeleton)) {
+		exportLegacySkeleton = (in_path.parent_path() / "skeleton_le.hkx").string();
 	}
-
 
 	InitializeHavok();
 	FBXWrangler wrangler;
 	wrangler.setExportRig();
-	if (wrangler.ImportScene(importSkeleton.c_str()))
+
+	FBXImportOptions options{ };
+	options.ExportSkeleton = in_path;
+	options.ExportLegacySkeleton = exportLegacySkeleton;
+
+	if (wrangler.ImportScene(importSkeleton.c_str(), options))
 	{
-		fs::path out_path = outputDir / fs::path(importSkeleton).filename().replace_extension(".nif");
-		fs::create_directories(outputDir);
-		wrangler.SaveNif(out_path.string());
+		wrangler.SaveNif(exportSkeletonNif);
 	}
 	CloseHavok();
 	return true;

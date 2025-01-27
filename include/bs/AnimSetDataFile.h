@@ -21,10 +21,16 @@ namespace AnimData {
 		}
 
 		int getProjectAttackBlock(const string& name) {
+			string nameLower{ name };
+			std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::tolower);
+
 			const std::vector<std::string>& projects = projectsList.getStrings();
 			for (size_t i = 0; i < projects.size(); i++)
 			{
-				if (projects[i] == name)
+				string projLower{ projects[i] };
+				std::transform(projLower.begin(), projLower.end(), projLower.begin(), ::tolower);
+
+				if (projLower == nameLower)
 					return i;
 			}
 			return -1;

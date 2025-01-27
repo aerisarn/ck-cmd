@@ -188,11 +188,11 @@ void TextureTool::CheckShaderRequirements(BSLightingShaderPropertyShaderType typ
 		if (obj->IsSameType(BSTriShape::TYPE))
 		{
 			auto bs_shape = DynamicCast<BSTriShape>(obj);
-			bool hasVC = bs_shape->GetVertexDesc().HasFlag(VA_Vertex_Colors);
-			if (!bs_shape->GetVertexDesc().HasFlag(VA_Vertex_Colors))
+			bool hasVC = bs_shape->GetVertexDesc().HasFlag(VertexFlags::VF_VERTEX_COLORS);
+			if (!bs_shape->GetVertexDesc().HasFlag(VertexFlags::VF_VERTEX_COLORS))
 			{
 				auto desc = bs_shape->GetVertexDesc();
-				desc.SetFlag(VA_Vertex_Colors);
+				desc.SetFlag(VertexFlags::VF_VERTEX_COLORS);
 				auto data = bs_shape->GetVertexData();
 				for (auto& entry : data)
 				{

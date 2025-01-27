@@ -256,7 +256,7 @@ void HKXWrapper::write(hkRootLevelContainer& rootCont, string subfolder, string 
 	hkPackFormat pkFormat = HKPF_DEFAULT;
 	hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
 	hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
-	fs::path final_out_path = fs::path(out_path_abs) / subfolder / string(name + ".hkx");
+	fs::path final_out_path = fs::path(out_path_abs) / subfolder / string(name + "_le.hkx");
 	//string out = out_path_abs+"\\" + out_name + ".hkx";
 	fs::create_directories(final_out_path.parent_path());
 	hkOstream stream(final_out_path.string().c_str());
@@ -267,7 +267,7 @@ void HKXWrapper::write(hkRootLevelContainer& rootCont, string subfolder, string 
 		Log::Error("Havok reports save failed.");
 	}
 	packFileOptions = GetWriteOptionsFromFormat(HKPF_AMD64);
-	fs::path final_out_path_se = fs::path(out_path_abs) / subfolder / string(name + "_se.hkx");
+	fs::path final_out_path_se = fs::path(out_path_abs) / subfolder / string(name + ".hkx");
 	fs::create_directories(final_out_path_se.parent_path());
 	hkOstream stream_se(final_out_path_se.string().c_str());
 	res = hkSerializeUtilSave(HKPF_AMD64, root, stream_se, flags, packFileOptions);
@@ -956,7 +956,7 @@ set<string> HKXWrapper::create_animations(
 	bool extract_motion,
 	RootMovement& root_info,
 	bool paired
-	)
+)
 {
 
 	set<string> sequences_names;
@@ -972,7 +972,7 @@ set<string> HKXWrapper::create_animations(
 
 
 		// Find the time offset (in the "time space" of the FBX file) of the first animation frame
-		FbxTime timePerFrame; 
+		FbxTime timePerFrame;
 		if (skeleton[0]->GetScene()->GetGlobalSettings().GetTimeMode() == FbxTime::EMode::eCustom)
 			timePerFrame.SetSecondDouble(skeleton[0]->GetScene()->GetGlobalSettings().GetCustomFrameRate());
 		else
@@ -1022,10 +1022,10 @@ set<string> HKXWrapper::create_animations(
 				//conventionally we want annotation on a single enum channel
 				FbxAnimCurve* first_curve = curve_node->GetCurve(0);
 				if (first_curve) {
-					size_t keys = first_curve->KeyGetCount();					
+					size_t keys = first_curve->KeyGetCount();
 					//hkaAnnotationTrack& a_track = tempAnim->m_annotationTracks[0];
 					if (keys > 0)
-					{						
+					{
 						for (int i = 0; i < keys; i++)
 						{
 							hkaAnnotationTrack::Annotation new_ann;
@@ -1051,7 +1051,7 @@ set<string> HKXWrapper::create_animations(
 
 		//sort annotations by time
 		if (!temp_track.empty())
-		{ 
+		{
 			sort(temp_track.begin(), temp_track.end(), &annotation_sorter);
 			hkaAnnotationTrack& a_track = tempAnim->m_annotationTracks[0];
 			for (const auto& ann : temp_track)
@@ -1067,7 +1067,7 @@ set<string> HKXWrapper::create_animations(
 
 		FbxNode* pelvis = NULL;
 		//find pelvis
-		for (FbxNode* bone : skeleton)
+		/*for (FbxNode* bone : skeleton)
 		{
 			auto bone_world_transform = getWorldTransform(bone, 0.);
 			auto Z_component = bone_world_transform.GetT()[2];
@@ -1088,7 +1088,7 @@ set<string> HKXWrapper::create_animations(
 		{
 			Log::Error("Unable to find the pelvis bone! Pelvis bone is determined as the first bone with z != 0. Exiting");
 			return {};
-		}
+		}*/
 
 		if (skeleton.size() < 2)
 		{
@@ -1098,92 +1098,39 @@ set<string> HKXWrapper::create_animations(
 
 		// Sample each animation frame
 		for (float time = startTime.GetSecondDouble();
-			time <= endTime.GetSecondDouble() + timePerFrame.GetSecondDouble()/2;
+			time <= endTime.GetSecondDouble() + timePerFrame.GetSecondDouble() / 2;
 			time += timePerFrame.GetSecondDouble(), ++numFrames)
 		{
-			tempAnim->m_transforms.expandBy(numTracks);
-
 			FbxTime fbx_time;  fbx_time.SetSecondDouble(time);
-			for (int bone_index = 0; bone_index < skeleton.size(); ++bone_index)
+			for (FbxNode* bone : skeleton)
 			{
-				FbxNode* bone = skeleton[bone_index];
-				if (skeleton.size() > 1 && ignore_before_pelvis.find(bone) != ignore_before_pelvis.end())
+				if (bone == skeleton[0])
 				{
-					//root_track.pushBack(getBoneTransform(bone, fbx_time));
-					//Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
-					//	(float)time,
-					//	(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(0),
-					//	(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(1),
-					//	(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(2),
-					//	(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(3),
-					//	(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(0),
-					//	(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(1),
-					//	(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(2),
-					//	(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(3)
-					//);
-					//root_track_times.pushBack((hkReal)time);
-					tempAnim->m_transforms[numFrames * skeleton.size() + bone_index].setIdentity();
-					continue;
+					root_track.pushBack(getBoneTransform(bone, fbx_time));
+					Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
+						(float)time,
+						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(0),
+						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(1),
+						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(2),
+						(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(3),
+						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(0),
+						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(1),
+						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(2),
+						(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(3)
+					);
+					root_track_times.pushBack((hkReal)time);
 				}
-				if (bone == pelvis && skeleton.size() > 1) //evaluate pelvis position instead of relying on root bone
-				{
-					auto pelvis_world_transform = getWorldTransform(bone, fbx_time);
-					//auto angles = pelvis_world_transform.GetQ().DecomposeSphericalXYZ();
-					//FbxQuaternion z_rotation(FbxVector4( 0., 0., 1. ), angles[2]);
-					//FbxQuaternion residual({ 0., 0., 0. }); 
-					//residual.ComposeSphericalXYZ(FbxVector4( angles[0], angles[1], 0. ));
-					auto quat = pelvis_world_transform.GetQ();
-					Quat QuatRotNew = { quat[0], quat[1], quat[2], quat[3] };
-					EulerAngles z_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
-					z_eul.x = 0; z_eul.y = 0;
-					EulerAngles xy_eul = Eul_FromQuat(QuatRotNew, EulOrdZXYs);
-					xy_eul.z = 0;
-					auto z_quat = Eul_ToQuat(z_eul);
-					auto xy_quat = Eul_ToQuat(xy_eul);
-
-					hkQsTransform root_transform;
-					root_transform.setTranslation(hkVector4(pelvis_world_transform.GetT()[0], pelvis_world_transform.GetT()[1], 0.));
-					root_transform.setRotation(::hkQuaternion((float)z_quat.x, (float)z_quat.y, (float)z_quat.z, (float)z_quat.w));
-					root_transform.setScale(hkVector4(1., 1., 1., 0.000000));
-					root_transform.fastRenormalize();
-
-					hkQsTransform pelvis_transform;
-					pelvis_transform.setTranslation(hkVector4(0., 0., pelvis_world_transform.GetT()[2]));
-					pelvis_transform.setRotation(::hkQuaternion((float)xy_quat.x, (float)xy_quat.y, (float)xy_quat.z, (float)xy_quat.w));
-					pelvis_transform.setScale(hkVector4(1., 1., 1., 0.000000));
-					pelvis_transform.fastRenormalize();
-					
-
-						root_track.pushBack(root_transform);
-						Log::Info("Root Track Trans %fs: (%f,%f,%f,%f) Quat: (%f,%f,%f,%f)",
-							(float)time,
-							(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(0),
-							(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(1),
-							(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(2),
-							(float)root_track[root_track.getSize() - 1].getTranslation().getSimdAt(3),
-							(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(0),
-							(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(1),
-							(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(2),
-							(float)root_track[root_track.getSize() - 1].getRotation().m_vec.getSimdAt(3)
-						);
-						root_track_times.pushBack((hkReal)time);
-					
-
-					//tempAnim->m_transforms.pushBack(root_transform);
-					//tempAnim->m_transforms.pushBack(pelvis_transform);
-					tempAnim->m_transforms[numFrames * skeleton.size() + bone_index - 1] = root_transform;
-					tempAnim->m_transforms[numFrames * skeleton.size() + bone_index] = pelvis_transform;
-				}
-				else {
-					tempAnim->m_transforms[numFrames * skeleton.size() + bone_index] = getBoneTransform(bone, fbx_time);
-					//tempAnim->m_transforms.pushBack(getBoneTransform(bone, fbx_time));
-				}
+				tempAnim->m_transforms.pushBack(getBoneTransform(bone, fbx_time));
 			}
 			for (FbxProperty& float_track : floats)
 			{
 				tempAnim->m_floats.pushBack(getFloatTrackValue(float_track, fbx_time));
 			}
 		}
+
+		auto last = skeleton[0]->EvaluateGlobalTransform(endTime);
+
+		hkQsTransform last_root = root_track[root_track.getSize() - 1];
 
 		if (!transform_track_to_bone_indices.empty()) {
 			for (const auto& index : transform_track_to_bone_indices)
@@ -1219,8 +1166,6 @@ set<string> HKXWrapper::create_animations(
 			//	1
 			//);
 
-			hkVector4 base_translation;
-			::hkQuaternion base_rotation;
 			for (int i = 0; i < root_track.getSize(); i++)
 			{
 				hkVector4 test_trans = root_track[i].getTranslation();
@@ -1240,7 +1185,7 @@ set<string> HKXWrapper::create_animations(
 
 				if (abs_x > threshold ||
 					abs_y > threshold ||
-					abs_z > threshold )
+					abs_z > threshold)
 				{
 					root_info.translations.push_back({
 						root_track_times[i],
@@ -1249,7 +1194,7 @@ set<string> HKXWrapper::create_animations(
 							test_trans.getSimdAt(1),
 							test_trans.getSimdAt(2)
 						)
-					});
+						});
 				}
 
 				if (abs_w > threshold)
@@ -1262,7 +1207,7 @@ set<string> HKXWrapper::create_animations(
 							test_rot.m_vec.getSimdAt(2),
 							test_rot.m_vec.getSimdAt(3)
 						)
-					});
+						});
 				}
 
 				tempAnim->m_transforms[i * skeleton.size()].setTranslation
@@ -1270,17 +1215,8 @@ set<string> HKXWrapper::create_animations(
 					{
 					0.0,
 					0.0,
-					0.0
-					}
-				);
-
-				tempAnim->m_transforms[i * skeleton.size()].setRotation
-				(
-					{
-					0.0,
-					0.0,
-					0.0,
-					1.0
+					tempAnim->m_transforms[i * skeleton.size()].getTranslation().getSimdAt(2),
+					tempAnim->m_transforms[i * skeleton.size()].getTranslation().getSimdAt(3)
 					}
 				);
 			}
@@ -1359,7 +1295,7 @@ set<string> HKXWrapper::create_animations(
 		out_root_data[fs::path(ANIMATIONS_SUBFOLDER) / stack->GetName()] = root_info;
 	}
 	starting_stack->GetScene()->SetCurrentAnimationStack(starting_stack);
-	return move(sequences_names);
+	return sequences_names;
 }
 
 map<fs::path, RootMovement>& HKXWrapper::write_animations(const string& out_path, const set<string>& havok_sequences_names)
@@ -2666,7 +2602,7 @@ void HKXWrapper::add_bone(FbxNode* bone)
 hkpPhysicsSystem* physic_entities = NULL;
 hkaSkeletonMapperData* fromRagdollToSkeletonMapping = NULL;
 
-std::string HKXWrapper::build_skeleton_from_ragdoll()
+std::string HKXWrapper::build_skeleton_from_ragdoll(const fs::path& skeletonPath, const fs::path& legacySkeletonPath)
 {
 	string result = "";
 	if (constraints.size() == rigidBodies.size() - 1)
@@ -2807,8 +2743,7 @@ std::string HKXWrapper::build_skeleton_from_ragdoll()
 		hkPackFormat pkFormat = HKPF_DEFAULT;
 		hkSerializeUtil::SaveOptionBits flags = hkSerializeUtil::SAVE_DEFAULT;
 		hkPackfileWriter::Options packFileOptions = GetWriteOptionsFromFormat(pkFormat);
-		fs::path final_out_path = "./skeleton_le.hkx";
-		hkOstream stream(final_out_path.string().c_str());
+		hkOstream stream(legacySkeletonPath.string().c_str());
 		hkVariant root = { &container, &container.staticClass() };
 		hkResult res = hkSerializeUtilSave(pkFormat, root, stream, flags, packFileOptions);
 		if (res != HK_SUCCESS)
@@ -2816,9 +2751,8 @@ std::string HKXWrapper::build_skeleton_from_ragdoll()
 			Log::Error("Havok reports save failed.");
 		}
 		hkPackFormat pkFormat2 = HKPF_AMD64;
-		fs::path final_out_path2 = "./skeleton.hkx";
 		hkPackfileWriter::Options packFileOptions2 = GetWriteOptionsFromFormat(pkFormat2);
-		hkOstream stream2(final_out_path2.string().c_str());
+		hkOstream stream2(skeletonPath.string().c_str());
 		res = hkSerializeUtilSave(pkFormat2, root, stream2, flags, packFileOptions2);
 		if (res != HK_SUCCESS)
 		{
@@ -3444,6 +3378,10 @@ hkRefPtr<hkpShape> HKXWrapper::build_shape(
 			else {
 				hkInertiaTensorComputer::computeGeometrySurfaceMassProperties(&to_bound, 0.1, true, 1, properties);
 			}
+
+			// Use the same default value as Skyrim meshes
+			pCompMesh->setRadius(0.005);
+
 			return pCompMesh;
 		}
 		catch (...) {
@@ -3798,8 +3736,7 @@ struct filename_compare : public std::unary_function<std::string, bool>
 	explicit filename_compare(const fs::path &baseline) : baseline(baseline) {}
 	bool operator() (const fs::path &arg)
 	{
-		return iequals(arg.filename().string(), baseline.filename().string())
-				&& iequals(arg.parent_path().filename().string(), baseline.parent_path().filename().string());
+		return iequals(arg.filename().string(), baseline.filename().string());
 	}
 	const fs::path &baseline;
 };
